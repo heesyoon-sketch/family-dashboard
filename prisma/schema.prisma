@@ -1,0 +1,170 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  PARENT
+  CHILD
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum PointsReason {
+  TASK_COMPLETE
+  STREAK_3D
+  STREAK_7D
+  STREAK_30D
+  DAILY_ALL
+  PARTIAL_BONUS
+  EARLY_WIN_BOOST
+  ADMIN_ADJUST
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  role      UserRole
+  theme     String
+  avatarUrl String?
+  pinHash   String?
+  createdAt DateTime @default(now())
+
+  tasks       Task[]
+  completions TaskCompletion[]
+  ledger      PointsLedger[]
+  streaks     Streak[]
+  badges      UserBadge[]
+  level       Level?
+
+  @@index([role])
+}
+
+model Task {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code       String?
+  title      String
+  icon       String
+  difficulty Difficulty
+  basePoints Int
+  recurrence String
+  timeWindow String?
+  active     Boolean    @default(true)
+  sortOrder  Int        @default(0)
+  createdAt  DateTime   @default(now())
+
+  completions TaskCompletion[]
+  streaks     Streak[]
+
+  @@unique([userId, code])
+  @@index([userId, active])
+}
+
+model TaskCompletion {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId          String
+  task            Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedAt     DateTime @default(now())
+  pointsAwarded   Int
+  partial         Boolean  @default(false)
+  forgivenessUsed Boolean  @default(false)
+
+  @@index([userId, completedAt])
+  @@index([taskId, completedAt])
+}
+
+model PointsLedger {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    PointsReason
+  refId     String?
+  createdAt DateTime     @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Streak {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId            String
+  task              Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  current           Int       @default(0)
+  longest           Int       @default(0)
+  lastCompletedAt   DateTime?
+  forgivenessUsedAt DateTime?
+
+  @@unique([userId, taskId])
+  @@index([userId])
+}
+
+model Badge {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  name          String
+  description   String
+  icon          String
+  category      String
+  conditionJson String
+  active        Boolean   @default(true)
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId  String
+  badge    Badge    @relation(fields: [badgeId], references: [id])
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId, earnedAt])
+}
+
+model Level {
+  userId       String   @id
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentLevel Int      @default(1)
+  totalPoints  Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+model Reward {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  requiredLevel Int
+  userId        String?
+  fulfilledAt   DateTime?
+  approvedBy    String?
+  createdAt     DateTime  @default(now())
+
+  @@index([requiredLevel])
+  @@index([userId, fulfilledAt])
+}
+
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminUserId String
+  action      String
+  payload     String
+  createdAt   DateTime @default(now())
+
+  @@index([adminUserId, createdAt])
+}

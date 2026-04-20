@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  --radius: 1rem;
+  --radius-lg: 1.5rem;
+  --touch-target: 48px;
+  --font-display: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+body {
+  font-family: var(--font-display);
+  background: #000;
+  font-size: 18px;
+}
+
+/* 패널 내부 task 스크롤 영역 */
+.task-scroll {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;   /* * { manipulation } 오버라이드 */
+  scrollbar-width: none;
+}
+.task-scroll::-webkit-scrollbar { display: none; }
+
+/* 아빠 — Dark Minimal */
+[data-theme="dark_minimal"] {
+  --bg: #0b0d12;
+  --bg-card: #141821;
+  --fg: #e8eaed;
+  --fg-muted: #8a8f99;
+  --accent: #4f9cff;
+  --accent-glow: rgba(79, 156, 255, 0.22);
+  --success: #3ddc97;
+  --border: #232831;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* 엄마 — Warm Minimal */
+[data-theme="warm_minimal"] {
+  --bg: #faf6f0;
+  --bg-card: #ffffff;
+  --fg: #2a2420;
+  --fg-muted: #7a6e63;
+  --accent: #d97757;
+  --accent-glow: rgba(217, 119, 87, 0.22);
+  --success: #7cb342;
+  --border: #ede5d8;
+  --shadow: 0 4px 16px rgba(42, 36, 32, 0.08);
+}
+
+/* 윤준서 — Robot / Neon */
+[data-theme="robot_neon"] {
+  --bg: #0a0e27;
+  --bg-card: #131a3e;
+  --fg: #e8f4ff;
+  --fg-muted: #8fb3d9;
+  --accent: #00e5ff;
+  --accent-glow: rgba(0, 229, 255, 0.35);
+  --success: #39ff88;
+  --border: #1e2a55;
+  --shadow: 0 0 24px rgba(0, 229, 255, 0.25);
+}
+
+/* 윤지우 — Pastel / Cute */
+[data-theme="pastel_cute"] {
+  --bg: #fdf4f8;
+  --bg-card: #ffffff;
+  --fg: #4a3942;
+  --fg-muted: #b897a7;
+  --accent: #ff8fab;
+  --accent-glow: rgba(255, 143, 171, 0.28);
+  --success: #a0e7c5;
+  --border: #f7dde8;
+  --shadow: 0 6px 20px rgba(255, 143, 171, 0.18);
+}
+
+@keyframes burst {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.burst { animation: burst 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
