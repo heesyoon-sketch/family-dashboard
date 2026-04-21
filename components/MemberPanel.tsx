@@ -22,22 +22,23 @@ function PanelSkeleton({ theme }: { theme: string }) {
     <section
       data-theme={theme}
       className="bg-[var(--bg)] text-[var(--fg)]"
-      style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 16 }}
+      style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 12 }}
     >
-      <header className="flex items-center gap-3 mb-4" style={{ flexShrink: 0 }}>
-        <motion.div {...pulse} className="w-12 h-12 rounded-xl bg-[var(--bg-card)] shrink-0" />
-        <div className="flex-1 min-w-0 space-y-2">
-          <motion.div {...pulse} className="h-4 w-28 rounded-full bg-[var(--bg-card)]" />
-          <motion.div {...pulse} className="h-2 w-full rounded-full bg-[var(--bg-card)]" />
+      <header className="flex items-center gap-2 mb-2" style={{ flexShrink: 0 }}>
+        <motion.div {...pulse} className="w-10 h-10 rounded-xl bg-[var(--bg-card)] shrink-0" />
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <motion.div {...pulse} className="h-3.5 w-24 rounded-full bg-[var(--bg-card)]" />
+          <motion.div {...pulse} className="h-1.5 w-full rounded-full bg-[var(--bg-card)]" />
+          <motion.div {...pulse} className="h-3 w-32 rounded-full bg-[var(--bg-card)]" />
         </div>
-        <motion.div {...pulse} className="w-12 h-12 rounded-full bg-[var(--bg-card)] shrink-0" />
+        <motion.div {...pulse} className="w-8 h-8 rounded-full bg-[var(--bg-card)] shrink-0" />
       </header>
       <div className="grid grid-cols-2 gap-2 flex-1" style={{ alignContent: 'start' }}>
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: 8 }).map((_, i) => (
           <motion.div
             key={i}
             {...pulse}
-            transition={{ ...pulse.transition, delay: i * 0.08 }}
+            transition={{ ...pulse.transition, delay: i * 0.06 }}
             className="rounded-2xl bg-[var(--bg-card)]"
             style={{ height: 64 }}
           />
@@ -50,15 +51,15 @@ function PanelSkeleton({ theme }: { theme: string }) {
 // ── MemberPanel ───────────────────────────────────────────────────────────────
 
 export function MemberPanel({ user }: { user: User }) {
-  const hydrated      = useFamilyStore(s => s.hydrated);
-  const tasks         = useFamilyStore(s => s.tasksByUser[user.id] ?? []);
-  const level         = useFamilyStore(s => s.levelsByUser[user.id]);
-  const completed     = useFamilyStore(s => s.todayCompletions[user.id] ?? []);
-  const maxStreak     = useFamilyStore(s => s.maxStreakByUser[user.id] ?? 0);
-  const longestStreak = useFamilyStore(s => s.longestStreakByUser[user.id] ?? 0);
-  const bestDay       = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
-  const growth        = useFamilyStore(s => s.growthByUser[user.id] ?? null);
-  const timeOfDay     = useFamilyStore(s => s.timeOfDay);
+  const hydrated       = useFamilyStore(s => s.hydrated);
+  const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? []);
+  const level          = useFamilyStore(s => s.levelsByUser[user.id]);
+  const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? []);
+  const maxStreak      = useFamilyStore(s => s.maxStreakByUser[user.id] ?? 0);
+  const longestStreak  = useFamilyStore(s => s.longestStreakByUser[user.id] ?? 0);
+  const bestDay        = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
+  const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
+  const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
 
   const [storeOpen, setStoreOpen] = useState(false);
@@ -67,7 +68,6 @@ export function MemberPanel({ user }: { user: User }) {
 
   const spendableBalance = level?.spendableBalance ?? 0;
 
-  // timeWindow 기준으로 현재 시간대에 보여야 할 task만 표시
   const visibleTasks = tasks.filter(t => {
     if (!t.timeWindow) return true;
     if (t.timeWindow === 'morning') return timeOfDay === 'morning';
@@ -79,18 +79,16 @@ export function MemberPanel({ user }: { user: User }) {
   const totalCount = visibleTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
-  // 동기부여 메시지
+  // Motivational message — shown inline, not a separate row
   let motiveMsg: string | null = null;
   if (longestStreak > 0 && maxStreak >= longestStreak - 1) {
-    motiveMsg = maxStreak >= longestStreak
-      ? '🔥 신기록 달성!'
-      : `🔥 ${maxStreak}일 연속 신기록 도전 중!`;
+    motiveMsg = maxStreak >= longestStreak ? '🔥 신기록!' : `🔥 ${maxStreak}일 도전중`;
   } else if (bestDay > 0 && doneCount >= bestDay - 1) {
     const gap = bestDay - doneCount;
-    motiveMsg = gap <= 0 ? '🏆 오늘 역대 최고야!' : `🏆 최고 기록까지 ${gap}개 남았어!`;
+    motiveMsg = gap <= 0 ? '🏆 역대 최고!' : `🏆 ${gap}개 남았어`;
   }
 
-  const lvlInfo      = LEVEL_THRESHOLDS.find(l => l.level === (level?.currentLevel ?? 1))!;
+  const lvlInfo       = LEVEL_THRESHOLDS.find(l => l.level === (level?.currentLevel ?? 1))!;
   const pointsInLevel = (level?.totalPoints ?? 0) - lvlInfo.min;
   const pointsNeeded  = lvlInfo.max - lvlInfo.min;
 
@@ -117,62 +115,71 @@ export function MemberPanel({ user }: { user: User }) {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          padding: 16,
+          padding: 12,
           boxShadow: 'var(--shadow)',
         }}
       >
-        <header className="flex items-center gap-3 mb-1.5" style={{ flexShrink: 0 }}>
-          <div className="w-12 h-12 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-xl font-bold text-[var(--accent)] shrink-0">
+        {/* ── Consolidated header: 3 rows, ~44px total ── */}
+        <header className="flex items-start gap-2 mb-2" style={{ flexShrink: 0 }}>
+
+          {/* Avatar — w-10 h-10 (40px) */}
+          <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0">
             {user.name[0]}
           </div>
+
+          {/* Middle column: name row + XP bar + balance row */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 min-w-0">
-              <h2 className="text-lg font-bold truncate leading-tight">{user.name}</h2>
-              <span className="text-xs text-[var(--fg-muted)] shrink-0">
+
+            {/* Row 1: Name · Lv · pts · streak · motiveMsg (all inline) */}
+            <div className="flex items-center gap-1 min-w-0 flex-wrap" style={{ rowGap: 0 }}>
+              <h2 className="text-sm font-bold leading-tight truncate shrink-0 max-w-[5rem]">{user.name}</h2>
+              <span className="text-[11px] text-[var(--fg-muted)] shrink-0">
                 Lv.{level?.currentLevel ?? 1} · {level?.totalPoints ?? 0}pt
               </span>
               {maxStreak > 0 && (
-                <span className="text-sm font-bold text-[var(--accent)] shrink-0">🔥{maxStreak}</span>
+                <span className="text-[11px] font-bold text-[var(--accent)] shrink-0">🔥{maxStreak}</span>
+              )}
+              {motiveMsg && (
+                <span className="text-[11px] font-semibold text-[var(--accent)] truncate">{motiveMsg}</span>
               )}
             </div>
+
+            {/* Row 2: XP progress bar */}
             <div className="h-1 rounded-full bg-[var(--border)] mt-1 overflow-hidden">
               <div
                 className="h-full bg-[var(--accent)] transition-[width] duration-500"
                 style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
               />
             </div>
+
+            {/* Row 3: Balance + Store + growth (all inline, same row) */}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] font-semibold text-[var(--accent)] shrink-0">
+                💰{spendableBalance}pt
+              </span>
+              <button
+                onClick={() => setStoreOpen(true)}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--bg-card)] text-[var(--accent)] border border-[var(--border)] shrink-0"
+              >
+                <Icons.ShoppingBag size={10} />상점
+              </button>
+              {growth !== null && growth > 0 && (
+                <span className="text-[11px] font-semibold text-[var(--accent)] truncate">
+                  📈{growth}%↑
+                </span>
+              )}
+            </div>
           </div>
-          <ProgressRing pct={pct} size={48} />
+
+          {/* Progress ring — size=32, compact */}
+          <ProgressRing pct={pct} size={32} />
         </header>
 
-        {/* 잔액 + 상점 버튼 */}
-        <div className="flex items-center justify-between mb-1.5" style={{ flexShrink: 0 }}>
-          <span className="text-xs font-semibold text-[var(--accent)]">
-            💰 {spendableBalance}pt 보유
-          </span>
-          <button
-            onClick={() => setStoreOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--bg-card)] text-[var(--accent)] border border-[var(--border)]"
-          >
-            <Icons.ShoppingBag size={12} /> 상점
-          </button>
-        </div>
-
-        {motiveMsg && (
-          <div className="text-xs font-semibold text-[var(--accent)] truncate" style={{ flexShrink: 0, marginBottom: 2 }}>
-            {motiveMsg}
-          </div>
-        )}
-        {growth !== null && growth > 0 && (
-          <div className="text-xs font-semibold text-[var(--accent)] truncate" style={{ flexShrink: 0, marginBottom: 6 }}>
-            {`📈 지난 주보다 ${growth}% 향상!`}
-          </div>
-        )}
-
-        <div style={{ flex: 1, overflowY: 'hidden' }}>
+        {/* ── Task grid: flex:1, overflow hidden, 8 cards fit without scroll ── */}
+        <div style={{ flex: 1, overflow: 'hidden' }}>
           <div className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
             {visibleTasks.length === 0 && (
-              <div className="col-span-2 text-center text-[var(--fg-muted)] py-8">
+              <div className="col-span-2 text-center text-[var(--fg-muted)] py-6 text-sm">
                 오늘 할 일이 없어요
               </div>
             )}

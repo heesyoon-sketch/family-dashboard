@@ -12,7 +12,8 @@ import { playCompletionSound } from '@/lib/sound';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 
 const SWIPE_TRIGGER_PX = 110;
-const CARD_H = 68; // px — strict fixed height, never changes
+// 64px: 4 rows × 64 + 3 gaps × 8 = 280px task area — sweet spot for legibility + fit
+const CARD_H = 64;
 
 const TIME_WINDOW_LABEL: Record<string, string> = {
   morning: '아침',
@@ -33,10 +34,10 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const bgOpacity    = useTransform(x, [0, SWIPE_TRIGGER_PX], [0, 1]);
   const checkOpacity = useTransform(x, [0, SWIPE_TRIGGER_PX * 0.5, SWIPE_TRIGGER_PX], [0, 0, 1]);
 
-  const [busy, setBusy]         = useState(false);
-  const tappedAt                = useRef(0);
+  const [busy, setBusy]           = useState(false);
+  const tappedAt                  = useRef(0);
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
-  const particleTimer           = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const particleTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerEffects = () => {
     if (soundEnabled) playCompletionSound(theme);
@@ -79,24 +80,22 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
   return (
-    // Outer container: FIXED height. overflow:visible so particles can escape.
-    // Particles are siblings of the card, not children, so they're unclipped.
+    // Outer: fixed height, overflow:visible so particles escape freely
     <div className="relative" style={{ height: CARD_H }}>
 
-      {/* Swipe success background — absolute, never affects layout */}
+      {/* Swipe success bg — absolute, zero layout impact */}
       <motion.div
         style={{ opacity: bgOpacity }}
-        className="absolute inset-0 rounded-2xl bg-[var(--success)] flex items-center justify-end pr-6"
+        className="absolute inset-0 rounded-2xl bg-[var(--success)] flex items-center justify-end pr-5"
       >
         <motion.div style={{ opacity: checkOpacity }}>
-          <Icons.Check size={26} className="text-white" strokeWidth={3} />
+          <Icons.Check size={24} className="text-white" strokeWidth={3} />
         </motion.div>
       </motion.div>
 
-      {/* Card — absolute inset-0 so its own content can never push the outer height.
-          ring-1 ring-inset: renders inside the box → zero layout contribution.
-          Inactive state uses ring-[var(--border)], completed uses ring-[var(--accent)].
-          Both paths always have a ring → box-model is identical in every state. */}
+      {/* Card — absolute inset-0 + overflow-hidden: content is ALWAYS clipped to CARD_H.
+          ring-1 ring-inset paints inside the border-box → zero layout contribution.
+          Both states (active/completed) carry a ring, so box-model is always identical. */}
       <motion.div
         drag={completed ? false : 'x'}
         dragConstraints={{ left: 0, right: SWIPE_TRIGGER_PX + 60 }}
@@ -106,40 +105,37 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         style={{ x }}
         whileTap={{ scale: 0.97 }}
         className={[
-          'absolute inset-0 rounded-2xl bg-[var(--bg-card)]',
-          'px-3 flex items-center gap-2.5 cursor-pointer',
+          'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--bg-card)]',
+          'px-3 py-2 flex items-center gap-2.5 cursor-pointer',
           'ring-1 ring-inset',
-          completed
-            ? 'ring-[var(--accent)] opacity-55'
-            : 'ring-[var(--border)]',
+          completed ? 'ring-[var(--accent)] opacity-55' : 'ring-[var(--border)]',
         ].join(' ')}
       >
-        {/* Icon */}
+        {/* Icon — w-8 h-8 = 32px, meets legibility; shrink-0 prevents squishing */}
         <div className="w-8 h-8 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
           <LucideIcon size={16} className="text-[var(--accent)]" />
         </div>
 
-        {/* Text — single truncated line for title, one line for pts */}
+        {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <div className="flex-1 min-w-0">
-          <div className={`font-semibold text-xs leading-snug truncate ${completed ? 'line-through' : ''}`}>
+          <div className={`text-sm font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
-          <div className="text-[10px] text-[var(--fg-muted)] mt-0.5 truncate">
+          <div className="text-xs text-[var(--fg-muted)] mt-0.5 truncate">
             +{task.basePoints}pt
             {task.timeWindow && ` · ${TIME_WINDOW_LABEL[task.timeWindow]}`}
           </div>
         </div>
 
-        {/* Completed indicator — inline icon only, no wrapping text column */}
+        {/* Completed toggle — w-10 h-10 (40px) touch target, shrink-0 */}
         {completed && (
-          <Icons.CheckCircle2
-            size={20}
-            className="text-[var(--success)] shrink-0"
-          />
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <Icons.CheckCircle2 size={22} className="text-[var(--success)]" />
+          </div>
         )}
       </motion.div>
 
-      {/* Particles overflow the outer div freely */}
+      {/* Particles render outside card overflow, free to animate anywhere */}
       <Particles particles={particles} theme={theme} />
     </div>
   );
