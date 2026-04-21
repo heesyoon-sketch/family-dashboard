@@ -14,9 +14,18 @@ export function MemberPanel({ user }: { user: User }) {
   const longestStreak = useFamilyStore(s => s.longestStreakByUser[user.id] ?? 0);
   const bestDay = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
   const growth = useFamilyStore(s => s.growthByUser[user.id] ?? null);
+  const timeOfDay = useFamilyStore(s => s.timeOfDay);
 
-  const doneCount = tasks.filter(t => completed.includes(t.id)).length;
-  const totalCount = tasks.length;
+  // timeWindow 기준으로 현재 시간대에 보여야 할 task만 표시
+  const visibleTasks = tasks.filter(t => {
+    if (!t.timeWindow) return true; // 종일
+    if (t.timeWindow === 'morning') return timeOfDay === 'morning';
+    if (t.timeWindow === 'evening') return timeOfDay === 'evening';
+    return true;
+  });
+
+  const doneCount = visibleTasks.filter(t => completed.includes(t.id)).length;
+  const totalCount = visibleTasks.length;
   const pct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
   // 동기부여 메시지 계산 (streak 신기록 우선)
@@ -95,15 +104,15 @@ export function MemberPanel({ user }: { user: User }) {
           marginRight: -4,
         }}
       ><div className="grid grid-cols-2" style={{ alignContent: 'start', gap: '8px' }}>
-        {tasks.length === 0 && (
-          <div className="text-center text-[var(--fg-muted)] py-8">
+        {visibleTasks.length === 0 && (
+          <div className="col-span-2 text-center text-[var(--fg-muted)] py-8">
             오늘 할 일이 없어요
           </div>
         )}
-        {tasks.map((t, i) => (
+        {visibleTasks.map((t, i) => (
           <div
             key={t.id}
-            className={tasks.length % 2 !== 0 && i === tasks.length - 1 ? 'col-span-2' : ''}
+            className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-2' : ''}
           >
             <TaskCard
               task={t}

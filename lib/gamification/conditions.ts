@@ -1,54 +1,59 @@
-import { db, BadgeCondition } from '../db';
+import { BadgeCondition } from '../db';
+import { createBrowserSupabase } from '../supabase';
 
 export async function evaluateCondition(
   userId: string,
   cond: BadgeCondition,
 ): Promise<boolean> {
+  const supabase = createBrowserSupabase();
+
   switch (cond.type) {
     case 'streak': {
-      const task = await db.tasks
-        .where('[userId+code]').equals([userId, cond.taskCode])
-        .first();
+      const { data: tasks } = await supabase.from('tasks')
+        .select('id').eq('user_id', userId).eq('code', cond.taskCode);
+      const task = tasks?.[0];
       if (!task) return false;
-      const streak = await db.streaks
-        .where('[userId+taskId]').equals([userId, task.id])
-        .first();
-      return (streak?.current ?? 0) >= cond.days;
+      const { data: streaks } = await supabase.from('streaks')
+        .select('current').eq('user_id', userId).eq('task_id', task.id);
+      return (streaks?.[0]?.current ?? 0) >= cond.days;
     }
 
     case 'points_total': {
-      const lvl = await db.levels.get(userId);
-      return (lvl?.totalPoints ?? 0) >= cond.threshold;
+      const { data } = await supabase.from('levels')
+        .select('total_points').eq('user_id', userId).single();
+      return (data?.total_points ?? 0) >= cond.threshold;
     }
 
     case 'monthly_rate': {
-      const task = await db.tasks
-        .where('[userId+code]').equals([userId, cond.taskCode])
-        .first();
+      const { data: tasks } = await supabase.from('tasks')
+        .select('id').eq('user_id', userId).eq('code', cond.taskCode);
+      const task = tasks?.[0];
       if (!task) return false;
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const daysInMonthSoFar = Math.floor(
-        (now.getTime() - monthStart.getTime()) / 86400000
-      ) + 1;
+      const daysInMonthSoFar = Math.floor((now.getTime() - monthStart.getTime()) / 86400000) + 1;
       if (daysInMonthSoFar < 7) return false;
-      const completions = await db.taskCompletions
-        .where('[taskId+completedAt]').between([task.id, monthStart], [task.id, now])
-        .count();
-      return (completions / daysInMonthSoFar) * 100 >= cond.percent;
+      const { count } = await supabase.from('task_completions')
+        .select('*', { count: 'exact', head: true })
+        .eq('task_id', task.id)
+        .gte('completed_at', monthStart.toISOString())
+        .lte('completed_at', now.toISOString());
+      return ((count ?? 0) / daysInMonthSoFar) * 100 >= cond.percent;
     }
 
     case 'monthly_count': {
-      const task = await db.tasks
-        .where('[userId+code]').equals([userId, cond.taskCode])
-        .first();
+      const { data: tasks } = await supabase.from('tasks')
+        .select('id').eq('user_id', userId).eq('code', cond.taskCode);
+      const task = tasks?.[0];
       if (!task) return false;
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const count = await db.taskCompletions
-        .where('[taskId+completedAt]').between([task.id, monthStart], [task.id, now])
-        .count();
-      return count >= cond.count;
+      const { count } = await supabase.from('task_completions')
+        .select('*', { count: 'exact', head: true })
+        .eq('task_id', task.id)
+        .gte('completed_at', monthStart.toISOString())
+        .lte('completed_at', now.toISOString());
+      return (count ?? 0) >= cond.count;
     }
   }
 }

@@ -5,30 +5,37 @@ import { Settings, BarChart2 } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useFamilyStore } from '@/lib/store';
-import { seedIfEmpty } from '@/lib/seed';
-import { migrateToSupabase } from '@/lib/migrate';
 import type { ThemeName } from '@/lib/db';
 
 const ORDER: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
 
 const DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
-function formatDate(d: Date): string {
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}  ·  ${DAYS[d.getDay()]}`;
+function formatDate(d: Date, timeOfDay: 'morning' | 'evening'): string {
+  const dateStr = `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}  ·  ${DAYS[d.getDay()]}`;
+  const tod = timeOfDay === 'morning' ? ' · 🌅 아침' : ' · 🌙 저녁';
+  return dateStr + tod;
 }
 
 export default function Dashboard() {
   const { users, hydrate, celebration, dismissCelebration, soundEnabled, toggleSound } = useFamilyStore();
-  const [dateLabel, setDateLabel] = useState(() => formatDate(new Date()));
+  const timeOfDay = useFamilyStore(s => s.timeOfDay);
+  const [dateLabel, setDateLabel] = useState(() => formatDate(new Date(), useFamilyStore.getState().timeOfDay));
 
   useEffect(() => {
-    // 매 mount마다 강제 재로드 (admin/stats에서 돌아올 때도 포함)
     useFamilyStore.setState({ hydrated: false });
-    seedIfEmpty().then(() => migrateToSupabase()).then(() => hydrate()).catch(console.error);
+    hydrate().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 날짜 라벨: 1분마다 + timeOfDay 변경 시 갱신
   useEffect(() => {
-    const tick = () => setDateLabel(formatDate(new Date()));
+    setDateLabel(formatDate(new Date(), timeOfDay));
+  }, [timeOfDay]);
+
+  useEffect(() => {
+    const tick = () => {
+      setDateLabel(formatDate(new Date(), useFamilyStore.getState().timeOfDay));
+    };
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, []);
@@ -73,7 +80,7 @@ export default function Dashboard() {
         <CelebrationOverlay data={celebration} onDismiss={dismissCelebration} />
       )}
 
-      {/* 우측 하단 버튼 — grid 영역 안쪽 고정 */}
+      {/* 우측 하단 버튼 */}
       <div style={{ position: 'fixed', bottom: 16, right: 16, display: 'flex', gap: 8, zIndex: 50 }}>
         <button
           onClick={toggleSound}

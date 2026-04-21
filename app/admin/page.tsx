@@ -1,12 +1,14 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
-import { db, User, Task } from '@/lib/db';
+import { User, Task, Difficulty } from '@/lib/db';
 import { verifyPin } from '@/lib/pin';
-import { seedIfEmpty } from '@/lib/seed';
 import { resetAllProgress } from '@/lib/reset';
 import { useFamilyStore } from '@/lib/store';
+import { createBrowserSupabase } from '@/lib/supabase';
 
 type View = 'pin' | 'dashboard';
 
@@ -95,7 +97,6 @@ function IconPicker({
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-[#141821] rounded-2xl w-full max-w-sm flex flex-col" style={{ maxHeight: '80vh' }}>
-        {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#232831] shrink-0">
           <span className="font-semibold text-white text-base">아이콘 선택</span>
           <button
@@ -105,8 +106,6 @@ function IconPicker({
             <Icons.X size={16} />
           </button>
         </div>
-
-        {/* 스크롤 영역 */}
         <div className="overflow-y-auto p-4 space-y-5">
           {ICON_GROUPS.map(group => (
             <div key={group.label}>
@@ -140,6 +139,22 @@ function IconPicker({
   );
 }
 
+function mapTask(r: Record<string, unknown>): Task {
+  return {
+    id: r.id as string,
+    userId: r.user_id as string,
+    code: (r.code as string | null) ?? undefined,
+    title: r.title as string,
+    icon: r.icon as string,
+    difficulty: r.difficulty as Difficulty,
+    basePoints: r.base_points as number,
+    recurrence: r.recurrence as string,
+    timeWindow: (r.time_window as 'morning' | 'afternoon' | 'evening' | null) ?? undefined,
+    active: r.active as number,
+    sortOrder: r.sort_order as number,
+  };
+}
+
 export default function AdminPage() {
   const [view, setView] = useState<View>('pin');
   const [pin, setPin] = useState('');
@@ -158,11 +173,18 @@ export default function AdminPage() {
   const storeHydrate = useFamilyStore(s => s.hydrate);
 
   useEffect(() => {
-    seedIfEmpty().then(async () => {
-      const all = await db.users.toArray();
-      setParents(all.filter(u => u.role === 'PARENT'));
-      setAllUsers(all);
-    });
+    const loadUsers = async () => {
+      const supabase = createBrowserSupabase();
+      const { data } = await supabase.from('users').select('*');
+      const users: User[] = (data ?? []).map(r => ({
+        id: r.id, name: r.name, role: r.role, theme: r.theme,
+        avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
+        createdAt: new Date(r.created_at),
+      }));
+      setParents(users.filter(u => u.role === 'PARENT'));
+      setAllUsers(users);
+    };
+    loadUsers();
   }, []);
 
   const handlePinSubmit = async () => {
@@ -179,48 +201,57 @@ export default function AdminPage() {
 
   const loadTasks = async (user: User) => {
     setSelectedUser(user);
-    const all = await db.tasks.where('userId').equals(user.id).toArray();
-    setTasks(all.sort((a, b) => a.sortOrder - b.sortOrder));
+    const supabase = createBrowserSupabase();
+    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order');
+    setTasks((data ?? []).map(r => mapTask(r as Record<string, unknown>)));
   };
 
   const addTask = async () => {
     if (!selectedUser || !newTaskTitle.trim()) return;
+    const supabase = createBrowserSupabase();
     const maxSort = tasks.reduce((m, t) => Math.max(m, t.sortOrder), -1);
-    const task: Task = {
+    const newTask = {
       id: crypto.randomUUID(),
-      userId: selectedUser.id,
+      user_id: selectedUser.id,
       title: newTaskTitle.trim(),
       icon: 'check-circle',
-      difficulty: 'MEDIUM',
-      basePoints: newTaskPoints,
+      difficulty: 'MEDIUM' as Difficulty,
+      base_points: newTaskPoints,
       recurrence: 'daily',
       active: 1,
-      sortOrder: maxSort + 1,
+      sort_order: maxSort + 1,
     };
-    await db.tasks.add(task);
-    setTasks(prev => [...prev, task]);
+    const { data, error } = await supabase.from('tasks').insert(newTask).select().single();
+    if (!error && data) {
+      setTasks(prev => [...prev, mapTask(data as Record<string, unknown>)]);
+    }
     setNewTaskTitle('');
     setNewTaskPoints(10);
   };
 
   const toggleTask = async (task: Task) => {
-    const updated = { ...task, active: task.active === 1 ? 0 : 1 };
-    await db.tasks.put(updated);
-    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+    const supabase = createBrowserSupabase();
+    const newActive = task.active === 1 ? 0 : 1;
+    await supabase.from('tasks').update({ active: newActive }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, active: newActive } : t));
   };
 
   const deleteTask = async (taskId: string) => {
-    await db.tasks.delete(taskId);
+    const supabase = createBrowserSupabase();
+    await supabase.from('tasks').delete().eq('id', taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
   };
 
   const moveTask = async (index: number, dir: 'up' | 'down') => {
     const other = dir === 'up' ? index - 1 : index + 1;
     if (other < 0 || other >= tasks.length) return;
+    const supabase = createBrowserSupabase();
     const aOrder = tasks[index].sortOrder;
     const bOrder = tasks[other].sortOrder;
-    await db.tasks.update(tasks[index].id, { sortOrder: bOrder });
-    await db.tasks.update(tasks[other].id, { sortOrder: aOrder });
+    await Promise.all([
+      supabase.from('tasks').update({ sort_order: bOrder }).eq('id', tasks[index].id),
+      supabase.from('tasks').update({ sort_order: aOrder }).eq('id', tasks[other].id),
+    ]);
     const updated = tasks.map((t, i) => {
       if (i === index) return { ...t, sortOrder: bOrder };
       if (i === other) return { ...t, sortOrder: aOrder };
@@ -243,7 +274,8 @@ export default function AdminPage() {
   const confirmEditTask = async (taskId: string) => {
     const trimmed = editingTaskTitle.trim();
     if (!trimmed) return;
-    await db.tasks.update(taskId, { title: trimmed });
+    const supabase = createBrowserSupabase();
+    await supabase.from('tasks').update({ title: trimmed }).eq('id', taskId);
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, title: trimmed } : t));
     setEditingTaskId(null);
     setEditingTaskTitle('');
@@ -251,16 +283,24 @@ export default function AdminPage() {
   };
 
   const selectIcon = async (taskId: string, icon: string) => {
-    await db.tasks.update(taskId, { icon });
+    const supabase = createBrowserSupabase();
+    await supabase.from('tasks').update({ icon }).eq('id', taskId);
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, icon } : t));
     setIconPickerTaskId(null);
     await storeHydrate();
   };
 
   const setRecurrence = async (task: Task, recurrence: string) => {
-    const updated = { ...task, recurrence };
-    await db.tasks.put(updated);
-    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+    const supabase = createBrowserSupabase();
+    await supabase.from('tasks').update({ recurrence }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, recurrence } : t));
+  };
+
+  const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening' | null) => {
+    const supabase = createBrowserSupabase();
+    await supabase.from('tasks').update({ time_window: timeWindow }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindow ?? undefined } : t));
+    await storeHydrate();
   };
 
   const startEditName = (user: User) => {
@@ -276,7 +316,8 @@ export default function AdminPage() {
   const confirmEditName = async (userId: string) => {
     const trimmed = editingName.trim();
     if (!trimmed) return;
-    await db.users.update(userId, { name: trimmed });
+    const supabase = createBrowserSupabase();
+    await supabase.from('users').update({ name: trimmed }).eq('id', userId);
     const updated = allUsers.map(u => u.id === userId ? { ...u, name: trimmed } : u);
     setAllUsers(updated);
     setParents(updated.filter(u => u.role === 'PARENT'));
@@ -320,7 +361,6 @@ export default function AdminPage() {
 
   return (
     <>
-      {/* 아이콘 피커 팝업 */}
       {pickerTask && (
         <IconPicker
           currentIcon={pickerTask.icon}
@@ -448,7 +488,6 @@ export default function AdminPage() {
 
                     {/* 아이콘 + 제목 행 */}
                     <div className="flex items-center gap-2 mb-2 pl-6">
-                      {/* 현재 아이콘 + 아이콘 변경 버튼 */}
                       <button
                         onClick={() => setIconPickerTaskId(t.id)}
                         className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
@@ -503,7 +542,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* 순서 + 포인트 + 토글 + 삭제 행 */}
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                       <button
                         onClick={() => moveTask(idx, 'up')}
                         disabled={idx === 0}
@@ -536,7 +575,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* 반복 주기 행 */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mb-2">
                       {([
                         { value: 'daily',    label: '매일' },
                         { value: 'weekdays', label: '주중만' },
@@ -554,6 +593,30 @@ export default function AdminPage() {
                           {opt.label}
                         </button>
                       ))}
+                    </div>
+
+                    {/* 시간대 설정 행 */}
+                    <div className="flex gap-2">
+                      {([
+                        { value: null,       label: '종일' },
+                        { value: 'morning',  label: '🌅 아침' },
+                        { value: 'evening',  label: '🌙 저녁' },
+                      ] as const).map(opt => {
+                        const isActive = (opt.value === null ? !t.timeWindow : t.timeWindow === opt.value);
+                        return (
+                          <button
+                            key={String(opt.value)}
+                            onClick={() => setTimeWindow(t, opt.value)}
+                            className={`flex-1 rounded-lg text-sm font-semibold min-h-[44px] transition-colors ${
+                              isActive
+                                ? 'bg-[#f59e0b] text-[#1a1200]'
+                                : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

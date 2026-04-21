@@ -1,4 +1,5 @@
-import { db, Level, Badge, daysBetween, startOfDay } from '../db';
+import { Level, Badge, startOfDay, daysBetween } from '../db';
+import { createBrowserSupabase } from '../supabase';
 import { evaluateCondition } from './conditions';
 
 export const LEVEL_THRESHOLDS = [
@@ -29,44 +30,50 @@ export async function processCompletion(
   taskId: string,
   partial = false,
 ): Promise<CompletionResult> {
+  const supabase = createBrowserSupabase();
   const now = new Date();
-  const task = await db.tasks.get(taskId);
-  if (!task) throw new Error(`Task ${taskId} not found`);
 
-  let pts = partial ? Math.round(task.basePoints * 0.5) : task.basePoints;
+  const { data: taskData } = await supabase.from('tasks').select('*').eq('id', taskId).single();
+  if (!taskData) throw new Error(`Task ${taskId} not found`);
+
+  let pts = partial ? Math.round(taskData.base_points * 0.5) : taskData.base_points;
 
   const completionId = crypto.randomUUID();
-  await db.taskCompletions.add({
+  await supabase.from('task_completions').insert({
     id: completionId,
-    userId,
-    taskId,
-    completedAt: now,
-    pointsAwarded: 0,
+    user_id: userId,
+    task_id: taskId,
+    completed_at: now.toISOString(),
+    points_awarded: 0,
     partial,
-    forgivenessUsed: false,
+    forgiveness_used: false,
   });
 
-  const existing = await db.streaks.where('[userId+taskId]').equals([userId, taskId]).first();
+  const { data: streakRows } = await supabase.from('streaks')
+    .select('*').eq('user_id', userId).eq('task_id', taskId);
+  const streakData = streakRows?.[0];
+
   let streakCurrent: number;
-  if (existing) {
-    const gap = existing.lastCompletedAt ? daysBetween(existing.lastCompletedAt, now) : 999;
-    if (gap === 0) streakCurrent = existing.current;
-    else if (gap === 1) streakCurrent = existing.current + 1;
+  if (streakData) {
+    const lastDate = streakData.last_completed_at ? new Date(streakData.last_completed_at) : null;
+    const gap = lastDate ? daysBetween(lastDate, now) : 999;
+    if (gap === 0) streakCurrent = streakData.current;
+    else if (gap === 1) streakCurrent = streakData.current + 1;
     else streakCurrent = 1;
-    await db.streaks.put({
-      ...existing,
+    await supabase.from('streaks').update({
       current: streakCurrent,
-      longest: Math.max(existing.longest, streakCurrent),
-      lastCompletedAt: now,
-    });
+      longest: Math.max(streakData.longest, streakCurrent),
+      last_completed_at: now.toISOString(),
+    }).eq('id', streakData.id);
   } else {
     streakCurrent = 1;
-    await db.streaks.add({
+    await supabase.from('streaks').insert({
       id: crypto.randomUUID(),
-      userId, taskId,
+      user_id: userId,
+      task_id: taskId,
       current: 1,
       longest: 1,
-      lastCompletedAt: now,
+      last_completed_at: now.toISOString(),
     });
   }
 
@@ -75,16 +82,21 @@ export async function processCompletion(
   if (streakCurrent === 30) pts += 100;
 
   const dayStart = startOfDay(now);
-  const activeCount = await db.tasks.where('[userId+active]').equals([userId, 1]).count();
-  const todayCount = await db.taskCompletions
-    .where('[userId+completedAt]').between([userId, dayStart], [userId, now])
-    .count();
-  if (todayCount === activeCount && activeCount > 0) pts += 10;
+  const { count: activeCount } = await supabase.from('tasks')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId).eq('active', 1);
+  const { count: todayCount } = await supabase.from('task_completions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('completed_at', dayStart.toISOString())
+    .lte('completed_at', now.toISOString());
+  if (todayCount === activeCount && (activeCount ?? 0) > 0) pts += 10;
 
-  const lvlRow = await db.levels.get(userId);
-  const oldPoints = lvlRow?.totalPoints ?? 0;
+  const { data: lvlData } = await supabase.from('levels')
+    .select('*').eq('user_id', userId).single();
+  const oldPoints = lvlData?.total_points ?? 0;
   const newTotal = oldPoints + pts;
-  const oldLevel = lvlRow?.currentLevel ?? 1;
+  const oldLevel = lvlData?.current_level ?? 1;
   const newLevel = levelForPoints(newTotal);
   const updatedLevel: Level = {
     userId,
@@ -92,10 +104,17 @@ export async function processCompletion(
     totalPoints: newTotal,
     updatedAt: now,
   };
-  await db.levels.put(updatedLevel);
-  await db.taskCompletions.update(completionId, { pointsAwarded: pts });
-  const leveledUp = newLevel > oldLevel;
 
+  await supabase.from('levels').upsert({
+    user_id: userId,
+    current_level: newLevel,
+    total_points: newTotal,
+    updated_at: now.toISOString(),
+  });
+  await supabase.from('task_completions')
+    .update({ points_awarded: pts }).eq('id', completionId);
+
+  const leveledUp = newLevel > oldLevel;
   const badgesEarned = await evaluateAllBadges(userId);
 
   let celebration: CompletionResult['celebration'] = null;
@@ -109,49 +128,64 @@ export async function processCompletion(
 }
 
 export async function processUndo(userId: string, taskId: string): Promise<Level | null> {
+  const supabase = createBrowserSupabase();
   const dayStart = startOfDay(new Date());
   const now = new Date();
 
-  const completion = await db.taskCompletions
-    .where('[taskId+completedAt]')
-    .between([taskId, dayStart], [taskId, now])
-    .filter(c => c.userId === userId)
-    .first();
+  const { data: completions } = await supabase.from('task_completions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('task_id', taskId)
+    .gte('completed_at', dayStart.toISOString())
+    .lte('completed_at', now.toISOString())
+    .order('completed_at', { ascending: false })
+    .limit(1);
 
+  const completion = completions?.[0];
   if (!completion) return null;
 
-  await db.taskCompletions.delete(completion.id);
+  await supabase.from('task_completions').delete().eq('id', completion.id);
 
-  const lvlRow = await db.levels.get(userId);
-  if (!lvlRow) return null;
+  const { data: lvlData } = await supabase.from('levels')
+    .select('*').eq('user_id', userId).single();
+  if (!lvlData) return null;
 
-  const newTotal = Math.max(0, lvlRow.totalPoints - completion.pointsAwarded);
+  const newTotal = Math.max(0, lvlData.total_points - completion.points_awarded);
   const updatedLevel: Level = {
     userId,
     currentLevel: levelForPoints(newTotal),
     totalPoints: newTotal,
     updatedAt: new Date(),
   };
-  await db.levels.put(updatedLevel);
+  await supabase.from('levels').update({
+    current_level: updatedLevel.currentLevel,
+    total_points: newTotal,
+    updated_at: updatedLevel.updatedAt.toISOString(),
+  }).eq('user_id', userId);
 
   return updatedLevel;
 }
 
 export async function evaluateAllBadges(userId: string): Promise<Badge[]> {
-  const all = await db.badges.where('active').equals(1).toArray();
-  const earned = await db.userBadges.where('userId').equals(userId).toArray();
-  const earnedIds = new Set(earned.map(e => e.badgeId));
+  const supabase = createBrowserSupabase();
+  const { data: all } = await supabase.from('badges').select('*').eq('active', 1);
+  const { data: earned } = await supabase.from('user_badges').select('*').eq('user_id', userId);
+  const earnedIds = new Set((earned ?? []).map(e => e.badge_id));
   const newly: Badge[] = [];
 
-  for (const badge of all) {
-    if (earnedIds.has(badge.id)) continue;
+  for (const b of (all ?? [])) {
+    if (earnedIds.has(b.id)) continue;
+    const badge: Badge = {
+      id: b.id, code: b.code, name: b.name, description: b.description,
+      icon: b.icon, category: b.category, conditionJson: b.condition_json, active: b.active,
+    };
     const met = await evaluateCondition(userId, badge.conditionJson);
     if (met) {
-      await db.userBadges.add({
+      await supabase.from('user_badges').insert({
         id: crypto.randomUUID(),
-        userId,
-        badgeId: badge.id,
-        earnedAt: new Date(),
+        user_id: userId,
+        badge_id: b.id,
+        earned_at: new Date().toISOString(),
       });
       newly.push(badge);
     }

@@ -1,87 +1,24 @@
 import { create } from 'zustand';
-import { db, User, Task, Level, startOfDay, Badge } from './db';
+import { Level, Badge, Task, User } from './db';
 import { createBrowserSupabase } from './supabase';
-
-// Supabase 데이터를 Dexie로 동기화 (hydrate 전처리)
-async function syncSupabaseToDexie(): Promise<boolean> {
-  try {
-    const supabase = createBrowserSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-
-    const [uRes, tRes, cRes, sRes, bRes, ubRes, lRes] = await Promise.all([
-      supabase.from('users').select('*'),
-      supabase.from('tasks').select('*'),
-      supabase.from('task_completions').select('*'),
-      supabase.from('streaks').select('*'),
-      supabase.from('badges').select('*'),
-      supabase.from('user_badges').select('*'),
-      supabase.from('levels').select('*'),
-    ]);
-
-    if (uRes.error || !uRes.data?.length) return false;
-
-    await db.users.bulkPut(uRes.data.map(r => ({
-      id: r.id, name: r.name, role: r.role, theme: r.theme,
-      avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
-      createdAt: new Date(r.created_at),
-    })));
-
-    if (tRes.data?.length) {
-      await db.tasks.bulkPut(tRes.data.map(r => ({
-        id: r.id, userId: r.user_id, code: r.code ?? undefined,
-        title: r.title, icon: r.icon, difficulty: r.difficulty,
-        basePoints: r.base_points, recurrence: r.recurrence,
-        timeWindow: r.time_window ?? undefined, active: r.active, sortOrder: r.sort_order,
-      })));
-    }
-
-    if (cRes.data?.length) {
-      await db.taskCompletions.bulkPut(cRes.data.map(r => ({
-        id: r.id, userId: r.user_id, taskId: r.task_id,
-        completedAt: new Date(r.completed_at), pointsAwarded: r.points_awarded,
-        partial: r.partial, forgivenessUsed: r.forgiveness_used,
-      })));
-    }
-
-    if (sRes.data?.length) {
-      await db.streaks.bulkPut(sRes.data.map(r => ({
-        id: r.id, userId: r.user_id, taskId: r.task_id,
-        current: r.current, longest: r.longest,
-        lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at) : undefined,
-        forgivenessUsedAt: r.forgiveness_used_at ? new Date(r.forgiveness_used_at) : undefined,
-      })));
-    }
-
-    if (bRes.data?.length) {
-      await db.badges.bulkPut(bRes.data.map(r => ({
-        id: r.id, code: r.code, name: r.name, description: r.description,
-        icon: r.icon, category: r.category, conditionJson: r.condition_json, active: r.active,
-      })));
-    }
-
-    if (ubRes.data?.length) {
-      await db.userBadges.bulkPut(ubRes.data.map(r => ({
-        id: r.id, userId: r.user_id, badgeId: r.badge_id, earnedAt: new Date(r.earned_at),
-      })));
-    }
-
-    if (lRes.data?.length) {
-      await db.levels.bulkPut(lRes.data.map(r => ({
-        userId: r.user_id, currentLevel: r.current_level,
-        totalPoints: r.total_points, updatedAt: new Date(r.updated_at),
-      })));
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
   | { type: 'badge';    userId: string; badge: Badge };
+
+export type TimeOfDay = 'morning' | 'evening';
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+
+function startOfDayLocal(d: Date): Date {
+  const x = new Date(d); x.setHours(0, 0, 0, 0); return x;
+}
+
+export function getCurrentTimeOfDay(): TimeOfDay {
+  return new Date().getHours() < 12 ? 'morning' : 'evening';
+}
 
 interface FamilyState {
   users: User[];
@@ -95,6 +32,7 @@ interface FamilyState {
   celebration: Celebration | null;
   hydrated: boolean;
   soundEnabled: boolean;
+  timeOfDay: TimeOfDay;
 
   hydrate: () => Promise<void>;
   markCompleted: (userId: string, taskId: string) => Promise<void>;
@@ -109,6 +47,8 @@ function loadSoundPref(): boolean {
   return v === null ? true : v === '1';
 }
 
+let _timeIntervalStarted = false;
+
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   users: [],
   tasksByUser: {},
@@ -121,12 +61,42 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   celebration: null,
   hydrated: false,
   soundEnabled: loadSoundPref(),
+  timeOfDay: getCurrentTimeOfDay(),
 
   hydrate: async () => {
-    // Supabase 우선 동기화 → 실패 시 기존 Dexie 데이터 사용
-    await syncSupabaseToDexie();
+    const supabase = createBrowserSupabase();
+    const now = new Date();
+    const todayStart = startOfDayLocal(now);
+    const noonToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
+    const timeOfDay = getCurrentTimeOfDay();
+    const fourteenDaysAgo = addDays(todayStart, -13);
 
-    const users = await db.users.toArray();
+    const [uRes, tRes, lRes, sRes, cTodayRes, cHistRes] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('tasks').select('*'),
+      supabase.from('levels').select('*'),
+      supabase.from('streaks').select('*'),
+      supabase.from('task_completions')
+        .select('id, user_id, task_id, completed_at')
+        .gte('completed_at', todayStart.toISOString()),
+      supabase.from('task_completions')
+        .select('user_id, task_id, completed_at')
+        .gte('completed_at', fourteenDaysAgo.toISOString()),
+    ]);
+
+    const users: User[] = (uRes.data ?? []).map(r => ({
+      id: r.id, name: r.name, role: r.role, theme: r.theme,
+      avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
+      createdAt: new Date(r.created_at),
+    }));
+
+    const allTasks: Task[] = (tRes.data ?? []).map(r => ({
+      id: r.id, userId: r.user_id, code: r.code ?? undefined,
+      title: r.title, icon: r.icon, difficulty: r.difficulty,
+      basePoints: r.base_points, recurrence: r.recurrence,
+      timeWindow: r.time_window ?? undefined, active: r.active, sortOrder: r.sort_order,
+    }));
+
     const tasksByUser: Record<string, Task[]> = {};
     const levelsByUser: Record<string, Level> = {};
     const todayCompletions: Record<string, string[]> = {};
@@ -135,9 +105,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const bestDayByUser: Record<string, number> = {};
     const growthByUser: Record<string, number | null> = {};
 
-    // 날짜별 완료율 평균 계산 헬퍼
+    const todayDow = now.getDay();
+    const isWeekend = todayDow === 0 || todayDow === 6;
+
     function avgDailyPct(
-      comps: { taskId: string; completedAt: Date }[],
+      comps: { task_id: string; completed_at: string }[],
       from: Date,
       days: number,
       total: number,
@@ -145,72 +117,79 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       if (total === 0) return 0;
       let sum = 0;
       for (let i = 0; i < days; i++) {
-        const d = startOfDay(addDays(from, i));
+        const d = startOfDayLocal(addDays(from, i));
         const dEnd = addDays(d, 1);
         const unique = new Set(
           comps
-            .filter(c => { const t = new Date(c.completedAt).getTime(); return t >= d.getTime() && t < dEnd.getTime(); })
-            .map(c => c.taskId)
+            .filter(c => {
+              const t = new Date(c.completed_at).getTime();
+              return t >= d.getTime() && t < dEnd.getTime();
+            })
+            .map(c => c.task_id)
         ).size;
         sum += unique / total;
       }
       return Math.round((sum / days) * 100);
     }
 
-    function addDays(d: Date, n: number): Date {
-      const r = new Date(d); r.setDate(r.getDate() + n); return r;
-    }
-    const dayStart = startOfDay(new Date());
-    const now = new Date();
-
     for (const u of users) {
-      const todayDow = new Date().getDay(); // 0=Sun, 6=Sat
-      const isWeekend = todayDow === 0 || todayDow === 6;
-      tasksByUser[u.id] = (await db.tasks
-        .where('[userId+active]').equals([u.id, 1])
-        .toArray()
-      ).filter(t => {
-        if (t.recurrence === 'weekdays') return !isWeekend;
-        if (t.recurrence === 'weekend') return isWeekend;
-        return true; // 'daily' or any other value
-      }).sort((a, b) => a.sortOrder - b.sortOrder);
+      tasksByUser[u.id] = allTasks
+        .filter(t => t.userId === u.id && t.active === 1)
+        .filter(t => {
+          if (t.recurrence === 'weekdays') return !isWeekend;
+          if (t.recurrence === 'weekend') return isWeekend;
+          return true;
+        })
+        .sort((a, b) => a.sortOrder - b.sortOrder);
 
-      const lvl = await db.levels.get(u.id);
-      if (lvl) levelsByUser[u.id] = lvl;
+      const lvl = (lRes.data ?? []).find(r => r.user_id === u.id);
+      if (lvl) {
+        levelsByUser[u.id] = {
+          userId: lvl.user_id, currentLevel: lvl.current_level,
+          totalPoints: lvl.total_points, updatedAt: new Date(lvl.updated_at),
+        };
+      }
 
-      const comps = await db.taskCompletions
-        .where('[userId+completedAt]').between([u.id, dayStart], [u.id, now])
-        .toArray();
-      todayCompletions[u.id] = comps.map(c => c.taskId);
+      // timeWindow별 기준 시각으로 todayCompletions 필터링
+      const taskMap = new Map(tasksByUser[u.id].map(t => [t.id, t.timeWindow]));
+      const userTodayComps = (cTodayRes.data ?? []).filter(c => c.user_id === u.id);
+      const completedTaskIds = new Set<string>();
+      for (const c of userTodayComps) {
+        const tw = taskMap.get(c.task_id);
+        const completedAt = new Date(c.completed_at);
+        if (tw === 'evening') {
+          // 저녁 task: 오늘 12:00 이후 완료만 유효
+          if (completedAt >= noonToday) completedTaskIds.add(c.task_id);
+        } else {
+          // 아침·종일: 오늘 00:00 이후 완료 유효
+          if (completedAt >= todayStart) completedTaskIds.add(c.task_id);
+        }
+      }
+      todayCompletions[u.id] = Array.from(completedTaskIds);
 
-      const streaks = await db.streaks.where('userId').equals(u.id).toArray();
-      maxStreakByUser[u.id] = streaks.reduce((max, s) => Math.max(max, s.current), 0);
-      longestStreakByUser[u.id] = streaks.reduce((max, s) => Math.max(max, s.longest), 0);
+      const userStreaks = (sRes.data ?? []).filter(s => s.user_id === u.id);
+      maxStreakByUser[u.id] = userStreaks.reduce((max, s) => Math.max(max, s.current), 0);
+      longestStreakByUser[u.id] = userStreaks.reduce((max, s) => Math.max(max, s.longest), 0);
 
-      // 역대 하루 최고 완료 수: 날짜별 unique taskId 수의 최대값
-      const allComps = await db.taskCompletions
-        .where('[userId+completedAt]')
-        .between([u.id, new Date(0)], [u.id, now])
-        .toArray();
+      const userHistComps = (cHistRes.data ?? []).filter(c => c.user_id === u.id);
       const dayMap = new Map<string, Set<string>>();
-      for (const c of allComps) {
-        const key = startOfDay(new Date(c.completedAt)).toISOString();
+      for (const c of userHistComps) {
+        const key = startOfDayLocal(new Date(c.completed_at)).toISOString();
         if (!dayMap.has(key)) dayMap.set(key, new Set());
-        dayMap.get(key)!.add(c.taskId);
+        dayMap.get(key)!.add(c.task_id);
       }
       bestDayByUser[u.id] = dayMap.size > 0
         ? Math.max(...[...dayMap.values()].map(s => s.size))
         : 0;
 
-      // 성장 힌트: 최근 7일 vs 이전 7일 완료율 차이
       const total = tasksByUser[u.id].length;
-      const recent7Start = addDays(dayStart, -6);
-      const prev7Start = addDays(dayStart, -13);
+      const recent7Start = addDays(todayStart, -6);
+      const prev7Start = addDays(todayStart, -13);
       if (total > 0) {
-        const recent7 = avgDailyPct(allComps, recent7Start, 7, total);
-        const prev7   = avgDailyPct(allComps, prev7Start,   7, total);
-        const hasPrevData = allComps.some(c => {
-          const t = new Date(c.completedAt).getTime();
+        const recent7 = avgDailyPct(userHistComps, recent7Start, 7, total);
+        const prev7   = avgDailyPct(userHistComps, prev7Start,   7, total);
+        const hasPrevData = userHistComps.some(c => {
+          const t = new Date(c.completed_at).getTime();
           return t >= prev7Start.getTime() && t < recent7Start.getTime();
         });
         growthByUser[u.id] = hasPrevData ? recent7 - prev7 : null;
@@ -219,7 +198,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
     }
 
-    set({ users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true });
+    set({ users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true, timeOfDay });
+
+    if (!_timeIntervalStarted && typeof window !== 'undefined') {
+      _timeIntervalStarted = true;
+      setInterval(() => {
+        const newTOD = getCurrentTimeOfDay();
+        if (useFamilyStore.getState().timeOfDay !== newTOD) {
+          useFamilyStore.setState({ timeOfDay: newTOD });
+        }
+      }, 60_000);
+    }
   },
 
   markCompleted: async (userId, taskId) => {
