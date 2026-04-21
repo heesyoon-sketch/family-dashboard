@@ -9,10 +9,11 @@ import { useFamilyStore } from '@/lib/store';
 import { Particles, buildParticles } from './Particles';
 import type { ParticleData } from './Particles';
 import { playCompletionSound } from '@/lib/sound';
+import { CUSTOM_ICON_MAP } from './CustomIcons';
 
 const SWIPE_TRIGGER_PX = 110;
+const CARD_H = 68; // px — strict fixed height, never changes
 
-import { CUSTOM_ICON_MAP } from './CustomIcons';
 const TIME_WINDOW_LABEL: Record<string, string> = {
   morning: '아침',
   afternoon: '오후',
@@ -20,23 +21,22 @@ const TIME_WINDOW_LABEL: Record<string, string> = {
 };
 
 function pascalCase(kebab: string): string {
-  return kebab
-    .split('-')
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-    .join('');
+  return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 }
 
 export function TaskCard({ task, completed, theme }: { task: Task; completed: boolean; theme: ThemeName }) {
-  const markCompleted = useFamilyStore(s => s.markCompleted);
+  const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
-  const soundEnabled = useFamilyStore(s => s.soundEnabled);
-  const x = useMotionValue(0);
-  const bgOpacity = useTransform(x, [0, SWIPE_TRIGGER_PX], [0, 1]);
+  const soundEnabled   = useFamilyStore(s => s.soundEnabled);
+
+  const x            = useMotionValue(0);
+  const bgOpacity    = useTransform(x, [0, SWIPE_TRIGGER_PX], [0, 1]);
   const checkOpacity = useTransform(x, [0, SWIPE_TRIGGER_PX * 0.5, SWIPE_TRIGGER_PX], [0, 0, 1]);
-  const [busy, setBusy] = useState(false);
-  const tappedAt = useRef(0);
+
+  const [busy, setBusy]         = useState(false);
+  const tappedAt                = useRef(0);
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
-  const particleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const particleTimer           = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerEffects = () => {
     if (soundEnabled) playCompletionSound(theme);
@@ -76,19 +76,27 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>>;
   const LucideIcon: React.ComponentType<{ size?: number; className?: string }> =
     CUSTOM_ICON_MAP[task.icon] ??
-    (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}" (task: "${task.title}")`), Icons.Circle));
+    (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
   return (
-    <div className="relative" style={{ overflow: 'visible' }}>
+    // Outer container: FIXED height. overflow:visible so particles can escape.
+    // Particles are siblings of the card, not children, so they're unclipped.
+    <div className="relative" style={{ height: CARD_H }}>
+
+      {/* Swipe success background — absolute, never affects layout */}
       <motion.div
         style={{ opacity: bgOpacity }}
-        className="absolute inset-0 rounded-2xl bg-[var(--success)] flex items-center justify-end pr-8"
+        className="absolute inset-0 rounded-2xl bg-[var(--success)] flex items-center justify-end pr-6"
       >
         <motion.div style={{ opacity: checkOpacity }}>
-          <Icons.Check size={32} className="text-white" strokeWidth={3} />
+          <Icons.Check size={26} className="text-white" strokeWidth={3} />
         </motion.div>
       </motion.div>
 
+      {/* Card — absolute inset-0 so its own content can never push the outer height.
+          ring-1 ring-inset: renders inside the box → zero layout contribution.
+          Inactive state uses ring-[var(--border)], completed uses ring-[var(--accent)].
+          Both paths always have a ring → box-model is identical in every state. */}
       <motion.div
         drag={completed ? false : 'x'}
         dragConstraints={{ left: 0, right: SWIPE_TRIGGER_PX + 60 }}
@@ -97,28 +105,41 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         onTap={handleTap}
         style={{ x }}
         whileTap={{ scale: 0.97 }}
-        className={`relative rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-2.5 min-h-[44px] flex items-center gap-3 cursor-pointer ${completed ? 'opacity-50' : ''}`}
+        className={[
+          'absolute inset-0 rounded-2xl bg-[var(--bg-card)]',
+          'px-3 flex items-center gap-2.5 cursor-pointer',
+          'ring-1 ring-inset',
+          completed
+            ? 'ring-[var(--accent)] opacity-55'
+            : 'ring-[var(--border)]',
+        ].join(' ')}
       >
-        <div className="w-9 h-9 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
-          <LucideIcon size={18} className="text-[var(--accent)]" />
+        {/* Icon */}
+        <div className="w-8 h-8 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
+          <LucideIcon size={16} className="text-[var(--accent)]" />
         </div>
+
+        {/* Text — single truncated line for title, one line for pts */}
         <div className="flex-1 min-w-0">
-          <div className={`font-semibold text-sm truncate ${completed ? 'line-through' : ''}`}>
+          <div className={`font-semibold text-xs leading-snug truncate ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
-          <div className="text-xs text-[var(--fg-muted)] mt-0.5">
+          <div className="text-[10px] text-[var(--fg-muted)] mt-0.5 truncate">
             +{task.basePoints}pt
             {task.timeWindow && ` · ${TIME_WINDOW_LABEL[task.timeWindow]}`}
           </div>
         </div>
+
+        {/* Completed indicator — inline icon only, no wrapping text column */}
         {completed && (
-          <div className="flex flex-col items-center gap-0.5 shrink-0">
-            <Icons.CheckCircle2 size={28} className="text-[var(--success)]" />
-            <span className="text-[10px] text-[var(--fg-muted)]">취소</span>
-          </div>
+          <Icons.CheckCircle2
+            size={20}
+            className="text-[var(--success)] shrink-0"
+          />
         )}
       </motion.div>
 
+      {/* Particles overflow the outer div freely */}
       <Particles particles={particles} theme={theme} />
     </div>
   );

@@ -22,7 +22,7 @@ function PanelSkeleton({ theme }: { theme: string }) {
     <section
       data-theme={theme}
       className="bg-[var(--bg)] text-[var(--fg)]"
-      style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 24 }}
+      style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 16 }}
     >
       <header className="flex items-center gap-3 mb-4" style={{ flexShrink: 0 }}>
         <motion.div {...pulse} className="w-12 h-12 rounded-xl bg-[var(--bg-card)] shrink-0" />
@@ -117,7 +117,7 @@ export function MemberPanel({ user }: { user: User }) {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          padding: 24,
+          padding: 16,
           boxShadow: 'var(--shadow)',
         }}
       >
@@ -169,20 +169,8 @@ export function MemberPanel({ user }: { user: User }) {
           </div>
         )}
 
-        <div
-          className="task-scroll"
-          style={{
-            flex: 1,
-            overflowY: 'scroll',
-            overflowX: 'hidden',
-            WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain',
-            touchAction: 'pan-y',
-            paddingRight: 4,
-            marginRight: -4,
-          }}
-        >
-          <div className="grid grid-cols-2" style={{ alignContent: 'start', gap: '8px' }}>
+        <div style={{ flex: 1, overflowY: 'hidden' }}>
+          <div className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
             {visibleTasks.length === 0 && (
               <div className="col-span-2 text-center text-[var(--fg-muted)] py-8">
                 오늘 할 일이 없어요
