@@ -37,6 +37,7 @@ interface FamilyState {
   hydrate: () => Promise<void>;
   markCompleted: (userId: string, taskId: string) => Promise<void>;
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
+  redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
   dismissCelebration: () => void;
   toggleSound: () => void;
 }
@@ -146,7 +147,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       if (lvl) {
         levelsByUser[u.id] = {
           userId: lvl.user_id, currentLevel: lvl.current_level,
-          totalPoints: lvl.total_points, updatedAt: new Date(lvl.updated_at),
+          totalPoints: lvl.total_points,
+          spendableBalance: lvl.spendable_balance ?? 0,
+          updatedAt: new Date(lvl.updated_at),
         };
       }
 
@@ -246,6 +249,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         levelsByUser: { ...state.levelsByUser, [userId]: updatedLevel },
       }));
     }
+  },
+
+  redeemReward: async (userId, rewardId, cost) => {
+    const { redeemReward: doRedeem } = await import('./gamification');
+    const newBalance = await doRedeem(userId, rewardId, cost);
+    set(state => ({
+      levelsByUser: {
+        ...state.levelsByUser,
+        [userId]: state.levelsByUser[userId]
+          ? { ...state.levelsByUser[userId], spendableBalance: newBalance }
+          : state.levelsByUser[userId],
+      },
+    }));
+    new BroadcastChannel('habit_sync').postMessage('update');
   },
 
   dismissCelebration: () => set({ celebration: null }),

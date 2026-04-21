@@ -3,12 +3,19 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
+import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
 import { User, Task, Difficulty } from '@/lib/db';
 import { verifyPin } from '@/lib/pin';
 import { resetAllProgress } from '@/lib/reset';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
+
+function notifyDashboard() {
+  new BroadcastChannel('habit_sync').postMessage('update');
+}
 
 type View = 'pin' | 'dashboard';
 
@@ -19,6 +26,8 @@ function pascalCase(kebab: string): string {
 const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string }>>;
 
 function LucideIcon({ name, size = 20, className }: { name: string; size?: number; className?: string }) {
+  const Custom = CUSTOM_ICON_MAP[name];
+  if (Custom) return <Custom size={size} className={className} />;
   const Comp = IconMap[pascalCase(name)] ?? Icons.Circle;
   return <Comp size={size} className={className} />;
 }
@@ -125,7 +134,11 @@ function IconPicker({
                       style={{ minHeight: 48 }}
                       title={label}
                     >
-                      <LucideIcon name={key} size={20} />
+                      {key === 'sparkles'
+                        ? <ToothbrushIcon size={20} />
+                        : key === 'cross'
+                          ? <CrossIcon size={20} />
+                          : <LucideIcon name={key} size={20} />}
                       <span className="text-[10px] leading-none">{label}</span>
                     </button>
                   );
@@ -137,6 +150,13 @@ function IconPicker({
       </div>
     </div>
   );
+}
+
+interface Reward {
+  id: string;
+  title: string;
+  cost_points: number;
+  icon: string;
 }
 
 function mapTask(r: Record<string, unknown>): Task {
@@ -170,21 +190,37 @@ export default function AdminPage() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [iconPickerTaskId, setIconPickerTaskId] = useState<string | null>(null);
+  // Rewards CRUD state
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [newRewardTitle, setNewRewardTitle] = useState('');
+  const [newRewardPoints, setNewRewardPoints] = useState(300);
+  const [newRewardIcon, setNewRewardIcon] = useState('star');
+  const [rewardIconPickerOpen, setRewardIconPickerOpen] = useState(false);
+  const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
+  const [editingRewardTitle, setEditingRewardTitle] = useState('');
+  const [editingRewardPoints, setEditingRewardPoints] = useState(0);
   const storeHydrate = useFamilyStore(s => s.hydrate);
+  const router = useRouter();
 
   useEffect(() => {
-    const loadUsers = async () => {
+    const init = async () => {
       const supabase = createBrowserSupabase();
-      const { data } = await supabase.from('users').select('*');
-      const users: User[] = (data ?? []).map(r => ({
+      const [userRes, rewardRes] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('rewards').select('*').order('cost_points'),
+      ]);
+      const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
         avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
         createdAt: new Date(r.created_at),
       }));
       setParents(users.filter(u => u.role === 'PARENT'));
       setAllUsers(users);
+      setRewards((rewardRes.data ?? []).map(r => ({
+        id: r.id, title: r.title, cost_points: r.cost_points, icon: r.icon,
+      })));
     };
-    loadUsers();
+    init();
   }, []);
 
   const handlePinSubmit = async () => {
@@ -222,8 +258,15 @@ export default function AdminPage() {
       sort_order: maxSort + 1,
     };
     const { data, error } = await supabase.from('tasks').insert(newTask).select().single();
-    if (!error && data) {
+    if (error) {
+      toast.error(`태스크 추가 실패: ${error.message}`);
+      return;
+    }
+    if (data) {
       setTasks(prev => [...prev, mapTask(data as Record<string, unknown>)]);
+      await storeHydrate();
+      router.refresh();
+      notifyDashboard();
     }
     setNewTaskTitle('');
     setNewTaskPoints(10);
@@ -234,12 +277,18 @@ export default function AdminPage() {
     const newActive = task.active === 1 ? 0 : 1;
     await supabase.from('tasks').update({ active: newActive }).eq('id', task.id);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, active: newActive } : t));
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const deleteTask = async (taskId: string) => {
     const supabase = createBrowserSupabase();
     await supabase.from('tasks').delete().eq('id', taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const moveTask = async (index: number, dir: 'up' | 'down') => {
@@ -259,6 +308,8 @@ export default function AdminPage() {
     });
     setTasks(updated.sort((a, b) => a.sortOrder - b.sortOrder));
     await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const startEditTask = (task: Task) => {
@@ -280,6 +331,8 @@ export default function AdminPage() {
     setEditingTaskId(null);
     setEditingTaskTitle('');
     await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const selectIcon = async (taskId: string, icon: string) => {
@@ -288,12 +341,17 @@ export default function AdminPage() {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, icon } : t));
     setIconPickerTaskId(null);
     await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const setRecurrence = async (task: Task, recurrence: string) => {
     const supabase = createBrowserSupabase();
     await supabase.from('tasks').update({ recurrence }).eq('id', task.id);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, recurrence } : t));
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening' | null) => {
@@ -301,6 +359,61 @@ export default function AdminPage() {
     await supabase.from('tasks').update({ time_window: timeWindow }).eq('id', task.id);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindow ?? undefined } : t));
     await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+  };
+
+  const updateTaskPoints = async (taskId: string, rawValue: number) => {
+    const pts = Math.max(1, Math.round(rawValue) || 1);
+    const supabase = createBrowserSupabase();
+    await supabase.from('tasks').update({ base_points: pts }).eq('id', taskId);
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, basePoints: pts } : t));
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+  };
+
+  const addReward = async () => {
+    if (!newRewardTitle.trim()) return;
+    const supabase = createBrowserSupabase();
+    const payload = {
+      id: crypto.randomUUID(),
+      title: newRewardTitle.trim(),
+      cost_points: Math.max(1, newRewardPoints),
+      icon: newRewardIcon,
+    };
+    const { data, error } = await supabase.from('rewards').insert(payload).select().single();
+    if (error) { toast.error(`리워드 추가 실패: ${error.message}`); return; }
+    if (data) setRewards(prev => [...prev, { id: data.id, title: data.title, cost_points: data.cost_points, icon: data.icon }].sort((a, b) => a.cost_points - b.cost_points));
+    setNewRewardTitle('');
+    setNewRewardPoints(300);
+    setNewRewardIcon('star');
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+    toast.success('리워드 추가 완료');
+  };
+
+  const saveRewardEdit = async (rewardId: string) => {
+    const trimmed = editingRewardTitle.trim();
+    if (!trimmed) return;
+    const pts = Math.max(1, Math.round(editingRewardPoints) || 1);
+    const supabase = createBrowserSupabase();
+    await supabase.from('rewards').update({ title: trimmed, cost_points: pts }).eq('id', rewardId);
+    setRewards(prev => prev.map(r => r.id === rewardId ? { ...r, title: trimmed, cost_points: pts } : r));
+    setEditingRewardId(null);
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+  };
+
+  const deleteReward = async (rewardId: string) => {
+    const supabase = createBrowserSupabase();
+    await supabase.from('rewards').delete().eq('id', rewardId);
+    setRewards(prev => prev.filter(r => r.id !== rewardId));
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const startEditName = (user: User) => {
@@ -325,6 +438,8 @@ export default function AdminPage() {
     setEditingUserId(null);
     setEditingName('');
     await storeHydrate();
+    router.refresh();
+    notifyDashboard();
   };
 
   const pickerTask = iconPickerTaskId ? tasks.find(t => t.id === iconPickerTaskId) : null;
@@ -366,6 +481,13 @@ export default function AdminPage() {
           currentIcon={pickerTask.icon}
           onSelect={icon => selectIcon(pickerTask.id, icon)}
           onClose={() => setIconPickerTaskId(null)}
+        />
+      )}
+      {rewardIconPickerOpen && (
+        <IconPicker
+          currentIcon={newRewardIcon}
+          onSelect={icon => { setNewRewardIcon(icon); setRewardIconPickerOpen(false); }}
+          onClose={() => setRewardIconPickerOpen(false)}
         />
       )}
 
@@ -460,13 +582,116 @@ export default function AdminPage() {
                 if (!confirm('모든 진행 기록을 초기화할까요? 되돌릴 수 없습니다.')) return;
                 await resetAllProgress();
                 localStorage.removeItem('family_progress_reset_v1');
-                alert('초기화 완료! 대시보드로 이동합니다.');
-                location.href = '/';
+                toast.success('초기화 완료! 대시보드로 이동합니다.');
+                setTimeout(() => { location.href = '/'; }, 1000);
               }}
               className="px-6 py-3 rounded-xl bg-red-900/40 text-red-400 font-semibold border border-red-900/60 min-h-[var(--touch-target)] hover:bg-red-900/60 transition-colors"
             >
               전체 리셋
             </button>
+          </div>
+
+          {/* 상점 관리 */}
+          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">상점 관리</h2>
+            <div className="space-y-3 mb-6">
+              {rewards.map(r => (
+                <div key={r.id} className="flex items-center gap-2 p-3 rounded-xl bg-[#232831]">
+                  <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
+                    <LucideIcon name={r.icon} size={18} />
+                  </div>
+                  {editingRewardId === r.id ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editingRewardTitle}
+                        onChange={e => setEditingRewardTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
+                        autoFocus
+                        className="flex-1 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
+                        style={{ minHeight: 44, fontSize: 15 }}
+                      />
+                      <input
+                        type="number"
+                        value={editingRewardPoints}
+                        onChange={e => setEditingRewardPoints(Number(e.target.value))}
+                        min={1}
+                        className="w-20 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
+                        style={{ minHeight: 44 }}
+                      />
+                      <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
+                      <button
+                        onClick={() => saveRewardEdit(r.id)}
+                        className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
+                        style={{ minHeight: 44 }}
+                      >✓</button>
+                      <button
+                        onClick={() => setEditingRewardId(null)}
+                        className="w-11 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
+                        style={{ minHeight: 44 }}
+                      >✗</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 font-medium text-sm truncate">{r.title}</span>
+                      <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#1a1f2a] shrink-0">{r.cost_points}pt</span>
+                      <button
+                        onClick={() => { setEditingRewardId(r.id); setEditingRewardTitle(r.title); setEditingRewardPoints(r.cost_points); }}
+                        className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
+                        style={{ minHeight: 44 }}
+                      >✏️</button>
+                      <button
+                        onClick={() => deleteReward(r.id)}
+                        className="w-9 h-9 rounded-lg bg-red-900/30 text-red-400 flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
+                        style={{ minHeight: 44 }}
+                      >
+                        <Icons.Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {rewards.length === 0 && (
+                <p className="text-[#8a8f99] text-center py-4">등록된 리워드 없음</p>
+              )}
+            </div>
+
+            {/* 새 리워드 추가 */}
+            <div className="border-t border-[#232831] pt-4">
+              <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">새 리워드 추가</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRewardIconPickerOpen(true)}
+                  className="w-11 rounded-xl bg-[#232831] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
+                  style={{ minHeight: 'var(--touch-target)' }}
+                  title="아이콘 선택"
+                >
+                  <LucideIcon name={newRewardIcon} size={20} />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
+                </button>
+                <input
+                  type="text"
+                  value={newRewardTitle}
+                  onChange={e => setNewRewardTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addReward()}
+                  placeholder="리워드 이름"
+                  className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                />
+                <input
+                  type="number"
+                  value={newRewardPoints}
+                  onChange={e => setNewRewardPoints(Number(e.target.value))}
+                  min={1}
+                  className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                />
+                <button
+                  onClick={addReward}
+                  className="px-4 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
+                >
+                  추가
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Task 목록 */}
@@ -557,7 +782,19 @@ export default function AdminPage() {
                       >
                         ↓
                       </button>
-                      <span className="flex-1 text-[#8a8f99] text-sm">+{t.basePoints}pt</span>
+                      <div className="flex items-center gap-1 flex-1">
+                        <input
+                          type="number"
+                          value={t.basePoints}
+                          onChange={e => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, basePoints: Number(e.target.value) } : x))}
+                          onBlur={e => updateTaskPoints(t.id, Number(e.target.value))}
+                          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          min={1}
+                          max={999}
+                          className="w-16 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[44px]"
+                        />
+                        <span className="text-[#8a8f99] text-xs">pt</span>
+                      </div>
                       <button
                         onClick={() => toggleTask(t)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold min-h-[44px] ${

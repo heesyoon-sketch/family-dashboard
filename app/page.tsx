@@ -1,5 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 import { useEffect, useState } from 'react';
 import { Settings, BarChart2 } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
@@ -22,10 +26,19 @@ export default function Dashboard() {
   const timeOfDay = useFamilyStore(s => s.timeOfDay);
   const [dateLabel, setDateLabel] = useState(() => formatDate(new Date(), useFamilyStore.getState().timeOfDay));
 
+  // Initial load
   useEffect(() => {
     useFamilyStore.setState({ hydrated: false });
     hydrate().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-hydrate when Admin broadcasts a mutation over the same origin.
+  // Works across same-tab soft navigation AND multi-tab PWA sessions.
+  useEffect(() => {
+    const ch = new BroadcastChannel('habit_sync');
+    ch.onmessage = () => hydrate().catch(console.error);
+    return () => ch.close();
+  }, [hydrate]);
 
   // 날짜 라벨: 1분마다 + timeOfDay 변경 시 갱신
   useEffect(() => {

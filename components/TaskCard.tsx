@@ -11,6 +11,8 @@ import type { ParticleData } from './Particles';
 import { playCompletionSound } from '@/lib/sound';
 
 const SWIPE_TRIGGER_PX = 110;
+
+import { CUSTOM_ICON_MAP } from './CustomIcons';
 const TIME_WINDOW_LABEL: Record<string, string> = {
   morning: '아침',
   afternoon: '오후',
@@ -72,10 +74,9 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
 
   const iconKey = pascalCase(task.icon);
   const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>>;
-  if (!IconMap[iconKey]) {
-    console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}" (task: "${task.title}")`);
-  }
-  const LucideIcon = IconMap[iconKey] ?? Icons.Circle;
+  const LucideIcon: React.ComponentType<{ size?: number; className?: string }> =
+    CUSTOM_ICON_MAP[task.icon] ??
+    (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}" (task: "${task.title}")`), Icons.Circle));
 
   return (
     <div className="relative" style={{ overflow: 'visible' }}>

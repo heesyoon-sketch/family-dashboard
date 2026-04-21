@@ -95,13 +95,17 @@ export async function processCompletion(
   const { data: lvlData } = await supabase.from('levels')
     .select('*').eq('user_id', userId).single();
   const oldPoints = lvlData?.total_points ?? 0;
-  const newTotal = oldPoints + pts;
-  const oldLevel = lvlData?.current_level ?? 1;
-  const newLevel = levelForPoints(newTotal);
+  const oldBalance = lvlData?.spendable_balance ?? 0;
+  const newTotal   = oldPoints + pts;
+  const newBalance = oldBalance + pts;
+  const oldLevel   = lvlData?.current_level ?? 1;
+  const newLevel   = levelForPoints(newTotal);
+
   const updatedLevel: Level = {
     userId,
     currentLevel: newLevel,
     totalPoints: newTotal,
+    spendableBalance: newBalance,
     updatedAt: now,
   };
 
@@ -109,6 +113,7 @@ export async function processCompletion(
     user_id: userId,
     current_level: newLevel,
     total_points: newTotal,
+    spendable_balance: newBalance,
     updated_at: now.toISOString(),
   });
   await supabase.from('task_completions')
@@ -150,20 +155,57 @@ export async function processUndo(userId: string, taskId: string): Promise<Level
     .select('*').eq('user_id', userId).single();
   if (!lvlData) return null;
 
-  const newTotal = Math.max(0, lvlData.total_points - completion.points_awarded);
+  const newTotal   = Math.max(0, lvlData.total_points - completion.points_awarded);
+  // Clamp at 0 in case points were already spent on rewards
+  const newBalance = Math.max(0, (lvlData.spendable_balance ?? 0) - completion.points_awarded);
+
   const updatedLevel: Level = {
     userId,
     currentLevel: levelForPoints(newTotal),
     totalPoints: newTotal,
+    spendableBalance: newBalance,
     updatedAt: new Date(),
   };
   await supabase.from('levels').update({
     current_level: updatedLevel.currentLevel,
     total_points: newTotal,
+    spendable_balance: newBalance,
     updated_at: updatedLevel.updatedAt.toISOString(),
   }).eq('user_id', userId);
 
   return updatedLevel;
+}
+
+/**
+ * Deducts `cost` from spendable_balance only — total_points (XP/level) are never touched.
+ * Returns the new spendable balance.
+ */
+export async function redeemReward(
+  userId: string,
+  rewardId: string,
+  cost: number,
+): Promise<number> {
+  const supabase = createBrowserSupabase();
+  const { data: lvlData } = await supabase
+    .from('levels')
+    .select('spendable_balance')
+    .eq('user_id', userId)
+    .single();
+
+  const currentBalance = lvlData?.spendable_balance ?? 0;
+  if (currentBalance < cost) throw new Error('잔액이 부족합니다');
+
+  const newBalance = currentBalance - cost;
+  await supabase.from('levels')
+    .update({ spendable_balance: newBalance })
+    .eq('user_id', userId);
+  await supabase.from('reward_redemptions').insert({
+    id: crypto.randomUUID(),
+    user_id: userId,
+    reward_id: rewardId,
+    redeemed_at: new Date().toISOString(),
+  });
+  return newBalance;
 }
 
 export async function evaluateAllBadges(userId: string): Promise<Badge[]> {

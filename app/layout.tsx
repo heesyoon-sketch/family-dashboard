@@ -1,5 +1,6 @@
 import './globals.css';
-import Script from 'next/script';
+import { SwInit } from '@/components/SwInit';
+import { Toaster } from 'sonner';
 
 export const metadata = {
   title: 'Family Habit Dashboard',
@@ -17,12 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body>
+        <SwInit />
+        <Toaster position="top-center" richColors />
         {children}
-        <Script id="sw-register" strategy="afterInteractive">{`
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
-          }
-        `}</Script>
       </body>
     </html>
   );

@@ -1,5 +1,3 @@
-import Dexie, { Table } from 'dexie';
-
 export type UserRole = 'PARENT' | 'CHILD';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type ThemeName = 'dark_minimal' | 'warm_minimal' | 'robot_neon' | 'pastel_cute';
@@ -30,7 +28,7 @@ export interface Task {
   basePoints: number;
   recurrence: string;
   timeWindow?: 'morning' | 'afternoon' | 'evening';
-  active: number;  // Dexie boolean index limitation → 0/1
+  active: number; // 0 | 1
   sortOrder: number;
 }
 
@@ -76,33 +74,9 @@ export interface Level {
   userId: string;
   currentLevel: number;
   totalPoints: number;
+  spendableBalance: number;
   updatedAt: Date;
 }
-
-export class FamilyDB extends Dexie {
-  users!: Table<User, string>;
-  tasks!: Table<Task, string>;
-  taskCompletions!: Table<TaskCompletion, string>;
-  streaks!: Table<Streak, string>;
-  badges!: Table<Badge, string>;
-  userBadges!: Table<UserBadge, string>;
-  levels!: Table<Level, string>;
-
-  constructor() {
-    super('FamilyDashboardDB');
-    this.version(1).stores({
-      users:           'id, role',
-      tasks:           'id, userId, [userId+code], [userId+active], sortOrder',
-      taskCompletions: 'id, [userId+completedAt], [taskId+completedAt]',
-      streaks:         'id, [userId+taskId], userId',
-      badges:          'id, &code, category, active',
-      userBadges:      'id, [userId+badgeId], [userId+earnedAt]',
-      levels:          'userId',
-    });
-  }
-}
-
-export const db = new FamilyDB();
 
 export function startOfDay(d: Date): Date {
   const x = new Date(d);

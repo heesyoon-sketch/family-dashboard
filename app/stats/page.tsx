@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { db, User, Task, startOfDay } from '@/lib/db';
-import { seedIfEmpty } from '@/lib/seed';
+import { User, Task, startOfDay } from '@/lib/db';
+import { createBrowserSupabase } from '@/lib/supabase';
 
 const ORDER = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'] as const;
 const DOW_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -60,16 +60,42 @@ export default function StatsPage() {
 
   useEffect(() => {
     async function load() {
-      await seedIfEmpty();
+      const supabase = createBrowserSupabase();
       const now = new Date();
-      const dayStart = startOfDay(now);
-      const weekStart = weekMonday(now);
-      const weekEnd = addDays(weekStart, 7);
+      const dayStart   = startOfDay(now);
+      const weekStart  = weekMonday(now);
+      const weekEnd    = addDays(weekStart, 7);
       const lastWeekStart = addDays(weekStart, -7);
       const monthStart = addDays(dayStart, -29);
 
+      // Fetch everything in one round-trip
+      const [
+        usersRes, tasksRes, streaksRes, levelsRes,
+        todayCompsRes, weekCompsRes, lastWeekCompsRes, monthCompsRes,
+      ] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('tasks').select('*').eq('active', 1),
+        supabase.from('streaks').select('*'),
+        supabase.from('levels').select('*'),
+        supabase.from('task_completions')
+          .select('user_id, task_id')
+          .gte('completed_at', dayStart.toISOString()),
+        supabase.from('task_completions')
+          .select('user_id, task_id, completed_at, points_awarded')
+          .gte('completed_at', weekStart.toISOString())
+          .lt('completed_at', weekEnd.toISOString()),
+        supabase.from('task_completions')
+          .select('user_id, task_id, completed_at')
+          .gte('completed_at', lastWeekStart.toISOString())
+          .lt('completed_at', weekStart.toISOString()),
+        supabase.from('task_completions')
+          .select('user_id, task_id, completed_at')
+          .gte('completed_at', monthStart.toISOString()),
+      ]);
+
+      // avgDailyPct works directly on Supabase row shape
       function avgDailyPct(
-        comps: { taskId: string; completedAt: Date }[],
+        comps: { task_id: string; completed_at: string }[],
         from: Date,
         days: number,
         total: number,
@@ -77,101 +103,124 @@ export default function StatsPage() {
         if (total === 0) return 0;
         let sum = 0;
         for (let i = 0; i < days; i++) {
-          const d = startOfDay(addDays(from, i));
+          const d    = startOfDay(addDays(from, i));
           const dEnd = addDays(d, 1);
           const unique = new Set(
-            comps.filter(c => {
-              const t = new Date(c.completedAt).getTime();
-              return t >= d.getTime() && t < dEnd.getTime();
-            }).map(c => c.taskId)
+            comps
+              .filter(c => {
+                const t = new Date(c.completed_at).getTime();
+                return t >= d.getTime() && t < dEnd.getTime();
+              })
+              .map(c => c.task_id)
           ).size;
           sum += unique / total;
         }
         return Math.round((sum / days) * 100);
       }
 
-      const users = await db.users.toArray();
-      const ordered = ORDER
-        .map(t => users.find(u => u.theme === t))
-        .filter(Boolean) as User[];
+      // Order users by theme slot
+      const ordered: User[] = ORDER
+        .map(theme => (usersRes.data ?? []).find(r => r.theme === theme))
+        .filter(Boolean)
+        .map(r => ({
+          id: r!.id, name: r!.name, role: r!.role, theme: r!.theme,
+          avatarUrl: r!.avatar_url ?? undefined,
+          pinHash:   r!.pin_hash   ?? undefined,
+          createdAt: new Date(r!.created_at),
+        }));
 
       const result: UserStats[] = [];
+
       for (const user of ordered) {
-        const activeTasks = await db.tasks
-          .where('[userId+active]').equals([user.id, 1]).toArray();
+        // Map Supabase rows → Task interface
+        const activeTasks: Task[] = (tasksRes.data ?? [])
+          .filter(r => r.user_id === user.id)
+          .map(r => ({
+            id: r.id, userId: r.user_id, code: r.code ?? undefined,
+            title: r.title, icon: r.icon, difficulty: r.difficulty,
+            basePoints: r.base_points, recurrence: r.recurrence,
+            timeWindow: r.time_window ?? undefined,
+            active: r.active, sortOrder: r.sort_order,
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder);
 
-        const todayComps = await db.taskCompletions
-          .where('[userId+completedAt]').between([user.id, dayStart], [user.id, now]).toArray();
-        const todayDone = new Set(todayComps.map(c => c.taskId)).size;
+        const todayDone = new Set(
+          (todayCompsRes.data ?? [])
+            .filter(c => c.user_id === user.id)
+            .map(c => c.task_id)
+        ).size;
 
-        const streaks = await db.streaks.where('userId').equals(user.id).toArray();
-        const maxStreak = streaks.reduce((m, s) => Math.max(m, s.current), 0);
-        const lvl = await db.levels.get(user.id);
+        const userStreaks = (streaksRes.data ?? []).filter(s => s.user_id === user.id);
+        const maxStreak   = userStreaks.reduce((m, s) => Math.max(m, s.current), 0);
 
-        const weekComps = await db.taskCompletions
-          .where('[userId+completedAt]').between([user.id, weekStart], [user.id, weekEnd]).toArray();
-        const lastWeekComps = await db.taskCompletions
-          .where('[userId+completedAt]').between([user.id, lastWeekStart], [user.id, weekStart]).toArray();
+        const lvl = (levelsRes.data ?? []).find(l => l.user_id === user.id);
+
+        const userWeekComps     = (weekCompsRes.data     ?? []).filter(c => c.user_id === user.id);
+        const userLastWeekComps = (lastWeekCompsRes.data ?? []).filter(c => c.user_id === user.id);
+        const userMonthComps    = (monthCompsRes.data    ?? []).filter(c => c.user_id === user.id);
+
         const weekCounts = Array(7).fill(0);
         let weeklyPoints = 0;
-        for (const c of weekComps) {
-          const dow = new Date(c.completedAt).getDay();
+        for (const c of userWeekComps) {
+          const dow = new Date(c.completed_at).getDay();
           weekCounts[dow === 0 ? 6 : dow - 1]++;
-          weeklyPoints += c.pointsAwarded;
+          weeklyPoints += c.points_awarded ?? 0;
         }
-
-        const monthComps = await db.taskCompletions
-          .where('[userId+completedAt]').between([user.id, monthStart], [user.id, now]).toArray();
 
         const taskStats: TaskStat[] = activeTasks.map(task => {
           let possible = 0;
           for (let i = 0; i < 30; i++) {
-            const d = addDays(monthStart, i);
+            const d    = addDays(monthStart, i);
             const isWE = [0, 6].includes(d.getDay());
-            if (task.recurrence === 'weekdays' && isWE) continue;
-            if (task.recurrence === 'weekend' && !isWE) continue;
+            if (task.recurrence === 'weekdays' && isWE)  continue;
+            if (task.recurrence === 'weekend'  && !isWE) continue;
             possible++;
           }
           const done = new Set(
-            monthComps.filter(c => c.taskId === task.id)
-              .map(c => startOfDay(new Date(c.completedAt)).getTime())
+            userMonthComps
+              .filter(c => c.task_id === task.id)
+              .map(c => startOfDay(new Date(c.completed_at)).getTime())
           ).size;
           return { title: task.title, done, possible: Math.max(possible, 1) };
         });
         taskStats.sort((a, b) => a.done / a.possible - b.done / b.possible);
 
         const heatmap: HeatDay[] = Array.from({ length: 30 }, (_, i) => {
-          const d = addDays(monthStart, i);
+          const d    = addDays(monthStart, i);
           const dEnd = addDays(d, 1);
-          const dc = monthComps.filter(c => {
-            const t = new Date(c.completedAt).getTime();
+          const dc   = userMonthComps.filter(c => {
+            const t = new Date(c.completed_at).getTime();
             return t >= d.getTime() && t < dEnd.getTime();
           });
-          return { date: d, done: new Set(dc.map(c => c.taskId)).size, total: activeTasks.length };
+          return { date: d, done: new Set(dc.map(c => c.task_id)).size, total: activeTasks.length };
         });
 
-        const total = activeTasks.length;
+        const total        = activeTasks.length;
         const daysThisWeek = (now.getDay() === 0 ? 6 : now.getDay() - 1) + 1;
-        const thisWeekAvgPct = total > 0 ? avgDailyPct(weekComps, weekStart, daysThisWeek, total) : null;
-        const lastWeekAvgPct = total > 0 && lastWeekComps.length > 0
-          ? avgDailyPct(lastWeekComps, lastWeekStart, 7, total)
+
+        const thisWeekAvgPct = total > 0
+          ? avgDailyPct(userWeekComps, weekStart, daysThisWeek, total)
+          : null;
+        const lastWeekAvgPct = total > 0 && userLastWeekComps.length > 0
+          ? avgDailyPct(userLastWeekComps, lastWeekStart, 7, total)
           : null;
 
         result.push({
           user, tasks: activeTasks, todayDone, maxStreak,
-          totalPoints: lvl?.totalPoints ?? 0,
-          currentLevel: lvl?.currentLevel ?? 1,
+          totalPoints:  lvl?.total_points  ?? 0,
+          currentLevel: lvl?.current_level ?? 1,
           weekCounts, weeklyPoints, taskStats, heatmap,
           thisWeekAvgPct, lastWeekAvgPct,
         });
       }
+
       setAllStats(result);
       setLoading(false);
     }
     load();
   }, []);
 
-  const s = allStats[idx];
+  const s      = allStats[idx];
   const accent = s ? (THEME_ACCENT[s.user.theme] ?? '#4f9cff') : '#4f9cff';
 
   return (
@@ -191,7 +240,7 @@ export default function StatsPage() {
         {/* Tabs */}
         <div style={{ display: 'flex' }}>
           {allStats.map((st, i) => {
-            const a = THEME_ACCENT[st.user.theme] ?? '#4f9cff';
+            const a      = THEME_ACCENT[st.user.theme] ?? '#4f9cff';
             const active = i === idx;
             return (
               <button key={st.user.id} onClick={() => setIdx(i)} style={{
@@ -297,7 +346,7 @@ function WeekComparison({ thisWeek, lastWeek, accent }: { thisWeek: number | nul
   if (thisWeek === null || lastWeek === null) {
     return <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 28 }}>아직 비교 데이터가 없어요</div>;
   }
-  const diff = thisWeek - lastWeek;
+  const diff      = thisWeek - lastWeek;
   const diffColor = diff > 0 ? '#3ddc97' : diff < 0 ? '#ff6b6b' : FG_SUB;
   const diffLabel = diff > 0
     ? `↑ +${diff}% 향상`
@@ -328,8 +377,8 @@ function WeekChart({ weekCounts, accent }: { weekCounts: number[]; accent: strin
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 120 }}>
         {weekCounts.map((count, i) => {
-          const isToday = i === todayIdx;
-          const pct = (count / max) * 100;
+          const isToday  = i === todayIdx;
+          const pct      = (count / max) * 100;
           const barColor = isToday ? '#3ddc97' : accent;
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, height: '100%' }}>
@@ -402,7 +451,7 @@ function Heatmap({ heatmap, accent }: { heatmap: HeatDay[]; accent: string }) {
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 4 }}>
         {heatmap.map((day, i) => {
-          const pct = day.total > 0 ? day.done / day.total : 0;
+          const pct     = day.total > 0 ? day.done / day.total : 0;
           const isToday = day.date.getTime() === todayTs;
           const opacity = pct === 0 ? 1 : pct <= 0.33 ? 0.3 : pct <= 0.66 ? 0.6 : 1;
           return (
@@ -413,7 +462,7 @@ function Heatmap({ heatmap, accent }: { heatmap: HeatDay[]; accent: string }) {
                 aspectRatio: '1', borderRadius: 4,
                 background: pct === 0 ? BAR_EMPTY : accent,
                 opacity,
-                outline: isToday ? `2px solid ${accent}` : 'none',
+                outline:       isToday ? `2px solid ${accent}` : 'none',
                 outlineOffset: isToday ? 2 : 0,
               }}
             />
@@ -434,7 +483,7 @@ function Ranking({ allStats }: { allStats: UserStats[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
       {sorted.map((st, i) => {
-        const a = THEME_ACCENT[st.user.theme] ?? '#4f9cff';
+        const a      = THEME_ACCENT[st.user.theme] ?? '#4f9cff';
         const barPct = (st.weeklyPoints / maxPts) * 100;
         return (
           <div key={st.user.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
