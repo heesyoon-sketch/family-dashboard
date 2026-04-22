@@ -3,11 +3,16 @@ import { createBrowserSupabase } from '../supabase';
 import { evaluateCondition } from './conditions';
 
 export const LEVEL_THRESHOLDS = [
-  { level: 1, min: 0,    max: 100 },
-  { level: 2, min: 100,  max: 250 },
-  { level: 3, min: 250,  max: 500 },
-  { level: 4, min: 500,  max: 900 },
-  { level: 5, min: 900,  max: 1500 },
+  { level: 1,  min: 0,     max: 599 },
+  { level: 2,  min: 600,   max: 1499 },
+  { level: 3,  min: 1500,  max: 2999 },
+  { level: 4,  min: 3000,  max: 4999 },
+  { level: 5,  min: 5000,  max: 7999 },
+  { level: 6,  min: 8000,  max: 11999 },
+  { level: 7,  min: 12000, max: 17999 },
+  { level: 8,  min: 18000, max: 24999 },
+  { level: 9,  min: 25000, max: 39999 },
+  { level: 10, min: 40000, max: Infinity },
 ];
 
 export function levelForPoints(pts: number): number {
