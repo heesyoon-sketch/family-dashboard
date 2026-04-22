@@ -223,6 +223,12 @@ export default function AdminPage() {
     init();
   }, []);
 
+  const handleLogout = async () => {
+    const supabase = createBrowserSupabase();
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
+
   const handlePinSubmit = async () => {
     setError('');
     for (const parent of parents) {
@@ -892,6 +898,13 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+          {/* 로그아웃 */}
+          <button
+            onClick={handleLogout}
+            className="w-full py-4 mt-8 rounded-2xl bg-[#141821] border border-red-900/30 text-red-400 hover:bg-red-900/10 font-semibold transition-colors"
+          >
+            로그아웃
+          </button>
         </div>
       </main>
     </>
