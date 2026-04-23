@@ -1,6 +1,23 @@
 export type UserRole = 'PARENT' | 'CHILD';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type ThemeName = 'dark_minimal' | 'warm_minimal' | 'robot_neon' | 'pastel_cute';
+export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
+
+export const ALL_DAYS: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+export const WEEKDAYS: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+export const WEEKEND: DayOfWeek[]  = ['SAT', 'SUN'];
+
+/** Maps JS getDay() index (0=Sun … 6=Sat) → DayOfWeek key */
+export const DOW_INDEX: Record<number, DayOfWeek> = {
+  0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT',
+};
+
+/** Converts a legacy recurrence string to a daysOfWeek array. */
+export function legacyRecurrenceToDays(recurrence: string): DayOfWeek[] {
+  if (recurrence === 'weekdays') return [...WEEKDAYS];
+  if (recurrence === 'weekend')  return [...WEEKEND];
+  return [...ALL_DAYS];
+}
 
 export type BadgeCondition =
   | { type: 'streak';        taskCode: string;  days: number }
@@ -26,7 +43,8 @@ export interface Task {
   icon: string;
   difficulty: Difficulty;
   basePoints: number;
-  recurrence: string;
+  recurrence: string;      // legacy; kept for backward-compat reads
+  daysOfWeek: DayOfWeek[]; // authoritative schedule; derived from recurrence if null in DB
   timeWindow?: 'morning' | 'afternoon' | 'evening';
   active: number; // 0 | 1
   sortOrder: number;

@@ -7,11 +7,13 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
-import { User, Task, Difficulty } from '@/lib/db';
+import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND } from '@/lib/db';
+import { legacyRecurrenceToDays } from '@/lib/db';
 import { verifyPin } from '@/lib/pin';
 import { resetAllProgress } from '@/lib/reset';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function notifyDashboard() {
   new BroadcastChannel('habit_sync').postMessage('update');
@@ -32,9 +34,10 @@ function LucideIcon({ name, size = 20, className }: { name: string; size?: numbe
   return <Comp size={size} className={className} />;
 }
 
-const ICON_GROUPS: { label: string; icons: { key: string; label: string }[] }[] = [
+const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; label: string }[] }[] = [
   {
-    label: '생활/위생',
+    labelKey: 'icon_group_hygiene',
+    labelKo: '생활/위생',
     icons: [
       { key: 'sparkles',        label: '양치' },
       { key: 'droplets',        label: '씻기' },
@@ -45,7 +48,8 @@ const ICON_GROUPS: { label: string; icons: { key: string; label: string }[] }[] 
     ],
   },
   {
-    label: '건강',
+    labelKey: 'icon_group_health',
+    labelKo: '건강',
     icons: [
       { key: 'pill',            label: '영양제' },
       { key: 'dumbbell',        label: '운동' },
@@ -56,7 +60,8 @@ const ICON_GROUPS: { label: string; icons: { key: string; label: string }[] }[] 
     ],
   },
   {
-    label: '학습',
+    labelKey: 'icon_group_study',
+    labelKo: '학습',
     icons: [
       { key: 'book-open',       label: '독서' },
       { key: 'pen-line',        label: '일기' },
@@ -67,7 +72,8 @@ const ICON_GROUPS: { label: string; icons: { key: string; label: string }[] }[] 
     ],
   },
   {
-    label: '가정',
+    labelKey: 'icon_group_chores',
+    labelKo: '가정',
     icons: [
       { key: 'house',           label: '집안일' },
       { key: 'shirt',           label: '옷정리' },
@@ -78,7 +84,8 @@ const ICON_GROUPS: { label: string; icons: { key: string; label: string }[] }[] 
     ],
   },
   {
-    label: '기타',
+    labelKey: 'icon_group_other',
+    labelKo: '기타',
     icons: [
       { key: 'cross',           label: '기도' },
       { key: 'music',           label: '음악' },
@@ -99,6 +106,7 @@ function IconPicker({
   onSelect: (icon: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -107,7 +115,7 @@ function IconPicker({
     >
       <div className="bg-[#141821] rounded-2xl w-full max-w-sm flex flex-col" style={{ maxHeight: '80vh' }}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#232831] shrink-0">
-          <span className="font-semibold text-white text-base">아이콘 선택</span>
+          <span className="font-semibold text-white text-base">{t('icon_select')}</span>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-lg bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
@@ -117,14 +125,16 @@ function IconPicker({
         </div>
         <div className="overflow-y-auto p-4 space-y-5">
           {ICON_GROUPS.map(group => (
-            <div key={group.label}>
-              <p className="text-xs font-semibold text-[#8a8f99] mb-2 uppercase tracking-wide">{group.label}</p>
+            <div key={group.labelKo}>
+              <p className="text-xs font-semibold text-[#8a8f99] mb-2 uppercase tracking-wide">
+                {t(group.labelKey as Parameters<typeof t>[0])}
+              </p>
               <div className="grid grid-cols-4 gap-2">
                 {group.icons.map(({ key, label }) => {
                   const selected = key === currentIcon;
                   return (
                     <button
-                      key={`${group.label}-${key}`}
+                      key={`${group.labelKo}-${key}`}
                       onClick={() => onSelect(key)}
                       className={`flex flex-col items-center justify-center gap-1 rounded-xl transition-colors ${
                         selected
@@ -160,6 +170,7 @@ interface Reward {
 }
 
 function mapTask(r: Record<string, unknown>): Task {
+  const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
   return {
     id: r.id as string,
     userId: r.user_id as string,
@@ -169,6 +180,7 @@ function mapTask(r: Record<string, unknown>): Task {
     difficulty: r.difficulty as Difficulty,
     basePoints: r.base_points as number,
     recurrence: r.recurrence as string,
+    daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence as string),
     timeWindow: (r.time_window as 'morning' | 'afternoon' | 'evening' | null) ?? undefined,
     active: r.active as number,
     sortOrder: r.sort_order as number,
@@ -176,6 +188,7 @@ function mapTask(r: Record<string, unknown>): Task {
 }
 
 export default function AdminPage() {
+  const { lang, setLang, t } = useLanguage();
   const [view, setView] = useState<View>('pin');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -237,7 +250,7 @@ export default function AdminPage() {
         return;
       }
     }
-    setError('PIN이 올바르지 않습니다');
+    setError(t('pin_incorrect'));
     setPin('');
   };
 
@@ -251,7 +264,7 @@ export default function AdminPage() {
   const addTask = async () => {
     if (!selectedUser || !newTaskTitle.trim()) return;
     const supabase = createBrowserSupabase();
-    const maxSort = tasks.reduce((m, t) => Math.max(m, t.sortOrder), -1);
+    const maxSort = tasks.reduce((m, task) => Math.max(m, task.sortOrder), -1);
     const newTask = {
       id: crypto.randomUUID(),
       user_id: selectedUser.id,
@@ -260,12 +273,13 @@ export default function AdminPage() {
       difficulty: 'MEDIUM' as Difficulty,
       base_points: newTaskPoints,
       recurrence: 'daily',
+      days_of_week: ALL_DAYS,
       active: 1,
       sort_order: maxSort + 1,
     };
     const { data, error } = await supabase.from('tasks').insert(newTask).select().single();
     if (error) {
-      toast.error(`태스크 추가 실패: ${error.message}`);
+      toast.error(`${t('task_add_failed')}: ${error.message}`);
       return;
     }
     if (data) {
@@ -291,7 +305,7 @@ export default function AdminPage() {
   const deleteTask = async (taskId: string) => {
     const supabase = createBrowserSupabase();
     await supabase.from('tasks').delete().eq('id', taskId);
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setTasks(prev => prev.filter(task => task.id !== taskId));
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -307,10 +321,10 @@ export default function AdminPage() {
       supabase.from('tasks').update({ sort_order: bOrder }).eq('id', tasks[index].id),
       supabase.from('tasks').update({ sort_order: aOrder }).eq('id', tasks[other].id),
     ]);
-    const updated = tasks.map((t, i) => {
-      if (i === index) return { ...t, sortOrder: bOrder };
-      if (i === other) return { ...t, sortOrder: aOrder };
-      return t;
+    const updated = tasks.map((task, i) => {
+      if (i === index) return { ...task, sortOrder: bOrder };
+      if (i === other) return { ...task, sortOrder: aOrder };
+      return task;
     });
     setTasks(updated.sort((a, b) => a.sortOrder - b.sortOrder));
     await storeHydrate();
@@ -333,7 +347,7 @@ export default function AdminPage() {
     if (!trimmed) return;
     const supabase = createBrowserSupabase();
     await supabase.from('tasks').update({ title: trimmed }).eq('id', taskId);
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, title: trimmed } : t));
+    setTasks(prev => prev.map(task => task.id === taskId ? { ...task, title: trimmed } : task));
     setEditingTaskId(null);
     setEditingTaskTitle('');
     await storeHydrate();
@@ -344,20 +358,41 @@ export default function AdminPage() {
   const selectIcon = async (taskId: string, icon: string) => {
     const supabase = createBrowserSupabase();
     await supabase.from('tasks').update({ icon }).eq('id', taskId);
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, icon } : t));
+    setTasks(prev => prev.map(task => task.id === taskId ? { ...task, icon } : task));
     setIconPickerTaskId(null);
     await storeHydrate();
     router.refresh();
     notifyDashboard();
   };
 
-  const setRecurrence = async (task: Task, recurrence: string) => {
+  const saveDaysOfWeek = async (task: Task, daysOfWeek: DayOfWeek[]) => {
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').update({ recurrence }).eq('id', task.id);
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, recurrence } : t));
+    await supabase.from('tasks').update({ days_of_week: daysOfWeek }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, daysOfWeek } : t));
     await storeHydrate();
     router.refresh();
     notifyDashboard();
+  };
+
+  const toggleDay = async (task: Task, day: DayOfWeek) => {
+    const active = task.daysOfWeek.includes(day);
+    if (active && task.daysOfWeek.length === 1) {
+      toast.error(t('min_one_day'));
+      return;
+    }
+    const next = active
+      ? task.daysOfWeek.filter(d => d !== day)
+      : ALL_DAYS.filter(d => task.daysOfWeek.includes(d) || d === day);
+    await saveDaysOfWeek(task, next);
+  };
+
+  const toggleDayGroup = async (task: Task, group: DayOfWeek[]) => {
+    const allPresent = group.every(d => task.daysOfWeek.includes(d));
+    const next = allPresent
+      ? task.daysOfWeek.filter(d => !group.includes(d))
+      : ALL_DAYS.filter(d => task.daysOfWeek.includes(d) || group.includes(d));
+    if (next.length === 0) { toast.error(t('min_one_day')); return; }
+    await saveDaysOfWeek(task, next);
   };
 
   const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening' | null) => {
@@ -373,7 +408,7 @@ export default function AdminPage() {
     const pts = Math.max(1, Math.round(rawValue) || 1);
     const supabase = createBrowserSupabase();
     await supabase.from('tasks').update({ base_points: pts }).eq('id', taskId);
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, basePoints: pts } : t));
+    setTasks(prev => prev.map(task => task.id === taskId ? { ...task, basePoints: pts } : task));
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -389,7 +424,7 @@ export default function AdminPage() {
       icon: newRewardIcon,
     };
     const { data, error } = await supabase.from('rewards').insert(payload).select().single();
-    if (error) { toast.error(`리워드 추가 실패: ${error.message}`); return; }
+    if (error) { toast.error(`${t('reward_add_failed')}: ${error.message}`); return; }
     if (data) setRewards(prev => [...prev, { id: data.id, title: data.title, cost_points: data.cost_points, icon: data.icon }].sort((a, b) => a.cost_points - b.cost_points));
     setNewRewardTitle('');
     setNewRewardPoints(300);
@@ -397,7 +432,7 @@ export default function AdminPage() {
     await storeHydrate();
     router.refresh();
     notifyDashboard();
-    toast.success('리워드 추가 완료');
+    toast.success(t('reward_added'));
   };
 
   const saveRewardEdit = async (rewardId: string) => {
@@ -448,14 +483,14 @@ export default function AdminPage() {
     notifyDashboard();
   };
 
-  const pickerTask = iconPickerTaskId ? tasks.find(t => t.id === iconPickerTaskId) : null;
+  const pickerTask = iconPickerTaskId ? tasks.find(task => task.id === iconPickerTaskId) : null;
 
   if (view === 'pin') {
     return (
       <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
         <div className="bg-[#141821] rounded-3xl p-8 w-full max-w-sm text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">관리자 모드</h1>
-          <p className="text-[#8a8f99] mb-6 text-sm">부모 PIN을 입력하세요</p>
+          <h1 className="text-2xl font-bold text-white mb-2">{t('admin_mode')}</h1>
+          <p className="text-[#8a8f99] mb-6 text-sm">{t('enter_parent_pin')}</p>
           <input
             type="password"
             inputMode="numeric"
@@ -472,9 +507,9 @@ export default function AdminPage() {
             onClick={handlePinSubmit}
             className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)]"
           >
-            확인
+            {t('confirm')}
           </button>
-          <a href="/" className="block mt-4 text-[#8a8f99] text-sm">← 대시보드로</a>
+          <a href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</a>
         </div>
       </main>
     );
@@ -500,13 +535,36 @@ export default function AdminPage() {
       <main className="min-h-screen bg-[#0b0d12] text-white p-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-bold">관리자 모드</h1>
-            <a href="/" className="text-[#8a8f99] text-sm hover:text-white">← 대시보드로</a>
+            <h1 className="text-2xl font-bold">{t('admin_mode')}</h1>
+            <a href="/" className="text-[#8a8f99] text-sm hover:text-white">← {t('back_to_dashboard')}</a>
           </div>
 
-          {/* 가족 구성원 이름 설정 */}
+          {/* Language / 언어 설정 */}
           <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">가족 구성원 이름 설정</h2>
+            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">Language / 언어 설정</h2>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLang('ko')}
+                className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
+                  lang === 'ko' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                }`}
+              >
+                Korean (한국어)
+              </button>
+              <button
+                onClick={() => setLang('en')}
+                className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
+                  lang === 'en' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                }`}
+              >
+                English
+              </button>
+            </div>
+          </div>
+
+          {/* Family member name setting */}
+          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('set_family_names')}</h2>
             <div className="space-y-3">
               {allUsers.map(u => (
                 <div key={u.id} className="flex items-center gap-3">
@@ -543,7 +601,7 @@ export default function AdminPage() {
                     <>
                       <span className="flex-1 font-medium text-[18px]">{u.name}</span>
                       <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
-                        {u.role === 'PARENT' ? '부모' : '자녀'}
+                        {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
                       </span>
                       <button
                         onClick={() => startEditName(u)}
@@ -559,9 +617,9 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* 사용자 선택 */}
+          {/* Select user */}
           <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">사용자 선택</h2>
+            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('select_user')}</h2>
             <div className="flex gap-3 flex-wrap">
               {allUsers.map(u => (
                 <button
@@ -579,27 +637,27 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* 전체 리셋 */}
+          {/* Reset all progress */}
           <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-2 text-red-400">전체 진행 리셋</h2>
-            <p className="text-[#8a8f99] text-sm mb-4">포인트·레벨·완료 기록·스트릭을 모두 초기화합니다.</p>
+            <h2 className="text-lg font-semibold mb-2 text-red-400">{t('reset_all_progress')}</h2>
+            <p className="text-[#8a8f99] text-sm mb-4">{t('reset_description')}</p>
             <button
               onClick={async () => {
-                if (!confirm('모든 진행 기록을 초기화할까요? 되돌릴 수 없습니다.')) return;
+                if (!confirm(t('reset_confirm'))) return;
                 await resetAllProgress();
                 localStorage.removeItem('family_progress_reset_v1');
-                toast.success('초기화 완료! 대시보드로 이동합니다.');
+                toast.success(t('reset_success'));
                 setTimeout(() => { location.href = '/'; }, 1000);
               }}
               className="px-6 py-3 rounded-xl bg-red-900/40 text-red-400 font-semibold border border-red-900/60 min-h-[var(--touch-target)] hover:bg-red-900/60 transition-colors"
             >
-              전체 리셋
+              {t('reset_full')}
             </button>
           </div>
 
-          {/* 상점 관리 */}
+          {/* Store management */}
           <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">상점 관리</h2>
+            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('store_management')}</h2>
             <div className="space-y-3 mb-6">
               {rewards.map(r => (
                 <div key={r.id} className="flex items-center gap-2 p-3 rounded-xl bg-[#232831]">
@@ -658,19 +716,19 @@ export default function AdminPage() {
                 </div>
               ))}
               {rewards.length === 0 && (
-                <p className="text-[#8a8f99] text-center py-4">등록된 리워드 없음</p>
+                <p className="text-[#8a8f99] text-center py-4">{t('no_rewards_registered')}</p>
               )}
             </div>
 
-            {/* 새 리워드 추가 */}
+            {/* Add new reward */}
             <div className="border-t border-[#232831] pt-4">
-              <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">새 리워드 추가</h3>
+              <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_new_reward')}</h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => setRewardIconPickerOpen(true)}
                   className="w-11 rounded-xl bg-[#232831] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
                   style={{ minHeight: 'var(--touch-target)' }}
-                  title="아이콘 선택"
+                  title={t('icon_select')}
                 >
                   <LucideIcon name={newRewardIcon} size={20} />
                   <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
@@ -680,7 +738,7 @@ export default function AdminPage() {
                   value={newRewardTitle}
                   onChange={e => setNewRewardTitle(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addReward()}
-                  placeholder="리워드 이름"
+                  placeholder={t('reward_name_placeholder')}
                   className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                 />
                 <input
@@ -694,50 +752,50 @@ export default function AdminPage() {
                   onClick={addReward}
                   className="px-4 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
                 >
-                  추가
+                  {t('add')}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Task 목록 */}
+          {/* Task list */}
           {selectedUser && (
             <div className="bg-[#141821] rounded-2xl p-6 mb-6">
               <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">
-                {selectedUser.name}의 태스크
+                {selectedUser.name}{t('user_tasks_suffix')}
               </h2>
               <div className="space-y-3 mb-6">
-                {tasks.map((t, idx) => (
+                {tasks.map((task, idx) => (
                   <div
-                    key={t.id}
-                    className={`relative p-4 rounded-xl bg-[#232831] ${t.active === 0 ? 'opacity-50' : ''}`}
+                    key={task.id}
+                    className={`relative p-4 rounded-xl bg-[#232831] ${task.active === 0 ? 'opacity-50' : ''}`}
                   >
-                    {/* 번호 뱃지 */}
+                    {/* Index badge */}
                     <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-[#4f9cff] text-white text-xs font-bold flex items-center justify-center leading-none select-none">
                       {idx + 1}
                     </span>
 
-                    {/* 아이콘 + 제목 행 */}
+                    {/* Icon + title row */}
                     <div className="flex items-center gap-2 mb-2 pl-6">
                       <button
-                        onClick={() => setIconPickerTaskId(t.id)}
+                        onClick={() => setIconPickerTaskId(task.id)}
                         className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
-                        title="아이콘 변경"
+                        title={t('icon_change')}
                       >
-                        <LucideIcon name={t.icon} size={18} />
+                        <LucideIcon name={task.icon} size={18} />
                         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           🎨
                         </span>
                       </button>
 
-                      {editingTaskId === t.id ? (
+                      {editingTaskId === task.id ? (
                         <>
                           <input
                             type="text"
                             value={editingTaskTitle}
                             onChange={e => setEditingTaskTitle(e.target.value)}
                             onKeyDown={e => {
-                              if (e.key === 'Enter') confirmEditTask(t.id);
+                              if (e.key === 'Enter') confirmEditTask(task.id);
                               if (e.key === 'Escape') cancelEditTask();
                             }}
                             autoFocus
@@ -745,7 +803,7 @@ export default function AdminPage() {
                             style={{ minHeight: 44, fontSize: 16 }}
                           />
                           <button
-                            onClick={() => confirmEditTask(t.id)}
+                            onClick={() => confirmEditTask(task.id)}
                             className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
                             style={{ minHeight: 44 }}
                           >
@@ -761,9 +819,9 @@ export default function AdminPage() {
                         </>
                       ) : (
                         <>
-                          <span className="flex-1 font-medium text-sm leading-snug">{t.title}</span>
+                          <span className="flex-1 font-medium text-sm leading-snug">{task.title}</span>
                           <button
-                            onClick={() => startEditTask(t)}
+                            onClick={() => startEditTask(task)}
                             className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
                           >
                             ✏️
@@ -772,7 +830,7 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    {/* 순서 + 포인트 + 토글 + 삭제 행 */}
+                    {/* Order + points + toggle + delete row */}
                     <div className="flex items-center gap-2 mb-2">
                       <button
                         onClick={() => moveTask(idx, 'up')}
@@ -791,9 +849,9 @@ export default function AdminPage() {
                       <div className="flex items-center gap-1 flex-1">
                         <input
                           type="number"
-                          value={t.basePoints}
-                          onChange={e => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, basePoints: Number(e.target.value) } : x))}
-                          onBlur={e => updateTaskPoints(t.id, Number(e.target.value))}
+                          value={task.basePoints}
+                          onChange={e => setTasks(prev => prev.map(x => x.id === task.id ? { ...x, basePoints: Number(e.target.value) } : x))}
+                          onBlur={e => updateTaskPoints(task.id, Number(e.target.value))}
                           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                           min={1}
                           max={999}
@@ -802,61 +860,95 @@ export default function AdminPage() {
                         <span className="text-[#8a8f99] text-xs">pt</span>
                       </div>
                       <button
-                        onClick={() => toggleTask(t)}
+                        onClick={() => toggleTask(task)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold min-h-[44px] ${
-                          t.active === 1 ? 'bg-[#3ddc97]/20 text-[#3ddc97]' : 'bg-[#8a8f99]/20 text-[#8a8f99]'
+                          task.active === 1 ? 'bg-[#3ddc97]/20 text-[#3ddc97]' : 'bg-[#8a8f99]/20 text-[#8a8f99]'
                         }`}
                       >
-                        {t.active === 1 ? 'ON' : 'OFF'}
+                        {task.active === 1 ? 'ON' : 'OFF'}
                       </button>
                       <button
-                        onClick={() => deleteTask(t.id)}
+                        onClick={() => deleteTask(task.id)}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-900/30 text-red-400 min-h-[44px]"
                       >
-                        삭제
+                        {t('delete')}
                       </button>
                     </div>
 
-                    {/* 반복 주기 행 */}
+                    {/* Day-of-week toggles */}
+                    <div className="flex gap-1 mb-1">
+                      {ALL_DAYS.map(day => {
+                        const isOn = task.daysOfWeek.includes(day);
+                        const isSat = day === 'SAT';
+                        const isSun = day === 'SUN';
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => toggleDay(task, day)}
+                            className={`flex-1 rounded-lg text-[11px] font-bold transition-colors ${
+                              isOn
+                                ? isSat || isSun
+                                  ? 'bg-[#f59e0b] text-[#1a1200]'
+                                  : 'bg-[#4f9cff] text-white'
+                                : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                            }`}
+                            style={{ minHeight: 36 }}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Quick-select helpers */}
                     <div className="flex gap-2 mb-2">
-                      {([
-                        { value: 'daily',    label: '매일' },
-                        { value: 'weekdays', label: '주중만' },
-                        { value: 'weekend',  label: '주말만' },
-                      ] as const).map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setRecurrence(t, opt.value)}
-                          className={`flex-1 rounded-lg text-sm font-semibold min-h-[44px] transition-colors ${
-                            t.recurrence === opt.value
-                              ? 'bg-[#4f9cff] text-white'
-                              : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
+                      <button
+                        onClick={() => toggleDayGroup(task, WEEKDAYS)}
+                        className={`flex-1 rounded-lg text-[11px] font-semibold transition-colors border ${
+                          WEEKDAYS.every(d => task.daysOfWeek.includes(d))
+                            ? 'border-[#4f9cff] text-[#4f9cff] bg-[#4f9cff]/10'
+                            : 'border-[#2d3545] text-[#8a8f99] bg-[#1a1f2a] hover:bg-[#2d3545]'
+                        }`}
+                        style={{ minHeight: 30 }}
+                      >
+                        {t('weekdays_all')}
+                      </button>
+                      <button
+                        onClick={() => toggleDayGroup(task, WEEKEND)}
+                        className={`flex-1 rounded-lg text-[11px] font-semibold transition-colors border ${
+                          WEEKEND.every(d => task.daysOfWeek.includes(d))
+                            ? 'border-[#f59e0b] text-[#f59e0b] bg-[#f59e0b]/10'
+                            : 'border-[#2d3545] text-[#8a8f99] bg-[#1a1f2a] hover:bg-[#2d3545]'
+                        }`}
+                        style={{ minHeight: 30 }}
+                      >
+                        {t('weekends_all')}
+                      </button>
                     </div>
 
-                    {/* 시간대 설정 행 */}
+                    {/* Time window row */}
                     <div className="flex gap-2">
                       {([
-                        { value: null,       label: '종일' },
-                        { value: 'morning',  label: '🌅 아침' },
-                        { value: 'evening',  label: '🌙 저녁' },
+                        { value: null,       labelKey: 'all_day' },
+                        { value: 'morning',  labelKey: 'morning' },
+                        { value: 'evening',  labelKey: 'evening' },
                       ] as const).map(opt => {
-                        const isActive = (opt.value === null ? !t.timeWindow : t.timeWindow === opt.value);
+                        const isActive = (opt.value === null ? !task.timeWindow : task.timeWindow === opt.value);
+                        const label = opt.value === null
+                          ? t('all_day')
+                          : opt.value === 'morning'
+                            ? `🌅 ${t('morning')}`
+                            : `🌙 ${t('evening')}`;
                         return (
                           <button
                             key={String(opt.value)}
-                            onClick={() => setTimeWindow(t, opt.value)}
+                            onClick={() => setTimeWindow(task, opt.value)}
                             className={`flex-1 rounded-lg text-sm font-semibold min-h-[44px] transition-colors ${
                               isActive
                                 ? 'bg-[#f59e0b] text-[#1a1200]'
                                 : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
                             }`}
                           >
-                            {opt.label}
+                            {label}
                           </button>
                         );
                       })}
@@ -864,20 +956,20 @@ export default function AdminPage() {
                   </div>
                 ))}
                 {tasks.length === 0 && (
-                  <p className="text-[#8a8f99] text-center py-4">태스크 없음</p>
+                  <p className="text-[#8a8f99] text-center py-4">{t('no_tasks')}</p>
                 )}
               </div>
 
-              {/* 새 태스크 추가 */}
+              {/* Add new task */}
               <div className="border-t border-[#232831] pt-4">
-                <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">새 태스크 추가</h3>
+                <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_task')}</h3>
                 <div className="flex gap-3">
                   <input
                     type="text"
                     value={newTaskTitle}
                     onChange={e => setNewTaskTitle(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addTask()}
-                    placeholder="태스크 이름"
+                    placeholder={t('task_name_placeholder')}
                     className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                   />
                   <input
@@ -892,18 +984,19 @@ export default function AdminPage() {
                     onClick={addTask}
                     className="px-5 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
                   >
-                    추가
+                    {t('add')}
                   </button>
                 </div>
               </div>
             </div>
           )}
-          {/* 로그아웃 */}
+
+          {/* Logout */}
           <button
             onClick={handleLogout}
             className="w-full py-4 mt-8 rounded-2xl bg-[#141821] border border-red-900/30 text-red-400 hover:bg-red-900/10 font-semibold transition-colors"
           >
-            로그아웃
+            {t('logout')}
           </button>
         </div>
       </main>

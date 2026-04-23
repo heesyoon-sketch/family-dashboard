@@ -19,17 +19,18 @@ create policy "auth users full access" on public.users
 
 -- tasks
 create table if not exists public.tasks (
-  id          text primary key,
-  user_id     text not null references public.users(id) on delete cascade,
-  code        text,
-  title       text not null,
-  icon        text not null default 'circle',
-  difficulty  text not null check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
-  base_points integer not null default 10,
-  recurrence  text not null default 'daily',
-  time_window text check (time_window in ('morning', 'afternoon', 'evening')),
-  active      integer not null default 1,
-  sort_order  integer not null default 0
+  id           text primary key,
+  user_id      text not null references public.users(id) on delete cascade,
+  code         text,
+  title        text not null,
+  icon         text not null default 'circle',
+  difficulty   text not null check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
+  base_points  integer not null default 10,
+  recurrence   text not null default 'daily',
+  days_of_week text[],  -- ['MON','TUE','WED','THU','FRI','SAT','SUN']; null = use recurrence fallback
+  time_window  text check (time_window in ('morning', 'afternoon', 'evening')),
+  active       integer not null default 1,
+  sort_order   integer not null default 0
 );
 alter table public.tasks enable row level security;
 create policy "auth users full access" on public.tasks

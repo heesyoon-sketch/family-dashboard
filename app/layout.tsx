@@ -1,6 +1,7 @@
 import './globals.css';
 import { SwInit } from '@/components/SwInit';
 import { Toaster } from 'sonner';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 export const metadata = {
   title: 'Family Habit Dashboard',
@@ -18,9 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body>
-        <SwInit />
-        <Toaster position="top-center" richColors />
-        {children}
+        <LanguageProvider>
+          <SwInit />
+          <Toaster position="top-center" richColors />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

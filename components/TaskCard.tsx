@@ -10,22 +10,18 @@ import { Particles, buildParticles } from './Particles';
 import type { ParticleData } from './Particles';
 import { playCompletionSound } from '@/lib/sound';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const SWIPE_TRIGGER_PX = 110;
 // 64px: 4 rows × 64 + 3 gaps × 8 = 280px task area — sweet spot for legibility + fit
 const CARD_H = 64;
-
-const TIME_WINDOW_LABEL: Record<string, string> = {
-  morning: '아침',
-  afternoon: '오후',
-  evening: '저녁',
-};
 
 function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 }
 
 export function TaskCard({ task, completed, theme }: { task: Task; completed: boolean; theme: ThemeName }) {
+  const { t } = useLanguage();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
@@ -123,7 +119,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           </div>
           <div className="text-xs text-[var(--fg-muted)] mt-0.5 truncate">
             +{task.basePoints}pt
-            {task.timeWindow && ` · ${TIME_WINDOW_LABEL[task.timeWindow]}`}
+            {task.timeWindow && ` · ${t(task.timeWindow as 'morning' | 'afternoon' | 'evening')}`}
           </div>
         </div>
 

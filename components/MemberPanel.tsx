@@ -9,6 +9,7 @@ import { ProgressRing } from './ProgressRing';
 import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
 import { StoreModal, type Reward } from './StoreModal';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ function PanelSkeleton({ theme }: { theme: string }) {
 // ── MemberPanel ───────────────────────────────────────────────────────────────
 
 export function MemberPanel({ user }: { user: User }) {
+  const { lang, t } = useLanguage();
   const hydrated       = useFamilyStore(s => s.hydrated);
   const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? []);
   const level          = useFamilyStore(s => s.levelsByUser[user.id]);
@@ -75,17 +77,25 @@ export function MemberPanel({ user }: { user: User }) {
     return true;
   });
 
-  const doneCount  = visibleTasks.filter(t => completed.includes(t.id)).length;
+  const doneCount  = visibleTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = visibleTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
-  // Motivational message — shown inline, not a separate row
+  // Motivational message
   let motiveMsg: string | null = null;
   if (longestStreak > 0 && maxStreak >= longestStreak - 1) {
-    motiveMsg = maxStreak >= longestStreak ? '🔥 신기록!' : `🔥 ${maxStreak}일 도전중`;
+    motiveMsg = maxStreak >= longestStreak
+      ? `🔥 ${t('new_record')}`
+      : lang === 'en'
+        ? `🔥 ${maxStreak}-day streak`
+        : `🔥 ${maxStreak}일 도전중`;
   } else if (bestDay > 0 && doneCount >= bestDay - 1) {
     const gap = bestDay - doneCount;
-    motiveMsg = gap <= 0 ? '🏆 역대 최고!' : `🏆 ${gap}개 남았어`;
+    motiveMsg = gap <= 0
+      ? `🏆 ${t('best_day')}`
+      : lang === 'en'
+        ? `🏆 ${gap} to go`
+        : `🏆 ${gap}개 남았어`;
   }
 
   const lvlInfo       = LEVEL_THRESHOLDS.find(l => l.level === (level?.currentLevel ?? 1))!;
@@ -161,7 +171,7 @@ export function MemberPanel({ user }: { user: User }) {
                 onClick={() => setStoreOpen(true)}
                 className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--bg-card)] text-[var(--accent)] border border-[var(--border)] shrink-0"
               >
-                <Icons.ShoppingBag size={10} />상점
+                <Icons.ShoppingBag size={10} />{t('store')}
               </button>
               {growth !== null && growth > 0 && (
                 <span className="text-[11px] font-semibold text-[var(--accent)] truncate">
@@ -180,17 +190,17 @@ export function MemberPanel({ user }: { user: User }) {
           <div className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
             {visibleTasks.length === 0 && (
               <div className="col-span-2 text-center text-[var(--fg-muted)] py-6 text-sm">
-                오늘 할 일이 없어요
+                {t('no_tasks_today')}
               </div>
             )}
-            {visibleTasks.map((t, i) => (
+            {visibleTasks.map((task, i) => (
               <div
-                key={t.id}
+                key={task.id}
                 className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-2' : ''}
               >
                 <TaskCard
-                  task={t}
-                  completed={completed.includes(t.id)}
+                  task={task}
+                  completed={completed.includes(task.id)}
                   theme={user.theme}
                 />
               </div>

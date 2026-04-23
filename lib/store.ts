@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Level, Badge, Task, User } from './db';
+import { Level, Badge, Task, User, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { createBrowserSupabase } from './supabase';
 
 export type Celebration =
@@ -91,12 +91,16 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       createdAt: new Date(r.created_at),
     }));
 
-    const allTasks: Task[] = (tRes.data ?? []).map(r => ({
-      id: r.id, userId: r.user_id, code: r.code ?? undefined,
-      title: r.title, icon: r.icon, difficulty: r.difficulty,
-      basePoints: r.base_points, recurrence: r.recurrence,
-      timeWindow: r.time_window ?? undefined, active: r.active, sortOrder: r.sort_order,
-    }));
+    const allTasks: Task[] = (tRes.data ?? []).map(r => {
+      const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
+      return {
+        id: r.id, userId: r.user_id, code: r.code ?? undefined,
+        title: r.title, icon: r.icon, difficulty: r.difficulty,
+        basePoints: r.base_points, recurrence: r.recurrence,
+        daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence),
+        timeWindow: r.time_window ?? undefined, active: r.active, sortOrder: r.sort_order,
+      };
+    });
 
     const tasksByUser: Record<string, Task[]> = {};
     const levelsByUser: Record<string, Level> = {};
@@ -107,7 +111,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const growthByUser: Record<string, number | null> = {};
 
     const todayDow = now.getDay();
-    const isWeekend = todayDow === 0 || todayDow === 6;
+    const todayDowKey = DOW_INDEX[todayDow];
 
     function avgDailyPct(
       comps: { task_id: string; completed_at: string }[],
@@ -136,11 +140,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     for (const u of users) {
       tasksByUser[u.id] = allTasks
         .filter(t => t.userId === u.id && t.active === 1)
-        .filter(t => {
-          if (t.recurrence === 'weekdays') return !isWeekend;
-          if (t.recurrence === 'weekend') return isWeekend;
-          return true;
-        })
+        .filter(t => t.daysOfWeek.includes(todayDowKey))
         .sort((a, b) => a.sortOrder - b.sortOrder);
 
       const lvl = (lRes.data ?? []).find(r => r.user_id === u.id);

@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Celebration, useFamilyStore } from '@/lib/store';
 import { useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function CelebrationOverlay({
   data,
@@ -11,11 +12,12 @@ export function CelebrationOverlay({
   data: Celebration;
   onDismiss: () => void;
 }) {
+  const { t } = useLanguage();
   const user = useFamilyStore(s => s.users.find(u => u.id === data.userId));
 
   useEffect(() => {
-    const t = setTimeout(onDismiss, 5000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(timer);
   }, [onDismiss]);
 
   if (!user) return null;
@@ -47,19 +49,19 @@ export function CelebrationOverlay({
           </div>
           <h2 className="text-3xl font-bold mb-3">
             {data.type === 'level_up'
-              ? `레벨 ${data.newLevel}!`
+              ? `${t('level')} ${data.newLevel}!`
               : data.badge.name}
           </h2>
           <p className="text-[var(--fg-muted)]">
             {data.type === 'level_up'
-              ? '새로운 보상이 해금되었어요'
+              ? t('new_rewards_unlocked')
               : data.badge.description}
           </p>
           <button
             onClick={onDismiss}
             className="mt-6 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-semibold min-h-[var(--touch-target)]"
           >
-            좋아!
+            {t('ok')}
           </button>
         </motion.div>
       </motion.div>

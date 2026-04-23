@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { User, Task, startOfDay } from '@/lib/db';
+import { User, Task, startOfDay, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 const ORDER = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'] as const;
-const DOW_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+
+const DOW_LABELS_KO = ['월', '화', '수', '목', '금', '토', '일'];
+const DOW_LABELS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const THEME_ACCENT: Record<string, string> = {
   dark_minimal: '#4f9cff',
@@ -16,9 +19,8 @@ const THEME_ACCENT: Record<string, string> = {
 };
 
 // Fixed dark palette — never changes per theme
-const BG_PAGE    = '#0f0f0f';
-const BG_SECTION = '#1a1a1a';
-const BG_CARD    = '#242424';
+const BG_PAGE = '#0f0f0f';
+const BG_CARD = '#242424';
 const BD_CARD    = '#333333';
 const FG_MAIN    = '#ffffff';
 const FG_SUB     = '#aaaaaa';
@@ -54,6 +56,7 @@ function addDays(d: Date, n: number): Date {
 }
 
 export default function StatsPage() {
+  const { lang, t } = useLanguage();
   const [allStats, setAllStats] = useState<UserStats[]>([]);
   const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -93,7 +96,6 @@ export default function StatsPage() {
           .gte('completed_at', monthStart.toISOString()),
       ]);
 
-      // avgDailyPct works directly on Supabase row shape
       function avgDailyPct(
         comps: { task_id: string; completed_at: string }[],
         from: Date,
@@ -108,8 +110,8 @@ export default function StatsPage() {
           const unique = new Set(
             comps
               .filter(c => {
-                const t = new Date(c.completed_at).getTime();
-                return t >= d.getTime() && t < dEnd.getTime();
+                const tms = new Date(c.completed_at).getTime();
+                return tms >= d.getTime() && tms < dEnd.getTime();
               })
               .map(c => c.task_id)
           ).size;
@@ -118,7 +120,6 @@ export default function StatsPage() {
         return Math.round((sum / days) * 100);
       }
 
-      // Order users by theme slot
       const ordered: User[] = ORDER
         .map(theme => (usersRes.data ?? []).find(r => r.theme === theme))
         .filter(Boolean)
@@ -132,16 +133,19 @@ export default function StatsPage() {
       const result: UserStats[] = [];
 
       for (const user of ordered) {
-        // Map Supabase rows → Task interface
         const activeTasks: Task[] = (tasksRes.data ?? [])
           .filter(r => r.user_id === user.id)
-          .map(r => ({
-            id: r.id, userId: r.user_id, code: r.code ?? undefined,
-            title: r.title, icon: r.icon, difficulty: r.difficulty,
-            basePoints: r.base_points, recurrence: r.recurrence,
-            timeWindow: r.time_window ?? undefined,
-            active: r.active, sortOrder: r.sort_order,
-          }))
+          .map(r => {
+            const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
+            return {
+              id: r.id, userId: r.user_id, code: r.code ?? undefined,
+              title: r.title, icon: r.icon, difficulty: r.difficulty,
+              basePoints: r.base_points, recurrence: r.recurrence,
+              daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence),
+              timeWindow: r.time_window ?? undefined,
+              active: r.active, sortOrder: r.sort_order,
+            };
+          })
           .sort((a, b) => a.sortOrder - b.sortOrder);
 
         const todayDone = new Set(
@@ -170,10 +174,9 @@ export default function StatsPage() {
         const taskStats: TaskStat[] = activeTasks.map(task => {
           let possible = 0;
           for (let i = 0; i < 30; i++) {
-            const d    = addDays(monthStart, i);
-            const isWE = [0, 6].includes(d.getDay());
-            if (task.recurrence === 'weekdays' && isWE)  continue;
-            if (task.recurrence === 'weekend'  && !isWE) continue;
+            const d      = addDays(monthStart, i);
+            const dayKey = DOW_INDEX[d.getDay()];
+            if (!task.daysOfWeek.includes(dayKey)) continue;
             possible++;
           }
           const done = new Set(
@@ -189,8 +192,8 @@ export default function StatsPage() {
           const d    = addDays(monthStart, i);
           const dEnd = addDays(d, 1);
           const dc   = userMonthComps.filter(c => {
-            const t = new Date(c.completed_at).getTime();
-            return t >= d.getTime() && t < dEnd.getTime();
+            const tms = new Date(c.completed_at).getTime();
+            return tms >= d.getTime() && tms < dEnd.getTime();
           });
           return { date: d, done: new Set(dc.map(c => c.task_id)).size, total: activeTasks.length };
         });
@@ -234,7 +237,7 @@ export default function StatsPage() {
         <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px 6px' }}>
           <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 6, color: FG_SUB, textDecoration: 'none' }}>
             <ArrowLeft size={16} />
-            <span style={{ fontSize: 13 }}>대시보드로</span>
+            <span style={{ fontSize: 13 }}>{t('back_to_dashboard')}</span>
           </a>
         </div>
         {/* Tabs */}
@@ -260,26 +263,26 @@ export default function StatsPage() {
 
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: FG_SUB }}>
-          불러오는 중…
+          {t('loading')}
         </div>
       )}
 
       {!loading && s && (
         <div style={{ maxWidth: 600, margin: '0 auto', padding: '20px 16px 80px' }}>
 
-          {/* A — 오늘 요약 */}
-          <SectionLabel accent={accent}>오늘 요약</SectionLabel>
+          {/* A — Today's Summary */}
+          <SectionLabel accent={accent}>{t('today_summary')}</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 28 }}>
             <StatCard
-              label="오늘 완료율"
+              label={t('today_completion_rate')}
               value={s.tasks.length > 0 ? `${Math.round(s.todayDone / s.tasks.length * 100)}%` : '—'}
               sub={`${s.todayDone}/${s.tasks.length}`}
               accent={accent}
             />
             <StatCard
-              label="최고 연속"
+              label={t('highest_streak')}
               value={s.maxStreak > 0 ? `🔥${s.maxStreak}` : '—'}
-              sub={s.maxStreak > 0 ? '일' : undefined}
+              sub={s.maxStreak > 0 ? (lang === 'en' ? 'd' : '일') : undefined}
               accent={accent}
             />
             <StatCard
@@ -290,24 +293,24 @@ export default function StatsPage() {
             />
           </div>
 
-          {/* A-2 — 이번 주 vs 지난 주 */}
-          <SectionLabel accent={accent}>이번 주 vs 지난 주</SectionLabel>
-          <WeekComparison thisWeek={s.thisWeekAvgPct} lastWeek={s.lastWeekAvgPct} accent={accent} />
+          {/* A-2 — This Week vs Last Week */}
+          <SectionLabel accent={accent}>{t('week_vs_last')}</SectionLabel>
+          <WeekComparison thisWeek={s.thisWeekAvgPct} lastWeek={s.lastWeekAvgPct} accent={accent} lang={lang} />
 
-          {/* B — 이번 주 */}
-          <SectionLabel accent={accent}>이번 주 완료 수</SectionLabel>
-          <WeekChart weekCounts={s.weekCounts} accent={accent} />
+          {/* B — This Week */}
+          <SectionLabel accent={accent}>{t('weekly_completions')}</SectionLabel>
+          <WeekChart weekCounts={s.weekCounts} accent={accent} lang={lang} />
 
-          {/* C — task 달성률 */}
-          <SectionLabel accent={accent}>이번 달 task 달성률</SectionLabel>
-          <TaskRates taskStats={s.taskStats} accent={accent} />
+          {/* C — Monthly task completion */}
+          <SectionLabel accent={accent}>{t('monthly_task_completion')}</SectionLabel>
+          <TaskRates taskStats={s.taskStats} accent={accent} lang={lang} />
 
-          {/* D — 히트맵 */}
-          <SectionLabel accent={accent}>최근 30일 히트맵</SectionLabel>
-          <Heatmap heatmap={s.heatmap} accent={accent} />
+          {/* D — Heatmap */}
+          <SectionLabel accent={accent}>{t('heatmap_30')}</SectionLabel>
+          <Heatmap heatmap={s.heatmap} accent={accent} lang={lang} />
 
-          {/* E — 가족 랭킹 */}
-          <SectionLabel accent={accent}>이번 주 가족 랭킹</SectionLabel>
+          {/* E — Family Ranking */}
+          <SectionLabel accent={accent}>{t('family_ranking')}</SectionLabel>
           <Ranking allStats={allStats} />
         </div>
       )}
@@ -342,26 +345,29 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
   );
 }
 
-function WeekComparison({ thisWeek, lastWeek, accent }: { thisWeek: number | null; lastWeek: number | null; accent: string }) {
+function WeekComparison({
+  thisWeek, lastWeek, accent, lang,
+}: { thisWeek: number | null; lastWeek: number | null; accent: string; lang: Lang }) {
+  const { t } = useLanguage();
   if (thisWeek === null || lastWeek === null) {
-    return <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 28 }}>아직 비교 데이터가 없어요</div>;
+    return <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 28 }}>{t('no_comparison_data')}</div>;
   }
   const diff      = thisWeek - lastWeek;
   const diffColor = diff > 0 ? '#3ddc97' : diff < 0 ? '#ff6b6b' : FG_SUB;
   const diffLabel = diff > 0
-    ? `↑ +${diff}% 향상`
+    ? `↑ +${diff}% ${t('improvement')}`
     : diff < 0
-    ? `↓ ${Math.abs(diff)}% 분발해봐요`
-    : '→ 유지';
+    ? `↓ ${Math.abs(diff)}% ${t('try_harder')}`
+    : `→ ${t('steady')}`;
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
         <div style={{ background: BG_CARD, border: `1px solid ${BD_CARD}`, borderRadius: 16, padding: '16px 14px' }}>
-          <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 8 }}>이번 주 평균</div>
+          <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 8 }}>{t('this_week_avg')}</div>
           <div style={{ fontSize: 30, fontWeight: 700, color: accent, lineHeight: 1 }}>{thisWeek}%</div>
         </div>
         <div style={{ background: BG_CARD, border: `1px solid ${BD_CARD}`, borderRadius: 16, padding: '16px 14px' }}>
-          <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 8 }}>지난 주 평균</div>
+          <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 8 }}>{t('last_week_avg')}</div>
           <div style={{ fontSize: 30, fontWeight: 700, color: FG_SUB, lineHeight: 1 }}>{lastWeek}%</div>
         </div>
       </div>
@@ -370,7 +376,8 @@ function WeekComparison({ thisWeek, lastWeek, accent }: { thisWeek: number | nul
   );
 }
 
-function WeekChart({ weekCounts, accent }: { weekCounts: number[]; accent: string }) {
+function WeekChart({ weekCounts, accent, lang }: { weekCounts: number[]; accent: string; lang: Lang }) {
+  const DOW_LABELS = lang === 'en' ? DOW_LABELS_EN : DOW_LABELS_KO;
   const todayIdx = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
   const max = Math.max(1, ...weekCounts);
   return (
@@ -412,14 +419,15 @@ function WeekChart({ weekCounts, accent }: { weekCounts: number[]; accent: strin
   );
 }
 
-function TaskRates({ taskStats, accent }: { taskStats: TaskStat[]; accent: string }) {
+function TaskRates({ taskStats, accent, lang }: { taskStats: TaskStat[]; accent: string; lang: Lang }) {
+  const { t } = useLanguage();
   if (!taskStats.length) {
-    return <div style={{ color: FG_SUB, fontSize: 14, marginBottom: 28 }}>task 없음</div>;
+    return <div style={{ color: FG_SUB, fontSize: 14, marginBottom: 28 }}>{t('no_tasks_stat')}</div>;
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
-      {taskStats.map((t, i) => {
-        const pct = Math.min(100, Math.round(t.done / t.possible * 100));
+      {taskStats.map((task, i) => {
+        const pct = Math.min(100, Math.round(task.done / task.possible * 100));
         return (
           <div key={i}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
@@ -427,7 +435,7 @@ function TaskRates({ taskStats, accent }: { taskStats: TaskStat[]; accent: strin
                 fontSize: 14, color: FG_MAIN,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%',
               }}>
-                {t.title}
+                {task.title}
               </span>
               <span style={{ fontSize: 14, fontWeight: 600, color: accent, flexShrink: 0 }}>{pct}%</span>
             </div>
@@ -445,7 +453,8 @@ function TaskRates({ taskStats, accent }: { taskStats: TaskStat[]; accent: strin
   );
 }
 
-function Heatmap({ heatmap, accent }: { heatmap: HeatDay[]; accent: string }) {
+function Heatmap({ heatmap, accent, lang }: { heatmap: HeatDay[]; accent: string; lang: Lang }) {
+  const { t } = useLanguage();
   const todayTs = startOfDay(new Date()).getTime();
   return (
     <div style={{ marginBottom: 28 }}>
@@ -470,8 +479,8 @@ function Heatmap({ heatmap, accent }: { heatmap: HeatDay[]; accent: string }) {
         })}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-        <span style={{ fontSize: 12, color: FG_SUB }}>30일 전</span>
-        <span style={{ fontSize: 12, color: FG_SUB }}>오늘</span>
+        <span style={{ fontSize: 12, color: FG_SUB }}>{t('days_ago_30')}</span>
+        <span style={{ fontSize: 12, color: FG_SUB }}>{t('today')}</span>
       </div>
     </div>
   );

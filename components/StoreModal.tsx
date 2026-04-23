@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { User } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Icon renderer ─────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ export function StoreModal({
   onClose: () => void;
   onRedeem: (reward: Reward) => Promise<void>;
 }) {
+  const { t } = useLanguage();
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
@@ -56,9 +58,9 @@ export function StoreModal({
     setRedeeming(reward.id);
     try {
       await onRedeem(reward);
-      toast.success(`🎉 "${reward.title}" 교환 완료!`);
+      toast.success(`🎉 "${reward.title}" ${t('exchange_complete')}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '교환 실패');
+      toast.error(e instanceof Error ? e.message : t('exchange_fail'));
     } finally {
       setRedeeming(null);
     }
@@ -77,7 +79,7 @@ export function StoreModal({
       >
         {/* header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] shrink-0">
-          <span className="font-bold text-[var(--fg)] text-base">🛒 {user.name}의 상점</span>
+          <span className="font-bold text-[var(--fg)] text-base">🛒 {user.name}{t('user_store_suffix')}</span>
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-[var(--accent)]">💰 {balance}pt</span>
             <button
@@ -92,11 +94,11 @@ export function StoreModal({
         {/* body */}
         <div className="overflow-y-auto p-4 space-y-3">
           {loading && (
-            <div className="text-center text-[var(--fg-muted)] py-8 text-sm">불러오는 중…</div>
+            <div className="text-center text-[var(--fg-muted)] py-8 text-sm">{t('loading')}</div>
           )}
           {!loading && rewards.length === 0 && (
             <div className="text-center text-[var(--fg-muted)] py-8 text-sm">
-              등록된 리워드가 없습니다
+              {t('no_rewards')}
             </div>
           )}
           {rewards.map(r => {
@@ -126,7 +128,7 @@ export function StoreModal({
                     cursor: canAfford && !redeeming ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  {busy ? '…' : '교환'}
+                  {busy ? '…' : t('redeem')}
                 </button>
               </div>
             );
