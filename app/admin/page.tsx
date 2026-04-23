@@ -219,6 +219,7 @@ export default function AdminPage() {
   const [newPinInput, setNewPinInput] = useState('');
   const [confirmPinInput, setConfirmPinInput] = useState('');
   const [pinChanging, setPinChanging] = useState(false);
+  const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
   const storeHydrate = useFamilyStore(s => s.hydrate);
   const router = useRouter();
 
@@ -573,501 +574,544 @@ export default function AdminPage() {
         />
       )}
 
-      <main className="min-h-screen bg-[#0b0d12] text-white p-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-bold">{t('admin_mode')}</h1>
-            <a href="/" className="text-[#8a8f99] text-sm hover:text-white">← {t('back_to_dashboard')}</a>
-          </div>
+      <main className="min-h-screen bg-[#0b0d12] text-white">
+        {/* Header */}
+        <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{t('admin_mode')}</h1>
+          <a href="/" className="text-[#8a8f99] text-sm hover:text-white">← {t('back_to_dashboard')}</a>
+        </div>
 
-          {/* Language / 언어 설정 */}
-          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">Language / 언어 설정</h2>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setLang('ko')}
-                className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
-                  lang === 'ko' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
-                }`}
-              >
-                Korean (한국어)
-              </button>
-              <button
-                onClick={() => setLang('en')}
-                className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
-                  lang === 'en' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
-                }`}
-              >
-                English
-              </button>
-            </div>
-          </div>
-
-          {/* Change Admin PIN */}
-          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('change_admin_pin')}</h2>
-            <div className="space-y-3">
-              <input
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                value={currentPinInput}
-                onChange={e => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
-                placeholder={t('current_pin')}
-                className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-              />
-              <input
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                value={newPinInput}
-                onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                placeholder={t('new_pin')}
-                className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-              />
-              <input
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                value={confirmPinInput}
-                onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
-                placeholder={t('confirm_new_pin')}
-                className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-              />
-              <button
-                onClick={handleChangePin}
-                disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
-                className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-              >
-                {pinChanging ? '…' : t('change_pin_btn')}
-              </button>
-            </div>
-          </div>
-
-          {/* Family member name setting */}
-          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('set_family_names')}</h2>
-            <div className="space-y-3">
-              {allUsers.map(u => (
-                <div key={u.id} className="flex items-center gap-3">
-                  {editingUserId === u.id ? (
-                    <>
-                      <input
-                        type="text"
-                        value={editingName}
-                        onChange={e => setEditingName(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') confirmEditName(u.id);
-                          if (e.key === 'Escape') cancelEditName();
-                        }}
-                        autoFocus
-                        className="flex-1 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#4f9cff]"
-                        style={{ minHeight: '48px', fontSize: '18px' }}
-                      />
-                      <button
-                        onClick={() => confirmEditName(u.id)}
-                        className="w-12 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors"
-                        style={{ minHeight: '48px' }}
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={cancelEditName}
-                        className="w-12 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors"
-                        style={{ minHeight: '48px' }}
-                      >
-                        ✗
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex-1 font-medium text-[18px]">{u.name}</span>
-                      <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
-                        {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
-                      </span>
-                      <button
-                        onClick={() => startEditName(u)}
-                        className="w-12 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
-                        style={{ minHeight: '48px', fontSize: '20px' }}
-                      >
-                        ✏️
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Select user */}
-          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('select_user')}</h2>
-            <div className="flex gap-3 flex-wrap">
-              {allUsers.map(u => (
+        {/* Sticky tab bar */}
+        <div className="sticky top-0 z-40 bg-[#0b0d12]/95 backdrop-blur border-b border-[#232831]">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex overflow-x-auto gap-1 py-2" style={{ scrollbarWidth: 'none' }}>
+              {([
+                { key: 'settings', label: '⚙️ Settings' },
+                { key: 'family',   label: '👨‍👩‍👧‍👦 Family' },
+                { key: 'tasks',    label: '✅ Tasks' },
+                { key: 'store',    label: '🎁 Store' },
+              ] as const).map(tab => (
                 <button
-                  key={u.id}
-                  onClick={() => loadTasks(u)}
-                  className={`px-5 py-3 rounded-xl font-semibold min-h-[var(--touch-target)] transition-colors ${
-                    selectedUser?.id === u.id
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors shrink-0 ${
+                    activeTab === tab.key
                       ? 'bg-[#4f9cff] text-white'
-                      : 'bg-[#232831] text-[#e8eaed] hover:bg-[#2d3545]'
+                      : 'text-[#8a8f99] hover:bg-[#232831] hover:text-white'
                   }`}
                 >
-                  {u.name}
+                  {tab.label}
                 </button>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Reset all progress */}
-          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-2 text-red-400">{t('reset_all_progress')}</h2>
-            <p className="text-[#8a8f99] text-sm mb-4">{t('reset_description')}</p>
-            <button
-              onClick={async () => {
-                if (!confirm(t('reset_confirm'))) return;
-                await resetAllProgress();
-                localStorage.removeItem('family_progress_reset_v1');
-                toast.success(t('reset_success'));
-                setTimeout(() => { location.href = '/'; }, 1000);
-              }}
-              className="px-6 py-3 rounded-xl bg-red-900/40 text-red-400 font-semibold border border-red-900/60 min-h-[var(--touch-target)] hover:bg-red-900/60 transition-colors"
-            >
-              {t('reset_full')}
-            </button>
-          </div>
+        {/* Tab content */}
+        <div key={activeTab} className="max-w-4xl mx-auto px-4 py-6 animate-fade-in">
 
-          {/* Store management */}
-          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('store_management')}</h2>
-            <div className="space-y-3 mb-6">
-              {rewards.map(r => (
-                <div key={r.id} className="flex items-center gap-2 p-3 rounded-xl bg-[#232831]">
-                  <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
-                    <LucideIcon name={r.icon} size={18} />
+          {/* ─── SETTINGS & SECURITY ─── */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              {/* Language */}
+              <div className="bg-[#141821] rounded-2xl p-6">
+                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">Language / 언어 설정</h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setLang('ko')}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
+                      lang === 'ko' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                    }`}
+                  >
+                    Korean (한국어)
+                  </button>
+                  <button
+                    onClick={() => setLang('en')}
+                    className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
+                      lang === 'en' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                    }`}
+                  >
+                    English
+                  </button>
+                </div>
+              </div>
+
+              {/* Change Admin PIN */}
+              <div className="bg-[#141821] rounded-2xl p-6">
+                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('change_admin_pin')}</h2>
+                <div className="space-y-3">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={currentPinInput}
+                    onChange={e => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder={t('current_pin')}
+                    className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                  />
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={newPinInput}
+                    onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder={t('new_pin')}
+                    className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                  />
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={confirmPinInput}
+                    onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder={t('confirm_new_pin')}
+                    className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                  />
+                  <button
+                    onClick={handleChangePin}
+                    disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
+                    className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                  >
+                    {pinChanging ? '…' : t('change_pin_btn')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="rounded-2xl p-6 border border-red-900/30 bg-red-900/5">
+                <h2 className="text-lg font-semibold mb-2 text-red-400">{t('reset_all_progress')}</h2>
+                <p className="text-[#8a8f99] text-sm mb-4">{t('reset_description')}</p>
+                <button
+                  onClick={async () => {
+                    if (!confirm(t('reset_confirm'))) return;
+                    await resetAllProgress();
+                    localStorage.removeItem('family_progress_reset_v1');
+                    toast.success(t('reset_success'));
+                    setTimeout(() => { location.href = '/'; }, 1000);
+                  }}
+                  className="px-6 py-3 rounded-xl bg-red-900/40 text-red-400 font-semibold border border-red-900/60 min-h-[var(--touch-target)] hover:bg-red-900/60 transition-colors"
+                >
+                  {t('reset_full')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── FAMILY ─── */}
+          {activeTab === 'family' && (
+            <div className="bg-[#141821] rounded-2xl p-6">
+              <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('set_family_names')}</h2>
+              <div className="space-y-3">
+                {allUsers.map(u => (
+                  <div key={u.id} className="flex items-center gap-3">
+                    {editingUserId === u.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editingName}
+                          onChange={e => setEditingName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') confirmEditName(u.id);
+                            if (e.key === 'Escape') cancelEditName();
+                          }}
+                          autoFocus
+                          className="flex-1 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#4f9cff]"
+                          style={{ minHeight: '48px', fontSize: '18px' }}
+                        />
+                        <button
+                          onClick={() => confirmEditName(u.id)}
+                          className="w-12 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors"
+                          style={{ minHeight: '48px' }}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={cancelEditName}
+                          className="w-12 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors"
+                          style={{ minHeight: '48px' }}
+                        >
+                          ✗
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 font-medium text-[18px]">{u.name}</span>
+                        <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
+                          {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
+                        </span>
+                        <button
+                          onClick={() => startEditName(u)}
+                          className="w-12 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
+                          style={{ minHeight: '48px', fontSize: '20px' }}
+                        >
+                          ✏️
+                        </button>
+                      </>
+                    )}
                   </div>
-                  {editingRewardId === r.id ? (
-                    <>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── TASKS ─── */}
+          {activeTab === 'tasks' && (
+            <div className="space-y-6">
+              {/* Select user */}
+              <div className="bg-[#141821] rounded-2xl p-6">
+                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('select_user')}</h2>
+                <div className="flex gap-3 flex-wrap">
+                  {allUsers.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => loadTasks(u)}
+                      className={`px-5 py-3 rounded-xl font-semibold min-h-[var(--touch-target)] transition-colors ${
+                        selectedUser?.id === u.id
+                          ? 'bg-[#4f9cff] text-white'
+                          : 'bg-[#232831] text-[#e8eaed] hover:bg-[#2d3545]'
+                      }`}
+                    >
+                      {u.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Task list */}
+              {selectedUser && (
+                <div className="bg-[#141821] rounded-2xl p-6">
+                  <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">
+                    {selectedUser.name}{t('user_tasks_suffix')}
+                  </h2>
+                  <div className="space-y-3 mb-6">
+                    {tasks.map((task, idx) => (
+                      <div
+                        key={task.id}
+                        className={`relative p-4 rounded-xl bg-[#232831] ${task.active === 0 ? 'opacity-50' : ''}`}
+                      >
+                        {/* Index badge */}
+                        <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-[#4f9cff] text-white text-xs font-bold flex items-center justify-center leading-none select-none">
+                          {idx + 1}
+                        </span>
+
+                        {/* Icon + title row */}
+                        <div className="flex items-center gap-2 mb-2 pl-6">
+                          <button
+                            onClick={() => setIconPickerTaskId(task.id)}
+                            className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
+                            title={t('icon_change')}
+                          >
+                            <LucideIcon name={task.icon} size={18} />
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              🎨
+                            </span>
+                          </button>
+
+                          {editingTaskId === task.id ? (
+                            <>
+                              <input
+                                type="text"
+                                value={editingTaskTitle}
+                                onChange={e => setEditingTaskTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') confirmEditTask(task.id);
+                                  if (e.key === 'Escape') cancelEditTask();
+                                }}
+                                autoFocus
+                                className="flex-1 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
+                                style={{ minHeight: 44, fontSize: 16 }}
+                              />
+                              <button
+                                onClick={() => confirmEditTask(task.id)}
+                                className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
+                                style={{ minHeight: 44 }}
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={cancelEditTask}
+                                className="w-11 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
+                                style={{ minHeight: 44 }}
+                              >
+                                ✗
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex-1 font-medium text-sm leading-snug">{task.title}</span>
+                              <button
+                                onClick={() => startEditTask(task)}
+                                className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
+                              >
+                                ✏️
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Order + points + toggle + delete row */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <button
+                            onClick={() => moveTask(idx, 'up')}
+                            disabled={idx === 0}
+                            className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center text-base hover:bg-[#2d3545] hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed shrink-0"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => moveTask(idx, 'down')}
+                            disabled={idx === tasks.length - 1}
+                            className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center text-base hover:bg-[#2d3545] hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed shrink-0"
+                          >
+                            ↓
+                          </button>
+                          <div className="flex items-center gap-1 flex-1">
+                            <input
+                              type="number"
+                              value={task.basePoints}
+                              onChange={e => setTasks(prev => prev.map(x => x.id === task.id ? { ...x, basePoints: Number(e.target.value) } : x))}
+                              onBlur={e => updateTaskPoints(task.id, Number(e.target.value))}
+                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                              min={1}
+                              max={999}
+                              className="w-16 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[44px]"
+                            />
+                            <span className="text-[#8a8f99] text-xs">pt</span>
+                          </div>
+                          <button
+                            onClick={() => toggleTask(task)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold min-h-[44px] ${
+                              task.active === 1 ? 'bg-[#3ddc97]/20 text-[#3ddc97]' : 'bg-[#8a8f99]/20 text-[#8a8f99]'
+                            }`}
+                          >
+                            {task.active === 1 ? 'ON' : 'OFF'}
+                          </button>
+                          <button
+                            onClick={() => deleteTask(task.id)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-900/30 text-red-400 min-h-[44px]"
+                          >
+                            {t('delete')}
+                          </button>
+                        </div>
+
+                        {/* Day-of-week toggles */}
+                        <div className="flex gap-1 mb-1">
+                          {ALL_DAYS.map(day => {
+                            const isOn = task.daysOfWeek.includes(day);
+                            const isSat = day === 'SAT';
+                            const isSun = day === 'SUN';
+                            return (
+                              <button
+                                key={day}
+                                onClick={() => toggleDay(task, day)}
+                                className={`flex-1 rounded-lg text-[11px] font-bold transition-colors ${
+                                  isOn
+                                    ? isSat || isSun
+                                      ? 'bg-[#f59e0b] text-[#1a1200]'
+                                      : 'bg-[#4f9cff] text-white'
+                                    : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                                }`}
+                                style={{ minHeight: 36 }}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Quick-select helpers */}
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={() => toggleDayGroup(task, WEEKDAYS)}
+                            className={`flex-1 rounded-lg text-[11px] font-semibold transition-colors border ${
+                              WEEKDAYS.every(d => task.daysOfWeek.includes(d))
+                                ? 'border-[#4f9cff] text-[#4f9cff] bg-[#4f9cff]/10'
+                                : 'border-[#2d3545] text-[#8a8f99] bg-[#1a1f2a] hover:bg-[#2d3545]'
+                            }`}
+                            style={{ minHeight: 30 }}
+                          >
+                            {t('weekdays_all')}
+                          </button>
+                          <button
+                            onClick={() => toggleDayGroup(task, WEEKEND)}
+                            className={`flex-1 rounded-lg text-[11px] font-semibold transition-colors border ${
+                              WEEKEND.every(d => task.daysOfWeek.includes(d))
+                                ? 'border-[#f59e0b] text-[#f59e0b] bg-[#f59e0b]/10'
+                                : 'border-[#2d3545] text-[#8a8f99] bg-[#1a1f2a] hover:bg-[#2d3545]'
+                            }`}
+                            style={{ minHeight: 30 }}
+                          >
+                            {t('weekends_all')}
+                          </button>
+                        </div>
+
+                        {/* Time window row */}
+                        <div className="flex gap-2">
+                          {([
+                            { value: null,      labelKey: 'all_day' },
+                            { value: 'morning', labelKey: 'morning' },
+                            { value: 'evening', labelKey: 'evening' },
+                          ] as const).map(opt => {
+                            const isActive = (opt.value === null ? !task.timeWindow : task.timeWindow === opt.value);
+                            const label = opt.value === null
+                              ? t('all_day')
+                              : opt.value === 'morning'
+                                ? `🌅 ${t('morning')}`
+                                : `🌙 ${t('evening')}`;
+                            return (
+                              <button
+                                key={String(opt.value)}
+                                onClick={() => setTimeWindow(task, opt.value)}
+                                className={`flex-1 rounded-lg text-sm font-semibold min-h-[44px] transition-colors ${
+                                  isActive
+                                    ? 'bg-[#f59e0b] text-[#1a1200]'
+                                    : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    {tasks.length === 0 && (
+                      <p className="text-[#8a8f99] text-center py-4">{t('no_tasks')}</p>
+                    )}
+                  </div>
+
+                  {/* Add new task */}
+                  <div className="border-t border-[#232831] pt-4">
+                    <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_task')}</h3>
+                    <div className="flex gap-3">
                       <input
                         type="text"
-                        value={editingRewardTitle}
-                        onChange={e => setEditingRewardTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
-                        autoFocus
-                        className="flex-1 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
-                        style={{ minHeight: 44, fontSize: 15 }}
+                        value={newTaskTitle}
+                        onChange={e => setNewTaskTitle(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addTask()}
+                        placeholder={t('task_name_placeholder')}
+                        className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                       />
                       <input
                         type="number"
-                        value={editingRewardPoints}
-                        onChange={e => setEditingRewardPoints(Number(e.target.value))}
+                        value={newTaskPoints}
+                        onChange={e => setNewTaskPoints(Number(e.target.value))}
                         min={1}
-                        className="w-20 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
-                        style={{ minHeight: 44 }}
+                        max={100}
+                        className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                       />
-                      <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
                       <button
-                        onClick={() => saveRewardEdit(r.id)}
-                        className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
-                        style={{ minHeight: 44 }}
-                      >✓</button>
-                      <button
-                        onClick={() => setEditingRewardId(null)}
-                        className="w-11 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
-                        style={{ minHeight: 44 }}
-                      >✗</button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex-1 font-medium text-sm truncate">{r.title}</span>
-                      <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#1a1f2a] shrink-0">{r.cost_points}pt</span>
-                      <button
-                        onClick={() => { setEditingRewardId(r.id); setEditingRewardTitle(r.title); setEditingRewardPoints(r.cost_points); }}
-                        className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
-                        style={{ minHeight: 44 }}
-                      >✏️</button>
-                      <button
-                        onClick={() => deleteReward(r.id)}
-                        className="w-9 h-9 rounded-lg bg-red-900/30 text-red-400 flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
-                        style={{ minHeight: 44 }}
+                        onClick={addTask}
+                        className="px-5 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
                       >
-                        <Icons.Trash2 size={15} />
+                        {t('add')}
                       </button>
-                    </>
-                  )}
-                </div>
-              ))}
-              {rewards.length === 0 && (
-                <p className="text-[#8a8f99] text-center py-4">{t('no_rewards_registered')}</p>
-              )}
-            </div>
-
-            {/* Add new reward */}
-            <div className="border-t border-[#232831] pt-4">
-              <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_new_reward')}</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setRewardIconPickerOpen(true)}
-                  className="w-11 rounded-xl bg-[#232831] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
-                  style={{ minHeight: 'var(--touch-target)' }}
-                  title={t('icon_select')}
-                >
-                  <LucideIcon name={newRewardIcon} size={20} />
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
-                </button>
-                <input
-                  type="text"
-                  value={newRewardTitle}
-                  onChange={e => setNewRewardTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addReward()}
-                  placeholder={t('reward_name_placeholder')}
-                  className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-                />
-                <input
-                  type="number"
-                  value={newRewardPoints}
-                  onChange={e => setNewRewardPoints(Number(e.target.value))}
-                  min={1}
-                  className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-                />
-                <button
-                  onClick={addReward}
-                  className="px-4 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
-                >
-                  {t('add')}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Task list */}
-          {selectedUser && (
-            <div className="bg-[#141821] rounded-2xl p-6 mb-6">
-              <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">
-                {selectedUser.name}{t('user_tasks_suffix')}
-              </h2>
-              <div className="space-y-3 mb-6">
-                {tasks.map((task, idx) => (
-                  <div
-                    key={task.id}
-                    className={`relative p-4 rounded-xl bg-[#232831] ${task.active === 0 ? 'opacity-50' : ''}`}
-                  >
-                    {/* Index badge */}
-                    <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-[#4f9cff] text-white text-xs font-bold flex items-center justify-center leading-none select-none">
-                      {idx + 1}
-                    </span>
-
-                    {/* Icon + title row */}
-                    <div className="flex items-center gap-2 mb-2 pl-6">
-                      <button
-                        onClick={() => setIconPickerTaskId(task.id)}
-                        className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
-                        title={t('icon_change')}
-                      >
-                        <LucideIcon name={task.icon} size={18} />
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          🎨
-                        </span>
-                      </button>
-
-                      {editingTaskId === task.id ? (
-                        <>
-                          <input
-                            type="text"
-                            value={editingTaskTitle}
-                            onChange={e => setEditingTaskTitle(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') confirmEditTask(task.id);
-                              if (e.key === 'Escape') cancelEditTask();
-                            }}
-                            autoFocus
-                            className="flex-1 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
-                            style={{ minHeight: 44, fontSize: 16 }}
-                          />
-                          <button
-                            onClick={() => confirmEditTask(task.id)}
-                            className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
-                            style={{ minHeight: 44 }}
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={cancelEditTask}
-                            className="w-11 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
-                            style={{ minHeight: 44 }}
-                          >
-                            ✗
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="flex-1 font-medium text-sm leading-snug">{task.title}</span>
-                          <button
-                            onClick={() => startEditTask(task)}
-                            className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
-                          >
-                            ✏️
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Order + points + toggle + delete row */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <button
-                        onClick={() => moveTask(idx, 'up')}
-                        disabled={idx === 0}
-                        className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center text-base hover:bg-[#2d3545] hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed shrink-0"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => moveTask(idx, 'down')}
-                        disabled={idx === tasks.length - 1}
-                        className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center text-base hover:bg-[#2d3545] hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed shrink-0"
-                      >
-                        ↓
-                      </button>
-                      <div className="flex items-center gap-1 flex-1">
-                        <input
-                          type="number"
-                          value={task.basePoints}
-                          onChange={e => setTasks(prev => prev.map(x => x.id === task.id ? { ...x, basePoints: Number(e.target.value) } : x))}
-                          onBlur={e => updateTaskPoints(task.id, Number(e.target.value))}
-                          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                          min={1}
-                          max={999}
-                          className="w-16 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[44px]"
-                        />
-                        <span className="text-[#8a8f99] text-xs">pt</span>
-                      </div>
-                      <button
-                        onClick={() => toggleTask(task)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold min-h-[44px] ${
-                          task.active === 1 ? 'bg-[#3ddc97]/20 text-[#3ddc97]' : 'bg-[#8a8f99]/20 text-[#8a8f99]'
-                        }`}
-                      >
-                        {task.active === 1 ? 'ON' : 'OFF'}
-                      </button>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-900/30 text-red-400 min-h-[44px]"
-                      >
-                        {t('delete')}
-                      </button>
-                    </div>
-
-                    {/* Day-of-week toggles */}
-                    <div className="flex gap-1 mb-1">
-                      {ALL_DAYS.map(day => {
-                        const isOn = task.daysOfWeek.includes(day);
-                        const isSat = day === 'SAT';
-                        const isSun = day === 'SUN';
-                        return (
-                          <button
-                            key={day}
-                            onClick={() => toggleDay(task, day)}
-                            className={`flex-1 rounded-lg text-[11px] font-bold transition-colors ${
-                              isOn
-                                ? isSat || isSun
-                                  ? 'bg-[#f59e0b] text-[#1a1200]'
-                                  : 'bg-[#4f9cff] text-white'
-                                : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
-                            }`}
-                            style={{ minHeight: 36 }}
-                          >
-                            {day}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* Quick-select helpers */}
-                    <div className="flex gap-2 mb-2">
-                      <button
-                        onClick={() => toggleDayGroup(task, WEEKDAYS)}
-                        className={`flex-1 rounded-lg text-[11px] font-semibold transition-colors border ${
-                          WEEKDAYS.every(d => task.daysOfWeek.includes(d))
-                            ? 'border-[#4f9cff] text-[#4f9cff] bg-[#4f9cff]/10'
-                            : 'border-[#2d3545] text-[#8a8f99] bg-[#1a1f2a] hover:bg-[#2d3545]'
-                        }`}
-                        style={{ minHeight: 30 }}
-                      >
-                        {t('weekdays_all')}
-                      </button>
-                      <button
-                        onClick={() => toggleDayGroup(task, WEEKEND)}
-                        className={`flex-1 rounded-lg text-[11px] font-semibold transition-colors border ${
-                          WEEKEND.every(d => task.daysOfWeek.includes(d))
-                            ? 'border-[#f59e0b] text-[#f59e0b] bg-[#f59e0b]/10'
-                            : 'border-[#2d3545] text-[#8a8f99] bg-[#1a1f2a] hover:bg-[#2d3545]'
-                        }`}
-                        style={{ minHeight: 30 }}
-                      >
-                        {t('weekends_all')}
-                      </button>
-                    </div>
-
-                    {/* Time window row */}
-                    <div className="flex gap-2">
-                      {([
-                        { value: null,       labelKey: 'all_day' },
-                        { value: 'morning',  labelKey: 'morning' },
-                        { value: 'evening',  labelKey: 'evening' },
-                      ] as const).map(opt => {
-                        const isActive = (opt.value === null ? !task.timeWindow : task.timeWindow === opt.value);
-                        const label = opt.value === null
-                          ? t('all_day')
-                          : opt.value === 'morning'
-                            ? `🌅 ${t('morning')}`
-                            : `🌙 ${t('evening')}`;
-                        return (
-                          <button
-                            key={String(opt.value)}
-                            onClick={() => setTimeWindow(task, opt.value)}
-                            className={`flex-1 rounded-lg text-sm font-semibold min-h-[44px] transition-colors ${
-                              isActive
-                                ? 'bg-[#f59e0b] text-[#1a1200]'
-                                : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── STORE ─── */}
+          {activeTab === 'store' && (
+            <div className="bg-[#141821] rounded-2xl p-6">
+              <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('store_management')}</h2>
+              <div className="space-y-3 mb-6">
+                {rewards.map(r => (
+                  <div key={r.id} className="flex items-center gap-2 p-3 rounded-xl bg-[#232831]">
+                    <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
+                      <LucideIcon name={r.icon} size={18} />
+                    </div>
+                    {editingRewardId === r.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editingRewardTitle}
+                          onChange={e => setEditingRewardTitle(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
+                          autoFocus
+                          className="flex-1 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
+                          style={{ minHeight: 44, fontSize: 15 }}
+                        />
+                        <input
+                          type="number"
+                          value={editingRewardPoints}
+                          onChange={e => setEditingRewardPoints(Number(e.target.value))}
+                          min={1}
+                          className="w-20 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
+                          style={{ minHeight: 44 }}
+                        />
+                        <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
+                        <button
+                          onClick={() => saveRewardEdit(r.id)}
+                          className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
+                          style={{ minHeight: 44 }}
+                        >✓</button>
+                        <button
+                          onClick={() => setEditingRewardId(null)}
+                          className="w-11 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
+                          style={{ minHeight: 44 }}
+                        >✗</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 font-medium text-sm truncate">{r.title}</span>
+                        <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#1a1f2a] shrink-0">{r.cost_points}pt</span>
+                        <button
+                          onClick={() => { setEditingRewardId(r.id); setEditingRewardTitle(r.title); setEditingRewardPoints(r.cost_points); }}
+                          className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
+                          style={{ minHeight: 44 }}
+                        >✏️</button>
+                        <button
+                          onClick={() => deleteReward(r.id)}
+                          className="w-9 h-9 rounded-lg bg-red-900/30 text-red-400 flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
+                          style={{ minHeight: 44 }}
+                        >
+                          <Icons.Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 ))}
-                {tasks.length === 0 && (
-                  <p className="text-[#8a8f99] text-center py-4">{t('no_tasks')}</p>
+                {rewards.length === 0 && (
+                  <p className="text-[#8a8f99] text-center py-4">{t('no_rewards_registered')}</p>
                 )}
               </div>
 
-              {/* Add new task */}
+              {/* Add new reward */}
               <div className="border-t border-[#232831] pt-4">
-                <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_task')}</h3>
-                <div className="flex gap-3">
+                <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_new_reward')}</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setRewardIconPickerOpen(true)}
+                    className="w-11 rounded-xl bg-[#232831] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
+                    style={{ minHeight: 'var(--touch-target)' }}
+                    title={t('icon_select')}
+                  >
+                    <LucideIcon name={newRewardIcon} size={20} />
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
+                  </button>
                   <input
                     type="text"
-                    value={newTaskTitle}
-                    onChange={e => setNewTaskTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addTask()}
-                    placeholder={t('task_name_placeholder')}
+                    value={newRewardTitle}
+                    onChange={e => setNewRewardTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addReward()}
+                    placeholder={t('reward_name_placeholder')}
                     className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                   />
                   <input
                     type="number"
-                    value={newTaskPoints}
-                    onChange={e => setNewTaskPoints(Number(e.target.value))}
+                    value={newRewardPoints}
+                    onChange={e => setNewRewardPoints(Number(e.target.value))}
                     min={1}
-                    max={100}
                     className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                   />
                   <button
-                    onClick={addTask}
-                    className="px-5 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
+                    onClick={addReward}
+                    className="px-4 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
                   >
                     {t('add')}
                   </button>
@@ -1075,11 +1119,13 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+        </div>
 
-          {/* Logout */}
+        {/* Logout — always visible outside tabs */}
+        <div className="max-w-4xl mx-auto px-4 pb-8">
           <button
             onClick={handleLogout}
-            className="w-full py-4 mt-8 rounded-2xl bg-[#141821] border border-red-900/30 text-red-400 hover:bg-red-900/10 font-semibold transition-colors"
+            className="w-full py-4 rounded-2xl bg-[#141821] border border-red-900/30 text-red-400 hover:bg-red-900/10 font-semibold transition-colors"
           >
             {t('logout')}
           </button>
