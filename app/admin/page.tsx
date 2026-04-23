@@ -9,7 +9,7 @@ import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
 import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
-import { verifyPin } from '@/lib/pin';
+import { getEffectiveAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
@@ -212,6 +212,13 @@ export default function AdminPage() {
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
   const [editingRewardPoints, setEditingRewardPoints] = useState(0);
+  // Admin PIN management
+  // undefined = still loading, null = no PIN configured, string = active hash
+  const [adminPinHash, setAdminPinHash] = useState<string | null | undefined>(undefined);
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [pinChanging, setPinChanging] = useState(false);
   const storeHydrate = useFamilyStore(s => s.hydrate);
   const router = useRouter();
 
@@ -227,11 +234,15 @@ export default function AdminPage() {
         avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
         createdAt: new Date(r.created_at),
       }));
-      setParents(users.filter(u => u.role === 'PARENT'));
+      const parentsList = users.filter(u => u.role === 'PARENT');
+      setParents(parentsList);
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => ({
         id: r.id, title: r.title, cost_points: r.cost_points, icon: r.icon,
       })));
+      // Load effective admin PIN hash (family_settings → users.pin_hash → env)
+      const hash = await getEffectiveAdminPinHash(parentsList);
+      setAdminPinHash(hash);
     };
     init();
   }, []);
@@ -243,15 +254,43 @@ export default function AdminPage() {
   };
 
   const handlePinSubmit = async () => {
+    if (adminPinHash === undefined) return; // still loading
     setError('');
-    for (const parent of parents) {
-      if (parent.pinHash && await verifyPin(pin, parent.pinHash)) {
-        setView('dashboard');
-        return;
-      }
+    if (adminPinHash && await verifyPin(pin, adminPinHash)) {
+      setView('dashboard');
+      return;
     }
     setError(t('pin_incorrect'));
     setPin('');
+  };
+
+  const handleChangePin = async () => {
+    if (pinChanging) return;
+    if (!/^\d{4}$/.test(newPinInput)) {
+      toast.error(t('pin_must_be_4_digits'));
+      return;
+    }
+    if (newPinInput !== confirmPinInput) {
+      toast.error(t('pin_mismatch'));
+      return;
+    }
+    if (adminPinHash && !await verifyPin(currentPinInput, adminPinHash)) {
+      toast.error(t('pin_incorrect'));
+      return;
+    }
+    setPinChanging(true);
+    try {
+      const newHash = await saveAdminPin(newPinInput);
+      setAdminPinHash(newHash);
+      setCurrentPinInput('');
+      setNewPinInput('');
+      setConfirmPinInput('');
+      toast.success(t('pin_changed'));
+    } catch {
+      toast.error(t('pin_change_failed'));
+    } finally {
+      setPinChanging(false);
+    }
   };
 
   const loadTasks = async (user: User) => {
@@ -494,20 +533,22 @@ export default function AdminPage() {
           <input
             type="password"
             inputMode="numeric"
-            maxLength={8}
+            pattern="[0-9]*"
+            maxLength={4}
             value={pin}
-            onChange={e => setPin(e.target.value)}
+            onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
             onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
-            placeholder="PIN"
+            placeholder="••••"
             className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] mb-4"
             style={{ minHeight: 'var(--touch-target)' }}
           />
           {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
           <button
             onClick={handlePinSubmit}
-            className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)]"
+            disabled={adminPinHash === undefined}
+            className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-50 transition-opacity"
           >
-            {t('confirm')}
+            {adminPinHash === undefined ? '…' : t('confirm')}
           </button>
           <a href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</a>
         </div>
@@ -558,6 +599,50 @@ export default function AdminPage() {
                 }`}
               >
                 English
+              </button>
+            </div>
+          </div>
+
+          {/* Change Admin PIN */}
+          <div className="bg-[#141821] rounded-2xl p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('change_admin_pin')}</h2>
+            <div className="space-y-3">
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={currentPinInput}
+                onChange={e => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder={t('current_pin')}
+                className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={newPinInput}
+                onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder={t('new_pin')}
+                className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={confirmPinInput}
+                onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder={t('confirm_new_pin')}
+                className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+              />
+              <button
+                onClick={handleChangePin}
+                disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
+                className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              >
+                {pinChanging ? '…' : t('change_pin_btn')}
               </button>
             </div>
           </div>

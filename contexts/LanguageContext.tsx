@@ -81,7 +81,16 @@ export type TranslationKey =
   | 'sound_unmute'
   | 'weekdays_all'
   | 'weekends_all'
-  | 'min_one_day';
+  | 'min_one_day'
+  | 'change_admin_pin'
+  | 'current_pin'
+  | 'new_pin'
+  | 'confirm_new_pin'
+  | 'pin_must_be_4_digits'
+  | 'pin_mismatch'
+  | 'pin_changed'
+  | 'pin_change_failed'
+  | 'change_pin_btn';
 
 const DICT: Record<Lang, Record<TranslationKey, string>> = {
   ko: {
@@ -162,6 +171,15 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     weekdays_all: '평일 전체',
     weekends_all: '주말 전체',
     min_one_day: '최소 하루 이상 선택해야 합니다',
+    change_admin_pin: '관리자 PIN 변경',
+    current_pin: '현재 PIN',
+    new_pin: '새 PIN',
+    confirm_new_pin: '새 PIN 확인',
+    pin_must_be_4_digits: 'PIN은 4자리 숫자여야 합니다',
+    pin_mismatch: '새 PIN이 일치하지 않습니다',
+    pin_changed: 'PIN이 변경되었습니다',
+    pin_change_failed: 'PIN 변경에 실패했습니다',
+    change_pin_btn: 'PIN 변경',
   },
   en: {
     new_record: 'New Record!',
@@ -241,6 +259,15 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     weekdays_all: 'All Weekdays',
     weekends_all: 'All Weekends',
     min_one_day: 'Please select at least one day',
+    change_admin_pin: 'Change Admin PIN',
+    current_pin: 'Current PIN',
+    new_pin: 'New PIN',
+    confirm_new_pin: 'Confirm New PIN',
+    pin_must_be_4_digits: 'PIN must be exactly 4 digits',
+    pin_mismatch: 'New PINs do not match',
+    pin_changed: 'PIN changed successfully',
+    pin_change_failed: 'Failed to change PIN',
+    change_pin_btn: 'Change PIN',
   },
 };
 
