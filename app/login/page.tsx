@@ -1,13 +1,9 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { createBrowserSupabase } from '@/lib/supabase';
 
 function LoginContent() {
-  const params = useSearchParams();
-  const isUnauthorized = params.get('error') === 'unauthorized';
-
   const handleGoogleLogin = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signInWithOAuth({
@@ -39,26 +35,11 @@ function LoginContent() {
         {/* 타이틀 */}
         <div style={{ fontSize: 36, marginBottom: 8 }}>🏠</div>
         <h1 style={{ color: '#ffffff', fontSize: 22, fontWeight: 700, margin: '0 0 6px' }}>
-          윤씨 가족 대시보드
+          Family Habit Dashboard
         </h1>
         <p style={{ color: '#8a8f99', fontSize: 14, margin: '0 0 36px' }}>
-          가족 전용 공간입니다
+          Google 계정으로 나만의 가족 대시보드를 시작하세요
         </p>
-
-        {/* 오류 메시지 */}
-        {isUnauthorized && (
-          <div style={{
-            background: 'rgba(220,50,50,0.12)',
-            border: '1px solid rgba(220,50,50,0.3)',
-            borderRadius: 12,
-            padding: '10px 14px',
-            marginBottom: 20,
-            color: '#ff8080',
-            fontSize: 13,
-          }}>
-            허용되지 않은 계정입니다
-          </div>
-        )}
 
         {/* 구글 로그인 버튼 */}
         <button

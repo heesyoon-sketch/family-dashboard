@@ -22,7 +22,22 @@ export async function GET(request: NextRequest) {
         },
       }
     );
+
     await supabase.auth.exchangeCodeForSession(code);
+
+    // New users who haven't created a family yet go to /setup
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: family } = await supabase
+        .from('families')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+
+      if (!family) {
+        return NextResponse.redirect(`${origin}/setup`);
+      }
+    }
   }
 
   return NextResponse.redirect(`${origin}/`);

@@ -21,6 +21,7 @@ export function getCurrentTimeOfDay(): TimeOfDay {
 }
 
 interface FamilyState {
+  familyId: string | null;
   users: User[];
   tasksByUser: Record<string, Task[]>;
   levelsByUser: Record<string, Level>;
@@ -51,6 +52,7 @@ function loadSoundPref(): boolean {
 let _timeIntervalStarted = false;
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
+  familyId: null,
   users: [],
   tasksByUser: {},
   levelsByUser: {},
@@ -66,6 +68,23 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
   hydrate: async () => {
     const supabase = createBrowserSupabase();
+
+    // Verify session and resolve family before fetching family data
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      set({ hydrated: true, familyId: null, users: [], tasksByUser: {}, levelsByUser: {}, todayCompletions: {} });
+      return;
+    }
+    const { data: family } = await supabase
+      .from('families')
+      .select('id')
+      .eq('owner_id', session.user.id)
+      .maybeSingle();
+    if (!family) {
+      set({ hydrated: true, familyId: null, users: [], tasksByUser: {}, levelsByUser: {}, todayCompletions: {} });
+      return;
+    }
+
     const now = new Date();
     const todayStart = startOfDayLocal(now);
     const noonToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
@@ -201,7 +220,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
     }
 
-    set({ users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true, timeOfDay });
+    set({ familyId: family.id, users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true, timeOfDay });
 
     if (!_timeIntervalStarted && typeof window !== 'undefined') {
       _timeIntervalStarted = true;

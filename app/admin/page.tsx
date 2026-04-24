@@ -212,6 +212,7 @@ export default function AdminPage() {
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
   const [editingRewardPoints, setEditingRewardPoints] = useState(0);
+  const [familyId, setFamilyId] = useState<string | null>(null);
   // Admin PIN management
   // undefined = still loading, null = no PIN configured, string = active hash
   const [adminPinHash, setAdminPinHash] = useState<string | null | undefined>(undefined);
@@ -226,6 +227,15 @@ export default function AdminPage() {
   useEffect(() => {
     const init = async () => {
       const supabase = createBrowserSupabase();
+
+      // Resolve family for INSERT operations; redirect if setup is incomplete
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace('/login'); return; }
+      const { data: family } = await supabase
+        .from('families').select('id').eq('owner_id', user.id).maybeSingle();
+      if (!family) { router.replace('/setup'); return; }
+      setFamilyId(family.id);
+
       const [userRes, rewardRes] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('rewards').select('*').order('cost_points'),
@@ -316,6 +326,7 @@ export default function AdminPage() {
       days_of_week: ALL_DAYS,
       active: 1,
       sort_order: maxSort + 1,
+      family_id: familyId,
     };
     const { data, error } = await supabase.from('tasks').insert(newTask).select().single();
     if (error) {
@@ -462,6 +473,7 @@ export default function AdminPage() {
       title: newRewardTitle.trim(),
       cost_points: Math.max(1, newRewardPoints),
       icon: newRewardIcon,
+      family_id: familyId,
     };
     const { data, error } = await supabase.from('rewards').insert(payload).select().single();
     if (error) { toast.error(`${t('reward_add_failed')}: ${error.message}`); return; }

@@ -4,13 +4,10 @@ import { createBrowserSupabase } from './supabase';
 import { hashPin, verifyPin } from './pin';
 import type { User } from './db';
 
-/**
- * Fetches the admin PIN hash stored in family_settings.
- * Returns null if the table doesn't exist yet or no row is found.
- */
 async function fetchSettingsPinHash(): Promise<string | null> {
   try {
     const supabase = createBrowserSupabase();
+    // RLS automatically scopes this to the current user's family
     const { data } = await supabase
       .from('family_settings')
       .select('value')
@@ -24,11 +21,9 @@ async function fetchSettingsPinHash(): Promise<string | null> {
 
 /**
  * Returns the effective admin PIN hash, checking sources in priority order:
- *  1. family_settings table  (DB — new system)
- *  2. users.pin_hash for PARENT users  (legacy column — backward compat)
+ *  1. family_settings table  (DB — per-family)
+ *  2. users.pin_hash for PARENT users  (legacy backward-compat)
  *  3. NEXT_PUBLIC_ADMIN_PIN env variable  (initial-setup fallback)
- *
- * Returns null when no PIN is configured anywhere.
  */
 export async function getEffectiveAdminPinHash(
   parents: Pick<User, 'pinHash'>[],
@@ -46,17 +41,33 @@ export async function getEffectiveAdminPinHash(
 }
 
 /**
- * Hashes newPin and upserts it into family_settings as 'admin_pin_hash'.
+ * Hashes newPin and upserts it into family_settings for the current family.
  * Returns the new hash so the caller can update local state immediately.
  */
 export async function saveAdminPin(newPin: string): Promise<string> {
   const hash = await hashPin(newPin);
   const supabase = createBrowserSupabase();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: family } = await supabase
+    .from('families')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single();
+  if (!family) throw new Error('No family found');
+
   const { error } = await supabase
     .from('family_settings')
     .upsert(
-      { key: 'admin_pin_hash', value: hash, updated_at: new Date().toISOString() },
-      { onConflict: 'key' },
+      {
+        key:        'admin_pin_hash',
+        value:      hash,
+        updated_at: new Date().toISOString(),
+        family_id:  family.id,
+      },
+      { onConflict: 'key,family_id' },
     );
   if (error) throw error;
   return hash;
