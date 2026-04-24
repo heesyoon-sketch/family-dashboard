@@ -28,13 +28,9 @@ export async function GET(request: NextRequest) {
     // New users who haven't created a family yet go to /setup
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data: family } = await supabase
-        .from('families')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle();
+      const { data: familyId } = await supabase.rpc('get_my_family_id');
 
-      if (!family) {
+      if (!familyId) {
         return NextResponse.redirect(`${origin}/setup`);
       }
     }

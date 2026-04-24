@@ -213,6 +213,7 @@ export default function AdminPage() {
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
   const [editingRewardPoints, setEditingRewardPoints] = useState(0);
   const [familyId, setFamilyId] = useState<string | null>(null);
+  const [familyInviteCode, setFamilyInviteCode] = useState<string | null>(null);
   // Admin PIN management
   // undefined = still loading, null = no PIN configured, string = active hash
   const [adminPinHash, setAdminPinHash] = useState<string | null | undefined>(undefined);
@@ -231,10 +232,16 @@ export default function AdminPage() {
       // Resolve family for INSERT operations; redirect if setup is incomplete
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
+      const { data: resolvedFamilyId } = await supabase.rpc('get_my_family_id');
+      if (!resolvedFamilyId) { router.replace('/setup'); return; }
+      setFamilyId(resolvedFamilyId);
+
       const { data: family } = await supabase
-        .from('families').select('id').eq('owner_id', user.id).maybeSingle();
-      if (!family) { router.replace('/setup'); return; }
-      setFamilyId(family.id);
+        .from('families')
+        .select('id, invite_code')
+        .eq('id', resolvedFamilyId)
+        .maybeSingle();
+      setFamilyInviteCode(family?.invite_code ?? null);
 
       const [userRes, rewardRes] = await Promise.all([
         supabase.from('users').select('*'),
@@ -302,6 +309,12 @@ export default function AdminPage() {
     } finally {
       setPinChanging(false);
     }
+  };
+
+  const copyInviteCode = async () => {
+    if (!familyInviteCode) return;
+    await navigator.clipboard.writeText(familyInviteCode);
+    toast.success('Invitation code copied');
   };
 
   const loadTasks = async (user: User) => {
@@ -625,6 +638,35 @@ export default function AdminPage() {
           {/* ─── SETTINGS & SECURITY ─── */}
           {activeTab === 'settings' && (
             <div className="space-y-6">
+              {/* Family invitation */}
+              <div className="bg-[#141821] rounded-2xl p-6">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#4f9cff]">Family Invitation</h2>
+                    <p className="text-[#8a8f99] text-sm mt-1">
+                      Share this code with a family member after they sign in with Google.
+                    </p>
+                  </div>
+                  <Icons.UsersRound className="text-[#4f9cff] shrink-0" size={22} />
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1 rounded-xl bg-[#232831] border border-[#2d3545] px-4 py-3 min-h-[var(--touch-target)] flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold tracking-[0.25em]">
+                      {familyInviteCode ?? '------'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={copyInviteCode}
+                    disabled={!familyInviteCode}
+                    className="w-14 rounded-xl bg-[#4f9cff] text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d8bed] transition-colors"
+                    style={{ minHeight: 'var(--touch-target)' }}
+                    title="Copy invitation code"
+                  >
+                    <Icons.Copy size={20} />
+                  </button>
+                </div>
+              </div>
+
               {/* Language */}
               <div className="bg-[#141821] rounded-2xl p-6">
                 <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">Language / 언어 설정</h2>

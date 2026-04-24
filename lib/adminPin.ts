@@ -51,12 +51,8 @@ export async function saveAdminPin(newPin: string): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { data: family } = await supabase
-    .from('families')
-    .select('id')
-    .eq('owner_id', user.id)
-    .single();
-  if (!family) throw new Error('No family found');
+  const { data: familyId } = await supabase.rpc('get_my_family_id');
+  if (!familyId) throw new Error('No family found');
 
   const { error } = await supabase
     .from('family_settings')
@@ -65,7 +61,7 @@ export async function saveAdminPin(newPin: string): Promise<string> {
         key:        'admin_pin_hash',
         value:      hash,
         updated_at: new Date().toISOString(),
-        family_id:  family.id,
+        family_id:  familyId,
       },
       { onConflict: 'key,family_id' },
     );

@@ -75,12 +75,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       set({ hydrated: true, familyId: null, users: [], tasksByUser: {}, levelsByUser: {}, todayCompletions: {} });
       return;
     }
-    const { data: family } = await supabase
-      .from('families')
-      .select('id')
-      .eq('owner_id', session.user.id)
-      .maybeSingle();
-    if (!family) {
+    const { data: familyId } = await supabase.rpc('get_my_family_id');
+    if (!familyId) {
       set({ hydrated: true, familyId: null, users: [], tasksByUser: {}, levelsByUser: {}, todayCompletions: {} });
       return;
     }
@@ -220,7 +216,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
     }
 
-    set({ familyId: family.id, users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true, timeOfDay });
+    set({ familyId, users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true, timeOfDay });
 
     if (!_timeIntervalStarted && typeof window !== 'undefined') {
       _timeIntervalStarted = true;
