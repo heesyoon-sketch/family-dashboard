@@ -13,8 +13,8 @@ import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const SWIPE_TRIGGER_PX = 110;
-// 64px: 4 rows × 64 + 3 gaps × 8 = 280px task area — sweet spot for legibility + fit
-const CARD_H = 64;
+// 72px keeps the entire card as a comfortable touch target on tablets/laptops.
+const CARD_H = 72;
 
 function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
@@ -102,19 +102,19 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         whileTap={{ scale: 0.97 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--bg-card)]',
-          'px-3 py-2 flex items-center gap-2.5 cursor-pointer',
+          'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
           'ring-1 ring-inset',
           completed ? 'ring-[var(--accent)] opacity-55' : 'ring-[var(--border)]',
         ].join(' ')}
       >
-        {/* Icon — w-8 h-8 = 32px, meets legibility; shrink-0 prevents squishing */}
-        <div className="w-8 h-8 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
-          <LucideIcon size={16} className="text-[var(--accent)]" />
+        {/* Icon — 40px, readable and comfortable on touch screens */}
+        <div className="w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
+          <LucideIcon size={19} className="text-[var(--accent)]" />
         </div>
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <div className="flex-1 min-w-0">
-          <div className={`text-sm font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
+          <div className={`text-[15px] font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
           <div className="text-xs text-[var(--fg-muted)] mt-0.5 truncate">
@@ -123,10 +123,10 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           </div>
         </div>
 
-        {/* Completed toggle — w-10 h-10 (40px) touch target, shrink-0 */}
+        {/* Completed toggle — 48px touch target, shrink-0 */}
         {completed && (
-          <div className="w-10 h-10 flex items-center justify-center shrink-0">
-            <Icons.CheckCircle2 size={22} className="text-[var(--success)]" />
+          <div className="w-12 h-12 flex items-center justify-center shrink-0">
+            <Icons.CheckCircle2 size={26} className="text-[var(--success)]" />
           </div>
         )}
       </motion.div>

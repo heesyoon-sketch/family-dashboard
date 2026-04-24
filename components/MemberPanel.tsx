@@ -41,7 +41,7 @@ function PanelSkeleton({ theme }: { theme: string }) {
             {...pulse}
             transition={{ ...pulse.transition, delay: i * 0.06 }}
             className="rounded-2xl bg-[var(--bg-card)]"
-            style={{ height: 64 }}
+            style={{ height: 72 }}
           />
         ))}
       </div>

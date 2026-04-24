@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Settings, BarChart2 } from 'lucide-react';
+import { BarChart2, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useFamilyStore } from '@/lib/store';
@@ -10,6 +11,34 @@ import type { ThemeName } from '@/lib/db';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 const ORDER: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
+
+function NavIconButton({
+  children,
+  label,
+  onClick,
+  href,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  href?: string;
+}) {
+  const className = 'app-nav-button';
+  if (href) {
+    return (
+      <Link href={href} aria-label={label} className={className} title={label}>
+        {children}
+        <span>{label}</span>
+      </Link>
+    );
+  }
+  return (
+    <button onClick={onClick} aria-label={label} className={className} title={label}>
+      {children}
+      <span>{label}</span>
+    </button>
+  );
+}
 
 function formatDate(d: Date, timeOfDay: 'morning' | 'evening', lang: Lang): string {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
@@ -30,7 +59,8 @@ export default function Dashboard() {
   const timeOfDay = useFamilyStore(s => s.timeOfDay);
   const hydrated  = useFamilyStore(s => s.hydrated);
   const familyId  = useFamilyStore(s => s.familyId);
-  const [dateLabel, setDateLabel] = useState(() => formatDate(new Date(), useFamilyStore.getState().timeOfDay, 'ko'));
+  const [now, setNow] = useState(() => new Date());
+  const dateLabel = formatDate(now, timeOfDay, lang);
 
   // Initial load
   useEffect(() => {
@@ -52,18 +82,10 @@ export default function Dashboard() {
     return () => ch.close();
   }, [hydrate]);
 
-  // Update date label when timeOfDay or language changes
   useEffect(() => {
-    setDateLabel(formatDate(new Date(), timeOfDay, lang));
-  }, [timeOfDay, lang]);
-
-  useEffect(() => {
-    const tick = () => {
-      setDateLabel(formatDate(new Date(), useFamilyStore.getState().timeOfDay, lang));
-    };
-    const id = setInterval(tick, 60_000);
+    const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
-  }, [lang]);
+  }, []);
 
   const slots = ORDER.map(theme => users.find(u => u.theme === theme));
 
@@ -72,8 +94,40 @@ export default function Dashboard() {
     return <div style={{ minHeight: '100vh', background: '#0b0d12' }} />;
   }
 
+  const renderNav = () => (
+    <>
+      <NavIconButton
+        label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
+        onClick={toggleSound}
+      >
+        {soundEnabled ? <Volume2 size={22} /> : <VolumeX size={22} />}
+      </NavIconButton>
+      <NavIconButton label={t('weekly_completions')} href="/stats">
+        <BarChart2 size={22} />
+      </NavIconButton>
+      <NavIconButton label={t('admin_mode')} href="/admin">
+        <Settings size={22} />
+      </NavIconButton>
+    </>
+  );
+
   return (
-    <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, right: 0 }}>
+    <div
+      style={{
+        height: '100vh',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'fixed',
+        top: 0,
+        left: 'var(--app-nav-width)',
+        right: 0,
+        bottom: 'var(--app-bottom-nav-height)',
+      }}
+    >
+      <aside className="app-sidebar" aria-label="Dashboard navigation">
+        {renderNav()}
+      </aside>
       {/* Header: 36px fixed */}
       <header style={{
         height: 36,
@@ -110,30 +164,9 @@ export default function Dashboard() {
         <CelebrationOverlay data={celebration} onDismiss={dismissCelebration} />
       )}
 
-      {/* Bottom-right buttons */}
-      <div style={{ position: 'fixed', bottom: 16, right: 16, display: 'flex', gap: 8, zIndex: 50 }}>
-        <button
-          onClick={toggleSound}
-          aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
-          style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-        >
-          {soundEnabled ? '🔊' : '🔇'}
-        </button>
-        <a
-          href="/stats"
-          aria-label={t('weekly_completions')}
-          style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <BarChart2 size={22} />
-        </a>
-        <a
-          href="/admin"
-          aria-label={t('admin_mode')}
-          style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Settings size={22} />
-        </a>
-      </div>
+      <nav className="app-bottom-nav" aria-label="Dashboard navigation">
+        {renderNav()}
+      </nav>
     </div>
   );
 }

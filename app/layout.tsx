@@ -1,18 +1,40 @@
 import './globals.css';
-import { SwInit } from '@/components/SwInit';
+import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'sonner';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Family Habit Dashboard',
-  manifest: '/manifest.webmanifest',
+  description: 'A family habit dashboard for tasks, rewards, XP, and coins.',
+  applicationName: 'Family Habit Dashboard',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'FamilyHabit',
+    statusBarStyle: 'black-translucent',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#141821',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +42,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body>
         <LanguageProvider>
-          <SwInit />
           <Toaster position="top-center" richColors />
           {children}
         </LanguageProvider>
