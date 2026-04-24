@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { createBrowserSupabase } from './supabase';
+import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions } from './offlineQueue';
 
 export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
@@ -38,6 +39,7 @@ interface FamilyState {
   hydrate: () => Promise<void>;
   markCompleted: (userId: string, taskId: string) => Promise<void>;
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
+  syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
   dismissCelebration: () => void;
   toggleSound: () => void;
@@ -50,6 +52,8 @@ function loadSoundPref(): boolean {
 }
 
 let _timeIntervalStarted = false;
+let _offlineSyncListenersStarted = false;
+let _syncInFlight = false;
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyId: null,
@@ -103,6 +107,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const users: User[] = (uRes.data ?? []).map(r => ({
       id: r.id, name: r.name, role: r.role, theme: r.theme,
       avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
+      authUserId: r.auth_user_id ?? undefined,
       createdAt: new Date(r.created_at),
     }));
 
@@ -227,6 +232,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         }
       }, 60_000);
     }
+
+    if (!_offlineSyncListenersStarted && typeof window !== 'undefined') {
+      _offlineSyncListenersStarted = true;
+      window.addEventListener('online', () => {
+        useFamilyStore.getState().syncOfflineActions().catch(console.error);
+      });
+    }
+
+    if (isProbablyOnline()) {
+      get().syncOfflineActions().catch(console.error);
+    }
   },
 
   markCompleted: async (userId, taskId) => {
@@ -237,8 +253,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       },
     }));
 
-    const { processCompletion } = await import('./gamification');
-    const result = await processCompletion(userId, taskId);
+    if (!isProbablyOnline()) {
+      await enqueueTaskAction('complete', userId, taskId);
+      return;
+    }
+
+    let result;
+    try {
+      const { processCompletion } = await import('./gamification');
+      result = await processCompletion(userId, taskId);
+    } catch (error) {
+      await enqueueTaskAction('complete', userId, taskId);
+      console.warn('Queued completion for offline sync', error);
+      return;
+    }
 
     set(state => ({
       levelsByUser: result.level
@@ -256,13 +284,54 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       },
     }));
 
-    const { processUndo } = await import('./gamification');
-    const updatedLevel = await processUndo(userId, taskId);
+    if (!isProbablyOnline()) {
+      await enqueueTaskAction('undo', userId, taskId);
+      return;
+    }
+
+    let updatedLevel;
+    try {
+      const { processUndo } = await import('./gamification');
+      updatedLevel = await processUndo(userId, taskId);
+    } catch (error) {
+      await enqueueTaskAction('undo', userId, taskId);
+      console.warn('Queued undo for offline sync', error);
+      return;
+    }
 
     if (updatedLevel) {
       set(state => ({
         levelsByUser: { ...state.levelsByUser, [userId]: updatedLevel },
       }));
+    }
+  },
+
+  syncOfflineActions: async () => {
+    if (_syncInFlight || !isProbablyOnline()) return;
+    _syncInFlight = true;
+    try {
+      const actions = await listTaskActions();
+      if (actions.length === 0) return;
+
+      const { processCompletion, processUndo } = await import('./gamification');
+      for (const action of actions) {
+        try {
+          if (action.type === 'complete') {
+            await processCompletion(action.userId, action.taskId);
+          } else {
+            await processUndo(action.userId, action.taskId);
+          }
+          await deleteTaskAction(action.id);
+        } catch (error) {
+          console.warn('Offline action sync paused', error);
+          break;
+        }
+      }
+
+      await get().hydrate();
+      new BroadcastChannel('habit_sync').postMessage('update');
+    } finally {
+      _syncInFlight = false;
     }
   },
 

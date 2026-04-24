@@ -11,6 +11,7 @@ import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND } from '
 import { legacyRecurrenceToDays } from '@/lib/db';
 import { getEffectiveAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
+import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -192,6 +193,7 @@ export default function AdminPage() {
   const [view, setView] = useState<View>('pin');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [isParentAdmin, setIsParentAdmin] = useState(false);
   const [parents, setParents] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -221,6 +223,7 @@ export default function AdminPage() {
   const [newPinInput, setNewPinInput] = useState('');
   const [confirmPinInput, setConfirmPinInput] = useState('');
   const [pinChanging, setPinChanging] = useState(false);
+  const [deletingFamily, setDeletingFamily] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
   const storeHydrate = useFamilyStore(s => s.hydrate);
   const router = useRouter();
@@ -250,6 +253,7 @@ export default function AdminPage() {
       const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
         avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
+        authUserId: r.auth_user_id ?? undefined,
         createdAt: new Date(r.created_at),
       }));
       const parentsList = users.filter(u => u.role === 'PARENT');
@@ -258,6 +262,8 @@ export default function AdminPage() {
       setRewards((rewardRes.data ?? []).map(r => ({
         id: r.id, title: r.title, cost_points: r.cost_points, icon: r.icon,
       })));
+      const { data: parentAllowed } = await supabase.rpc('is_my_family_parent');
+      setIsParentAdmin(Boolean(parentAllowed));
       // Load effective admin PIN hash (family_settings → users.pin_hash → env)
       const hash = await getEffectiveAdminPinHash(parentsList);
       setAdminPinHash(hash);
@@ -271,9 +277,32 @@ export default function AdminPage() {
     window.location.href = '/';
   };
 
+  const handleDeleteFamilyData = async () => {
+    if (deletingFamily) return;
+    const confirmed = confirm('이 작업은 되돌릴 수 없습니다. 모든 가족 구성원, 습관, 보상 데이터가 영구적으로 삭제됩니다. 정말 삭제하시겠습니까?');
+    if (!confirmed) return;
+
+    setDeletingFamily(true);
+    try {
+      await deleteCurrentFamilyData();
+      const supabase = createBrowserSupabase();
+      await supabase.auth.signOut();
+      window.location.href = '/login?deleted=1';
+    } catch (error) {
+      console.error(error);
+      toast.error('가족 데이터 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      setDeletingFamily(false);
+    }
+  };
+
   const handlePinSubmit = async () => {
     if (adminPinHash === undefined) return; // still loading
     setError('');
+    if (!isParentAdmin) {
+      setError('Parent account required');
+      setPin('');
+      return;
+    }
     if (adminPinHash && await verifyPin(pin, adminPinHash)) {
       setView('dashboard');
       return;
@@ -328,20 +357,17 @@ export default function AdminPage() {
     if (!selectedUser || !newTaskTitle.trim()) return;
     const supabase = createBrowserSupabase();
     const maxSort = tasks.reduce((m, task) => Math.max(m, task.sortOrder), -1);
-    const newTask = {
-      id: crypto.randomUUID(),
-      user_id: selectedUser.id,
-      title: newTaskTitle.trim(),
-      icon: 'check-circle',
-      difficulty: 'MEDIUM' as Difficulty,
-      base_points: newTaskPoints,
-      recurrence: 'daily',
-      days_of_week: ALL_DAYS,
-      active: 1,
-      sort_order: maxSort + 1,
-      family_id: familyId,
-    };
-    const { data, error } = await supabase.from('tasks').insert(newTask).select().single();
+    const { data, error } = await supabase.rpc('admin_insert_task', {
+      p_user_id: selectedUser.id,
+      p_title: newTaskTitle.trim(),
+      p_icon: 'check-circle',
+      p_difficulty: 'MEDIUM',
+      p_base_points: newTaskPoints,
+      p_recurrence: 'daily',
+      p_days_of_week: ALL_DAYS,
+      p_active: 1,
+      p_sort_order: maxSort + 1,
+    });
     if (error) {
       toast.error(`${t('task_add_failed')}: ${error.message}`);
       return;
@@ -359,7 +385,7 @@ export default function AdminPage() {
   const toggleTask = async (task: Task) => {
     const supabase = createBrowserSupabase();
     const newActive = task.active === 1 ? 0 : 1;
-    await supabase.from('tasks').update({ active: newActive }).eq('id', task.id);
+    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { active: newActive } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, active: newActive } : t));
     await storeHydrate();
     router.refresh();
@@ -368,7 +394,7 @@ export default function AdminPage() {
 
   const deleteTask = async (taskId: string) => {
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').delete().eq('id', taskId);
+    await supabase.rpc('admin_delete_task', { p_task_id: taskId });
     setTasks(prev => prev.filter(task => task.id !== taskId));
     await storeHydrate();
     router.refresh();
@@ -382,8 +408,8 @@ export default function AdminPage() {
     const aOrder = tasks[index].sortOrder;
     const bOrder = tasks[other].sortOrder;
     await Promise.all([
-      supabase.from('tasks').update({ sort_order: bOrder }).eq('id', tasks[index].id),
-      supabase.from('tasks').update({ sort_order: aOrder }).eq('id', tasks[other].id),
+      supabase.rpc('admin_update_task', { p_task_id: tasks[index].id, p_patch: { sort_order: bOrder } }),
+      supabase.rpc('admin_update_task', { p_task_id: tasks[other].id, p_patch: { sort_order: aOrder } }),
     ]);
     const updated = tasks.map((task, i) => {
       if (i === index) return { ...task, sortOrder: bOrder };
@@ -410,7 +436,7 @@ export default function AdminPage() {
     const trimmed = editingTaskTitle.trim();
     if (!trimmed) return;
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').update({ title: trimmed }).eq('id', taskId);
+    await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { title: trimmed } });
     setTasks(prev => prev.map(task => task.id === taskId ? { ...task, title: trimmed } : task));
     setEditingTaskId(null);
     setEditingTaskTitle('');
@@ -421,7 +447,7 @@ export default function AdminPage() {
 
   const selectIcon = async (taskId: string, icon: string) => {
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').update({ icon }).eq('id', taskId);
+    await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { icon } });
     setTasks(prev => prev.map(task => task.id === taskId ? { ...task, icon } : task));
     setIconPickerTaskId(null);
     await storeHydrate();
@@ -431,7 +457,7 @@ export default function AdminPage() {
 
   const saveDaysOfWeek = async (task: Task, daysOfWeek: DayOfWeek[]) => {
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').update({ days_of_week: daysOfWeek }).eq('id', task.id);
+    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { days_of_week: daysOfWeek } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, daysOfWeek } : t));
     await storeHydrate();
     router.refresh();
@@ -461,7 +487,7 @@ export default function AdminPage() {
 
   const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening' | null) => {
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').update({ time_window: timeWindow }).eq('id', task.id);
+    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindow ?? '' } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindow ?? undefined } : t));
     await storeHydrate();
     router.refresh();
@@ -471,7 +497,7 @@ export default function AdminPage() {
   const updateTaskPoints = async (taskId: string, rawValue: number) => {
     const pts = Math.max(1, Math.round(rawValue) || 1);
     const supabase = createBrowserSupabase();
-    await supabase.from('tasks').update({ base_points: pts }).eq('id', taskId);
+    await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { base_points: pts } });
     setTasks(prev => prev.map(task => task.id === taskId ? { ...task, basePoints: pts } : task));
     await storeHydrate();
     router.refresh();
@@ -481,14 +507,11 @@ export default function AdminPage() {
   const addReward = async () => {
     if (!newRewardTitle.trim()) return;
     const supabase = createBrowserSupabase();
-    const payload = {
-      id: crypto.randomUUID(),
-      title: newRewardTitle.trim(),
-      cost_points: Math.max(1, newRewardPoints),
-      icon: newRewardIcon,
-      family_id: familyId,
-    };
-    const { data, error } = await supabase.from('rewards').insert(payload).select().single();
+    const { data, error } = await supabase.rpc('admin_insert_reward', {
+      p_title: newRewardTitle.trim(),
+      p_cost_points: Math.max(1, newRewardPoints),
+      p_icon: newRewardIcon,
+    });
     if (error) { toast.error(`${t('reward_add_failed')}: ${error.message}`); return; }
     if (data) setRewards(prev => [...prev, { id: data.id, title: data.title, cost_points: data.cost_points, icon: data.icon }].sort((a, b) => a.cost_points - b.cost_points));
     setNewRewardTitle('');
@@ -505,7 +528,7 @@ export default function AdminPage() {
     if (!trimmed) return;
     const pts = Math.max(1, Math.round(editingRewardPoints) || 1);
     const supabase = createBrowserSupabase();
-    await supabase.from('rewards').update({ title: trimmed, cost_points: pts }).eq('id', rewardId);
+    await supabase.rpc('admin_update_reward', { p_reward_id: rewardId, p_title: trimmed, p_cost_points: pts });
     setRewards(prev => prev.map(r => r.id === rewardId ? { ...r, title: trimmed, cost_points: pts } : r));
     setEditingRewardId(null);
     await storeHydrate();
@@ -515,7 +538,7 @@ export default function AdminPage() {
 
   const deleteReward = async (rewardId: string) => {
     const supabase = createBrowserSupabase();
-    await supabase.from('rewards').delete().eq('id', rewardId);
+    await supabase.rpc('admin_delete_reward', { p_reward_id: rewardId });
     setRewards(prev => prev.filter(r => r.id !== rewardId));
     await storeHydrate();
     router.refresh();
@@ -536,7 +559,7 @@ export default function AdminPage() {
     const trimmed = editingName.trim();
     if (!trimmed) return;
     const supabase = createBrowserSupabase();
-    await supabase.from('users').update({ name: trimmed }).eq('id', userId);
+    await supabase.rpc('admin_update_user_name', { p_user_id: userId, p_name: trimmed });
     const updated = allUsers.map(u => u.id === userId ? { ...u, name: trimmed } : u);
     setAllUsers(updated);
     setParents(updated.filter(u => u.role === 'PARENT'));
@@ -576,6 +599,11 @@ export default function AdminPage() {
           >
             {adminPinHash === undefined ? '…' : t('confirm')}
           </button>
+          {!isParentAdmin && adminPinHash !== undefined && (
+            <p className="text-[#8a8f99] text-xs mt-3">
+              Sign in with a linked parent profile to manage settings.
+            </p>
+          )}
           <a href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</a>
         </div>
       </main>
@@ -795,6 +823,15 @@ export default function AdminPage() {
                         <span className="flex-1 font-medium text-[18px]">{u.name}</span>
                         <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
                           {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-lg ${
+                            u.authUserId
+                              ? 'bg-[#3ddc97]/15 text-[#3ddc97]'
+                              : 'bg-[#232831] text-[#8a8f99]'
+                          }`}
+                        >
+                          {u.authUserId ? 'Account linked' : 'No account'}
                         </span>
                         <button
                           onClick={() => startEditName(u)}
@@ -1176,13 +1213,32 @@ export default function AdminPage() {
         </div>
 
         {/* Logout — always visible outside tabs */}
-        <div className="max-w-4xl mx-auto px-4 pb-8">
+        <div className="max-w-4xl mx-auto px-4 pb-6">
           <button
             onClick={handleLogout}
             className="w-full py-4 rounded-2xl bg-[#141821] border border-red-900/30 text-red-400 hover:bg-red-900/10 font-semibold transition-colors"
           >
             {t('logout')}
           </button>
+        </div>
+
+        {/* Permanent deletion — Play Store data deletion compliance */}
+        <div className="max-w-4xl mx-auto px-4 pb-8">
+          <div className="rounded-2xl border border-red-800/50 bg-red-950/20 p-6">
+            <h2 className="text-lg font-bold text-red-300 mb-2">Danger Zone</h2>
+            <p className="text-sm leading-6 text-[#c8ccd4] mb-4">
+              가족 구성원, 습관, 보상, 설정 및 진행 기록을 포함한 현재 가족 데이터를 영구적으로 삭제합니다.
+              이 작업은 Google Play 데이터 삭제 요청을 처리하기 위한 기능이며 되돌릴 수 없습니다.
+            </p>
+            <button
+              onClick={handleDeleteFamilyData}
+              disabled={deletingFamily}
+              className="w-full rounded-xl border border-red-700 bg-red-900/60 px-5 py-4 font-bold text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ minHeight: 'var(--touch-target)' }}
+            >
+              {deletingFamily ? '삭제 중…' : '가족 데이터 영구 삭제 (Delete All Data)'}
+            </button>
+          </div>
         </div>
       </main>
     </>

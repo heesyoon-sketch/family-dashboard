@@ -32,6 +32,7 @@ export interface User {
   theme: ThemeName;
   avatarUrl?: string;
   pinHash?: string;
+  authUserId?: string;
   createdAt: Date;
 }
 

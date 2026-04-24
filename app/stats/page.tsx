@@ -127,6 +127,7 @@ export default function StatsPage() {
           id: r!.id, name: r!.name, role: r!.role, theme: r!.theme,
           avatarUrl: r!.avatar_url ?? undefined,
           pinHash:   r!.pin_hash   ?? undefined,
+          authUserId: r!.auth_user_id ?? undefined,
           createdAt: new Date(r!.created_at),
         }));
 

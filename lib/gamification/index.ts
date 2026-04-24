@@ -37,9 +37,32 @@ export async function processCompletion(
 ): Promise<CompletionResult> {
   const supabase = createBrowserSupabase();
   const now = new Date();
+  const dayStart = startOfDay(now);
 
   const { data: taskData } = await supabase.from('tasks').select('*').eq('id', taskId).single();
   if (!taskData) throw new Error(`Task ${taskId} not found`);
+
+  const { data: existingCompletions } = await supabase.from('task_completions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('task_id', taskId)
+    .gte('completed_at', dayStart.toISOString())
+    .lte('completed_at', now.toISOString())
+    .limit(1);
+
+  const { data: existingLevel } = await supabase.from('levels')
+    .select('*').eq('user_id', userId).single();
+
+  if (existingCompletions?.length) {
+    const level: Level = {
+      userId,
+      currentLevel: existingLevel?.current_level ?? 1,
+      totalPoints: existingLevel?.total_points ?? 0,
+      spendableBalance: existingLevel?.spendable_balance ?? 0,
+      updatedAt: existingLevel?.updated_at ? new Date(existingLevel.updated_at) : now,
+    };
+    return { pointsAwarded: 0, level, leveledUp: false, badgesEarned: [], celebration: null };
+  }
 
   let pts = partial ? Math.round(taskData.base_points * 0.5) : taskData.base_points;
 
@@ -86,7 +109,6 @@ export async function processCompletion(
   if (streakCurrent === 7)  pts += 30;
   if (streakCurrent === 30) pts += 100;
 
-  const dayStart = startOfDay(now);
   const { count: activeCount } = await supabase.from('tasks')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId).eq('active', 1);
@@ -97,8 +119,7 @@ export async function processCompletion(
     .lte('completed_at', now.toISOString());
   if (todayCount === activeCount && (activeCount ?? 0) > 0) pts += 10;
 
-  const { data: lvlData } = await supabase.from('levels')
-    .select('*').eq('user_id', userId).single();
+  const lvlData = existingLevel;
   const oldPoints = lvlData?.total_points ?? 0;
   const oldBalance = lvlData?.spendable_balance ?? 0;
   const newTotal   = oldPoints + pts;

@@ -48,23 +48,10 @@ export async function saveAdminPin(newPin: string): Promise<string> {
   const hash = await hashPin(newPin);
   const supabase = createBrowserSupabase();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-
-  const { data: familyId } = await supabase.rpc('get_my_family_id');
-  if (!familyId) throw new Error('No family found');
-
-  const { error } = await supabase
-    .from('family_settings')
-    .upsert(
-      {
-        key:        'admin_pin_hash',
-        value:      hash,
-        updated_at: new Date().toISOString(),
-        family_id:  familyId,
-      },
-      { onConflict: 'key,family_id' },
-    );
+  const { error } = await supabase.rpc('admin_upsert_family_setting', {
+    p_key: 'admin_pin_hash',
+    p_value: hash,
+  });
   if (error) throw error;
   return hash;
 }

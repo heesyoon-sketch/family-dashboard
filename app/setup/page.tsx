@@ -11,11 +11,21 @@ const DEFAULT_MEMBERS = [
   { name: '둘째', role: 'CHILD' as const,  theme: 'pastel_cute'  as const },
 ];
 
+interface InviteProfile {
+  id: string;
+  name: string;
+  role: 'PARENT' | 'CHILD';
+  theme: string;
+  claimed: boolean;
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [familyName, setFamilyName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [inviteProfiles, setInviteProfiles] = useState<InviteProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState('');
   const [loading, setLoading]       = useState(false);
   const [checking, setChecking]     = useState(true);
   const [errorMsg, setErrorMsg]     = useState('');
@@ -55,13 +65,15 @@ export default function SetupPage() {
         .limit(1);
 
       if (!existing?.length) {
+        const { data: { user } } = await supabase.auth.getUser();
         const { error: seedErr } = await supabase.from('users').insert(
-          DEFAULT_MEMBERS.map(m => ({
+          DEFAULT_MEMBERS.map((m, idx) => ({
             id:         crypto.randomUUID(),
             name:       m.name,
             role:       m.role,
             theme:      m.theme,
             family_id:  familyId,
+            auth_user_id: idx === 0 ? user?.id : null,
             created_at: new Date().toISOString(),
           }))
         );
@@ -76,7 +88,7 @@ export default function SetupPage() {
     }
   };
 
-  const handleJoin = async () => {
+  const loadInviteProfiles = async () => {
     const trimmed = inviteCode.trim().toUpperCase();
     if (!trimmed || loading) return;
     setLoading(true);
@@ -87,23 +99,42 @@ export default function SetupPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
 
-      const metadata = user.user_metadata as Record<string, unknown>;
-      const displayName =
-        (typeof metadata.full_name === 'string' && metadata.full_name) ||
-        (typeof metadata.name === 'string' && metadata.name) ||
-        user.email ||
-        'Family Member';
+      const { data, error } = await supabase.rpc('get_invite_profiles', {
+        p_invite_code: trimmed,
+      });
+      if (error) throw error;
+
+      const profiles = (data ?? []) as InviteProfile[];
+      if (profiles.length === 0) throw new Error('No profiles returned');
+      setInviteProfiles(profiles);
+      setSelectedProfileId(profiles.find(p => !p.claimed)?.id ?? '');
+    } catch (e) {
+      console.error(e);
+      setErrorMsg('초대 코드를 확인할 수 없습니다. 코드를 다시 확인해주세요.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    const trimmed = inviteCode.trim().toUpperCase();
+    if (!trimmed || !selectedProfileId || loading) return;
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const supabase = createBrowserSupabase();
 
       const { data: familyId, error: rpcErr } = await supabase.rpc('join_family_by_invite', {
         p_invite_code: trimmed,
-        p_user_name: displayName,
+        p_profile_id: selectedProfileId,
       });
       if (rpcErr || !familyId) throw rpcErr ?? new Error('join_family_by_invite returned null');
 
       router.replace('/');
     } catch (e) {
       console.error(e);
-      setErrorMsg('초대 코드를 확인할 수 없습니다. 코드를 다시 확인해주세요.');
+      setErrorMsg('이미 연결된 프로필이거나 초대 코드가 올바르지 않습니다.');
       setLoading(false);
     }
   };
@@ -141,7 +172,7 @@ export default function SetupPage() {
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <button
-            onClick={() => { setMode('create'); setErrorMsg(''); }}
+            onClick={() => { setMode('create'); setErrorMsg(''); setInviteProfiles([]); setSelectedProfileId(''); }}
             style={{
               flex: 1,
               padding: '10px 12px',
@@ -201,8 +232,12 @@ export default function SetupPage() {
           <input
             type="text"
             value={inviteCode}
-            onChange={e => setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-            onKeyDown={e => e.key === 'Enter' && handleJoin()}
+            onChange={e => {
+              setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+              setInviteProfiles([]);
+              setSelectedProfileId('');
+            }}
+            onKeyDown={e => e.key === 'Enter' && (inviteProfiles.length ? handleJoin() : loadInviteProfiles())}
             placeholder="초대 코드 입력"
             autoFocus
             maxLength={8}
@@ -226,13 +261,46 @@ export default function SetupPage() {
           />
         )}
 
+        {mode === 'join' && inviteProfiles.length > 0 && (
+          <div style={{ display: 'grid', gap: 8, marginBottom: errorMsg ? 8 : 16 }}>
+            {inviteProfiles.map(profile => {
+              const disabled = profile.claimed;
+              const selected = selectedProfileId === profile.id;
+              return (
+                <button
+                  key={profile.id}
+                  onClick={() => !disabled && setSelectedProfileId(profile.id)}
+                  disabled={disabled}
+                  style={{
+                    minHeight: 52,
+                    borderRadius: 14,
+                    border: selected ? '2px solid #4f9cff' : '2px solid #232831',
+                    background: selected ? 'rgba(79,156,255,0.16)' : '#232831',
+                    color: disabled ? '#5f6673' : '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 14px',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{profile.name}</span>
+                  <span style={{ color: disabled ? '#5f6673' : '#8a8f99', fontSize: 13 }}>
+                    {disabled ? '연결됨' : profile.role === 'PARENT' ? '부모' : '자녀'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {errorMsg && (
           <p style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 12 }}>{errorMsg}</p>
         )}
 
         <button
-          onClick={mode === 'create' ? handleSetup : handleJoin}
-          disabled={mode === 'create' ? (!familyName.trim() || loading) : (!inviteCode.trim() || loading)}
+          onClick={mode === 'create' ? handleSetup : inviteProfiles.length ? handleJoin : loadInviteProfiles}
+          disabled={mode === 'create' ? (!familyName.trim() || loading) : (!inviteCode.trim() || loading || (inviteProfiles.length > 0 && !selectedProfileId))}
           style={{
             width: '100%',
             padding: '14px 16px',
@@ -246,7 +314,13 @@ export default function SetupPage() {
             transition: 'all 0.2s',
           }}
         >
-          {loading ? '처리 중…' : mode === 'create' ? '대시보드 시작하기 →' : '기존 가족에 참여하기 →'}
+          {loading
+            ? '처리 중…'
+            : mode === 'create'
+              ? '대시보드 시작하기 →'
+              : inviteProfiles.length
+                ? '선택한 프로필로 참여하기 →'
+                : '초대 코드 확인하기 →'}
         </button>
       </div>
     </main>

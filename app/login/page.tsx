@@ -1,9 +1,13 @@
 'use client';
 
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createBrowserSupabase } from '@/lib/supabase';
 
 function LoginContent() {
+  const searchParams = useSearchParams();
+  const deleted = searchParams.get('deleted') === '1';
+
   const handleGoogleLogin = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signInWithOAuth({
@@ -40,6 +44,21 @@ function LoginContent() {
         <p style={{ color: '#8a8f99', fontSize: 14, margin: '0 0 36px' }}>
           Google 계정으로 나만의 가족 대시보드를 시작하세요
         </p>
+
+        {deleted && (
+          <div style={{
+            background: 'rgba(61, 220, 151, 0.12)',
+            border: '1px solid rgba(61, 220, 151, 0.35)',
+            color: '#3ddc97',
+            borderRadius: 14,
+            padding: '12px 14px',
+            fontSize: 13,
+            lineHeight: 1.5,
+            marginBottom: 18,
+          }}>
+            가족 데이터가 영구 삭제되었습니다. / All family data has been permanently deleted.
+          </div>
+        )}
 
         {/* 구글 로그인 버튼 */}
         <button
