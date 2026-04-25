@@ -246,6 +246,8 @@ export default function AdminPage() {
         .maybeSingle();
       setFamilyInviteCode(family?.invite_code ?? null);
 
+      await supabase.rpc('claim_owner_parent_profile');
+
       const [userRes, rewardRes] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('rewards').select('*').order('cost_points'),
@@ -301,6 +303,10 @@ export default function AdminPage() {
     if (!isParentAdmin) {
       setError('Parent account required');
       setPin('');
+      return;
+    }
+    if (adminPinHash === null) {
+      setView('dashboard');
       return;
     }
     if (adminPinHash && await verifyPin(pin, adminPinHash)) {
@@ -579,6 +585,11 @@ export default function AdminPage() {
         <div className="bg-[#141821] rounded-3xl p-8 w-full max-w-sm text-center">
           <h1 className="text-2xl font-bold text-white mb-2">{t('admin_mode')}</h1>
           <p className="text-[#8a8f99] mb-6 text-sm">{t('enter_parent_pin')}</p>
+          {isParentAdmin && adminPinHash === null && (
+            <p className="text-[#3ddc97] mb-4 text-sm">
+              No Admin PIN is set yet. Press confirm to continue and set one.
+            </p>
+          )}
           <input
             type="password"
             inputMode="numeric"
