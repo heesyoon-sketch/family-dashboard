@@ -22,10 +22,10 @@ function PanelSkeleton({ theme }: { theme: string }) {
   return (
     <section
       data-theme={theme}
-      className="bg-[var(--bg)] text-[var(--fg)]"
-      style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 12 }}
+      className="bg-[var(--bg)] text-[var(--fg)] flex flex-col min-h-[480px] md:min-h-0 md:h-full overflow-hidden"
+      style={{ padding: 12 }}
     >
-      <header className="flex items-center gap-2 mb-2.5" style={{ flexShrink: 0 }}>
+      <header className="flex items-center gap-2 mb-2.5 shrink-0">
         <motion.div {...pulse} className="w-10 h-10 rounded-xl bg-[var(--bg-card)] shrink-0" />
         <div className="flex-1 min-w-0 space-y-1.5">
           <motion.div {...pulse} className="h-4 w-20 rounded-full bg-[var(--bg-card)]" />
@@ -41,7 +41,7 @@ function PanelSkeleton({ theme }: { theme: string }) {
             {...pulse}
             transition={{ ...pulse.transition, delay: i * 0.06 }}
             className="rounded-2xl bg-[var(--bg-card)]"
-            style={{ height: 72 }}
+            style={{ height: 80 }}
           />
         ))}
       </div>
@@ -120,12 +120,8 @@ export function MemberPanel({ user }: { user: User }) {
 
       <section
         data-theme={user.theme}
-        className="bg-[var(--bg)] text-[var(--fg)]"
+        className="bg-[var(--bg)] text-[var(--fg)] flex flex-col min-h-[520px] md:min-h-0 md:h-full overflow-hidden"
         style={{
-          height: '100%',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
           padding: 12,
           boxShadow: allDone
             ? 'var(--shadow), inset 0 0 0 2px var(--success), 0 0 32px var(--accent-glow)'
@@ -134,10 +130,13 @@ export function MemberPanel({ user }: { user: User }) {
         }}
       >
         {/* ── Header ── */}
-        <header className="flex items-center gap-2.5 mb-2.5" style={{ flexShrink: 0 }}>
+        <header className="flex items-center gap-2.5 mb-3 shrink-0">
 
-          {/* Avatar: Google photo or initial */}
-          {user.avatarUrl ? (
+          {/*
+           * Avatar: show Google photo ONLY when auth_user_id is set on this profile.
+           * This prevents a linked user's photo from appearing on unlinked profiles.
+           */}
+          {user.avatarUrl && user.authUserId ? (
             <img
               src={user.avatarUrl}
               alt={user.name}
@@ -145,7 +144,7 @@ export function MemberPanel({ user }: { user: User }) {
               className="w-10 h-10 rounded-xl shrink-0 object-cover"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0 select-none">
               {user.name[0]}
             </div>
           )}
@@ -153,7 +152,7 @@ export function MemberPanel({ user }: { user: User }) {
           {/* Middle: name + stats + XP bar */}
           <div className="flex-1 min-w-0">
 
-            {/* Row 1: Name (prominent) + motive message */}
+            {/* Row 1: Name + motive */}
             <div className="flex items-center gap-1.5 min-w-0">
               <h2 className="text-base font-bold leading-tight truncate shrink-0">{user.name}</h2>
               {motiveMsg && (
@@ -161,7 +160,7 @@ export function MemberPanel({ user }: { user: User }) {
               )}
             </div>
 
-            {/* Row 2: compact stats + balance (tapping opens store) */}
+            {/* Row 2: compact stats + balance */}
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-[11px] text-[var(--fg-muted)]">
                 Lv.{level?.currentLevel ?? 1} · {level?.totalPoints ?? 0}pt
@@ -194,11 +193,15 @@ export function MemberPanel({ user }: { user: User }) {
           <ProgressRing pct={pct} size={36} />
         </header>
 
-        {/* ── Task grid ── */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        {/*
+         * Task list:
+         * Mobile  — overflow-y-auto: scrollable if tasks exceed panel height
+         * Desktop — overflow-hidden: clips to grid cell, no scroll
+         */}
+        <div className="flex-1 overflow-y-auto md:overflow-hidden" style={{ minHeight: 0 }}>
           <div className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
             {visibleTasks.length === 0 && (
-              <div className="col-span-2 text-center text-[var(--fg-muted)] py-6 text-sm">
+              <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
                 {t('no_tasks_today')}
               </div>
             )}

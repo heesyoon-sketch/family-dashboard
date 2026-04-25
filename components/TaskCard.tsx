@@ -13,8 +13,8 @@ import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const SWIPE_TRIGGER_PX = 110;
-// 72px keeps the entire card as a comfortable touch target on tablets/laptops.
-const CARD_H = 72;
+// 80px — comfortable touch target on both mobile and desktop.
+const CARD_H = 80;
 
 function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
@@ -114,7 +114,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <div className="flex-1 min-w-0">
-          <div className={`text-[15px] font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
+          <div className={`text-base font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
           <div className="text-xs text-[var(--fg-muted)] mt-0.5 truncate">

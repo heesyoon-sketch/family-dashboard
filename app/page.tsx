@@ -74,41 +74,24 @@ export default function Dashboard() {
   const slots = ORDER.map(theme => users.find(u => u.theme === theme));
 
   if (!hydrated || (hydrated && familyId === null)) {
-    return <div style={{ minHeight: '100vh', background: '#0b0d12' }} />;
+    return <div className="min-h-screen bg-[#0b0d12]" />;
   }
 
   return (
-    <div style={{
-      height: '100vh',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'fixed',
-      inset: 0,
-    }}>
-      {/* Header: date (left) + icon buttons (right) */}
-      <header style={{
-        height: 44,
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0 12px',
-        paddingTop: 'env(safe-area-inset-top)',
-      }}>
-        <span style={{
-          flex: 1,
-          color: 'rgba(255,255,255,0.45)',
-          fontSize: '0.8125rem',
-          fontWeight: 500,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          paddingLeft: 2,
-        }}>
+    /*
+     * Mobile:  normal flow, min-h-screen, vertical scroll
+     * Desktop: fixed viewport (md+), overflow hidden, 2x2 grid fills screen
+     */
+    <div className="flex flex-col bg-[#0b0d12] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
+
+      {/* Header — sticky on mobile scroll, static on desktop */}
+      <header
+        className="sticky top-0 z-10 shrink-0 flex items-center gap-2 bg-[#0b0d12]"
+        style={{ height: 44, padding: '0 12px', paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <span className="flex-1 text-white/45 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap pl-0.5">
           {dateLabel}
         </span>
-
         <button
           onClick={toggleSound}
           aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
@@ -124,21 +107,16 @@ export default function Dashboard() {
         </Link>
       </header>
 
-      {/* 4-panel grid */}
-      <main style={{
-        flex: 1,
-        overflow: 'hidden',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: '1fr 1fr',
-        gap: 2,
-        background: '#000',
-      }}>
+      {/*
+       * Mobile:  1-column, panels stack vertically, full-width per card
+       * Desktop: 2×2 grid, each cell fills exactly half the remaining viewport
+       */}
+      <main className="flex-1 grid gap-0.5 bg-black grid-cols-1 md:grid-cols-2 md:grid-rows-2 md:overflow-hidden">
         {slots.map((user, i) =>
           user ? (
             <MemberPanel key={user.id} user={user} />
           ) : (
-            <div key={`empty-${i}`} style={{ background: '#171717' }} />
+            <div key={`empty-${i}`} className="bg-[#171717] min-h-[480px] md:min-h-0" />
           ),
         )}
       </main>
