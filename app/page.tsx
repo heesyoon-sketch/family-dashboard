@@ -12,33 +12,20 @@ import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 const ORDER: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
 
-function NavIconButton({
-  children,
-  label,
-  onClick,
-  href,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-  href?: string;
-}) {
-  const className = 'app-nav-button';
-  if (href) {
-    return (
-      <Link href={href} aria-label={label} className={className} title={label}>
-        {children}
-        <span>{label}</span>
-      </Link>
-    );
-  }
-  return (
-    <button onClick={onClick} aria-label={label} className={className} title={label}>
-      {children}
-      <span>{label}</span>
-    </button>
-  );
-}
+const iconBtn: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: 10,
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(255,255,255,0.05)',
+  color: 'rgba(255,255,255,0.45)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  flexShrink: 0,
+};
 
 function formatDate(d: Date, timeOfDay: 'morning' | 'evening', lang: Lang): string {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
@@ -62,20 +49,17 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const dateLabel = formatDate(now, timeOfDay, lang);
 
-  // Initial load
   useEffect(() => {
     useFamilyStore.setState({ hydrated: false });
     hydrate().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // After hydration: redirect to /setup if the user has no family yet
   useEffect(() => {
     if (hydrated && familyId === null) {
       router.replace('/setup');
     }
   }, [hydrated, familyId, router]);
 
-  // Re-hydrate when Admin broadcasts a mutation over the same origin.
   useEffect(() => {
     const ch = new BroadcastChannel('habit_sync');
     ch.onmessage = () => hydrate().catch(console.error);
@@ -89,59 +73,58 @@ export default function Dashboard() {
 
   const slots = ORDER.map(theme => users.find(u => u.theme === theme));
 
-  // Show blank screen while hydrating or while awaiting setup redirect
   if (!hydrated || (hydrated && familyId === null)) {
     return <div style={{ minHeight: '100vh', background: '#0b0d12' }} />;
   }
 
-  const renderNav = () => (
-    <>
-      <NavIconButton
-        label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
-        onClick={toggleSound}
-      >
-        {soundEnabled ? <Volume2 size={22} /> : <VolumeX size={22} />}
-      </NavIconButton>
-      <NavIconButton label={t('weekly_completions')} href="/stats">
-        <BarChart2 size={22} />
-      </NavIconButton>
-      <NavIconButton label={t('admin_mode')} href="/admin">
-        <Settings size={22} />
-      </NavIconButton>
-    </>
-  );
-
   return (
-    <div
-      style={{
-        height: '100vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0,
-        left: 'var(--app-nav-width)',
-        right: 0,
-        bottom: 'var(--app-bottom-nav-height)',
-      }}
-    >
-      <aside className="app-sidebar" aria-label="Dashboard navigation">
-        {renderNav()}
-      </aside>
-      {/* Header: 36px fixed */}
+    <div style={{
+      height: '100vh',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'fixed',
+      inset: 0,
+    }}>
+      {/* Header: date (left) + icon buttons (right) */}
       <header style={{
-        height: 36,
+        height: 44,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: 8,
+        padding: '0 12px',
+        paddingTop: 'env(safe-area-inset-top)',
       }}>
-        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', fontWeight: 500 }}>
+        <span style={{
+          flex: 1,
+          color: 'rgba(255,255,255,0.45)',
+          fontSize: '0.8125rem',
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          paddingLeft: 2,
+        }}>
           {dateLabel}
         </span>
+
+        <button
+          onClick={toggleSound}
+          aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
+          style={iconBtn}
+        >
+          {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+        </button>
+        <Link href="/stats" aria-label={t('weekly_completions')} style={iconBtn}>
+          <BarChart2 size={17} />
+        </Link>
+        <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
+          <Settings size={17} />
+        </Link>
       </header>
 
-      {/* 4-panel grid: remaining full height */}
+      {/* 4-panel grid */}
       <main style={{
         flex: 1,
         overflow: 'hidden',
@@ -163,10 +146,6 @@ export default function Dashboard() {
       {celebration && (
         <CelebrationOverlay data={celebration} onDismiss={dismissCelebration} />
       )}
-
-      <nav className="app-bottom-nav" aria-label="Dashboard navigation">
-        {renderNav()}
-      </nav>
     </div>
   );
 }

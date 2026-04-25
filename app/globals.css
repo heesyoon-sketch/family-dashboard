@@ -21,108 +21,12 @@ html, body {
   touch-action: pan-y;
 }
 
-@media (orientation: landscape) and (min-width: 900px) {
-  :root {
-    --app-nav-width: 76px;
-    --app-bottom-nav-height: 0px;
-  }
-}
-
-@media (orientation: portrait), (max-width: 899px) {
-  :root {
-    --app-nav-width: 0px;
-    --app-bottom-nav-height: 72px;
-  }
-}
 body {
   font-family: var(--font-display);
   background: #000;
   font-size: 18px;
 }
 
-.app-sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: var(--app-nav-width);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: max(12px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom));
-  background: #0b0d12;
-  border-right: 1px solid #232831;
-  z-index: 60;
-}
-
-.app-bottom-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--app-bottom-nav-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  gap: 8px;
-  padding: 8px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-  background: rgba(11, 13, 18, 0.96);
-  border-top: 1px solid #232831;
-  backdrop-filter: blur(14px);
-  z-index: 60;
-}
-
-.app-nav-button {
-  width: 56px;
-  min-height: 56px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(20, 24, 33, 0.94);
-  color: #e8eaed;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.app-nav-button span {
-  max-width: 52px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (orientation: portrait), (max-width: 899px) {
-  .app-sidebar {
-    display: none;
-  }
-
-  .app-bottom-nav {
-    display: flex;
-  }
-
-  .app-nav-button {
-    width: min(30vw, 112px);
-  }
-}
-
-@media (orientation: landscape) and (min-width: 900px) {
-  .app-sidebar {
-    display: flex;
-  }
-
-  .app-bottom-nav {
-    display: none;
-  }
-}
 
 /* 패널 내부 task 스크롤 영역 */
 .task-scroll {

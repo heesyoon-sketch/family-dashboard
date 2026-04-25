@@ -25,11 +25,18 @@ export async function GET(request: NextRequest) {
 
     await supabase.auth.exchangeCodeForSession(code);
 
-    // New users who haven't created a family yet go to /setup
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data: familyId } = await supabase.rpc('get_my_family_id');
+      // Sync Google profile photo to the linked family profile
+      const googleAvatar = user.user_metadata?.avatar_url as string | undefined;
+      if (googleAvatar) {
+        await supabase
+          .from('users')
+          .update({ avatar_url: googleAvatar })
+          .eq('auth_user_id', user.id);
+      }
 
+      const { data: familyId } = await supabase.rpc('get_my_family_id');
       if (!familyId) {
         return NextResponse.redirect(`${origin}/setup`);
       }

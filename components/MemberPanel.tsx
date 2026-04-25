@@ -25,14 +25,14 @@ function PanelSkeleton({ theme }: { theme: string }) {
       className="bg-[var(--bg)] text-[var(--fg)]"
       style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 12 }}
     >
-      <header className="flex items-center gap-2 mb-2" style={{ flexShrink: 0 }}>
+      <header className="flex items-center gap-2 mb-2.5" style={{ flexShrink: 0 }}>
         <motion.div {...pulse} className="w-10 h-10 rounded-xl bg-[var(--bg-card)] shrink-0" />
         <div className="flex-1 min-w-0 space-y-1.5">
-          <motion.div {...pulse} className="h-3.5 w-24 rounded-full bg-[var(--bg-card)]" />
-          <motion.div {...pulse} className="h-1.5 w-full rounded-full bg-[var(--bg-card)]" />
-          <motion.div {...pulse} className="h-3 w-32 rounded-full bg-[var(--bg-card)]" />
+          <motion.div {...pulse} className="h-4 w-20 rounded-full bg-[var(--bg-card)]" />
+          <motion.div {...pulse} className="h-2.5 w-32 rounded-full bg-[var(--bg-card)]" />
+          <motion.div {...pulse} className="h-1 w-full rounded-full bg-[var(--bg-card)]" />
         </div>
-        <motion.div {...pulse} className="w-8 h-8 rounded-full bg-[var(--bg-card)] shrink-0" />
+        <motion.div {...pulse} className="w-9 h-9 rounded-full bg-[var(--bg-card)] shrink-0" />
       </header>
       <div className="grid grid-cols-2 gap-2 flex-1" style={{ alignContent: 'start' }}>
         {Array.from({ length: 8 }).map((_, i) => (
@@ -80,6 +80,7 @@ export function MemberPanel({ user }: { user: User }) {
   const doneCount  = visibleTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = visibleTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+  const allDone    = totalCount > 0 && doneCount === totalCount;
 
   // Motivational message
   let motiveMsg: string | null = null;
@@ -126,66 +127,74 @@ export function MemberPanel({ user }: { user: User }) {
           display: 'flex',
           flexDirection: 'column',
           padding: 12,
-          boxShadow: 'var(--shadow)',
+          boxShadow: allDone
+            ? 'var(--shadow), inset 0 0 0 2px var(--success), 0 0 32px var(--accent-glow)'
+            : 'var(--shadow)',
+          transition: 'box-shadow 0.8s ease',
         }}
       >
-        {/* ── Consolidated header: 3 rows, ~44px total ── */}
-        <header className="flex items-start gap-2 mb-2" style={{ flexShrink: 0 }}>
+        {/* ── Header ── */}
+        <header className="flex items-center gap-2.5 mb-2.5" style={{ flexShrink: 0 }}>
 
-          {/* Avatar — w-10 h-10 (40px) */}
-          <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0">
-            {user.name[0]}
-          </div>
+          {/* Avatar: Google photo or initial */}
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              referrerPolicy="no-referrer"
+              className="w-10 h-10 rounded-xl shrink-0 object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0">
+              {user.name[0]}
+            </div>
+          )}
 
-          {/* Middle column: name row + XP bar + balance row */}
+          {/* Middle: name + stats + XP bar */}
           <div className="flex-1 min-w-0">
 
-            {/* Row 1: Name · Lv · pts · streak · motiveMsg (all inline) */}
-            <div className="flex items-center gap-1 min-w-0 flex-wrap" style={{ rowGap: 0 }}>
-              <h2 className="text-sm font-bold leading-tight truncate shrink-0 max-w-[5rem]">{user.name}</h2>
-              <span className="text-[11px] text-[var(--fg-muted)] shrink-0">
-                Lv.{level?.currentLevel ?? 1} · {level?.totalPoints ?? 0}pt
-              </span>
-              {maxStreak > 0 && (
-                <span className="text-[11px] font-bold text-[var(--accent)] shrink-0">🔥{maxStreak}</span>
-              )}
+            {/* Row 1: Name (prominent) + motive message */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2 className="text-base font-bold leading-tight truncate shrink-0">{user.name}</h2>
               {motiveMsg && (
                 <span className="text-[11px] font-semibold text-[var(--accent)] truncate">{motiveMsg}</span>
               )}
             </div>
 
-            {/* Row 2: XP progress bar */}
-            <div className="h-1 rounded-full bg-[var(--border)] mt-1 overflow-hidden">
+            {/* Row 2: compact stats + balance (tapping opens store) */}
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-[11px] text-[var(--fg-muted)]">
+                Lv.{level?.currentLevel ?? 1} · {level?.totalPoints ?? 0}pt
+              </span>
+              {maxStreak > 0 && (
+                <span className="text-[11px] font-bold text-[var(--accent)]">· 🔥{maxStreak}</span>
+              )}
+              {growth !== null && growth > 0 && (
+                <span className="text-[11px] text-[var(--fg-muted)]">· 📈{growth}%</span>
+              )}
+              <span className="flex-1" />
+              <button
+                onClick={() => setStoreOpen(true)}
+                className="text-[11px] font-semibold text-[var(--accent)] shrink-0"
+              >
+                💰{spendableBalance}pt
+              </button>
+            </div>
+
+            {/* Row 3: XP bar */}
+            <div className="h-1 rounded-full bg-[var(--border)] mt-1.5 overflow-hidden">
               <div
                 className="h-full bg-[var(--accent)] transition-[width] duration-500"
                 style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
               />
             </div>
-
-            {/* Row 3: Balance + Store + growth (all inline, same row) */}
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[11px] font-semibold text-[var(--accent)] shrink-0">
-                💰{spendableBalance}pt
-              </span>
-              <button
-                onClick={() => setStoreOpen(true)}
-                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--bg-card)] text-[var(--accent)] border border-[var(--border)] shrink-0"
-              >
-                <Icons.ShoppingBag size={10} />{t('store')}
-              </button>
-              {growth !== null && growth > 0 && (
-                <span className="text-[11px] font-semibold text-[var(--accent)] truncate">
-                  📈{growth}%↑
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Progress ring — size=32, compact */}
-          <ProgressRing pct={pct} size={32} />
+          {/* Progress ring */}
+          <ProgressRing pct={pct} size={36} />
         </header>
 
-        {/* ── Task grid: flex:1, overflow hidden, 8 cards fit without scroll ── */}
+        {/* ── Task grid ── */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
             {visibleTasks.length === 0 && (

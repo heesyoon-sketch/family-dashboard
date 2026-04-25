@@ -5,6 +5,7 @@ export function ProgressRing({ pct, size = 64 }: { pct: number; size?: number })
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  const done = pct >= 100;
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -18,7 +19,7 @@ export function ProgressRing({ pct, size = 64 }: { pct: number; size?: number })
         <circle
           cx={size / 2} cy={size / 2} r={r}
           fill="none"
-          stroke="var(--accent)"
+          stroke={done ? 'var(--success)' : 'var(--accent)'}
           strokeWidth={strokeWidth}
           strokeDasharray={c}
           strokeDashoffset={offset}
@@ -27,10 +28,13 @@ export function ProgressRing({ pct, size = 64 }: { pct: number; size?: number })
         />
       </svg>
       <div
-        className="absolute inset-0 flex items-center justify-center text-sm font-bold"
-        style={{ color: 'var(--fg)' }}
+        className="absolute inset-0 flex items-center justify-center font-bold"
+        style={{
+          fontSize: done ? size * 0.36 : size * 0.28,
+          color: done ? 'var(--success)' : 'var(--fg)',
+        }}
       >
-        {pct}%
+        {done ? '✓' : `${pct}%`}
       </div>
     </div>
   );

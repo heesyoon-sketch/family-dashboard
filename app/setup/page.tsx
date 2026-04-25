@@ -19,6 +19,12 @@ interface InviteProfile {
   claimed: boolean;
 }
 
+interface GoogleUser {
+  email: string;
+  name: string;
+  avatarUrl?: string;
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'create' | 'join'>('create');
@@ -29,6 +35,7 @@ export default function SetupPage() {
   const [loading, setLoading]       = useState(false);
   const [checking, setChecking]     = useState(true);
   const [errorMsg, setErrorMsg]     = useState('');
+  const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
 
   // If the user already has a family, send them straight to the dashboard.
   useEffect(() => {
@@ -38,6 +45,11 @@ export default function SetupPage() {
       if (!user) { router.replace('/login'); return; }
       const { data: familyId } = await supabase.rpc('get_my_family_id');
       if (familyId) { router.replace('/'); return; }
+      setGoogleUser({
+        email: user.email ?? '',
+        name: user.user_metadata?.full_name ?? user.email ?? '',
+        avatarUrl: user.user_metadata?.avatar_url,
+      });
       setChecking(false);
     };
     check();
@@ -131,6 +143,16 @@ export default function SetupPage() {
       });
       if (rpcErr || !familyId) throw rpcErr ?? new Error('join_family_by_invite returned null');
 
+      // Sync Google profile photo now that auth_user_id is linked
+      const { data: { user } } = await supabase.auth.getUser();
+      const googleAvatar = user?.user_metadata?.avatar_url as string | undefined;
+      if (googleAvatar && user) {
+        await supabase
+          .from('users')
+          .update({ avatar_url: googleAvatar })
+          .eq('auth_user_id', user.id);
+      }
+
       router.replace('/');
     } catch (e) {
       console.error(e);
@@ -165,10 +187,50 @@ export default function SetupPage() {
         <h1 style={{ color: '#ffffff', fontSize: 22, fontWeight: 700, margin: '0 0 8px' }}>
           패밀리 대시보드 만들기
         </h1>
-        <p style={{ color: '#8a8f99', fontSize: 14, margin: '0 0 24px', lineHeight: 1.6 }}>
+        <p style={{ color: '#8a8f99', fontSize: 14, margin: '0 0 16px', lineHeight: 1.6 }}>
           새 가족 대시보드를 만들거나<br />
           받은 초대 코드로 기존 가족에 참여하세요.
         </p>
+
+        {/* Logged-in Google account badge */}
+        {googleUser && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: '#1a1f2a',
+            border: '1px solid #2d3545',
+            borderRadius: 12,
+            padding: '8px 12px',
+            marginBottom: 20,
+            textAlign: 'left',
+          }}>
+            {googleUser.avatarUrl ? (
+              <img
+                src={googleUser.avatarUrl}
+                alt={googleUser.name}
+                referrerPolicy="no-referrer"
+                style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }}
+              />
+            ) : (
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', background: '#4f9cff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontWeight: 700, fontSize: 14, flexShrink: 0,
+              }}>
+                {googleUser.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: '#ffffff', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {googleUser.name}
+              </div>
+              <div style={{ color: '#8a8f99', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {googleUser.email}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <button

@@ -248,6 +248,15 @@ export default function AdminPage() {
 
       await supabase.rpc('claim_owner_parent_profile');
 
+      // Sync Google avatar for the currently logged-in user
+      const googleAvatar = user.user_metadata?.avatar_url as string | undefined;
+      if (googleAvatar) {
+        await supabase
+          .from('users')
+          .update({ avatar_url: googleAvatar })
+          .eq('auth_user_id', user.id);
+      }
+
       const [userRes, rewardRes] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('rewards').select('*').order('cost_points'),
@@ -845,6 +854,19 @@ export default function AdminPage() {
                       </>
                     ) : (
                       <>
+                        {/* Google profile photo or initial */}
+                        {u.avatarUrl ? (
+                          <img
+                            src={u.avatarUrl}
+                            alt={u.name}
+                            referrerPolicy="no-referrer"
+                            className="w-10 h-10 rounded-full shrink-0 ring-2 ring-[#2d3545]"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full shrink-0 bg-[#232831] flex items-center justify-center text-[#8a8f99] font-bold text-base">
+                            {u.name.charAt(0)}
+                          </div>
+                        )}
                         <span className="flex-1 font-medium text-[18px]">{u.name}</span>
                         <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
                           {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
