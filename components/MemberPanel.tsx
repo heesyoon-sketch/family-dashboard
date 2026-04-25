@@ -34,14 +34,13 @@ function PanelSkeleton({ theme }: { theme: string }) {
         </div>
         <motion.div {...pulse} className="w-9 h-9 rounded-full bg-[var(--bg-card)] shrink-0" />
       </header>
-      <div className="grid grid-cols-2 gap-2 flex-1" style={{ alignContent: 'start' }}>
+      <div className="grid grid-cols-2 gap-2 flex-1 content-start md:grid-rows-4 md:content-normal">
         {Array.from({ length: 8 }).map((_, i) => (
           <motion.div
             key={i}
             {...pulse}
             transition={{ ...pulse.transition, delay: i * 0.06 }}
-            className="rounded-2xl bg-[var(--bg-card)]"
-            style={{ height: 80 }}
+            className="rounded-2xl bg-[var(--bg-card)] h-20 md:h-full"
           />
         ))}
       </div>
@@ -202,11 +201,11 @@ export function MemberPanel({ user }: { user: User }) {
 
         {/*
          * Task list:
-         * Mobile  — overflow-y-auto: scrollable if tasks exceed panel height
-         * Desktop — overflow-hidden: clips to grid cell, no scroll
+         * Mobile  — 1-col, fixed 80px cards, scrolls freely
+         * Desktop — 2×4 grid fills available height; implicit rows (9+ tasks) scroll
          */}
-        <div className="flex-1 overflow-y-auto md:overflow-hidden" style={{ minHeight: 0 }}>
-          <motion.div layout className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
+        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+          <motion.div layout className="grid grid-cols-2 gap-2 content-start md:h-full md:grid-rows-4 md:content-normal">
             {sortedTasks.length === 0 && (
               <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
                 {t('no_tasks_today')}

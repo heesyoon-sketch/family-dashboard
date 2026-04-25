@@ -93,8 +93,8 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
   return (
-    // Outer: fixed height, overflow:visible so particles escape freely
-    <div className="relative" style={{ height: CARD_H }}>
+    // Outer: 80px on mobile; fills grid cell on desktop. overflow:visible lets particles escape.
+    <div className="relative h-20 md:h-full">
 
       {/* Swipe success bg — absolute, zero layout impact */}
       <motion.div
