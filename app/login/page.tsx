@@ -13,6 +13,10 @@ function LoginContent() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        queryParams: {
+          prompt: 'select_account',
+          access_type: 'offline',
+        },
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
