@@ -14,8 +14,6 @@ import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const SWIPE_TRIGGER_PX = 110;
-// 80px — comfortable touch target on both mobile and desktop.
-const CARD_H = 80;
 
 function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
@@ -93,8 +91,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
   return (
-    // Outer: 80px on mobile; fills grid cell on desktop. min-h prevents sub-70px collapse.
-    <div className="relative h-20 md:h-full md:min-h-[70px]">
+    <div className="relative h-full w-full">
 
       {/* Swipe success bg — absolute, zero layout impact */}
       <motion.div
