@@ -9,6 +9,7 @@ import { useFamilyStore } from '@/lib/store';
 import { Particles, buildParticles } from './Particles';
 import type { ParticleData } from './Particles';
 import { playCompletionSound } from '@/lib/sound';
+import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -35,20 +36,34 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
   const particleTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const triggerEffects = () => {
+  const triggerEffects = (clientX?: number, clientY?: number) => {
     if (soundEnabled) playCompletionSound(theme);
     if (particleTimer.current) clearTimeout(particleTimer.current);
     setParticles(buildParticles(theme));
     particleTimer.current = setTimeout(() => setParticles(null), 1000);
+
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+
+    confetti({
+      particleCount: 45,
+      spread: 60,
+      startVelocity: 22,
+      decay: 0.88,
+      scalar: 0.75,
+      origin: {
+        x: clientX != null ? clientX / window.innerWidth : 0.5,
+        y: clientY != null ? clientY / window.innerHeight : 0.5,
+      },
+    });
   };
 
-  const fireComplete = async () => {
+  const fireComplete = async (clientX?: number, clientY?: number) => {
     if (busy) return;
     setBusy(true);
     if (completed) {
       await undoCompletion(task.userId, task.id);
     } else {
-      triggerEffects();
+      triggerEffects(clientX, clientY);
       await markCompleted(task.userId, task.id);
     }
     setBusy(false);
@@ -62,11 +77,13 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     }
   };
 
-  const handleTap = () => {
+  const handleTap = (event: MouseEvent | TouchEvent | PointerEvent) => {
     const now = Date.now();
     if (now - tappedAt.current < 300) return;
     tappedAt.current = now;
-    fireComplete();
+    const clientX = 'clientX' in event ? (event as PointerEvent).clientX : undefined;
+    const clientY = 'clientY' in event ? (event as PointerEvent).clientY : undefined;
+    fireComplete(clientX, clientY);
   };
 
   const iconKey = pascalCase(task.icon);
@@ -99,7 +116,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         onDragEnd={handleDragEnd}
         onTap={handleTap}
         style={{ x }}
-        whileTap={{ scale: 0.97 }}
+        whileTap={{ scale: 0.92 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--bg-card)]',
           'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
