@@ -49,6 +49,8 @@ export interface Task {
   timeWindow?: 'morning' | 'afternoon' | 'evening';
   active: number; // 0 | 1
   sortOrder: number;
+  streakCount: number;
+  lastCompletedAt: Date | null;
 }
 
 export interface TaskCompletion {

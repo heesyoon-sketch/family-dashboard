@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { User } from '@/lib/db';
@@ -27,6 +28,41 @@ export interface Reward {
   icon: string;
 }
 
+// ── Weekend deal config ───────────────────────────────────────────────────────
+
+// Any reward whose title contains one of these keywords gets 30% off on weekends.
+const WEEKEND_KEYWORDS = [
+  '영상', '태블릿', '영화', '소환권', '데이트권', '친구', '나들이', '같이 자기',
+] as const;
+
+function isWeekendDeal(title: string): boolean {
+  return WEEKEND_KEYWORDS.some(kw => title.includes(kw));
+}
+
+function isWeekendNow(): boolean {
+  const day = new Date().getDay();
+  return day === 0 || day === 6;
+}
+
+function effectiveCost(reward: Reward, weekend: boolean): number {
+  if (!weekend || !isWeekendDeal(reward.title)) return reward.cost_points;
+  return Math.max(1, Math.floor(reward.cost_points * 0.7));
+}
+
+// Returns e.g. "23시간 47분" until next Monday 00:00 local time.
+function timeUntilWeekendEnds(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const daysToMonday = day === 6 ? 2 : 1;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + daysToMonday);
+  monday.setHours(0, 0, 0, 0);
+  const diffMs = monday.getTime() - now.getTime();
+  const h = Math.floor(diffMs / 3_600_000);
+  const m = Math.floor((diffMs % 3_600_000) / 60_000);
+  return `${h}시간 ${m}분`;
+}
+
 // ── StoreModal ────────────────────────────────────────────────────────────────
 
 export function StoreModal({
@@ -44,6 +80,9 @@ export function StoreModal({
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [weekend] = useState(isWeekendNow);
+  const [countdown, setCountdown] = useState(weekend ? timeUntilWeekendEnds() : '');
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
@@ -53,11 +92,23 @@ export function StoreModal({
     });
   }, []);
 
+  // Live countdown tick — only runs when it's a weekend.
+  useEffect(() => {
+    if (!weekend) return;
+    timerRef.current = setInterval(() => {
+      setCountdown(timeUntilWeekendEnds());
+    }, 60_000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [weekend]);
+
   const handleRedeem = async (reward: Reward) => {
-    if (balance < reward.cost_points || redeeming) return;
+    const cost = effectiveCost(reward, weekend);
+    if (balance < cost || redeeming) return;
     setRedeeming(reward.id);
+    // Pass discounted cost so the actual deduction matches the displayed price.
+    const effectiveReward: Reward = { ...reward, cost_points: cost };
     try {
-      await onRedeem(reward);
+      await onRedeem(effectiveReward);
       toast.success(`🎉 "${reward.title}" ${t('exchange_complete')}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
@@ -91,6 +142,29 @@ export function StoreModal({
           </div>
         </div>
 
+        {/* weekend banner */}
+        <AnimatePresence>
+          {weekend && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden shrink-0"
+            >
+              <div className="mx-4 mt-3 px-3 py-2 rounded-xl bg-amber-400/15 border border-amber-400/40 flex items-center gap-2">
+                <span className="text-lg leading-none">🎉</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-amber-400 leading-tight">주말 한정 혜택입니다!</div>
+                  <div className="text-[10px] text-amber-400/70 mt-0.5 leading-tight">
+                    종료까지 {countdown} 남음
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* body */}
         <div className="overflow-y-auto p-4 space-y-3">
           {loading && (
@@ -102,35 +176,80 @@ export function StoreModal({
             </div>
           )}
           {rewards.map(r => {
-            const canAfford = balance >= r.cost_points;
-            const busy = redeeming === r.id;
+            const hasDeal   = weekend && isWeekendDeal(r.title);
+            const cost      = effectiveCost(r, weekend);
+            const canAfford = balance >= cost;
+            const busy      = redeeming === r.id;
+
             return (
-              <div
+              <motion.div
                 key={r.id}
-                className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]"
-                style={{ opacity: canAfford ? 1 : 0.5 }}
+                layout
+                className={[
+                  'flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-card)] border transition-colors',
+                  hasDeal ? 'border-amber-400/50' : 'border-[var(--border)]',
+                ].join(' ')}
+                style={{
+                  opacity: canAfford ? 1 : 0.5,
+                  boxShadow: hasDeal ? '0 0 12px rgba(251, 191, 36, 0.18)' : undefined,
+                }}
               >
-                <div className="w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
-                  <RewardIcon name={r.icon} size={20} className="text-[var(--accent)]" />
+                {/* icon */}
+                <div className={[
+                  'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                  hasDeal ? 'bg-amber-400/15' : 'bg-[var(--accent-glow)]',
+                ].join(' ')}>
+                  <RewardIcon
+                    name={r.icon}
+                    size={20}
+                    className={hasDeal ? 'text-amber-400' : 'text-[var(--accent)]'}
+                  />
                 </div>
+
+                {/* info */}
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm text-[var(--fg)] truncate">{r.title}</div>
-                  <div className="text-xs text-[var(--fg-muted)]">{r.cost_points}pt</div>
+                  {/* title + badge */}
+                  <div className="flex items-start gap-1.5 flex-wrap">
+                    <span className="font-semibold text-sm text-[var(--fg)] leading-snug">
+                      {r.title}{hasDeal ? ' (주말 30% 특가!)' : ''}
+                    </span>
+                  </div>
+
+                  {/* price line */}
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {hasDeal ? (
+                      <>
+                        <span className="text-xs line-through text-[var(--fg-muted)]">{r.cost_points}pt</span>
+                        <span className="text-sm font-bold text-amber-400">{cost}pt</span>
+                        <span className="px-1 py-px rounded bg-amber-400/20 text-[10px] font-bold text-amber-400 leading-tight shrink-0">
+                          🔥 30% OFF
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-[var(--fg-muted)]">{cost}pt</span>
+                    )}
+                  </div>
                 </div>
+
+                {/* buy button */}
                 <button
                   onClick={() => handleRedeem(r)}
                   disabled={!canAfford || !!redeeming}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
                   style={{
                     minHeight: 36,
-                    background: canAfford ? 'var(--accent)' : 'transparent',
-                    color: canAfford ? '#fff' : 'var(--fg-muted)',
+                    background: canAfford
+                      ? hasDeal ? 'rgb(251 191 36)' : 'var(--accent)'
+                      : 'transparent',
+                    color: canAfford
+                      ? hasDeal ? '#000' : '#fff'
+                      : 'var(--fg-muted)',
                     cursor: canAfford && !redeeming ? 'pointer' : 'not-allowed',
                   }}
                 >
                   {busy ? '…' : t('redeem')}
                 </button>
-              </div>
+              </motion.div>
             );
           })}
         </div>

@@ -185,6 +185,8 @@ function mapTask(r: Record<string, unknown>): Task {
     timeWindow: (r.time_window as 'morning' | 'afternoon' | 'evening' | null) ?? undefined,
     active: r.active as number,
     sortOrder: r.sort_order as number,
+    streakCount: (r.streak_count as number | null) ?? 0,
+    lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at as string) : null,
   };
 }
 

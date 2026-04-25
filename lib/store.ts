@@ -119,6 +119,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         basePoints: r.base_points, recurrence: r.recurrence,
         daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence),
         timeWindow: r.time_window ?? undefined, active: r.active, sortOrder: r.sort_order,
+        streakCount: r.streak_count ?? 0,
+        lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at) : null,
       };
     });
 
@@ -191,7 +193,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       todayCompletions[u.id] = Array.from(completedTaskIds);
 
       const userStreaks = (sRes.data ?? []).filter(s => s.user_id === u.id);
-      maxStreakByUser[u.id] = userStreaks.reduce((max, s) => Math.max(max, s.current), 0);
+      // maxStreak: read live streak_count from tasks (primary source)
+      maxStreakByUser[u.id] = allTasks
+        .filter(t => t.userId === u.id && t.active === 1)
+        .reduce((max, t) => Math.max(max, t.streakCount), 0);
       longestStreakByUser[u.id] = userStreaks.reduce((max, s) => Math.max(max, s.longest), 0);
 
       const userHistComps = (cHistRes.data ?? []).filter(c => c.user_id === u.id);
@@ -281,6 +286,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         ...state.longestStreakByUser,
         [userId]: Math.max(state.longestStreakByUser[userId] ?? 0, result.streakLongest),
       },
+      tasksByUser: {
+        ...state.tasksByUser,
+        [userId]: (state.tasksByUser[userId] ?? []).map(t =>
+          t.id === taskId
+            ? { ...t, streakCount: result.streakCurrent, lastCompletedAt: new Date() }
+            : t
+        ),
+      },
     }));
   },
 
@@ -313,6 +326,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         : state.levelsByUser,
       maxStreakByUser:    { ...state.maxStreakByUser,    [userId]: undoResult.maxStreak },
       longestStreakByUser:{ ...state.longestStreakByUser, [userId]: undoResult.longestStreak },
+      tasksByUser: {
+        ...state.tasksByUser,
+        [userId]: (state.tasksByUser[userId] ?? []).map(t =>
+          t.id === taskId
+            ? {
+                ...t,
+                streakCount: undoResult.taskStreakCount ?? t.streakCount,
+                lastCompletedAt: undoResult.taskLastCompletedAt ?? t.lastCompletedAt,
+              }
+            : t
+        ),
+      },
     }));
   },
 

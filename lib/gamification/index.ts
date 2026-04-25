@@ -36,6 +36,8 @@ export interface UndoResult {
   level: Level | null;
   maxStreak: number;
   longestStreak: number;
+  taskStreakCount: number;
+  taskLastCompletedAt: Date | null;
 }
 
 export async function processCompletion(
@@ -91,22 +93,30 @@ export async function processCompletion(
     forgiveness_used: false,
   });
 
+  // Snapshot the pre-completion state from tasks table (primary source) for undo.
+  const streakBefore: number               = taskData.streak_count ?? 0;
+  const lastCompletedBefore: string | null = taskData.last_completed_at ?? null;
+
+  // Calculate new streak from tasks table columns.
+  const lastDate = lastCompletedBefore ? new Date(lastCompletedBefore) : null;
+  const gap = lastDate ? daysBetween(lastDate, now) : 999;
+  let streakCurrent: number;
+  if (gap === 0)      streakCurrent = streakBefore;      // same day: no change
+  else if (gap === 1) streakCurrent = streakBefore + 1;  // consecutive: increment
+  else                streakCurrent = 1;                 // gap: reset
+
+  // Write updated streak back to tasks table.
+  await supabase.from('tasks').update({
+    streak_count: streakCurrent,
+    last_completed_at: now.toISOString(),
+  }).eq('id', taskId);
+
+  // Keep streaks table in sync for longest history and badge evaluation.
   const { data: streakRows } = await supabase.from('streaks')
     .select('*').eq('user_id', userId).eq('task_id', taskId);
   const streakData = streakRows?.[0];
-
-  // Snapshot the pre-completion state so processUndo can restore it perfectly.
-  const streakBefore: number        = streakData?.current ?? 0;
-  const lastCompletedBefore: string | null = streakData?.last_completed_at ?? null;
-
-  let streakCurrent: number;
   let streakLongest: number;
   if (streakData) {
-    const lastDate = streakData.last_completed_at ? new Date(streakData.last_completed_at) : null;
-    const gap = lastDate ? daysBetween(lastDate, now) : 999;
-    if (gap === 0)      streakCurrent = streakData.current;          // same day: no change
-    else if (gap === 1) streakCurrent = streakData.current + 1;      // consecutive: increment
-    else                streakCurrent = 1;                           // gap: reset
     streakLongest = Math.max(streakData.longest, streakCurrent);
     await supabase.from('streaks').update({
       current: streakCurrent,
@@ -114,14 +124,13 @@ export async function processCompletion(
       last_completed_at: now.toISOString(),
     }).eq('id', streakData.id);
   } else {
-    streakCurrent = 1;
-    streakLongest = 1;
+    streakLongest = streakCurrent;
     await supabase.from('streaks').insert({
       id: crypto.randomUUID(),
       user_id: userId,
       task_id: taskId,
-      current: 1,
-      longest: 1,
+      current: streakCurrent,
+      longest: streakLongest,
       last_completed_at: now.toISOString(),
     });
   }
@@ -206,7 +215,16 @@ export async function processUndo(userId: string, taskId: string): Promise<UndoR
     .limit(1);
 
   const completion = completions?.[0];
-  if (!completion) return { level: null, ...(await fetchStreakStats()) };
+  if (!completion) {
+    const { data: taskRow0 } = await supabase.from('tasks')
+      .select('streak_count, last_completed_at').eq('id', taskId).single();
+    return {
+      level: null,
+      ...(await fetchStreakStats()),
+      taskStreakCount: taskRow0?.streak_count ?? 0,
+      taskLastCompletedAt: taskRow0?.last_completed_at ? new Date(taskRow0.last_completed_at) : null,
+    };
+  }
 
   await supabase.from('task_completions').delete().eq('id', completion.id);
 
@@ -214,6 +232,12 @@ export async function processUndo(userId: string, taskId: string): Promise<UndoR
   // streak_before / last_completed_before were written by processCompletion via migration 008.
   const streakBefore: number | null        = completion.streak_before ?? null;
   const lastCompletedBefore: string | null = completion.last_completed_before ?? null;
+
+  // Fetch current task streak state before potentially restoring.
+  const { data: taskRow } = await supabase.from('tasks')
+    .select('streak_count, last_completed_at').eq('id', taskId).single();
+  let restoredStreakCount  = taskRow?.streak_count ?? 0;
+  let restoredLastCompleted: string | null = taskRow?.last_completed_at ?? null;
 
   if (streakBefore !== null) {
     const { count: remaining } = await supabase.from('task_completions')
@@ -224,12 +248,22 @@ export async function processUndo(userId: string, taskId: string): Promise<UndoR
       .lte('completed_at', now.toISOString());
 
     if ((remaining ?? 0) === 0) {
+      restoredStreakCount   = streakBefore;
+      restoredLastCompleted = lastCompletedBefore;
+
+      // Restore tasks table (primary source).
+      await supabase.from('tasks').update({
+        streak_count: restoredStreakCount,
+        last_completed_at: restoredLastCompleted,
+      }).eq('id', taskId);
+
+      // Keep streaks table in sync.
       const { data: streakRows } = await supabase.from('streaks')
         .select('id').eq('user_id', userId).eq('task_id', taskId);
       if (streakRows?.[0]) {
         await supabase.from('streaks').update({
-          current: streakBefore,
-          last_completed_at: lastCompletedBefore,
+          current: restoredStreakCount,
+          last_completed_at: restoredLastCompleted,
         }).eq('id', streakRows[0].id);
       }
     }
@@ -256,7 +290,13 @@ export async function processUndo(userId: string, taskId: string): Promise<UndoR
     }).eq('user_id', userId);
   }
 
-  return { level, ...(await fetchStreakStats()) };
+  const streakStats = await fetchStreakStats();
+  return {
+    level,
+    ...streakStats,
+    taskStreakCount: restoredStreakCount,
+    taskLastCompletedAt: restoredLastCompleted ? new Date(restoredLastCompleted) : null,
+  };
 }
 
 /**

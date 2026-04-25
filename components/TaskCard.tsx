@@ -90,6 +90,25 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     CUSTOM_ICON_MAP[task.icon] ??
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
+  // Streak tier logic
+  const streak      = task.streakCount ?? 0;
+  const tier        = streak >= 7 ? 3 : streak >= 3 ? 2 : 1;
+  const multiplier  = tier === 3 ? 2 : tier === 2 ? 1.5 : 1;
+  const displayPts  = tier > 1 ? Math.round(task.basePoints * multiplier) : task.basePoints;
+  const streakLabel = streak > 0 ? `🔥${streak}${tier === 3 ? ' 2×' : tier === 2 ? ' 1.5×' : ''}` : null;
+  const ringClass   = completed
+    ? 'ring-[var(--accent)] opacity-55'
+    : tier === 3
+      ? 'ring-amber-400'
+      : tier === 2
+        ? 'ring-orange-400'
+        : 'ring-[var(--border)]';
+  const glowStyle: React.CSSProperties = !completed && tier === 3
+    ? { boxShadow: '0 0 16px rgba(251, 191, 36, 0.45)' }
+    : !completed && tier === 2
+      ? { boxShadow: '0 0 10px rgba(251, 146, 60, 0.30)' }
+      : {};
+
   return (
     <div className="relative h-full w-full">
 
@@ -112,13 +131,13 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         dragElastic={0.15}
         onDragEnd={handleDragEnd}
         onTap={handleTap}
-        style={{ x }}
+        style={{ x, ...glowStyle }}
         whileTap={{ scale: 0.92 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--bg-card)]',
           'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
           'ring-1 ring-inset',
-          completed ? 'ring-[var(--accent)] opacity-55' : 'ring-[var(--border)]',
+          ringClass,
         ].join(' ')}
       >
         {/* Icon — 40px, readable and comfortable on touch screens */}
@@ -131,9 +150,19 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           <div className={`text-base font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
-          <div className="text-xs text-[var(--fg-muted)] mt-0.5 truncate">
-            +{task.basePoints}pt
-            {task.timeWindow && ` · ${t(task.timeWindow as 'morning' | 'afternoon' | 'evening')}`}
+          <div className={[
+            'text-xs mt-0.5 truncate flex items-center gap-1',
+            tier >= 2 && !completed
+              ? tier === 3 ? 'text-amber-400' : 'text-orange-400'
+              : 'text-[var(--fg-muted)]',
+          ].join(' ')}>
+            <span>+{displayPts}pt</span>
+            {task.timeWindow && <span>· {t(task.timeWindow as 'morning' | 'afternoon' | 'evening')}</span>}
+            {streakLabel && !completed && (
+              tier === 3
+                ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>{streakLabel}</motion.span>
+                : <span>{streakLabel}</span>
+            )}
           </div>
         </div>
 

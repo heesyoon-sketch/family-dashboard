@@ -10,12 +10,8 @@ export async function evaluateCondition(
   switch (cond.type) {
     case 'streak': {
       const { data: tasks } = await supabase.from('tasks')
-        .select('id').eq('user_id', userId).eq('code', cond.taskCode);
-      const task = tasks?.[0];
-      if (!task) return false;
-      const { data: streaks } = await supabase.from('streaks')
-        .select('current').eq('user_id', userId).eq('task_id', task.id);
-      return (streaks?.[0]?.current ?? 0) >= cond.days;
+        .select('streak_count').eq('user_id', userId).eq('code', cond.taskCode);
+      return (tasks?.[0]?.streak_count ?? 0) >= cond.days;
     }
 
     case 'points_total': {

@@ -145,6 +145,8 @@ export default function StatsPage() {
               daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence),
               timeWindow: r.time_window ?? undefined,
               active: r.active, sortOrder: r.sort_order,
+              streakCount: r.streak_count ?? 0,
+              lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at) : null,
             };
           })
           .sort((a, b) => a.sortOrder - b.sortOrder);
