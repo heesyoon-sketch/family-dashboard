@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
-import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND } from '@/lib/db';
+import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
 import { getEffectiveAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
@@ -225,6 +225,10 @@ export default function AdminPage() {
   const [pinChanging, setPinChanging] = useState(false);
   const [deletingFamily, setDeletingFamily] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState<UserRole>('CHILD');
   const storeHydrate = useFamilyStore(s => s.hydrate);
   const router = useRouter();
 
@@ -359,6 +363,67 @@ export default function AdminPage() {
     if (!familyInviteCode) return;
     await navigator.clipboard.writeText(familyInviteCode);
     toast.success('Invitation code copied');
+  };
+
+  const generateInviteCode = async () => {
+    if (generatingCode || !familyId) return;
+    setGeneratingCode(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      const { error } = await supabase.from('families').update({ invite_code: code }).eq('id', familyId);
+      if (error) throw error;
+      setFamilyInviteCode(code);
+      toast.success('새 초대 코드가 생성되었습니다');
+    } catch {
+      toast.error('코드 생성에 실패했습니다');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const addMember = async () => {
+    const trimmed = newMemberName.trim();
+    if (!trimmed || !familyId) return;
+    const supabase = createBrowserSupabase();
+    const usedThemes = new Set(allUsers.map(u => u.theme));
+    const allThemes: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
+    const theme = allThemes.find(t => !usedThemes.has(t)) ?? 'pastel_cute';
+    const { data, error } = await supabase
+      .from('users')
+      .insert({ id: crypto.randomUUID(), name: trimmed, role: newMemberRole, theme, family_id: familyId, created_at: new Date().toISOString() })
+      .select().single();
+    if (error) { toast.error(`멤버 추가 실패: ${error.message}`); return; }
+    const newUser: User = {
+      id: data.id, name: data.name, role: data.role as UserRole, theme: data.theme as ThemeName,
+      avatarUrl: data.avatar_url ?? undefined, pinHash: data.pin_hash ?? undefined,
+      authUserId: data.auth_user_id ?? undefined, createdAt: new Date(data.created_at),
+    };
+    setAllUsers(prev => [...prev, newUser]);
+    if (newUser.role === 'PARENT') setParents(prev => [...prev, newUser]);
+    setNewMemberName('');
+    setAddingMember(false);
+    await storeHydrate();
+    notifyDashboard();
+    toast.success(`'${trimmed}' 프로필이 추가되었습니다`);
+  };
+
+  const removeMember = async (userId: string) => {
+    const target = allUsers.find(u => u.id === userId);
+    if (!target) return;
+    if (target.authUserId) {
+      toast.error('Google 계정이 연결된 프로필은 삭제할 수 없습니다');
+      return;
+    }
+    if (!confirm(`'${target.name}' 프로필을 삭제할까요?\n이 프로필의 모든 태스크와 기록이 삭제됩니다.`)) return;
+    const supabase = createBrowserSupabase();
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+    if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
+    setAllUsers(prev => prev.filter(u => u.id !== userId));
+    setParents(prev => prev.filter(u => u.id !== userId));
+    await storeHydrate();
+    notifyDashboard();
   };
 
   const loadTasks = async (user: User) => {
@@ -712,7 +777,21 @@ export default function AdminPage() {
                   >
                     <Icons.Copy size={20} />
                   </button>
+                  <button
+                    onClick={generateInviteCode}
+                    disabled={generatingCode}
+                    className="w-14 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center disabled:opacity-40 hover:bg-[#2d3545] hover:text-white transition-colors"
+                    style={{ minHeight: 'var(--touch-target)' }}
+                    title={familyInviteCode ? 'Regenerate code' : 'Generate code'}
+                  >
+                    <Icons.RefreshCw size={18} className={generatingCode ? 'animate-spin' : ''} />
+                  </button>
                 </div>
+                {!familyInviteCode && (
+                  <p className="text-[#f59e0b] text-xs mt-2">
+                    ↑ 초대 코드가 없습니다. 새로고침 버튼으로 생성하세요.
+                  </p>
+                )}
               </div>
 
               {/* Language */}
@@ -819,7 +898,67 @@ export default function AdminPage() {
           {/* ─── FAMILY ─── */}
           {activeTab === 'family' && (
             <div className="bg-[#141821] rounded-2xl p-6">
-              <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('set_family_names')}</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-[#4f9cff]">{t('set_family_names')}</h2>
+                <button
+                  onClick={() => { setAddingMember(true); setNewMemberName(''); setNewMemberRole('CHILD'); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#4f9cff]/15 text-[#4f9cff] text-sm font-semibold hover:bg-[#4f9cff]/25 transition-colors"
+                >
+                  <Icons.UserPlus size={15} />
+                  멤버 추가
+                </button>
+              </div>
+
+              {/* Add member form */}
+              {addingMember && (
+                <div className="bg-[#232831] rounded-xl p-4 mb-4 space-y-3 border border-[#4f9cff]/30">
+                  <p className="text-sm text-[#8a8f99]">새 프로필을 추가합니다. 나중에 이 프로필에 Google 계정을 연결할 수 있습니다.</p>
+                  <input
+                    type="text"
+                    value={newMemberName}
+                    onChange={e => setNewMemberName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addMember()}
+                    placeholder="이름 (예: 아람, 주원)"
+                    autoFocus
+                    className="w-full rounded-xl bg-[#1a1f2a] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
+                    style={{ minHeight: '48px', fontSize: '16px' }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setNewMemberRole('PARENT')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                        newMemberRole === 'PARENT' ? 'bg-[#4f9cff] text-white' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                      }`}
+                    >
+                      {t('parent_role')}
+                    </button>
+                    <button
+                      onClick={() => setNewMemberRole('CHILD')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                        newMemberRole === 'CHILD' ? 'bg-[#4f9cff] text-white' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                      }`}
+                    >
+                      {t('child_role')}
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addMember}
+                      disabled={!newMemberName.trim()}
+                      className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-white font-semibold disabled:opacity-40 transition-opacity"
+                    >
+                      추가하기
+                    </button>
+                    <button
+                      onClick={() => setAddingMember(false)}
+                      className="flex-1 py-3 rounded-xl bg-[#1a1f2a] text-[#8a8f99] font-semibold hover:bg-[#2d3545] transition-colors"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
                 {allUsers.map(u => (
                   <div key={u.id} className="flex items-center gap-3">
@@ -882,11 +1021,21 @@ export default function AdminPage() {
                         </span>
                         <button
                           onClick={() => startEditName(u)}
-                          className="w-12 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
+                          className="w-11 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
                           style={{ minHeight: '48px', fontSize: '20px' }}
                         >
                           ✏️
                         </button>
+                        {!u.authUserId && (
+                          <button
+                            onClick={() => removeMember(u.id)}
+                            className="w-11 rounded-xl bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-900/40 transition-colors shrink-0"
+                            style={{ minHeight: '48px' }}
+                            title="프로필 삭제"
+                          >
+                            <Icons.Trash2 size={15} />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
