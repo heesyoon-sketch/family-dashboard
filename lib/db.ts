@@ -59,6 +59,8 @@ export interface TaskCompletion {
   pointsAwarded: number;
   partial: boolean;
   forgivenessUsed: boolean;
+  streakBefore?: number | null;
+  lastCompletedBefore?: Date | null;
 }
 
 export interface Streak {

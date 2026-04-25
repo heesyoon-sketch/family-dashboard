@@ -28,6 +28,14 @@ export interface CompletionResult {
   leveledUp: boolean;
   badgesEarned: Badge[];
   celebration: import('../store').Celebration | null;
+  streakCurrent: number;
+  streakLongest: number;
+}
+
+export interface UndoResult {
+  level: Level | null;
+  maxStreak: number;
+  longestStreak: number;
 }
 
 export async function processCompletion(
@@ -61,7 +69,13 @@ export async function processCompletion(
       spendableBalance: existingLevel?.spendable_balance ?? 0,
       updatedAt: existingLevel?.updated_at ? new Date(existingLevel.updated_at) : now,
     };
-    return { pointsAwarded: 0, level, leveledUp: false, badgesEarned: [], celebration: null };
+    const { data: existingStreak } = await supabase.from('streaks')
+      .select('current, longest').eq('user_id', userId).eq('task_id', taskId).single();
+    return {
+      pointsAwarded: 0, level, leveledUp: false, badgesEarned: [], celebration: null,
+      streakCurrent: existingStreak?.current ?? 0,
+      streakLongest: existingStreak?.longest ?? 0,
+    };
   }
 
   let pts = partial ? Math.round(taskData.base_points * 0.5) : taskData.base_points;
@@ -81,20 +95,27 @@ export async function processCompletion(
     .select('*').eq('user_id', userId).eq('task_id', taskId);
   const streakData = streakRows?.[0];
 
+  // Snapshot the pre-completion state so processUndo can restore it perfectly.
+  const streakBefore: number        = streakData?.current ?? 0;
+  const lastCompletedBefore: string | null = streakData?.last_completed_at ?? null;
+
   let streakCurrent: number;
+  let streakLongest: number;
   if (streakData) {
     const lastDate = streakData.last_completed_at ? new Date(streakData.last_completed_at) : null;
     const gap = lastDate ? daysBetween(lastDate, now) : 999;
-    if (gap === 0) streakCurrent = streakData.current;
-    else if (gap === 1) streakCurrent = streakData.current + 1;
-    else streakCurrent = 1;
+    if (gap === 0)      streakCurrent = streakData.current;          // same day: no change
+    else if (gap === 1) streakCurrent = streakData.current + 1;      // consecutive: increment
+    else                streakCurrent = 1;                           // gap: reset
+    streakLongest = Math.max(streakData.longest, streakCurrent);
     await supabase.from('streaks').update({
       current: streakCurrent,
-      longest: Math.max(streakData.longest, streakCurrent),
+      longest: streakLongest,
       last_completed_at: now.toISOString(),
     }).eq('id', streakData.id);
   } else {
     streakCurrent = 1;
+    streakLongest = 1;
     await supabase.from('streaks').insert({
       id: crypto.randomUUID(),
       user_id: userId,
@@ -105,9 +126,9 @@ export async function processCompletion(
     });
   }
 
-  if (streakCurrent === 3)  pts += 10;
-  if (streakCurrent === 7)  pts += 30;
-  if (streakCurrent === 30) pts += 100;
+  // Streak multiplier: Tier 2 (3–6 days) = 1.5×, Tier 3 (7+ days) = 2×
+  if (streakCurrent >= 7)      pts = Math.round(pts * 2);
+  else if (streakCurrent >= 3) pts = Math.round(pts * 1.5);
 
   const { count: activeCount } = await supabase.from('tasks')
     .select('*', { count: 'exact', head: true })
@@ -143,7 +164,11 @@ export async function processCompletion(
     updated_at: now.toISOString(),
   });
   await supabase.from('task_completions')
-    .update({ points_awarded: pts }).eq('id', completionId);
+    .update({
+      points_awarded: pts,
+      streak_before: streakBefore,
+      last_completed_before: lastCompletedBefore,
+    }).eq('id', completionId);
 
   const leveledUp = newLevel > oldLevel;
   const badgesEarned = await evaluateAllBadges(userId);
@@ -155,13 +180,21 @@ export async function processCompletion(
     celebration = { type: 'badge', userId, badge: badgesEarned[0] };
   }
 
-  return { pointsAwarded: pts, level: updatedLevel, leveledUp, badgesEarned, celebration };
+  return { pointsAwarded: pts, level: updatedLevel, leveledUp, badgesEarned, celebration, streakCurrent, streakLongest };
 }
 
-export async function processUndo(userId: string, taskId: string): Promise<Level | null> {
+export async function processUndo(userId: string, taskId: string): Promise<UndoResult> {
   const supabase = createBrowserSupabase();
   const dayStart = startOfDay(new Date());
   const now = new Date();
+
+  const fetchStreakStats = async () => {
+    const { data } = await supabase.from('streaks').select('current, longest').eq('user_id', userId);
+    return {
+      maxStreak:     (data ?? []).reduce((m, s) => Math.max(m, s.current), 0),
+      longestStreak: (data ?? []).reduce((m, s) => Math.max(m, s.longest), 0),
+    };
+  };
 
   const { data: completions } = await supabase.from('task_completions')
     .select('*')
@@ -173,33 +206,57 @@ export async function processUndo(userId: string, taskId: string): Promise<Level
     .limit(1);
 
   const completion = completions?.[0];
-  if (!completion) return null;
+  if (!completion) return { level: null, ...(await fetchStreakStats()) };
 
   await supabase.from('task_completions').delete().eq('id', completion.id);
 
-  const { data: lvlData } = await supabase.from('levels')
-    .select('*').eq('user_id', userId).single();
-  if (!lvlData) return null;
+  // Restore streak only when this was the LAST completion today for this task.
+  // streak_before / last_completed_before were written by processCompletion via migration 008.
+  const streakBefore: number | null        = completion.streak_before ?? null;
+  const lastCompletedBefore: string | null = completion.last_completed_before ?? null;
 
-  const newTotal   = Math.max(0, lvlData.total_points - completion.points_awarded);
-  // Clamp at 0 in case points were already spent on rewards
-  const newBalance = Math.max(0, (lvlData.spendable_balance ?? 0) - completion.points_awarded);
+  if (streakBefore !== null) {
+    const { count: remaining } = await supabase.from('task_completions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('task_id', taskId)
+      .gte('completed_at', dayStart.toISOString())
+      .lte('completed_at', now.toISOString());
 
-  const updatedLevel: Level = {
-    userId,
-    currentLevel: levelForPoints(newTotal),
-    totalPoints: newTotal,
-    spendableBalance: newBalance,
-    updatedAt: new Date(),
-  };
-  await supabase.from('levels').update({
-    current_level: updatedLevel.currentLevel,
-    total_points: newTotal,
-    spendable_balance: newBalance,
-    updated_at: updatedLevel.updatedAt.toISOString(),
-  }).eq('user_id', userId);
+    if ((remaining ?? 0) === 0) {
+      const { data: streakRows } = await supabase.from('streaks')
+        .select('id').eq('user_id', userId).eq('task_id', taskId);
+      if (streakRows?.[0]) {
+        await supabase.from('streaks').update({
+          current: streakBefore,
+          last_completed_at: lastCompletedBefore,
+        }).eq('id', streakRows[0].id);
+      }
+    }
+  }
 
-  return updatedLevel;
+  // Deduct points from level.
+  const { data: lvlData } = await supabase.from('levels').select('*').eq('user_id', userId).single();
+  let level: Level | null = null;
+  if (lvlData) {
+    const newTotal   = Math.max(0, lvlData.total_points - completion.points_awarded);
+    const newBalance = Math.max(0, (lvlData.spendable_balance ?? 0) - completion.points_awarded);
+    level = {
+      userId,
+      currentLevel: levelForPoints(newTotal),
+      totalPoints: newTotal,
+      spendableBalance: newBalance,
+      updatedAt: new Date(),
+    };
+    await supabase.from('levels').update({
+      current_level: level.currentLevel,
+      total_points: newTotal,
+      spendable_balance: newBalance,
+      updated_at: level.updatedAt.toISOString(),
+    }).eq('user_id', userId);
+  }
+
+  return { level, ...(await fetchStreakStats()) };
 }
 
 /**

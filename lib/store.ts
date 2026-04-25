@@ -273,6 +273,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         ? { ...state.levelsByUser, [userId]: result.level }
         : state.levelsByUser,
       celebration: result.celebration ?? state.celebration,
+      maxStreakByUser: {
+        ...state.maxStreakByUser,
+        [userId]: Math.max(state.maxStreakByUser[userId] ?? 0, result.streakCurrent),
+      },
+      longestStreakByUser: {
+        ...state.longestStreakByUser,
+        [userId]: Math.max(state.longestStreakByUser[userId] ?? 0, result.streakLongest),
+      },
     }));
   },
 
@@ -289,21 +297,23 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       return;
     }
 
-    let updatedLevel;
+    let undoResult;
     try {
       const { processUndo } = await import('./gamification');
-      updatedLevel = await processUndo(userId, taskId);
+      undoResult = await processUndo(userId, taskId);
     } catch (error) {
       await enqueueTaskAction('undo', userId, taskId);
       console.warn('Queued undo for offline sync', error);
       return;
     }
 
-    if (updatedLevel) {
-      set(state => ({
-        levelsByUser: { ...state.levelsByUser, [userId]: updatedLevel },
-      }));
-    }
+    set(state => ({
+      levelsByUser: undoResult.level
+        ? { ...state.levelsByUser, [userId]: undoResult.level }
+        : state.levelsByUser,
+      maxStreakByUser:    { ...state.maxStreakByUser,    [userId]: undoResult.maxStreak },
+      longestStreakByUser:{ ...state.longestStreakByUser, [userId]: undoResult.longestStreak },
+    }));
   },
 
   syncOfflineActions: async () => {
