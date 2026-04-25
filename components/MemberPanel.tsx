@@ -77,6 +77,13 @@ export function MemberPanel({ user }: { user: User }) {
     return true;
   });
 
+  // Incomplete first, completed sink to bottom. Stable within each group (original index order).
+  const sortedTasks = [...visibleTasks].sort((a, b) => {
+    const aDone = completed.includes(a.id) ? 1 : 0;
+    const bDone = completed.includes(b.id) ? 1 : 0;
+    return aDone - bDone;
+  });
+
   const doneCount  = visibleTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = visibleTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
@@ -199,25 +206,27 @@ export function MemberPanel({ user }: { user: User }) {
          * Desktop — overflow-hidden: clips to grid cell, no scroll
          */}
         <div className="flex-1 overflow-y-auto md:overflow-hidden" style={{ minHeight: 0 }}>
-          <div className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
-            {visibleTasks.length === 0 && (
+          <motion.div layout className="grid grid-cols-2 gap-2" style={{ alignContent: 'start' }}>
+            {sortedTasks.length === 0 && (
               <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
                 {t('no_tasks_today')}
               </div>
             )}
-            {visibleTasks.map((task, i) => (
-              <div
+            {sortedTasks.map((task, i) => (
+              <motion.div
                 key={task.id}
-                className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-2' : ''}
+                layout
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className={sortedTasks.length % 2 !== 0 && i === sortedTasks.length - 1 ? 'col-span-2' : ''}
               >
                 <TaskCard
                   task={task}
                   completed={completed.includes(task.id)}
                   theme={user.theme}
                 />
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
     </>
