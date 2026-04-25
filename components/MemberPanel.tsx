@@ -34,7 +34,7 @@ function PanelSkeleton({ theme }: { theme: string }) {
         </div>
         <motion.div {...pulse} className="w-9 h-9 rounded-full bg-[var(--bg-card)] shrink-0" />
       </header>
-      <div className="grid grid-cols-2 gap-2 flex-1 content-start md:grid-rows-4 md:content-normal">
+      <div className="grid grid-cols-2 gap-2 flex-1 content-start md:content-normal" style={{ gridAutoRows: 'calc(25% - 0.375rem)' }}>
         {Array.from({ length: 8 }).map((_, i) => (
           <motion.div
             key={i}
@@ -205,7 +205,13 @@ export function MemberPanel({ user }: { user: User }) {
          * Desktop — 2×4 grid fills available height; implicit rows (9+ tasks) scroll
          */}
         <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-          <motion.div layout className="grid grid-cols-2 gap-2 content-start md:h-full md:grid-rows-4 md:content-normal">
+          {/* gridAutoRows sizes every row (no explicit template) to exactly ¼ of the container
+              minus the proportional share of 3 gap-2 (0.5rem) gutters: (100% - 3×0.5rem) / 4 */}
+          <motion.div
+            layout
+            className="grid grid-cols-2 gap-2 content-start md:h-full md:content-normal"
+            style={{ gridAutoRows: 'calc(25% - 0.375rem)' }}
+          >
             {sortedTasks.length === 0 && (
               <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
                 {t('no_tasks_today')}
