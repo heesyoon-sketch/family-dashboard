@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import * as Icons from 'lucide-react';
 import { User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
@@ -64,6 +64,8 @@ export function MemberPanel({ user }: { user: User }) {
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
 
   const [storeOpen, setStoreOpen] = useState(false);
+  const scrollRef   = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(false);
 
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
@@ -82,6 +84,15 @@ export function MemberPanel({ user }: { user: User }) {
     const bDone = completed.includes(b.id) ? 1 : 0;
     return aDone - bDone;
   });
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 40);
+  };
+
+  const moreCount = Math.max(0, sortedTasks.length - 8);
+  const showMore  = moreCount > 0 && !atBottom;
 
   const doneCount  = visibleTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = visibleTasks.length;
@@ -199,31 +210,67 @@ export function MemberPanel({ user }: { user: User }) {
           <ProgressRing pct={pct} size={36} />
         </header>
 
-        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-          <motion.div
-            layout
-            className="grid grid-cols-2 gap-2 auto-rows-[76px] md:auto-rows-[80px]"
+        {/* Positioning context for gradient + badge overlays */}
+        <div className="relative flex-1" style={{ minHeight: 0 }}>
+
+          {/* Scrollable task list */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="absolute inset-0 overflow-y-auto"
           >
-            {sortedTasks.length === 0 && (
-              <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
-                {t('no_tasks_today')}
-              </div>
-            )}
-            {sortedTasks.map((task, i) => (
+            <motion.div
+              layout
+              className="grid grid-cols-2 gap-2 auto-rows-[76px] md:auto-rows-[80px]"
+            >
+              {sortedTasks.length === 0 && (
+                <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
+                  {t('no_tasks_today')}
+                </div>
+              )}
+              {sortedTasks.map((task, i) => (
+                <motion.div
+                  key={task.id}
+                  layout
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className={sortedTasks.length % 2 !== 0 && i === sortedTasks.length - 1 ? 'col-span-2' : ''}
+                >
+                  <TaskCard
+                    task={task}
+                    completed={completed.includes(task.id)}
+                    theme={user.theme}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Gradient fade — always mounted, opacity driven by showMore */}
+          <motion.div
+            initial={false}
+            animate={{ opacity: showMore ? 1 : 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-x-0 bottom-0 h-16 pointer-events-none bg-gradient-to-t from-[var(--bg)] to-transparent"
+          />
+
+          {/* Bouncing pill badge */}
+          <AnimatePresence>
+            {showMore && (
               <motion.div
-                key={task.id}
-                layout
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className={sortedTasks.length % 2 !== 0 && i === sortedTasks.length - 1 ? 'col-span-2' : ''}
+                key="more-badge"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, y: [0, 4, 0] }}
+                exit={{ opacity: 0 }}
+                transition={{
+                  opacity: { duration: 0.2 },
+                  y: { duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: 0.4 },
+                }}
+                className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-card)] ring-1 ring-[var(--border)] text-[11px] font-semibold text-[var(--fg-muted)] whitespace-nowrap"
               >
-                <TaskCard
-                  task={task}
-                  completed={completed.includes(task.id)}
-                  theme={user.theme}
-                />
+                ↓ {moreCount} more
               </motion.div>
-            ))}
-          </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </section>
     </>
