@@ -281,7 +281,7 @@ export default function AdminPage() {
 
   const handleDeleteFamilyData = async () => {
     if (deletingFamily) return;
-    const confirmed = confirm('이 작업은 되돌릴 수 없습니다. 모든 가족 구성원, 습관, 보상 데이터가 영구적으로 삭제됩니다. 정말 삭제하시겠습니까?');
+    const confirmed = confirm(t('danger_zone_confirm'));
     if (!confirmed) return;
 
     setDeletingFamily(true);
@@ -292,7 +292,7 @@ export default function AdminPage() {
       window.location.href = '/login?deleted=1';
     } catch (error) {
       console.error(error);
-      toast.error('가족 데이터 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      toast.error(t('danger_zone_delete_failed'));
       setDeletingFamily(false);
     }
   };
@@ -773,7 +773,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Danger Zone */}
+              {/* Progress Reset */}
               <div className="rounded-2xl p-6 border border-red-900/30 bg-red-900/5">
                 <h2 className="text-lg font-semibold mb-2 text-red-400">{t('reset_all_progress')}</h2>
                 <p className="text-[#8a8f99] text-sm mb-4">{t('reset_description')}</p>
@@ -788,6 +788,20 @@ export default function AdminPage() {
                   className="px-6 py-3 rounded-xl bg-red-900/40 text-red-400 font-semibold border border-red-900/60 min-h-[var(--touch-target)] hover:bg-red-900/60 transition-colors"
                 >
                   {t('reset_full')}
+                </button>
+              </div>
+
+              {/* Danger Zone — permanent family data deletion */}
+              <div className="rounded-2xl border border-red-800/50 bg-red-950/20 p-6">
+                <h2 className="text-lg font-bold text-red-300 mb-2">{t('danger_zone')}</h2>
+                <p className="text-sm leading-6 text-[#c8ccd4] mb-4">{t('danger_zone_description')}</p>
+                <button
+                  onClick={handleDeleteFamilyData}
+                  disabled={deletingFamily}
+                  className="w-full rounded-xl border border-red-700 bg-red-900/60 px-5 py-4 font-bold text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ minHeight: 'var(--touch-target)' }}
+                >
+                  {deletingFamily ? t('danger_zone_deleting') : t('danger_zone_button')}
                 </button>
               </div>
             </div>
@@ -1233,24 +1247,6 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {/* Permanent deletion — Play Store data deletion compliance */}
-        <div className="max-w-4xl mx-auto px-4 pb-8">
-          <div className="rounded-2xl border border-red-800/50 bg-red-950/20 p-6">
-            <h2 className="text-lg font-bold text-red-300 mb-2">Danger Zone</h2>
-            <p className="text-sm leading-6 text-[#c8ccd4] mb-4">
-              가족 구성원, 습관, 보상, 설정 및 진행 기록을 포함한 현재 가족 데이터를 영구적으로 삭제합니다.
-              이 작업은 Google Play 데이터 삭제 요청을 처리하기 위한 기능이며 되돌릴 수 없습니다.
-            </p>
-            <button
-              onClick={handleDeleteFamilyData}
-              disabled={deletingFamily}
-              className="w-full rounded-xl border border-red-700 bg-red-900/60 px-5 py-4 font-bold text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ minHeight: 'var(--touch-target)' }}
-            >
-              {deletingFamily ? '삭제 중…' : '가족 데이터 영구 삭제 (Delete All Data)'}
-            </button>
-          </div>
-        </div>
       </main>
     </>
   );
