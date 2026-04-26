@@ -65,6 +65,8 @@ export function MemberPanel({ user }: { user: User }) {
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const familyId       = useFamilyStore(s => s.familyId);
+  const currentMemberId = useFamilyStore(s => s.currentMemberId);
+  const currentMemberCanAdmin = useFamilyStore(s => s.currentMemberCanAdmin);
   const updateAvatar   = useFamilyStore(s => s.updateMemberAvatar);
 
   const [storeOpen, setStoreOpen] = useState(false);
@@ -127,6 +129,8 @@ export function MemberPanel({ user }: { user: User }) {
   const lvlInfo       = LEVEL_THRESHOLDS.find(l => l.level === (level?.currentLevel ?? 1))!;
   const pointsInLevel = (level?.totalPoints ?? 0) - lvlInfo.min;
   const pointsNeeded  = lvlInfo.max - lvlInfo.min;
+  const canUploadAvatar =
+    user.loginMethod !== 'google' && (currentMemberCanAdmin || currentMemberId === user.id);
 
   const handleRedeem = async (reward: Reward) => {
     await doRedeemReward(user.id, reward.id, reward.cost_points);
@@ -157,10 +161,10 @@ export function MemberPanel({ user }: { user: User }) {
 
       const { data } = supabase.storage.from('member-avatars').getPublicUrl(path);
       const avatarUrl = `${data.publicUrl}?v=${Date.now()}`;
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: avatarUrl })
-        .eq('id', user.id);
+      const { error: updateError } = await supabase.rpc('update_member_avatar', {
+        p_member_id: user.id,
+        p_avatar_url: avatarUrl,
+      });
       if (updateError) throw updateError;
 
       updateAvatar(user.id, avatarUrl);
@@ -214,7 +218,7 @@ export function MemberPanel({ user }: { user: User }) {
                 {user.name[0]}
               </div>
             )}
-            {user.role === 'CHILD' && !user.authUserId && (
+            {canUploadAvatar && (
               <>
                 <input
                   ref={avatarInputRef}
@@ -247,9 +251,9 @@ export function MemberPanel({ user }: { user: User }) {
               )}
             </div>
 
-            {/* Row 2: compact stats + balance */}
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-[11px] text-[var(--fg-muted)]">
+            {/* Row 2: compact stats + balance + store */}
+            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+              <span className="text-[11px] text-[var(--fg-muted)] truncate">
                 Lv.{level?.currentLevel ?? 1} · {level?.totalPoints ?? 0}pt
               </span>
               {maxStreak > 0 && (
@@ -261,19 +265,18 @@ export function MemberPanel({ user }: { user: User }) {
               <span className="flex-1" />
               <button
                 onClick={openStore}
-                className="text-[11px] font-semibold text-[var(--accent)] shrink-0"
+                className="text-[11px] font-bold text-[var(--accent)] shrink-0"
               >
                 💰{spendableBalance}pt
               </button>
+              <button
+                onClick={openStore}
+                className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+              >
+                <Store size={13} />
+                {lang === 'en' ? 'Store' : '상점'}
+              </button>
             </div>
-
-            <button
-              onClick={openStore}
-              className="mt-1.5 w-full min-h-[40px] rounded-xl bg-[var(--accent)] text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform"
-            >
-              <Store size={16} />
-              {lang === 'en' ? 'Go to Store' : '상점 가기'}
-            </button>
 
             {/* Row 3: XP bar */}
             <div className="h-1 rounded-full bg-[var(--border)] mt-1.5 overflow-hidden">

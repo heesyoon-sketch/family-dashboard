@@ -3,22 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { createBrowserSupabase } from '@/lib/supabase';
-
-const DEFAULT_MEMBERS = [
-  { name: '아빠', role: 'PARENT' as const, theme: 'dark_minimal' as const },
-  { name: '엄마', role: 'PARENT' as const, theme: 'warm_minimal' as const },
-  { name: '첫째', role: 'CHILD' as const,  theme: 'robot_neon'   as const },
-  { name: '둘째', role: 'CHILD' as const,  theme: 'pastel_cute'  as const },
-];
-
-interface InviteProfile {
-  id: string;
-  name: string;
-  role: 'PARENT' | 'CHILD';
-  theme: string;
-  claimed: boolean;
-}
 
 interface GoogleUser {
   email: string;
@@ -28,27 +14,30 @@ interface GoogleUser {
 
 export default function SetupPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'create' | 'join'>('create');
   const [familyName, setFamilyName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [inviteProfiles, setInviteProfiles] = useState<InviteProfile[]>([]);
-  const [selectedProfileId, setSelectedProfileId] = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [checking, setChecking]     = useState(true);
-  const [errorMsg, setErrorMsg]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
 
-  // If the user already has a family, send them straight to the dashboard.
   useEffect(() => {
     const check = async () => {
       const supabase = createBrowserSupabase();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+
       const { data: familyId } = await supabase.rpc('get_my_family_id');
-      if (familyId) { router.replace('/'); return; }
+      if (familyId) {
+        router.replace('/');
+        return;
+      }
+
       setGoogleUser({
         email: user.email ?? '',
-        name: user.user_metadata?.full_name ?? user.email ?? '',
+        name: user.user_metadata?.full_name ?? user.email ?? 'Family Admin',
         avatarUrl: user.user_metadata?.avatar_url,
       });
       setChecking(false);
@@ -59,39 +48,21 @@ export default function SetupPage() {
   const handleSetup = async () => {
     const trimmed = familyName.trim();
     if (!trimmed || loading) return;
+
     setLoading(true);
     setErrorMsg('');
-
     try {
       const supabase = createBrowserSupabase();
+      const { data: familyId, error: setupError } = await supabase.rpc('setup_family', {
+        p_name: trimmed,
+      });
+      if (setupError || !familyId) throw setupError ?? new Error('setup_family returned null');
 
-      // Atomically create the family and migrate any pre-existing NULL-family data
-      const { data: familyId, error: rpcErr } = await supabase
-        .rpc('setup_family', { p_name: trimmed });
-      if (rpcErr || !familyId) throw rpcErr ?? new Error('setup_family returned null');
-
-      // Seed 4 default family members only if none exist yet (new tenants)
-      const { data: existing } = await supabase
-        .from('users')
-        .select('id')
-        .eq('family_id', familyId)
-        .limit(1);
-
-      if (!existing?.length) {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { error: seedErr } = await supabase.from('users').insert(
-          DEFAULT_MEMBERS.map((m, idx) => ({
-            id:         crypto.randomUUID(),
-            name:       m.name,
-            role:       m.role,
-            theme:      m.theme,
-            family_id:  familyId,
-            auth_user_id: idx === 0 ? user?.id : null,
-            created_at: new Date().toISOString(),
-          }))
-        );
-        if (seedErr) throw seedErr;
-      }
+      const { error: seedError } = await supabase.rpc('seed_default_family_data', {
+        p_admin_name: googleUser?.name ?? 'Dad',
+        p_admin_avatar_url: googleUser?.avatarUrl ?? null,
+      });
+      if (seedError) throw seedError;
 
       router.replace('/');
     } catch (e) {
@@ -101,292 +72,66 @@ export default function SetupPage() {
     }
   };
 
-  const loadInviteProfiles = async () => {
-    const trimmed = inviteCode.trim().toUpperCase();
-    if (!trimmed || loading) return;
-    setLoading(true);
-    setErrorMsg('');
-
-    try {
-      const supabase = createBrowserSupabase();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
-
-      const { data, error } = await supabase.rpc('get_invite_profiles', {
-        p_invite_code: trimmed,
-      });
-      if (error) throw error;
-
-      const profiles = (data ?? []) as InviteProfile[];
-      if (profiles.length === 0) throw new Error('No profiles returned');
-      setInviteProfiles(profiles);
-      setSelectedProfileId(profiles.find(p => !p.claimed)?.id ?? '');
-    } catch (e) {
-      console.error(e);
-      setErrorMsg('초대 코드를 확인할 수 없습니다. 코드를 다시 확인해주세요.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    const trimmed = inviteCode.trim().toUpperCase();
-    if (!trimmed || !selectedProfileId || loading) return;
-    setLoading(true);
-    setErrorMsg('');
-
-    try {
-      const supabase = createBrowserSupabase();
-
-      const { data: familyId, error: rpcErr } = await supabase.rpc('join_family_by_invite', {
-        p_invite_code: trimmed,
-        p_profile_id: selectedProfileId,
-      });
-      if (rpcErr || !familyId) throw rpcErr ?? new Error('join_family_by_invite returned null');
-
-      // Sync Google profile photo now that auth_user_id is linked
-      const { data: { user } } = await supabase.auth.getUser();
-      const googleAvatar = user?.user_metadata?.avatar_url as string | undefined;
-      if (googleAvatar && user) {
-        await supabase
-          .from('users')
-          .update({ avatar_url: googleAvatar })
-          .eq('auth_user_id', user.id);
-      }
-
-      router.replace('/');
-    } catch (e) {
-      console.error(e);
-      setErrorMsg('이미 연결된 프로필이거나 초대 코드가 올바르지 않습니다.');
-      setLoading(false);
-    }
-  };
-
   if (checking) {
-    return <div style={{ minHeight: '100vh', background: '#0b0d12' }} />;
+    return <div className="min-h-screen bg-[#0b0d12]" />;
   }
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: '#0b0d12',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-    }}>
-      <div style={{
-        background: '#141821',
-        borderRadius: 28,
-        padding: '48px 36px',
-        width: '100%',
-        maxWidth: 400,
-        textAlign: 'center',
-        border: '1px solid #232831',
-      }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🏠</div>
-        <h1 style={{ color: '#ffffff', fontSize: 22, fontWeight: 700, margin: '0 0 8px' }}>
-          패밀리 대시보드 만들기
-        </h1>
-        <p style={{ color: '#8a8f99', fontSize: 14, margin: '0 0 16px', lineHeight: 1.6 }}>
-          새 가족 대시보드를 만들거나<br />
-          받은 초대 코드로 기존 가족에 참여하세요.
+    <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
+      <div className="w-full max-w-sm rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
+        <div className="text-5xl mb-3">🏠</div>
+        <h1 className="text-white text-2xl font-bold mb-2">Create Family Dashboard</h1>
+        <p className="text-[#8a8f99] text-sm leading-6 mb-5">
+          Google 로그인은 가족 관리자에게만 필요합니다. 가족을 만들면 예시 멤버, 습관, 보상이 자동으로 채워집니다.
         </p>
 
-        {/* Logged-in Google account badge */}
         {googleUser && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: '#1a1f2a',
-            border: '1px solid #2d3545',
-            borderRadius: 12,
-            padding: '8px 12px',
-            marginBottom: 20,
-            textAlign: 'left',
-          }}>
+          <div className="flex items-center gap-3 rounded-xl bg-[#1a1f2a] border border-[#2d3545] p-3 mb-5 text-left">
             {googleUser.avatarUrl ? (
               <Image
                 src={googleUser.avatarUrl}
                 alt={googleUser.name}
-                width={32}
-                height={32}
+                width={36}
+                height={36}
                 referrerPolicy="no-referrer"
-                style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }}
+                className="w-9 h-9 rounded-full object-cover shrink-0"
               />
             ) : (
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', background: '#4f9cff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 700, fontSize: 14, flexShrink: 0,
-              }}>
+              <div className="w-9 h-9 rounded-full bg-[#4f9cff] text-white font-bold flex items-center justify-center shrink-0">
                 {googleUser.name.charAt(0).toUpperCase()}
               </div>
             )}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: '#ffffff', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {googleUser.name}
-              </div>
-              <div style={{ color: '#8a8f99', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {googleUser.email}
-              </div>
+            <div className="min-w-0">
+              <div className="text-white text-sm font-bold truncate">{googleUser.name}</div>
+              <div className="text-[#8a8f99] text-xs truncate">{googleUser.email}</div>
             </div>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          <button
-            onClick={() => { setMode('create'); setErrorMsg(''); setInviteProfiles([]); setSelectedProfileId(''); }}
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              borderRadius: 12,
-              border: 'none',
-              background: mode === 'create' ? '#4f9cff' : '#232831',
-              color: mode === 'create' ? '#ffffff' : '#8a8f99',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            새 가족 만들기
-          </button>
-          <button
-            onClick={() => { setMode('join'); setErrorMsg(''); }}
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              borderRadius: 12,
-              border: 'none',
-              background: mode === 'join' ? '#4f9cff' : '#232831',
-              color: mode === 'join' ? '#ffffff' : '#8a8f99',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            초대 코드로 참여
-          </button>
-        </div>
+        <input
+          type="text"
+          value={familyName}
+          onChange={e => setFamilyName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') void handleSetup(); }}
+          placeholder="Family name"
+          autoFocus
+          maxLength={40}
+          className="w-full h-12 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
+        />
 
-        {mode === 'create' ? (
-          <input
-            type="text"
-            value={familyName}
-            onChange={e => setFamilyName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSetup()}
-            placeholder="예: 김씨 가족, 우리 가족…"
-            autoFocus
-            maxLength={40}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              padding: '14px 16px',
-              borderRadius: 14,
-              background: '#232831',
-              color: '#ffffff',
-              fontSize: 16,
-              border: '2px solid #232831',
-              outline: 'none',
-              marginBottom: errorMsg ? 8 : 16,
-              transition: 'border-color 0.2s',
-            }}
-            onFocus={e  => { e.target.style.borderColor = '#4f9cff'; }}
-            onBlur={e   => { e.target.style.borderColor = '#232831'; }}
-          />
-        ) : (
-          <input
-            type="text"
-            value={inviteCode}
-            onChange={e => {
-              setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
-              setInviteProfiles([]);
-              setSelectedProfileId('');
-            }}
-            onKeyDown={e => e.key === 'Enter' && (inviteProfiles.length ? handleJoin() : loadInviteProfiles())}
-            placeholder="초대 코드 입력"
-            autoFocus
-            maxLength={8}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              padding: '14px 16px',
-              borderRadius: 14,
-              background: '#232831',
-              color: '#ffffff',
-              fontSize: 18,
-              letterSpacing: 2,
-              textAlign: 'center',
-              border: '2px solid #232831',
-              outline: 'none',
-              marginBottom: errorMsg ? 8 : 16,
-              transition: 'border-color 0.2s',
-            }}
-            onFocus={e  => { e.target.style.borderColor = '#4f9cff'; }}
-            onBlur={e   => { e.target.style.borderColor = '#232831'; }}
-          />
-        )}
-
-        {mode === 'join' && inviteProfiles.length > 0 && (
-          <div style={{ display: 'grid', gap: 8, marginBottom: errorMsg ? 8 : 16 }}>
-            {inviteProfiles.map(profile => {
-              const disabled = profile.claimed;
-              const selected = selectedProfileId === profile.id;
-              return (
-                <button
-                  key={profile.id}
-                  onClick={() => !disabled && setSelectedProfileId(profile.id)}
-                  disabled={disabled}
-                  style={{
-                    minHeight: 52,
-                    borderRadius: 14,
-                    border: selected ? '2px solid #4f9cff' : '2px solid #232831',
-                    background: selected ? 'rgba(79,156,255,0.16)' : '#232831',
-                    color: disabled ? '#5f6673' : '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0 14px',
-                    cursor: disabled ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <span style={{ fontWeight: 700 }}>{profile.name}</span>
-                  <span style={{ color: disabled ? '#5f6673' : '#8a8f99', fontSize: 13 }}>
-                    {disabled ? '연결됨' : profile.role === 'PARENT' ? '부모' : '자녀'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {errorMsg && (
-          <p style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 12 }}>{errorMsg}</p>
-        )}
+        {errorMsg && <p className="text-red-400 text-sm mt-3">{errorMsg}</p>}
 
         <button
-          onClick={mode === 'create' ? handleSetup : inviteProfiles.length ? handleJoin : loadInviteProfiles}
-          disabled={mode === 'create' ? (!familyName.trim() || loading) : (!inviteCode.trim() || loading || (inviteProfiles.length > 0 && !selectedProfileId))}
-          style={{
-            width: '100%',
-            padding: '14px 16px',
-            borderRadius: 14,
-            background: (mode === 'create' ? familyName.trim() : inviteCode.trim()) && !loading ? '#4f9cff' : '#232831',
-            color:  (mode === 'create' ? familyName.trim() : inviteCode.trim()) && !loading ? '#ffffff' : '#8a8f99',
-            fontSize: 16,
-            fontWeight: 600,
-            border: 'none',
-            cursor: (mode === 'create' ? familyName.trim() : inviteCode.trim()) && !loading ? 'pointer' : 'default',
-            transition: 'all 0.2s',
-          }}
+          onClick={() => { void handleSetup(); }}
+          disabled={!familyName.trim() || loading}
+          className="mt-5 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99]"
         >
-          {loading
-            ? '처리 중…'
-            : mode === 'create'
-              ? '대시보드 시작하기 →'
-              : inviteProfiles.length
-                ? '선택한 프로필로 참여하기 →'
-                : '초대 코드 확인하기 →'}
+          {loading ? 'Creating...' : 'Start Dashboard'}
         </button>
+
+        <Link href="/join" className="mt-4 inline-flex text-sm text-[#8a8f99]">
+          가족 코드를 받았다면 여기서 참여하세요
+        </Link>
       </div>
     </main>
   );

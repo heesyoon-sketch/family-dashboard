@@ -24,6 +24,8 @@ export function getCurrentTimeOfDay(): TimeOfDay {
 interface FamilyState {
   familyId: string | null;
   users: User[];
+  currentMemberId: string | null;
+  currentMemberCanAdmin: boolean;
   tasksByUser: Record<string, Task[]>;
   levelsByUser: Record<string, Level>;
   todayCompletions: Record<string, string[]>;
@@ -64,6 +66,8 @@ function taskMutationKey(userId: string, taskId: string): string {
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyId: null,
   users: [],
+  currentMemberId: null,
+  currentMemberCanAdmin: false,
   tasksByUser: {},
   levelsByUser: {},
   todayCompletions: {},
@@ -82,12 +86,30 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // Verify session and resolve family before fetching family data
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      set({ hydrated: true, familyId: null, users: [], tasksByUser: {}, levelsByUser: {}, todayCompletions: {} });
+      set({
+        hydrated: true,
+        familyId: null,
+        users: [],
+        currentMemberId: null,
+        currentMemberCanAdmin: false,
+        tasksByUser: {},
+        levelsByUser: {},
+        todayCompletions: {},
+      });
       return;
     }
     const { data: familyId } = await supabase.rpc('get_my_family_id');
     if (!familyId) {
-      set({ hydrated: true, familyId: null, users: [], tasksByUser: {}, levelsByUser: {}, todayCompletions: {} });
+      set({
+        hydrated: true,
+        familyId: null,
+        users: [],
+        currentMemberId: null,
+        currentMemberCanAdmin: false,
+        tasksByUser: {},
+        levelsByUser: {},
+        todayCompletions: {},
+      });
       return;
     }
 
@@ -114,8 +136,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       id: r.id, name: r.name, role: r.role, theme: r.theme,
       avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
       authUserId: r.auth_user_id ?? undefined,
+      loginMethod: r.login_method ?? undefined,
       createdAt: new Date(r.created_at),
     }));
+    const currentMember = users.find(u => u.authUserId === session.user.id) ?? null;
+    const currentMemberId = currentMember?.id ?? localStorage.getItem('family_dashboard_member_id');
+    const currentMemberCanAdmin =
+      currentMember?.role === 'PARENT' && currentMember.loginMethod === 'google';
 
     const allTasks: Task[] = (tRes.data ?? []).map(r => {
       const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
@@ -232,7 +259,21 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
     }
 
-    set({ familyId, users, tasksByUser, levelsByUser, todayCompletions, maxStreakByUser, longestStreakByUser, bestDayByUser, growthByUser, hydrated: true, timeOfDay });
+    set({
+      familyId,
+      users,
+      currentMemberId,
+      currentMemberCanAdmin,
+      tasksByUser,
+      levelsByUser,
+      todayCompletions,
+      maxStreakByUser,
+      longestStreakByUser,
+      bestDayByUser,
+      growthByUser,
+      hydrated: true,
+      timeOfDay,
+    });
 
     if (!_timeIntervalStarted && typeof window !== 'undefined') {
       _timeIntervalStarted = true;

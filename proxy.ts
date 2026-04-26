@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith('/login') || pathname.startsWith('/auth/')) {
+  if (pathname.startsWith('/login') || pathname.startsWith('/join') || pathname.startsWith('/auth/')) {
     return NextResponse.next();
   }
 

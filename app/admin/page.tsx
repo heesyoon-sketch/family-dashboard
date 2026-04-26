@@ -293,7 +293,7 @@ export default function AdminPage() {
       if (googleAvatar) {
         await supabase
           .from('users')
-          .update({ avatar_url: googleAvatar })
+          .update({ avatar_url: googleAvatar, login_method: 'google' })
           .eq('auth_user_id', user.id);
       }
 
@@ -305,6 +305,7 @@ export default function AdminPage() {
         id: r.id, name: r.name, role: r.role, theme: r.theme,
         avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
         authUserId: r.auth_user_id ?? undefined,
+        loginMethod: r.login_method ?? undefined,
         createdAt: new Date(r.created_at),
       }));
       const parentsList = users.filter(u => u.role === 'PARENT');
@@ -425,13 +426,23 @@ export default function AdminPage() {
     const theme = allThemes.find(t => !usedThemes.has(t)) ?? 'pastel_cute';
     const { data, error } = await supabase
       .from('users')
-      .insert({ id: crypto.randomUUID(), name: trimmed, role: newMemberRole, theme, family_id: familyId, created_at: new Date().toISOString() })
+      .insert({
+        id: crypto.randomUUID(),
+        name: trimmed,
+        role: newMemberRole,
+        theme,
+        family_id: familyId,
+        login_method: 'device',
+        created_at: new Date().toISOString(),
+      })
       .select().single();
     if (error) { toast.error(`멤버 추가 실패: ${error.message}`); return; }
     const newUser: User = {
       id: data.id, name: data.name, role: data.role as UserRole, theme: data.theme as ThemeName,
       avatarUrl: data.avatar_url ?? undefined, pinHash: data.pin_hash ?? undefined,
-      authUserId: data.auth_user_id ?? undefined, createdAt: new Date(data.created_at),
+      authUserId: data.auth_user_id ?? undefined,
+      loginMethod: data.login_method ?? undefined,
+      createdAt: new Date(data.created_at),
     };
     setAllUsers(prev => [...prev, newUser]);
     setNewMemberName('');

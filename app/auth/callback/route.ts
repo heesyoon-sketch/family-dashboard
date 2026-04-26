@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       if (googleAvatar) {
         await supabase
           .from('users')
-          .update({ avatar_url: googleAvatar })
+          .update({ avatar_url: googleAvatar, login_method: 'google' })
           .eq('auth_user_id', user.id);
       }
 

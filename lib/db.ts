@@ -33,6 +33,7 @@ export interface User {
   avatarUrl?: string;
   pinHash?: string;
   authUserId?: string;
+  loginMethod?: 'google' | 'device' | string;
   createdAt: Date;
 }
 

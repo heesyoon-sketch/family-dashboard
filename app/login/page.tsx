@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createBrowserSupabase } from '@/lib/supabase';
 
@@ -94,6 +95,25 @@ function LoginContent() {
           </svg>
           Google로 로그인
         </button>
+        <Link
+          href="/join"
+          style={{
+            marginTop: 12,
+            width: '100%',
+            minHeight: 48,
+            borderRadius: 14,
+            background: '#232831',
+            color: '#ffffff',
+            fontSize: 15,
+            fontWeight: 700,
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          초대 코드로 가족 참여
+        </Link>
       </div>
     </main>
   );

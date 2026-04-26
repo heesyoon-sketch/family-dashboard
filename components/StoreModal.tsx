@@ -163,19 +163,19 @@ export function StoreModal({
     >
       <div
         data-theme={user.theme}
-        className="bg-[var(--bg)] rounded-2xl w-full max-w-sm flex flex-col border border-[var(--border)]"
-        style={{ maxHeight: '80vh' }}
+        className="bg-[var(--bg)] rounded-2xl w-full max-w-xl flex flex-col border border-[var(--border)]"
+        style={{ maxHeight: '82vh' }}
       >
         {/* header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] shrink-0">
-          <span className="font-bold text-[var(--fg)] text-base">🛒 {user.name}{t('user_store_suffix')}</span>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-[var(--accent)]">💰 {balance}pt</span>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0">
+          <span className="font-bold text-[var(--fg)] text-sm">🛒 {user.name}{t('user_store_suffix')}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[var(--accent)]">💰 {balance}pt</span>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-[var(--bg-card)] text-[var(--fg-muted)] flex items-center justify-center border border-[var(--border)]"
+              className="w-7 h-7 rounded-lg bg-[var(--bg-card)] text-[var(--fg-muted)] flex items-center justify-center border border-[var(--border)]"
             >
-              <Icons.X size={16} />
+              <Icons.X size={15} />
             </button>
           </div>
         </div>
@@ -190,10 +190,10 @@ export function StoreModal({
               transition={{ duration: 0.25 }}
               className="overflow-hidden shrink-0"
             >
-              <div className="mx-4 mt-3 px-3 py-2 rounded-xl bg-amber-400/15 border border-amber-400/40 flex items-center gap-2">
-                <span className="text-lg leading-none">🎉</span>
+              <div className="mx-3 mt-2 px-2.5 py-1.5 rounded-xl bg-amber-400/15 border border-amber-400/40 flex items-center gap-2">
+                <span className="text-base leading-none">🎉</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-amber-400 leading-tight">주말 한정 혜택입니다!</div>
+                  <div className="text-[11px] font-bold text-amber-400 leading-tight">주말 한정 혜택입니다!</div>
                   <div className="text-[10px] text-amber-400/70 mt-0.5 leading-tight">
                     종료까지 {countdown} 남음
                   </div>
@@ -204,7 +204,7 @@ export function StoreModal({
         </AnimatePresence>
 
         {/* body */}
-        <div className="overflow-y-auto p-4 space-y-3">
+        <div className="overflow-y-auto p-3">
           {loading && (
             <div className="text-center text-[var(--fg-muted)] py-8 text-sm">{t('loading')}</div>
           )}
@@ -213,85 +213,77 @@ export function StoreModal({
               {t('no_rewards')}
             </div>
           )}
-          {rewards.map(r => {
-            // Defensive: raw Supabase rows sometimes use `name` instead of `title`.
-            const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
-            const hasDeal   = weekend;
-            const cost      = effectiveCost({ ...r, title: itemTitle }, weekend);
-            const canAfford = balance >= cost;
-            const busy      = redeeming === r.id;
+          <div className="grid grid-cols-2 gap-2">
+            {rewards.map(r => {
+              const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
+              const hasDeal   = weekend;
+              const cost      = effectiveCost({ ...r, title: itemTitle }, weekend);
+              const canAfford = balance >= cost;
+              const busy      = redeeming === r.id;
 
-            return (
-              <motion.div
-                key={r.id}
-                layout
-                className={[
-                  'flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-card)] border transition-colors',
-                  hasDeal ? 'border-amber-400/50' : 'border-[var(--border)]',
-                ].join(' ')}
-                style={{
-                  opacity: canAfford ? 1 : 0.5,
-                  boxShadow: hasDeal ? '0 0 12px rgba(251, 191, 36, 0.18)' : undefined,
-                }}
-              >
-                {/* icon */}
-                <div className={[
-                  'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                  hasDeal ? 'bg-amber-400/15' : 'bg-[var(--accent-glow)]',
-                ].join(' ')}>
-                  <RewardIcon
-                    name={r.icon}
-                    size={20}
-                    className={hasDeal ? 'text-amber-400' : 'text-[var(--accent)]'}
-                  />
-                </div>
-
-                {/* info */}
-                <div className="flex-1 min-w-0">
-                  {/* title + badge */}
-                  <div className="flex items-start gap-1.5 flex-wrap">
-                    <span className="font-semibold text-sm text-[var(--fg)] leading-snug">
-                      {itemTitle}{hasDeal ? ' (주말 30% 특가!)' : ''}
-                    </span>
-                  </div>
-
-                  {/* price line */}
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    {hasDeal ? (
-                      <>
-                        <span className="text-xs line-through text-[var(--fg-muted)]">{r.cost_points}pt</span>
-                        <span className="text-sm font-bold text-amber-400">{cost}pt</span>
-                        <span className="px-1 py-px rounded bg-amber-400/20 text-[10px] font-bold text-amber-400 leading-tight shrink-0">
-                          🔥 30% OFF
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-[var(--fg-muted)]">{cost}pt</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* buy button */}
-                <button
+              return (
+                <motion.button
+                  key={r.id}
+                  layout
                   onClick={() => handleRedeem(r)}
                   disabled={!canAfford || !!redeeming}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                  className={[
+                    'min-h-[82px] rounded-xl bg-[var(--bg-card)] border p-2 text-left transition-colors',
+                    'flex flex-col justify-between gap-1 disabled:cursor-not-allowed',
+                    hasDeal ? 'border-amber-400/50' : 'border-[var(--border)]',
+                  ].join(' ')}
                   style={{
-                    minHeight: 36,
-                    background: canAfford
-                      ? hasDeal ? 'rgb(251 191 36)' : 'var(--accent)'
-                      : 'transparent',
-                    color: canAfford
-                      ? hasDeal ? '#000' : '#fff'
-                      : 'var(--fg-muted)',
-                    cursor: canAfford && !redeeming ? 'pointer' : 'not-allowed',
+                    opacity: canAfford ? 1 : 0.48,
+                    boxShadow: hasDeal ? '0 0 10px rgba(251, 191, 36, 0.14)' : undefined,
                   }}
                 >
-                  {busy ? '…' : t('redeem')}
-                </button>
-              </motion.div>
-            );
-          })}
+                  <div className="flex items-start gap-2 min-w-0">
+                    <div className={[
+                      'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                      hasDeal ? 'bg-amber-400/15' : 'bg-[var(--accent-glow)]',
+                    ].join(' ')}>
+                      <RewardIcon
+                        name={r.icon}
+                        size={17}
+                        className={hasDeal ? 'text-amber-400' : 'text-[var(--accent)]'}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-xs text-[var(--fg)] leading-tight line-clamp-2">
+                        {itemTitle}
+                      </div>
+                      {hasDeal && (
+                        <div className="text-[9px] font-bold text-amber-400 leading-tight mt-0.5">
+                          30% OFF
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1 min-w-0">
+                      {hasDeal && (
+                        <span className="text-[10px] line-through text-[var(--fg-muted)]">{r.cost_points}</span>
+                      )}
+                      <span className={[
+                        'text-xs font-bold',
+                        hasDeal ? 'text-amber-400' : 'text-[var(--fg-muted)]',
+                      ].join(' ')}>
+                        {cost}pt
+                      </span>
+                    </div>
+                    <span className={[
+                      'px-2 py-1 rounded-full text-[10px] font-bold shrink-0',
+                      canAfford
+                        ? hasDeal ? 'bg-amber-400 text-black' : 'bg-[var(--accent)] text-white'
+                        : 'bg-transparent text-[var(--fg-muted)]',
+                    ].join(' ')}>
+                      {busy ? '…' : t('redeem')}
+                    </span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
