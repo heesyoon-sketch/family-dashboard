@@ -98,8 +98,24 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       });
       return;
     }
+    const cachedMemberId = typeof window !== 'undefined'
+      ? localStorage.getItem('family_dashboard_member_id')
+      : null;
+    const cachedFamilyId = typeof window !== 'undefined'
+      ? localStorage.getItem('family_dashboard_family_id')
+      : null;
+
     const { data: familyId } = await supabase.rpc('get_my_family_id');
-    if (!familyId) {
+    let resolvedFamilyId = familyId as string | null;
+
+    if (!resolvedFamilyId && cachedMemberId) {
+      const { data: memberFamilyId } = await supabase.rpc('get_family_id_for_member', {
+        p_member_id: cachedMemberId,
+      });
+      resolvedFamilyId = (memberFamilyId as string | null) ?? cachedFamilyId;
+    }
+
+    if (!resolvedFamilyId) {
       set({
         hydrated: true,
         familyId: null,
@@ -140,7 +156,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       createdAt: new Date(r.created_at),
     }));
     const currentMember = users.find(u => u.authUserId === session.user.id) ?? null;
-    const currentMemberId = currentMember?.id ?? localStorage.getItem('family_dashboard_member_id');
+    const currentMemberId = currentMember?.id ?? cachedMemberId;
     const currentMemberCanAdmin =
       currentMember?.role === 'PARENT' && currentMember.loginMethod === 'google';
 
@@ -260,7 +276,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     }
 
     set({
-      familyId,
+      familyId: resolvedFamilyId,
       users,
       currentMemberId,
       currentMemberCanAdmin,

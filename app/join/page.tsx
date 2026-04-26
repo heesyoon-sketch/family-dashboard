@@ -54,8 +54,12 @@ export default function JoinFamilyPage() {
       if (joinError) throw joinError;
 
       const result = data as { memberId?: string } | null;
+      const familyId = (data as { familyId?: string } | null)?.familyId;
       if (result?.memberId) {
         localStorage.setItem('family_dashboard_member_id', result.memberId);
+      }
+      if (familyId) {
+        localStorage.setItem('family_dashboard_family_id', familyId);
       }
       router.replace('/');
     } catch (e) {
