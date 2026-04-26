@@ -71,18 +71,18 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  const slots = ORDER.map(theme => users.find(u => u.theme === theme));
+  const orderedUsers = [...users].sort((a, b) => {
+    const themeOrder = ORDER.indexOf(a.theme) - ORDER.indexOf(b.theme);
+    if (themeOrder !== 0) return themeOrder;
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
 
   if (!hydrated || (hydrated && familyId === null)) {
     return <div className="min-h-screen bg-[#0b0d12]" />;
   }
 
   return (
-    /*
-     * Mobile:  normal flow, min-h-screen, vertical scroll
-     * Desktop: fixed viewport (md+), overflow hidden, 2x2 grid fills screen
-     */
-    <div className="flex flex-col bg-[#0b0d12] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
+    <div className="flex flex-col bg-[#0b0d12] min-h-screen">
 
       {/* Header — sticky on mobile scroll, static on desktop */}
       <header
@@ -107,18 +107,10 @@ export default function Dashboard() {
         </Link>
       </header>
 
-      {/*
-       * Mobile:  1-column, panels stack vertically, full-width per card
-       * Desktop: 2×2 grid, each cell fills exactly half the remaining viewport
-       */}
-      <main className="flex-1 grid gap-0.5 bg-black grid-cols-1 md:grid-cols-2 md:grid-rows-2 md:overflow-hidden">
-        {slots.map((user, i) =>
-          user ? (
-            <MemberPanel key={user.id} user={user} />
-          ) : (
-            <div key={`empty-${i}`} className="bg-[#171717] min-h-[480px] md:min-h-0" />
-          ),
-        )}
+      <main className="flex-1 grid gap-0.5 bg-black grid-cols-1 md:grid-cols-2">
+        {orderedUsers.map(user => (
+          <MemberPanel key={user.id} user={user} />
+        ))}
       </main>
 
       {celebration && (

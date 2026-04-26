@@ -157,8 +157,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     }));
     const currentMember = users.find(u => u.authUserId === session.user.id) ?? null;
     const currentMemberId = currentMember?.id ?? cachedMemberId;
-    const currentMemberCanAdmin =
-      currentMember?.role === 'PARENT' && currentMember.loginMethod === 'google';
+    const currentMemberCanAdmin = currentMember?.role === 'PARENT';
 
     const allTasks: Task[] = (tRes.data ?? []).map(r => {
       const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
