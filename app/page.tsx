@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart2, Settings, Volume2, VolumeX } from 'lucide-react';
+import { BarChart2, ChevronLeft, ChevronRight, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useFamilyStore } from '@/lib/store';
@@ -47,6 +47,7 @@ export default function Dashboard() {
   const hydrated  = useFamilyStore(s => s.hydrated);
   const familyId  = useFamilyStore(s => s.familyId);
   const [now, setNow] = useState(() => new Date());
+  const [currentPage, setCurrentPage] = useState(0);
   const dateLabel = formatDate(now, timeOfDay, lang);
 
   useEffect(() => {
@@ -76,13 +77,20 @@ export default function Dashboard() {
     if (themeOrder !== 0) return themeOrder;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
+  const pageCount = Math.max(1, Math.ceil(orderedUsers.length / 4));
+  const activePage = Math.min(currentPage, pageCount - 1);
+  const desktopPageUsers = orderedUsers.slice(activePage * 4, activePage * 4 + 4);
+  const desktopSlots = Array.from({ length: 4 }, (_, index) => desktopPageUsers[index] ?? null);
+
+  const goToPrevPage = () => setCurrentPage(page => Math.max(0, page - 1));
+  const goToNextPage = () => setCurrentPage(page => Math.min(pageCount - 1, page + 1));
 
   if (!hydrated || (hydrated && familyId === null)) {
     return <div className="min-h-screen bg-[#0b0d12]" />;
   }
 
   return (
-    <div className="flex flex-col bg-[#0b0d12] min-h-screen">
+    <div className="flex flex-col bg-[#0b0d12] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
 
       {/* Header — sticky on mobile scroll, static on desktop */}
       <header
@@ -92,6 +100,42 @@ export default function Dashboard() {
         <span className="flex-1 text-white/45 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap pl-0.5">
           {dateLabel}
         </span>
+        {pageCount > 1 && (
+          <div className="hidden md:flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1">
+            <button
+              type="button"
+              onClick={goToPrevPage}
+              disabled={activePage === 0}
+              aria-label="Previous members page"
+              className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: pageCount }, (_, page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  aria-label={`Members page ${page + 1}`}
+                  className={[
+                    'h-1.5 rounded-full transition-all',
+                    page === activePage ? 'w-4 bg-white/70' : 'w-1.5 bg-white/25 hover:bg-white/45',
+                  ].join(' ')}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={goToNextPage}
+              disabled={activePage === pageCount - 1}
+              aria-label="Next members page"
+              className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
         <button
           onClick={toggleSound}
           aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
@@ -107,10 +151,20 @@ export default function Dashboard() {
         </Link>
       </header>
 
-      <main className="flex-1 grid gap-0.5 bg-black grid-cols-1 md:grid-cols-2">
+      <main className="grid flex-1 grid-cols-1 gap-0.5 bg-black md:hidden">
         {orderedUsers.map(user => (
           <MemberPanel key={user.id} user={user} />
         ))}
+      </main>
+
+      <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden bg-black md:grid">
+        {desktopSlots.map((user, index) =>
+          user ? (
+            <MemberPanel key={user.id} user={user} />
+          ) : (
+            <div key={`empty-${activePage}-${index}`} className="min-h-0 bg-[#171717]" />
+          ),
+        )}
       </main>
 
       {celebration && (
