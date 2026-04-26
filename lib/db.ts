@@ -34,6 +34,7 @@ export interface User {
   pinHash?: string;
   authUserId?: string;
   loginMethod?: 'google' | 'device' | string;
+  displayOrder: number;
   createdAt: Date;
 }
 

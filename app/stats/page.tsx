@@ -7,8 +7,6 @@ import { User, Task, startOfDay, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } 
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
-const ORDER = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'] as const;
-
 const DOW_LABELS_KO = ['월', '화', '수', '목', '금', '토', '일'];
 const DOW_LABELS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -121,16 +119,16 @@ export default function StatsPage() {
         return Math.round((sum / days) * 100);
       }
 
-      const ordered: User[] = ORDER
-        .map(theme => (usersRes.data ?? []).find(r => r.theme === theme))
-        .filter(Boolean)
+      const ordered: User[] = [...(usersRes.data ?? [])]
+        .sort((a, b) => ((a.display_order ?? 0) - (b.display_order ?? 0)) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         .map(r => ({
-          id: r!.id, name: r!.name, role: r!.role, theme: r!.theme,
-          avatarUrl: r!.avatar_url ?? undefined,
-          pinHash:   r!.pin_hash   ?? undefined,
-          authUserId: r!.auth_user_id ?? undefined,
-          loginMethod: r!.login_method ?? undefined,
-          createdAt: new Date(r!.created_at),
+          id: r.id, name: r.name, role: r.role, theme: r.theme,
+          avatarUrl: r.avatar_url ?? undefined,
+          pinHash:   r.pin_hash   ?? undefined,
+          authUserId: r.auth_user_id ?? undefined,
+          loginMethod: r.login_method ?? undefined,
+          displayOrder: r.display_order ?? 0,
+          createdAt: new Date(r.created_at),
         }));
 
       const result: UserStats[] = [];

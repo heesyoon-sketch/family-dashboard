@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -203,6 +203,11 @@ function mapReward(row: Record<string, unknown>): Reward {
   };
 }
 
+function withAvatarCache(url: string | undefined, version: number): string | undefined {
+  if (!url) return undefined;
+  return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
+}
+
 function mapTask(r: Record<string, unknown>): Task {
   const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
   return {
@@ -266,6 +271,10 @@ export default function AdminPage() {
   const [addingMember, setAddingMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<UserRole>('CHILD');
+  const [avatarUploadingUserId, setAvatarUploadingUserId] = useState<string | null>(null);
+  const [avatarUploadTargetId, setAvatarUploadTargetId] = useState<string | null>(null);
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const storeHydrate = useFamilyStore(s => s.hydrate);
   const router = useRouter();
 
@@ -300,7 +309,7 @@ export default function AdminPage() {
       }
 
       const [userRes, rewardRes] = await Promise.all([
-        supabase.from('users').select('*'),
+        supabase.from('users').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
         supabase.from('rewards').select('*').order('cost_points'),
       ]);
       const users: User[] = (userRes.data ?? []).map(r => ({
@@ -308,6 +317,7 @@ export default function AdminPage() {
         avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
         authUserId: r.auth_user_id ?? undefined,
         loginMethod: r.login_method ?? undefined,
+        displayOrder: r.display_order ?? 0,
         createdAt: new Date(r.created_at),
       }));
       const parentsList = users.filter(u => u.role === 'PARENT');
@@ -426,6 +436,7 @@ export default function AdminPage() {
     const usedThemes = new Set(allUsers.map(u => u.theme));
     const allThemes: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
     const theme = allThemes.find(t => !usedThemes.has(t)) ?? 'pastel_cute';
+    const nextDisplayOrder = allUsers.reduce((max, u) => Math.max(max, u.displayOrder), -1) + 1;
     const { data, error } = await supabase
       .from('users')
       .insert({
@@ -435,6 +446,7 @@ export default function AdminPage() {
         theme,
         family_id: familyId,
         login_method: 'device',
+        display_order: nextDisplayOrder,
         created_at: new Date().toISOString(),
       })
       .select().single();
@@ -444,9 +456,10 @@ export default function AdminPage() {
       avatarUrl: data.avatar_url ?? undefined, pinHash: data.pin_hash ?? undefined,
       authUserId: data.auth_user_id ?? undefined,
       loginMethod: data.login_method ?? undefined,
+      displayOrder: data.display_order ?? nextDisplayOrder,
       createdAt: new Date(data.created_at),
     };
-    setAllUsers(prev => [...prev, newUser]);
+    setAllUsers(prev => [...prev, newUser].sort((a, b) => a.displayOrder - b.displayOrder || a.createdAt.getTime() - b.createdAt.getTime()));
     setNewMemberName('');
     setAddingMember(false);
     await storeHydrate();
@@ -468,6 +481,102 @@ export default function AdminPage() {
     setAllUsers(prev => prev.filter(u => u.id !== userId));
     await storeHydrate();
     notifyDashboard();
+  };
+
+  const sortedUsers = [...allUsers].sort((a, b) =>
+    a.displayOrder - b.displayOrder || a.createdAt.getTime() - b.createdAt.getTime()
+  );
+
+  const moveMember = async (userId: string, direction: -1 | 1) => {
+    const currentIndex = sortedUsers.findIndex(u => u.id === userId);
+    const swapIndex = currentIndex + direction;
+    if (currentIndex < 0 || swapIndex < 0 || swapIndex >= sortedUsers.length) return;
+
+    const current = sortedUsers[currentIndex];
+    const other = sortedUsers[swapIndex];
+    const currentOrder = current.displayOrder;
+    const otherOrder = other.displayOrder;
+    const reordered = sortedUsers.map(u => {
+      if (u.id === current.id) return { ...u, displayOrder: otherOrder };
+      if (u.id === other.id) return { ...u, displayOrder: currentOrder };
+      return u;
+    }).sort((a, b) => a.displayOrder - b.displayOrder || a.createdAt.getTime() - b.createdAt.getTime());
+
+    setAllUsers(reordered);
+    try {
+      const supabase = createBrowserSupabase();
+      const { error: firstError } = await supabase
+        .from('users')
+        .update({ display_order: otherOrder })
+        .eq('id', current.id);
+      if (firstError) throw firstError;
+
+      const { error: secondError } = await supabase
+        .from('users')
+        .update({ display_order: currentOrder })
+        .eq('id', other.id);
+      if (secondError) throw secondError;
+
+      await storeHydrate();
+      router.refresh();
+      notifyDashboard();
+    } catch (error) {
+      console.error('Failed to reorder members', error);
+      setAllUsers(sortedUsers);
+      toast.error('순서 변경에 실패했습니다');
+    }
+  };
+
+  const openAvatarUpload = (userId: string) => {
+    setAvatarUploadTargetId(userId);
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarUpload = async (file: File | undefined) => {
+    const userId = avatarUploadTargetId;
+    if (!file || !userId || !familyId || avatarUploadingUserId) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일을 선택해주세요');
+      return;
+    }
+
+    setAvatarUploadingUserId(userId);
+    try {
+      const supabase = createBrowserSupabase();
+      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${familyId}/${userId}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('member-avatars')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('member-avatars').getPublicUrl(path);
+      const avatarUrl = data.publicUrl;
+      const { error: updateError } = await supabase.rpc('update_member_avatar', {
+        p_member_id: userId,
+        p_avatar_url: avatarUrl,
+      });
+      if (updateError) throw updateError;
+
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, avatarUrl } : u));
+      if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, avatarUrl } : prev);
+      setAvatarVersion(Date.now());
+      await storeHydrate();
+      router.refresh();
+      notifyDashboard();
+      toast.success('프로필 사진이 업데이트되었습니다');
+    } catch (error) {
+      console.error('Failed to upload avatar', error);
+      toast.error('프로필 사진 업로드에 실패했습니다');
+    } finally {
+      setAvatarUploadingUserId(null);
+      setAvatarUploadTargetId(null);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
   };
 
   const loadTasks = async (user: User) => {
@@ -1095,8 +1204,16 @@ export default function AdminPage() {
                 </div>
               )}
 
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { void handleAvatarUpload(e.target.files?.[0]); }}
+              />
+
               <div className="space-y-3">
-                {allUsers.map(u => (
+                {sortedUsers.map((u, index) => (
                   <div key={u.id} className="flex items-center gap-3">
                     {editingUserId === u.id ? (
                       <>
@@ -1129,21 +1246,31 @@ export default function AdminPage() {
                       </>
                     ) : (
                       <>
-                        {/* Google profile photo or initial */}
-                        {u.avatarUrl ? (
-                          <Image
-                            src={u.avatarUrl}
-                            alt={u.name}
-                            width={40}
-                            height={40}
-                            referrerPolicy="no-referrer"
-                            className="w-10 h-10 rounded-full shrink-0 ring-2 ring-[#2d3545]"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full shrink-0 bg-[#232831] flex items-center justify-center text-[#8a8f99] font-bold text-base">
-                            {u.name.charAt(0)}
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => openAvatarUpload(u.id)}
+                          disabled={avatarUploadingUserId === u.id}
+                          className="relative w-10 h-10 rounded-full shrink-0 ring-2 ring-[#2d3545] overflow-hidden bg-[#232831] flex items-center justify-center text-[#8a8f99] font-bold text-base hover:ring-[#4f9cff] transition disabled:opacity-60"
+                          title="프로필 사진 업로드"
+                        >
+                          {u.avatarUrl ? (
+                            <Image
+                              src={withAvatarCache(u.avatarUrl, avatarVersion) ?? u.avatarUrl}
+                              alt={u.name}
+                              width={40}
+                              height={40}
+                              referrerPolicy="no-referrer"
+                              className="w-10 h-10 object-cover"
+                            />
+                          ) : (
+                            u.name.charAt(0)
+                          )}
+                          <span className="absolute inset-x-0 bottom-0 h-4 bg-black/55 text-white flex items-center justify-center">
+                            {avatarUploadingUserId === u.id
+                              ? <Icons.Loader2 size={10} className="animate-spin" />
+                              : <Icons.Camera size={10} />}
+                          </span>
+                        </button>
                         <span className="flex-1 font-medium text-[18px]">{u.name}</span>
                         <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
                           {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
@@ -1157,6 +1284,24 @@ export default function AdminPage() {
                         >
                           {u.authUserId ? 'Account linked' : 'No account'}
                         </span>
+                        <button
+                          onClick={() => moveMember(u.id, -1)}
+                          disabled={index === 0}
+                          className="w-10 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                          style={{ minHeight: '48px', fontSize: '18px' }}
+                          title="위로 이동"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => moveMember(u.id, 1)}
+                          disabled={index === sortedUsers.length - 1}
+                          className="w-10 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                          style={{ minHeight: '48px', fontSize: '18px' }}
+                          title="아래로 이동"
+                        >
+                          ↓
+                        </button>
                         <button
                           onClick={() => startEditName(u)}
                           className="w-11 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
@@ -1189,7 +1334,7 @@ export default function AdminPage() {
               <div className="bg-[#141821] rounded-2xl p-6">
                 <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('select_user')}</h2>
                 <div className="flex gap-3 flex-wrap">
-                  {allUsers.map(u => (
+                  {sortedUsers.map(u => (
                     <button
                       key={u.id}
                       onClick={() => loadTasks(u)}

@@ -136,7 +136,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const fourteenDaysAgo = addDays(todayStart, -13);
 
     const [uRes, tRes, lRes, sRes, cTodayRes, cHistRes] = await Promise.all([
-      supabase.from('users').select('*'),
+      supabase.from('users').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*'),
       supabase.from('levels').select('*'),
       supabase.from('streaks').select('*'),
@@ -153,6 +153,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
       authUserId: r.auth_user_id ?? undefined,
       loginMethod: r.login_method ?? undefined,
+      displayOrder: r.display_order ?? 0,
       createdAt: new Date(r.created_at),
     }));
     const currentMember = users.find(u => u.authUserId === session.user.id) ?? null;

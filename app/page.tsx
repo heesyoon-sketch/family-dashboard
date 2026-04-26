@@ -7,10 +7,7 @@ import { BarChart2, ChevronLeft, ChevronRight, Settings, Volume2, VolumeX } from
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useFamilyStore } from '@/lib/store';
-import type { ThemeName } from '@/lib/db';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
-
-const ORDER: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
 
 const iconBtn: React.CSSProperties = {
   width: 36,
@@ -73,8 +70,8 @@ export default function Dashboard() {
   }, []);
 
   const orderedUsers = [...users].sort((a, b) => {
-    const themeOrder = ORDER.indexOf(a.theme) - ORDER.indexOf(b.theme);
-    if (themeOrder !== 0) return themeOrder;
+    const displayOrder = a.displayOrder - b.displayOrder;
+    if (displayOrder !== 0) return displayOrder;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
   const pageCount = Math.max(1, Math.ceil(orderedUsers.length / 4));

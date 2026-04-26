@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Camera, Store } from 'lucide-react';
+import { Store } from 'lucide-react';
 import { User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -11,7 +11,6 @@ import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
 import { StoreModal, type Reward } from './StoreModal';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { createBrowserSupabase } from '@/lib/supabase';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -64,18 +63,13 @@ export function MemberPanel({ user }: { user: User }) {
   const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
-  const familyId       = useFamilyStore(s => s.familyId);
-  const currentMemberId = useFamilyStore(s => s.currentMemberId);
-  const currentMemberCanAdmin = useFamilyStore(s => s.currentMemberCanAdmin);
-  const updateAvatar   = useFamilyStore(s => s.updateMemberAvatar);
 
   const [storeOpen, setStoreOpen] = useState(false);
   // Incremented on every open so StoreModal always mounts fresh.
   const [storeOpenKey, setStoreOpenKey] = useState(0);
+  const [avatarVersion] = useState(() => Date.now());
   const scrollRef      = useRef<HTMLDivElement>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [atBottom, setAtBottom] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
 
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
@@ -129,8 +123,9 @@ export function MemberPanel({ user }: { user: User }) {
   const lvlInfo       = LEVEL_THRESHOLDS.find(l => l.level === (level?.currentLevel ?? 1))!;
   const pointsInLevel = (level?.totalPoints ?? 0) - lvlInfo.min;
   const pointsNeeded  = lvlInfo.max - lvlInfo.min;
-  const canUploadAvatar =
-    user.loginMethod !== 'google' && (currentMemberCanAdmin || currentMemberId === user.id);
+  const avatarSrc = user.avatarUrl
+    ? `${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
+    : null;
 
   const handleRedeem = async (reward: Reward) => {
     await doRedeemReward(user.id, reward.id, reward.cost_points);
@@ -139,42 +134,6 @@ export function MemberPanel({ user }: { user: User }) {
   const openStore = () => {
     setStoreOpenKey(k => k + 1);
     setStoreOpen(true);
-  };
-
-  const handleAvatarUpload = async (file: File | undefined) => {
-    if (!file || avatarUploading || !familyId) return;
-    if (!file.type.startsWith('image/')) return;
-
-    setAvatarUploading(true);
-    try {
-      const supabase = createBrowserSupabase();
-      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-      const path = `${familyId}/${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('member-avatars')
-        .upload(path, file, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: file.type,
-        });
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('member-avatars').getPublicUrl(path);
-      const avatarUrl = `${data.publicUrl}?v=${Date.now()}`;
-      const { error: updateError } = await supabase.rpc('update_member_avatar', {
-        p_member_id: user.id,
-        p_avatar_url: avatarUrl,
-      });
-      if (updateError) throw updateError;
-
-      updateAvatar(user.id, avatarUrl);
-      new BroadcastChannel('habit_sync').postMessage('update');
-    } catch (error) {
-      console.error('Failed to upload avatar', error);
-    } finally {
-      setAvatarUploading(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
-    }
   };
 
   return (
@@ -204,9 +163,9 @@ export function MemberPanel({ user }: { user: User }) {
         <header className="flex items-center gap-2.5 mb-3 shrink-0">
 
           <div className="relative w-10 h-10 shrink-0">
-            {user.avatarUrl ? (
+            {avatarSrc ? (
               <Image
-                src={user.avatarUrl}
+                src={avatarSrc}
                 alt={user.name}
                 width={40}
                 height={40}
@@ -217,26 +176,6 @@ export function MemberPanel({ user }: { user: User }) {
               <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0 select-none">
                 {user.name[0]}
               </div>
-            )}
-            {canUploadAvatar && (
-              <>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => { void handleAvatarUpload(e.target.files?.[0]); }}
-                />
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={avatarUploading}
-                  aria-label={`${user.name} profile photo upload`}
-                  className="absolute -right-1 -bottom-1 w-6 h-6 rounded-lg bg-[var(--accent)] text-white flex items-center justify-center border border-[var(--bg)] shadow-sm disabled:opacity-60"
-                >
-                  <Camera size={13} />
-                </button>
-              </>
             )}
           </div>
 
