@@ -18,8 +18,8 @@ export default function JoinFamilyPage() {
   useEffect(() => {
     const checkExistingSession = async () => {
       const supabase = createBrowserSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
         const { data: familyId } = await supabase.rpc('get_my_family_id');
         if (familyId) {
           router.replace('/');

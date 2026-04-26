@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart2, ChevronLeft, ChevronRight, Settings, Volume2, VolumeX } from 'lucide-react';
+import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useFamilyStore } from '@/lib/store';
+import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 const iconBtn: React.CSSProperties = {
@@ -48,8 +49,20 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(0);
   const dateLabel = formatDate(now, timeOfDay, lang);
 
+  // Immediately wipe the previous session's store state before the browser paints,
+  // so pressing Back never flashes another family's data on screen.
+  useLayoutEffect(() => {
+    useFamilyStore.setState({
+      hydrated: false,
+      users: [],
+      familyId: null,
+      tasksByUser: {},
+      levelsByUser: {},
+      todayCompletions: {},
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    useFamilyStore.setState({ hydrated: false });
     hydrate().catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -58,6 +71,20 @@ export default function Dashboard() {
       router.replace('/setup');
     }
   }, [hydrated, familyId, router]);
+
+  const handleLogout = async () => {
+    const supabase = createBrowserSupabase();
+    await supabase.auth.signOut();
+    useFamilyStore.setState({
+      hydrated: false,
+      familyId: null,
+      users: [],
+      tasksByUser: {},
+      levelsByUser: {},
+      todayCompletions: {},
+    });
+    router.replace('/login');
+  };
 
   useEffect(() => {
     const ch = new BroadcastChannel('habit_sync');
@@ -170,6 +197,18 @@ export default function Dashboard() {
         <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
           <Settings size={17} />
         </Link>
+        <button
+          onClick={() => { void handleLogout(); }}
+          aria-label="Logout"
+          style={{
+            ...iconBtn,
+            color: 'rgba(255, 100, 100, 0.7)',
+            border: '1px solid rgba(255,80,80,0.2)',
+          }}
+          title="Logout"
+        >
+          <LogOut size={17} />
+        </button>
       </header>
 
       <main className="grid flex-1 grid-cols-1 gap-0.5 bg-black md:hidden">

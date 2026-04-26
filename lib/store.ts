@@ -83,9 +83,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   hydrate: async () => {
     const supabase = createBrowserSupabase();
 
-    // Verify session and resolve family before fetching family data
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    // getUser() verifies the token with the Supabase Auth server —
+    // getSession() only reads local storage and can return a stale/invalid session.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('family_dashboard_member_id');
+        localStorage.removeItem('family_dashboard_family_id');
+      }
       set({
         hydrated: true,
         familyId: null,
@@ -156,7 +161,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       displayOrder: r.display_order ?? 0,
       createdAt: new Date(r.created_at),
     }));
-    const currentMember = users.find(u => u.authUserId === session.user.id) ?? null;
+    const currentMember = users.find(u => u.authUserId === user.id) ?? null;
     const currentMemberId = currentMember?.id ?? cachedMemberId;
     const currentMemberCanAdmin = currentMember?.role === 'PARENT';
 
