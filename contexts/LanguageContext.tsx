@@ -52,6 +52,7 @@ export type TranslationKey =
   | 'task_add_failed'
   | 'reward_add_failed'
   | 'reward_added'
+  | 'reward_save_failed'
   | 'reset_confirm'
   | 'reset_success'
   | 'reset_description'
@@ -147,6 +148,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     task_add_failed: '태스크 추가 실패',
     reward_add_failed: '리워드 추가 실패',
     reward_added: '리워드 추가 완료',
+    reward_save_failed: '리워드 저장 실패',
     reset_confirm: '모든 진행 기록을 초기화할까요? 되돌릴 수 없습니다.',
     reset_success: '초기화 완료! 대시보드로 이동합니다.',
     reset_description: '포인트·레벨·완료 기록·스트릭을 모두 초기화합니다.',
@@ -241,6 +243,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     task_add_failed: 'Failed to add task',
     reward_add_failed: 'Failed to add reward',
     reward_added: 'Reward added',
+    reward_save_failed: 'Failed to save reward',
     reset_confirm: 'Reset all progress? This cannot be undone.',
     reset_success: 'Reset complete! Returning to dashboard.',
     reset_description: 'Resets all points, levels, completion records, and streaks.',
@@ -302,12 +305,11 @@ const LanguageContext = createContext<LangContextType>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('ko');
-
-  useEffect(() => {
+  const [lang, setLangState] = useState<Lang>(() => {
+    if (typeof window === 'undefined') return 'ko';
     const stored = localStorage.getItem('app_lang');
-    if (stored === 'en' || stored === 'ko') setLangState(stored);
-  }, []);
+    return stored === 'en' || stored === 'ko' ? stored : 'ko';
+  });
 
   useEffect(() => {
     localStorage.setItem('app_lang', lang);

@@ -41,6 +41,7 @@ interface FamilyState {
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
+  updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   dismissCelebration: () => void;
   toggleSound: () => void;
 }
@@ -54,6 +55,11 @@ function loadSoundPref(): boolean {
 let _timeIntervalStarted = false;
 let _offlineSyncListenersStarted = false;
 let _syncInFlight = false;
+const _taskMutationsInFlight = new Set<string>();
+
+function taskMutationKey(userId: string, taskId: string): string {
+  return `${userId}:${taskId}`;
+}
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyId: null,
@@ -251,94 +257,127 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   },
 
   markCompleted: async (userId, taskId) => {
-    set(state => ({
-      todayCompletions: {
-        ...state.todayCompletions,
-        [userId]: Array.from(new Set([...(state.todayCompletions[userId] ?? []), taskId])),
-      },
-    }));
+    const mutationKey = taskMutationKey(userId, taskId);
+    if (_taskMutationsInFlight.has(mutationKey)) return;
+    if ((get().todayCompletions[userId] ?? []).includes(taskId)) return;
+    _taskMutationsInFlight.add(mutationKey);
 
-    if (!isProbablyOnline()) {
-      await enqueueTaskAction('complete', userId, taskId);
-      return;
-    }
-
-    let result;
     try {
-      const { processCompletion } = await import('./gamification');
-      result = await processCompletion(userId, taskId);
-    } catch (error) {
-      await enqueueTaskAction('complete', userId, taskId);
-      console.warn('Queued completion for offline sync', error);
-      return;
-    }
+      // Optimistic: mark as done immediately so the UI feels instant.
+      set(state => ({
+        todayCompletions: {
+          ...state.todayCompletions,
+          [userId]: Array.from(new Set([...(state.todayCompletions[userId] ?? []), taskId])),
+        },
+      }));
 
-    set(state => ({
-      levelsByUser: result.level
-        ? { ...state.levelsByUser, [userId]: result.level }
-        : state.levelsByUser,
-      celebration: result.celebration ?? state.celebration,
-      maxStreakByUser: {
-        ...state.maxStreakByUser,
-        [userId]: Math.max(state.maxStreakByUser[userId] ?? 0, result.streakCurrent),
-      },
-      longestStreakByUser: {
-        ...state.longestStreakByUser,
-        [userId]: Math.max(state.longestStreakByUser[userId] ?? 0, result.streakLongest),
-      },
-      tasksByUser: {
-        ...state.tasksByUser,
-        [userId]: (state.tasksByUser[userId] ?? []).map(t =>
-          t.id === taskId
-            ? { ...t, streakCount: result.streakCurrent, lastCompletedAt: new Date() }
-            : t
-        ),
-      },
-    }));
+      if (!isProbablyOnline()) {
+        await enqueueTaskAction('complete', userId, taskId);
+        return;
+      }
+
+      let result;
+      try {
+        const { processCompletion } = await import('./gamification');
+        result = await processCompletion(userId, taskId);
+      } catch (error) {
+        await enqueueTaskAction('complete', userId, taskId);
+        console.warn('Queued completion for offline sync', error);
+        await get().hydrate();
+        return;
+      }
+
+      // Overwrite with exact backend values; no local arithmetic.
+      // CompletionResult.level is always non-null, so this always reflects DB truth.
+      set(state => ({
+        levelsByUser: { ...state.levelsByUser, [userId]: result.level },
+        celebration:  result.celebration ?? state.celebration,
+        maxStreakByUser: {
+          ...state.maxStreakByUser,
+          [userId]: result.maxStreak,
+        },
+        longestStreakByUser: {
+          ...state.longestStreakByUser,
+          [userId]: result.longestStreak,
+        },
+        tasksByUser: {
+          ...state.tasksByUser,
+          [userId]: (state.tasksByUser[userId] ?? []).map(t =>
+            t.id === taskId
+              ? { ...t, streakCount: result.streakCurrent, lastCompletedAt: result.taskLastCompletedAt }
+              : t
+          ),
+        },
+      }));
+    } finally {
+      _taskMutationsInFlight.delete(mutationKey);
+    }
   },
 
   undoCompletion: async (userId, taskId) => {
-    set(state => ({
-      todayCompletions: {
-        ...state.todayCompletions,
-        [userId]: (state.todayCompletions[userId] ?? []).filter(id => id !== taskId),
-      },
-    }));
+    const mutationKey = taskMutationKey(userId, taskId);
+    if (_taskMutationsInFlight.has(mutationKey)) return;
+    if (!(get().todayCompletions[userId] ?? []).includes(taskId)) return;
+    _taskMutationsInFlight.add(mutationKey);
 
-    if (!isProbablyOnline()) {
-      await enqueueTaskAction('undo', userId, taskId);
-      return;
-    }
-
-    let undoResult;
     try {
-      const { processUndo } = await import('./gamification');
-      undoResult = await processUndo(userId, taskId);
-    } catch (error) {
-      await enqueueTaskAction('undo', userId, taskId);
-      console.warn('Queued undo for offline sync', error);
-      return;
-    }
+      // Optimistic: unmark immediately so the UI feels instant.
+      set(state => ({
+        todayCompletions: {
+          ...state.todayCompletions,
+          [userId]: (state.todayCompletions[userId] ?? []).filter(id => id !== taskId),
+        },
+      }));
 
-    set(state => ({
-      levelsByUser: undoResult.level
-        ? { ...state.levelsByUser, [userId]: undoResult.level }
-        : state.levelsByUser,
-      maxStreakByUser:    { ...state.maxStreakByUser,    [userId]: undoResult.maxStreak },
-      longestStreakByUser:{ ...state.longestStreakByUser, [userId]: undoResult.longestStreak },
-      tasksByUser: {
-        ...state.tasksByUser,
-        [userId]: (state.tasksByUser[userId] ?? []).map(t =>
-          t.id === taskId
-            ? {
-                ...t,
-                streakCount: undoResult.taskStreakCount ?? t.streakCount,
-                lastCompletedAt: undoResult.taskLastCompletedAt ?? t.lastCompletedAt,
-              }
-            : t
-        ),
-      },
-    }));
+      if (!isProbablyOnline()) {
+        await enqueueTaskAction('undo', userId, taskId);
+        return;
+      }
+
+      let undoResult;
+      try {
+        const { processUndo } = await import('./gamification');
+        undoResult = await processUndo(userId, taskId);
+      } catch (error) {
+        await enqueueTaskAction('undo', userId, taskId);
+        console.warn('Queued undo for offline sync', error);
+        await get().hydrate();
+        return;
+      }
+
+      // processUndo returns level:null only when no completion/level row exists in the DB.
+      // Hydrate so the UI returns to the database state instead of trusting optimism.
+      if (!undoResult.level) {
+        await get().hydrate();
+        return;
+      }
+
+      // Overwrite with exact backend values; no local arithmetic.
+      // processUndo returns maxStreak/longestStreak computed across ALL of this
+      // user's tasks, so it is safe to SET (not Math.max) these directly.
+      set(state => ({
+        levelsByUser: { ...state.levelsByUser, [userId]: undoResult.level! },
+        maxStreakByUser:     { ...state.maxStreakByUser,     [userId]: undoResult.maxStreak },
+        longestStreakByUser: { ...state.longestStreakByUser, [userId]: undoResult.longestStreak },
+        tasksByUser: {
+          ...state.tasksByUser,
+          [userId]: (state.tasksByUser[userId] ?? []).map(t =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  // Use backend values directly; do not fall back with ?? here.
+                  // taskStreakCount is always a number (>= 0).
+                  // taskLastCompletedAt can legitimately be null (first-ever completion undone).
+                  streakCount:     undoResult.taskStreakCount,
+                  lastCompletedAt: undoResult.taskLastCompletedAt,
+                }
+              : t
+          ),
+        },
+      }));
+    } finally {
+      _taskMutationsInFlight.delete(mutationKey);
+    }
   },
 
   syncOfflineActions: async () => {
@@ -351,10 +390,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const { processCompletion, processUndo } = await import('./gamification');
       for (const action of actions) {
         try {
+          const actionAt = new Date(action.createdAt);
           if (action.type === 'complete') {
-            await processCompletion(action.userId, action.taskId);
+            await processCompletion(action.userId, action.taskId, false, actionAt);
           } else {
-            await processUndo(action.userId, action.taskId);
+            await processUndo(action.userId, action.taskId, actionAt);
           }
           await deleteTaskAction(action.id);
         } catch (error) {
@@ -381,7 +421,16 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           : state.levelsByUser[userId],
       },
     }));
+    await get().hydrate();
     new BroadcastChannel('habit_sync').postMessage('update');
+  },
+
+  updateMemberAvatar: (userId, avatarUrl) => {
+    set(state => ({
+      users: state.users.map(user =>
+        user.id === userId ? { ...user, avatarUrl } : user
+      ),
+    }));
   },
 
   dismissCelebration: () => set({ celebration: null }),

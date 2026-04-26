@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { User, Task, startOfDay, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
@@ -238,10 +239,10 @@ export default function StatsPage() {
         borderBottom: `1px solid ${BD_CARD}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px 6px' }}>
-          <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 6, color: FG_SUB, textDecoration: 'none' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 6, color: FG_SUB, textDecoration: 'none' }}>
             <ArrowLeft size={16} />
             <span style={{ fontSize: 13 }}>{t('back_to_dashboard')}</span>
-          </a>
+          </Link>
         </div>
         {/* Tabs */}
         <div style={{ display: 'flex' }}>
@@ -298,7 +299,7 @@ export default function StatsPage() {
 
           {/* A-2 — This Week vs Last Week */}
           <SectionLabel accent={accent}>{t('week_vs_last')}</SectionLabel>
-          <WeekComparison thisWeek={s.thisWeekAvgPct} lastWeek={s.lastWeekAvgPct} accent={accent} lang={lang} />
+          <WeekComparison thisWeek={s.thisWeekAvgPct} lastWeek={s.lastWeekAvgPct} accent={accent} />
 
           {/* B — This Week */}
           <SectionLabel accent={accent}>{t('weekly_completions')}</SectionLabel>
@@ -306,11 +307,11 @@ export default function StatsPage() {
 
           {/* C — Monthly task completion */}
           <SectionLabel accent={accent}>{t('monthly_task_completion')}</SectionLabel>
-          <TaskRates taskStats={s.taskStats} accent={accent} lang={lang} />
+          <TaskRates taskStats={s.taskStats} accent={accent} />
 
           {/* D — Heatmap */}
           <SectionLabel accent={accent}>{t('heatmap_30')}</SectionLabel>
-          <Heatmap heatmap={s.heatmap} accent={accent} lang={lang} />
+          <Heatmap heatmap={s.heatmap} accent={accent} />
 
           {/* E — Family Ranking */}
           <SectionLabel accent={accent}>{t('family_ranking')}</SectionLabel>
@@ -349,8 +350,8 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
 }
 
 function WeekComparison({
-  thisWeek, lastWeek, accent, lang,
-}: { thisWeek: number | null; lastWeek: number | null; accent: string; lang: Lang }) {
+  thisWeek, lastWeek, accent,
+}: { thisWeek: number | null; lastWeek: number | null; accent: string }) {
   const { t } = useLanguage();
   if (thisWeek === null || lastWeek === null) {
     return <div style={{ fontSize: 14, color: FG_SUB, marginBottom: 28 }}>{t('no_comparison_data')}</div>;
@@ -422,7 +423,7 @@ function WeekChart({ weekCounts, accent, lang }: { weekCounts: number[]; accent:
   );
 }
 
-function TaskRates({ taskStats, accent, lang }: { taskStats: TaskStat[]; accent: string; lang: Lang }) {
+function TaskRates({ taskStats, accent }: { taskStats: TaskStat[]; accent: string }) {
   const { t } = useLanguage();
   if (!taskStats.length) {
     return <div style={{ color: FG_SUB, fontSize: 14, marginBottom: 28 }}>{t('no_tasks_stat')}</div>;
@@ -456,7 +457,7 @@ function TaskRates({ taskStats, accent, lang }: { taskStats: TaskStat[]; accent:
   );
 }
 
-function Heatmap({ heatmap, accent, lang }: { heatmap: HeatDay[]; accent: string; lang: Lang }) {
+function Heatmap({ heatmap, accent }: { heatmap: HeatDay[]; accent: string }) {
   const { t } = useLanguage();
   const todayTs = startOfDay(new Date()).getTime();
   return (

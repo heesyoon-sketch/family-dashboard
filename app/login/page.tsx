@@ -10,9 +10,10 @@ function LoginContent() {
 
   const handleGoogleLogin = async () => {
     const supabase = createBrowserSupabase();
-    await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        skipBrowserRedirect: true,
         queryParams: {
           prompt: 'select_account',
           access_type: 'offline',
@@ -20,6 +21,8 @@ function LoginContent() {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    if (error) throw error;
+    if (data.url) window.location.assign(data.url);
   };
 
   return (

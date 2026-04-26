@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as Icons from 'lucide-react';
+import Image from 'next/image';
+import { Camera, Store } from 'lucide-react';
 import { User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -10,6 +11,7 @@ import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
 import { StoreModal, type Reward } from './StoreModal';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { createBrowserSupabase } from '@/lib/supabase';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -62,10 +64,16 @@ export function MemberPanel({ user }: { user: User }) {
   const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
+  const familyId       = useFamilyStore(s => s.familyId);
+  const updateAvatar   = useFamilyStore(s => s.updateMemberAvatar);
 
   const [storeOpen, setStoreOpen] = useState(false);
-  const scrollRef   = useRef<HTMLDivElement>(null);
+  // Incremented on every open so StoreModal always mounts fresh.
+  const [storeOpenKey, setStoreOpenKey] = useState(0);
+  const scrollRef      = useRef<HTMLDivElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [atBottom, setAtBottom] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
@@ -124,10 +132,52 @@ export function MemberPanel({ user }: { user: User }) {
     await doRedeemReward(user.id, reward.id, reward.cost_points);
   };
 
+  const openStore = () => {
+    setStoreOpenKey(k => k + 1);
+    setStoreOpen(true);
+  };
+
+  const handleAvatarUpload = async (file: File | undefined) => {
+    if (!file || avatarUploading || !familyId) return;
+    if (!file.type.startsWith('image/')) return;
+
+    setAvatarUploading(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${familyId}/${user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('member-avatars')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('member-avatars').getPublicUrl(path);
+      const avatarUrl = `${data.publicUrl}?v=${Date.now()}`;
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+      if (updateError) throw updateError;
+
+      updateAvatar(user.id, avatarUrl);
+      new BroadcastChannel('habit_sync').postMessage('update');
+    } catch (error) {
+      console.error('Failed to upload avatar', error);
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
   return (
     <>
       {storeOpen && (
         <StoreModal
+          key={storeOpenKey}
           user={user}
           balance={spendableBalance}
           onClose={() => setStoreOpen(false)}
@@ -149,22 +199,42 @@ export function MemberPanel({ user }: { user: User }) {
         {/* ── Header ── */}
         <header className="flex items-center gap-2.5 mb-3 shrink-0">
 
-          {/*
-           * Avatar: show Google photo ONLY when auth_user_id is set on this profile.
-           * This prevents a linked user's photo from appearing on unlinked profiles.
-           */}
-          {user.avatarUrl && user.authUserId ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.name}
-              referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-xl shrink-0 object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0 select-none">
-              {user.name[0]}
-            </div>
-          )}
+          <div className="relative w-10 h-10 shrink-0">
+            {user.avatarUrl ? (
+              <Image
+                src={user.avatarUrl}
+                alt={user.name}
+                width={40}
+                height={40}
+                referrerPolicy="no-referrer"
+                className="w-10 h-10 rounded-xl shrink-0 object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0 select-none">
+                {user.name[0]}
+              </div>
+            )}
+            {user.role === 'CHILD' && !user.authUserId && (
+              <>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { void handleAvatarUpload(e.target.files?.[0]); }}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  aria-label={`${user.name} profile photo upload`}
+                  className="absolute -right-1 -bottom-1 w-6 h-6 rounded-lg bg-[var(--accent)] text-white flex items-center justify-center border border-[var(--bg)] shadow-sm disabled:opacity-60"
+                >
+                  <Camera size={13} />
+                </button>
+              </>
+            )}
+          </div>
 
           {/* Middle: name + stats + XP bar */}
           <div className="flex-1 min-w-0">
@@ -190,12 +260,20 @@ export function MemberPanel({ user }: { user: User }) {
               )}
               <span className="flex-1" />
               <button
-                onClick={() => setStoreOpen(true)}
+                onClick={openStore}
                 className="text-[11px] font-semibold text-[var(--accent)] shrink-0"
               >
                 💰{spendableBalance}pt
               </button>
             </div>
+
+            <button
+              onClick={openStore}
+              className="mt-1.5 w-full min-h-[40px] rounded-xl bg-[var(--accent)] text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <Store size={16} />
+              {lang === 'en' ? 'Go to Store' : '상점 가기'}
+            </button>
 
             {/* Row 3: XP bar */}
             <div className="h-1 rounded-full bg-[var(--border)] mt-1.5 overflow-hidden">

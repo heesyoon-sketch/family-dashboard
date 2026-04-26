@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { createBrowserSupabase } from '@/lib/supabase';
 
 const DEFAULT_MEMBERS = [
@@ -206,9 +207,11 @@ export default function SetupPage() {
             textAlign: 'left',
           }}>
             {googleUser.avatarUrl ? (
-              <img
+              <Image
                 src={googleUser.avatarUrl}
                 alt={googleUser.name}
+                width={32}
+                height={32}
                 referrerPolicy="no-referrer"
                 style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }}
               />

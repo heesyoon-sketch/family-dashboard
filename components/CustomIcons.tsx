@@ -1,16 +1,18 @@
 export function CrossIcon({ size = 18, className }: { size?: number; className?: string }) {
-  const arm = size * 0.18;
-  const full = size;
-  const cx = full / 2;
-  const topY = full * 0.1;
-  const botY = full * 0.9;
-  const hLeft = full * 0.18;
-  const hRight = full * 0.82;
-  const hY = full * 0.38;
   return (
-    <svg width={full} height={full} viewBox={`0 0 ${full} ${full}`} className={className} fill="currentColor">
-      <rect x={cx - arm} y={topY} width={arm * 2} height={botY - topY} rx={arm * 0.6} />
-      <rect x={hLeft} y={hY - arm} width={hRight - hLeft} height={arm * 2} rx={arm * 0.6} />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3v18" />
+      <path d="M7 8h10" />
     </svg>
   );
 }

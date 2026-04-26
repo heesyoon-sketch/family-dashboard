@@ -19,6 +19,25 @@ function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 }
 
+function startOfDayLocal(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function nextCompletionStreak(task: Task, completed: boolean): number {
+  const current = task.streakCount ?? 0;
+  if (completed) return current;
+  if (!task.lastCompletedAt) return 1;
+
+  const today = startOfDayLocal(new Date()).getTime();
+  const yesterday = today - 86_400_000;
+  const last = startOfDayLocal(task.lastCompletedAt).getTime();
+  if (last >= today) return current;
+  if (last >= yesterday) return current + 1;
+  return 1;
+}
+
 export function TaskCard({ task, completed, theme }: { task: Task; completed: boolean; theme: ThemeName }) {
   const { t } = useLanguage();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
@@ -90,12 +109,12 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     CUSTOM_ICON_MAP[task.icon] ??
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
-  // Streak tier logic
-  const streak      = task.streakCount ?? 0;
-  const tier        = streak >= 7 ? 3 : streak >= 3 ? 2 : 1;
-  const multiplier  = tier === 3 ? 2 : tier === 2 ? 1.5 : 1;
+  const streak      = nextCompletionStreak(task, completed);
+  const tier        = streak >= 3 ? 3 : streak >= 2 ? 2 : 1;
+  const multiplier  = tier === 3 ? 1.5 : tier === 2 ? 1.2 : 1;
   const displayPts  = tier > 1 ? Math.round(task.basePoints * multiplier) : task.basePoints;
-  const streakLabel = streak > 0 ? `🔥${streak}${tier === 3 ? ' 2×' : tier === 2 ? ' 1.5×' : ''}` : null;
+  const extraFlames = tier === 3 ? 2 : tier === 2 ? 1 : 0;
+  const streakLabel = streak > 0 ? `🔥${streak}${tier === 3 ? ' 1.5×' : tier === 2 ? ' 1.2×' : ''}` : null;
   const ringClass   = completed
     ? 'ring-[var(--accent)] opacity-55'
     : tier === 3
@@ -141,8 +160,15 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         ].join(' ')}
       >
         {/* Icon — 40px, readable and comfortable on touch screens */}
-        <div className="w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
+        <div className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
           <LucideIcon size={19} className="text-[var(--accent)]" />
+          {extraFlames > 0 && !completed && (
+            <div className="absolute -right-1 -top-1 flex gap-0.5" aria-hidden="true">
+              {Array.from({ length: extraFlames }).map((_, i) => (
+                <span key={i} className="text-[10px] leading-none drop-shadow-sm">🔥</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}

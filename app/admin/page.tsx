@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
@@ -46,6 +48,10 @@ const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; la
       { key: 'moon',            label: '수면' },
       { key: 'sun',             label: '아침' },
       { key: 'coffee',          label: '아침식사' },
+      { key: 'bed',             label: '침대정리' },
+      { key: 'bath',            label: '목욕' },
+      { key: 'washing-machine', label: '빨래' },
+      { key: 'spray-can',       label: '청소' },
     ],
   },
   {
@@ -58,6 +64,10 @@ const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; la
       { key: 'apple',           label: '식단' },
       { key: 'bike',            label: '자전거' },
       { key: 'person-standing', label: '스트레칭' },
+      { key: 'footprints',      label: '산책' },
+      { key: 'salad',           label: '채소' },
+      { key: 'glass-water',     label: '물마시기' },
+      { key: 'shield-check',    label: '안전' },
     ],
   },
   {
@@ -70,6 +80,10 @@ const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; la
       { key: 'globe',           label: '영어' },
       { key: 'calculator',      label: '수학' },
       { key: 'microscope',      label: '과학' },
+      { key: 'languages',       label: '언어' },
+      { key: 'palette',         label: '미술' },
+      { key: 'notebook-pen',    label: '숙제' },
+      { key: 'brain',           label: '암기' },
     ],
   },
   {
@@ -82,6 +96,10 @@ const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; la
       { key: 'trash-2',         label: '쓰레기' },
       { key: 'package',         label: '정리' },
       { key: 'blocks',          label: '장난감' },
+      { key: 'leaf',            label: '식물' },
+      { key: 'shopping-basket', label: '장보기' },
+      { key: 'chef-hat',        label: '요리' },
+      { key: 'hand-heart',      label: '도움' },
     ],
   },
   {
@@ -94,6 +112,10 @@ const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; la
       { key: 'star',            label: '특별' },
       { key: 'trophy',          label: '성취' },
       { key: 'zap',             label: '에너지' },
+      { key: 'smile',           label: '친절' },
+      { key: 'message-circle',  label: '대화' },
+      { key: 'timer',           label: '집중' },
+      { key: 'calendar-check',  label: '계획' },
     ],
   },
 ];
@@ -170,6 +192,17 @@ interface Reward {
   icon: string;
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'not_found';
+
+function mapReward(row: Record<string, unknown>): Reward {
+  return {
+    id: row.id as string,
+    title: (row.title ?? row.name ?? '') as string,
+    cost_points: Number(row.cost_points ?? 0),
+    icon: (row.icon ?? 'gift') as string,
+  };
+}
+
 function mapTask(r: Record<string, unknown>): Task {
   const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
   return {
@@ -196,7 +229,6 @@ export default function AdminPage() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isParentAdmin, setIsParentAdmin] = useState(false);
-  const [parents, setParents] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -215,7 +247,9 @@ export default function AdminPage() {
   const [rewardIconPickerOpen, setRewardIconPickerOpen] = useState(false);
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
-  const [editingRewardPoints, setEditingRewardPoints] = useState(0);
+  const [savingRewardId, setSavingRewardId] = useState<string | null>(null);
+  const [rewardSaveStatus, setRewardSaveStatus] = useState<Record<string, SaveStatus>>({});
+  const [rewardCostDrafts, setRewardCostDrafts] = useState<Record<string, number>>({});
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [familyInviteCode, setFamilyInviteCode] = useState<string | null>(null);
   // Admin PIN management
@@ -274,11 +308,8 @@ export default function AdminPage() {
         createdAt: new Date(r.created_at),
       }));
       const parentsList = users.filter(u => u.role === 'PARENT');
-      setParents(parentsList);
       setAllUsers(users);
-      setRewards((rewardRes.data ?? []).map(r => ({
-        id: r.id, title: r.title, cost_points: r.cost_points, icon: r.icon,
-      })));
+      setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
       const { data: parentAllowed } = await supabase.rpc('is_my_family_parent');
       setIsParentAdmin(Boolean(parentAllowed));
       // Load effective admin PIN hash (family_settings → users.pin_hash → env)
@@ -286,7 +317,7 @@ export default function AdminPage() {
       setAdminPinHash(hash);
     };
     init();
-  }, []);
+  }, [router]);
 
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
@@ -403,7 +434,6 @@ export default function AdminPage() {
       authUserId: data.auth_user_id ?? undefined, createdAt: new Date(data.created_at),
     };
     setAllUsers(prev => [...prev, newUser]);
-    if (newUser.role === 'PARENT') setParents(prev => [...prev, newUser]);
     setNewMemberName('');
     setAddingMember(false);
     await storeHydrate();
@@ -423,7 +453,6 @@ export default function AdminPage() {
     const { error } = await supabase.from('users').delete().eq('id', userId);
     if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
     setAllUsers(prev => prev.filter(u => u.id !== userId));
-    setParents(prev => prev.filter(u => u.id !== userId));
     await storeHydrate();
     notifyDashboard();
   };
@@ -595,7 +624,10 @@ export default function AdminPage() {
       p_icon: newRewardIcon,
     });
     if (error) { toast.error(`${t('reward_add_failed')}: ${error.message}`); return; }
-    if (data) setRewards(prev => [...prev, { id: data.id, title: data.title, cost_points: data.cost_points, icon: data.icon }].sort((a, b) => a.cost_points - b.cost_points));
+    if (data) {
+      const inserted = mapReward(data as Record<string, unknown>);
+      setRewards(prev => [...prev, inserted].sort((a, b) => a.cost_points - b.cost_points));
+    }
     setNewRewardTitle('');
     setNewRewardPoints(300);
     setNewRewardIcon('star');
@@ -605,22 +637,112 @@ export default function AdminPage() {
     toast.success(t('reward_added'));
   };
 
-  const saveRewardEdit = async (rewardId: string) => {
-    const trimmed = editingRewardTitle.trim();
+  const saveRewardEdit = async (
+    rewardId: string,
+    nextTitle = editingRewardTitle,
+    closeEditor = true,
+  ) => {
+    if (savingRewardId === rewardId) return;
+    const trimmed = nextTitle.trim();
     if (!trimmed) return;
-    const pts = Math.max(1, Math.round(editingRewardPoints) || 1);
+    setSavingRewardId(rewardId);
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_reward', { p_reward_id: rewardId, p_title: trimmed, p_cost_points: pts });
-    setRewards(prev => prev.map(r => r.id === rewardId ? { ...r, title: trimmed, cost_points: pts } : r));
-    setEditingRewardId(null);
+    try {
+      const { data, error } = await supabase
+        .from('rewards')
+        .update({ title: trimmed })
+        .eq('id', rewardId)
+        .select('*')
+        .single();
+
+      if (error) {
+        toast.error(`${t('reward_save_failed')}: ${error.message}`);
+        return;
+      }
+      if (!data) {
+        toast.error(t('reward_save_failed'));
+        return;
+      }
+
+      const { data: verified, error: verifyError } = await supabase
+        .from('rewards')
+        .select('*')
+        .eq('id', rewardId)
+        .single();
+
+      if (verifyError) {
+        toast.error(`${t('reward_save_failed')}: ${verifyError.message}`);
+        return;
+      }
+
+      const updated = mapReward((verified ?? data) as Record<string, unknown>);
+      setRewards(prev => prev.map(r => r.id === rewardId ? updated : r).sort((a, b) => a.cost_points - b.cost_points));
+      if (closeEditor) setEditingRewardId(null);
+      await storeHydrate();
+      router.refresh();
+      notifyDashboard();
+    } finally {
+      setSavingRewardId(null);
+    }
+  };
+
+  const updateRewardCost = async (rewardId: string, rawCost: number) => {
+    const previous = rewards.find(r => r.id === rewardId);
+    if (!previous) return;
+
+    const newCost = Math.max(1, Math.round(rawCost) || 1);
+    if (previous.cost_points === newCost) return;
+
+    setSavingRewardId(rewardId);
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saving' }));
+    setRewards(prev => prev.map(r => r.id === rewardId ? { ...r, cost_points: newCost } : r));
+
+    const supabase = createBrowserSupabase();
+    const response = await supabase
+      .from('rewards')
+      .update({ cost_points: newCost })
+      .eq('id', rewardId)
+      .select('*');
+
+    if (response.error) {
+      setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
+      setRewardCostDrafts(prev => ({ ...prev, [rewardId]: previous.cost_points }));
+      setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'error' }));
+      setSavingRewardId(null);
+      toast.error(`${t('reward_save_failed')}: ${response.error.message}`);
+      return;
+    }
+
+    if (!response.data || response.data.length === 0) {
+      setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
+      setRewardCostDrafts(prev => ({ ...prev, [rewardId]: previous.cost_points }));
+      setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'not_found' }));
+      setSavingRewardId(null);
+      toast.error(`${t('reward_save_failed')}: NOT FOUND (${rewardId})`);
+      return;
+    }
+
+    const saved = mapReward(response.data[0] as Record<string, unknown>);
+    setRewards(prev => prev.map(r => r.id === rewardId ? saved : r).sort((a, b) => a.cost_points - b.cost_points));
+    setRewardCostDrafts(prev => ({ ...prev, [rewardId]: saved.cost_points }));
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saved' }));
+    setSavingRewardId(null);
     await storeHydrate();
     router.refresh();
     notifyDashboard();
+
+    setTimeout(() => {
+      setRewardSaveStatus(prev => {
+        if (prev[rewardId] !== 'saved') return prev;
+        return { ...prev, [rewardId]: 'idle' };
+      });
+    }, 1500);
   };
 
   const deleteReward = async (rewardId: string) => {
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_delete_reward', { p_reward_id: rewardId });
+    const { error } = await supabase.rpc('admin_delete_reward', { p_reward_id: rewardId });
+    if (error) { toast.error(error.message); return; }
     setRewards(prev => prev.filter(r => r.id !== rewardId));
     await storeHydrate();
     router.refresh();
@@ -644,7 +766,6 @@ export default function AdminPage() {
     await supabase.rpc('admin_update_user_name', { p_user_id: userId, p_name: trimmed });
     const updated = allUsers.map(u => u.id === userId ? { ...u, name: trimmed } : u);
     setAllUsers(updated);
-    setParents(updated.filter(u => u.role === 'PARENT'));
     if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, name: trimmed } : prev);
     setEditingUserId(null);
     setEditingName('');
@@ -691,7 +812,7 @@ export default function AdminPage() {
               Sign in with a linked parent profile to manage settings.
             </p>
           )}
-          <a href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</a>
+          <Link href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</Link>
         </div>
       </main>
     );
@@ -718,7 +839,7 @@ export default function AdminPage() {
         {/* Header */}
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between">
           <h1 className="text-2xl font-bold">{t('admin_mode')}</h1>
-          <a href="/" className="text-[#8a8f99] text-sm hover:text-white">← {t('back_to_dashboard')}</a>
+          <Link href="/" className="text-[#8a8f99] text-sm hover:text-white">← {t('back_to_dashboard')}</Link>
         </div>
 
         {/* Sticky tab bar */}
@@ -997,9 +1118,11 @@ export default function AdminPage() {
                       <>
                         {/* Google profile photo or initial */}
                         {u.avatarUrl ? (
-                          <img
+                          <Image
                             src={u.avatarUrl}
                             alt={u.name}
+                            width={40}
+                            height={40}
                             referrerPolicy="no-referrer"
                             className="w-10 h-10 rounded-full shrink-0 ring-2 ring-[#2d3545]"
                           />
@@ -1327,15 +1450,35 @@ export default function AdminPage() {
                         />
                         <input
                           type="number"
-                          value={editingRewardPoints}
-                          onChange={e => setEditingRewardPoints(Number(e.target.value))}
+                          value={rewardCostDrafts[r.id] ?? r.cost_points}
+                          onChange={e => {
+                            const nextPoints = Number(e.target.value);
+                            setRewardCostDrafts(prev => ({ ...prev, [r.id]: nextPoints }));
+                          }}
+                          onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') setEditingRewardId(null);
+                          }}
                           min={1}
                           className="w-20 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
                           style={{ minHeight: 44 }}
                         />
                         <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
+                        <span className="w-5 text-center text-xs shrink-0">
+                          {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
+                            ? '…'
+                            : rewardSaveStatus[r.id] === 'saved'
+                              ? '✓'
+                              : rewardSaveStatus[r.id] === 'not_found'
+                                ? 'NOT FOUND'
+                              : rewardSaveStatus[r.id] === 'error'
+                                ? '!'
+                                : ''}
+                        </span>
                         <button
                           onClick={() => saveRewardEdit(r.id)}
+                          disabled={savingRewardId === r.id}
                           className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
                           style={{ minHeight: 44 }}
                         >✓</button>
@@ -1348,9 +1491,40 @@ export default function AdminPage() {
                     ) : (
                       <>
                         <span className="flex-1 font-medium text-sm truncate">{r.title}</span>
-                        <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#1a1f2a] shrink-0">{r.cost_points}pt</span>
+                        <input
+                          type="number"
+                          value={rewardCostDrafts[r.id] ?? r.cost_points}
+                          onChange={e => {
+                            const nextPoints = Number(e.target.value);
+                            setRewardCostDrafts(prev => ({ ...prev, [r.id]: nextPoints }));
+                          }}
+                          onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') {
+                              setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          min={1}
+                          disabled={savingRewardId === r.id}
+                          className="w-20 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] shrink-0"
+                          style={{ minHeight: 44 }}
+                        />
+                        <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
+                        <span className="w-5 text-center text-xs shrink-0">
+                          {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
+                            ? '…'
+                            : rewardSaveStatus[r.id] === 'saved'
+                              ? '✓'
+                              : rewardSaveStatus[r.id] === 'not_found'
+                                ? 'NOT FOUND'
+                              : rewardSaveStatus[r.id] === 'error'
+                                ? '!'
+                                : ''}
+                        </span>
                         <button
-                          onClick={() => { setEditingRewardId(r.id); setEditingRewardTitle(r.title); setEditingRewardPoints(r.cost_points); }}
+                          onClick={() => { setEditingRewardId(r.id); setEditingRewardTitle(r.title); }}
                           className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
                           style={{ minHeight: 44 }}
                         >✏️</button>

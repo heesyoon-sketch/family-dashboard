@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
@@ -28,16 +28,16 @@ export interface Reward {
   icon: string;
 }
 
-// ── Weekend deal config ───────────────────────────────────────────────────────
-
-// Any reward whose title contains one of these keywords gets 30% off on weekends.
-const WEEKEND_KEYWORDS = [
-  '영상', '태블릿', '영화', '소환권', '데이트권', '친구', '나들이', '같이 자기',
-] as const;
-
-function isWeekendDeal(title: string): boolean {
-  return WEEKEND_KEYWORDS.some(kw => title.includes(kw));
+function normaliseRewardRow(row: Record<string, unknown>): Reward {
+  return {
+    id: row.id as string,
+    title: (row.title ?? row.name ?? '') as string,
+    cost_points: Number(row.cost_points ?? 0),
+    icon: (row.icon ?? 'gift') as string,
+  };
 }
+
+// ── Weekend deal config ───────────────────────────────────────────────────────
 
 function isWeekendNow(): boolean {
   const day = new Date().getDay();
@@ -45,8 +45,14 @@ function isWeekendNow(): boolean {
 }
 
 function effectiveCost(reward: Reward, weekend: boolean): number {
-  if (!weekend || !isWeekendDeal(reward.title)) return reward.cost_points;
+  if (!weekend) return reward.cost_points;
   return Math.max(1, Math.floor(reward.cost_points * 0.7));
+}
+
+function initialWeekendState(): { weekend: boolean; countdown: string } {
+  if (typeof window === 'undefined') return { weekend: false, countdown: '' };
+  const weekend = isWeekendNow();
+  return { weekend, countdown: weekend ? timeUntilWeekendEnds() : '' };
 }
 
 // Returns e.g. "23시간 47분" until next Monday 00:00 local time.
@@ -80,36 +86,68 @@ export function StoreModal({
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
-  const [weekend] = useState(isWeekendNow);
-  const [countdown, setCountdown] = useState(weekend ? timeUntilWeekendEnds() : '');
+  const [{ weekend, countdown }, setWeekendState] = useState(initialWeekendState);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
+  const loadRewards = useCallback(async (): Promise<Reward[]> => {
     const supabase = createBrowserSupabase();
-    supabase.from('rewards').select('*').order('cost_points').then(({ data }) => {
-      setRewards(data ?? []);
-      setLoading(false);
-    });
+    const { data, error } = await supabase
+      .from('rewards')
+      .select('*')
+      .order('cost_points');
+
+    if (error) throw error;
+    const nextRewards = (data ?? []).map((row: Record<string, unknown>) => normaliseRewardRow(row));
+    setRewards(nextRewards);
+    setLoading(false);
+    return nextRewards;
   }, []);
 
-  // Live countdown tick — only runs when it's a weekend.
+  useEffect(() => {
+    Promise.resolve().then(loadRewards).catch(error => {
+      console.warn('Failed to load rewards', error);
+      setLoading(false);
+    });
+
+    const channel = new BroadcastChannel('habit_sync');
+    channel.onmessage = () => {
+      loadRewards().catch(error => console.warn('Failed to refresh rewards', error));
+    };
+    const onFocus = () => {
+      loadRewards().catch(error => console.warn('Failed to refresh rewards', error));
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      channel.close();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadRewards]);
+
+  // Live countdown tick — only runs when weekend is true.
   useEffect(() => {
     if (!weekend) return;
     timerRef.current = setInterval(() => {
-      setCountdown(timeUntilWeekendEnds());
+      setWeekendState(prev => ({ ...prev, countdown: timeUntilWeekendEnds() }));
     }, 60_000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [weekend]);
 
   const handleRedeem = async (reward: Reward) => {
-    const cost = effectiveCost(reward, weekend);
+    const latestRewards = await loadRewards().catch(error => {
+      console.warn('Failed to refresh rewards before redeem', error);
+      return rewards;
+    });
+    const latestReward = latestRewards.find(r => r.id === reward.id) ?? reward;
+    const cost = effectiveCost(latestReward, weekend);
     if (balance < cost || redeeming) return;
     setRedeeming(reward.id);
-    // Pass discounted cost so the actual deduction matches the displayed price.
-    const effectiveReward: Reward = { ...reward, cost_points: cost };
+    // Backend ignores this cost and recalculates from the DB row; this keeps the
+    // local affordability check aligned with the displayed price.
+    const effectiveReward: Reward = { ...latestReward, cost_points: cost };
     try {
       await onRedeem(effectiveReward);
-      toast.success(`🎉 "${reward.title}" ${t('exchange_complete')}`);
+      toast.success(`🎉 "${latestReward.title}" ${t('exchange_complete')}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
     } finally {
@@ -176,8 +214,10 @@ export function StoreModal({
             </div>
           )}
           {rewards.map(r => {
-            const hasDeal   = weekend && isWeekendDeal(r.title);
-            const cost      = effectiveCost(r, weekend);
+            // Defensive: raw Supabase rows sometimes use `name` instead of `title`.
+            const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
+            const hasDeal   = weekend;
+            const cost      = effectiveCost({ ...r, title: itemTitle }, weekend);
             const canAfford = balance >= cost;
             const busy      = redeeming === r.id;
 
@@ -211,7 +251,7 @@ export function StoreModal({
                   {/* title + badge */}
                   <div className="flex items-start gap-1.5 flex-wrap">
                     <span className="font-semibold text-sm text-[var(--fg)] leading-snug">
-                      {r.title}{hasDeal ? ' (주말 30% 특가!)' : ''}
+                      {itemTitle}{hasDeal ? ' (주말 30% 특가!)' : ''}
                     </span>
                   </div>
 

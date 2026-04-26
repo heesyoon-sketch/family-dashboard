@@ -30,28 +30,6 @@ function tone(
   osc.stop(startTime + duration);
 }
 
-function sweep(
-  ac: AudioContext,
-  from: number,
-  to: number,
-  startTime: number,
-  duration: number,
-  gain = 0.25,
-  type: OscillatorType = 'sine',
-) {
-  const osc = ac.createOscillator();
-  const g = ac.createGain();
-  osc.connect(g);
-  g.connect(ac.destination);
-  osc.type = type;
-  osc.frequency.setValueAtTime(from, startTime);
-  osc.frequency.exponentialRampToValueAtTime(to, startTime + duration);
-  g.gain.setValueAtTime(gain, startTime);
-  g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-  osc.start(startTime);
-  osc.stop(startTime + duration);
-}
-
 export function playCompletionSound(theme: ThemeName) {
   if (typeof window === 'undefined') return;
   try {

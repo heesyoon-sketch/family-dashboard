@@ -12,7 +12,7 @@ function hashPin(pin: string): string {
 const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
 const libsql = createClient({ url: `file:${dbPath}` });
 const adapter = new PrismaLibSQL(libsql);
-const prisma = new PrismaClient({ adapter } as any);
+const prisma = new PrismaClient({ adapter });
 
 const CHILD_TASKS = [
   {
