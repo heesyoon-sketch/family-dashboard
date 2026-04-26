@@ -230,6 +230,7 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [isParentAdmin, setIsParentAdmin] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -275,6 +276,7 @@ export default function AdminPage() {
       // Resolve family for INSERT operations; redirect if setup is incomplete
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
+      setCurrentAuthUserId(user.id);
       const { data: resolvedFamilyId } = await supabase.rpc('get_my_family_id');
       if (!resolvedFamilyId) { router.replace('/setup'); return; }
       setFamilyId(resolvedFamilyId);
@@ -455,11 +457,11 @@ export default function AdminPage() {
   const removeMember = async (userId: string) => {
     const target = allUsers.find(u => u.id === userId);
     if (!target) return;
-    if (target.authUserId) {
-      toast.error('Google 계정이 연결된 프로필은 삭제할 수 없습니다');
+    if (target.authUserId && target.authUserId === currentAuthUserId) {
+      toast.error('현재 로그인한 관리자 본인 프로필은 삭제할 수 없습니다');
       return;
     }
-    if (!confirm(`'${target.name}' 프로필을 삭제할까요?\n이 프로필의 모든 태스크와 기록이 삭제됩니다.`)) return;
+    if (!confirm(`'${target.name}' 프로필을 삭제할까요?\n이 프로필의 모든 태스크와 기록이 삭제됩니다.\n연결된 계정이 있다면 초대 코드로 다시 참여할 수 있습니다.`)) return;
     const supabase = createBrowserSupabase();
     const { error } = await supabase.from('users').delete().eq('id', userId);
     if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
@@ -1162,7 +1164,7 @@ export default function AdminPage() {
                         >
                           ✏️
                         </button>
-                        {!u.authUserId && (
+                        {!(u.authUserId && u.authUserId === currentAuthUserId) && (
                           <button
                             onClick={() => removeMember(u.id)}
                             className="w-11 rounded-xl bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-900/40 transition-colors shrink-0"
