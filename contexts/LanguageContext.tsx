@@ -97,7 +97,8 @@ export type TranslationKey =
   | 'danger_zone_button'
   | 'danger_zone_deleting'
   | 'danger_zone_confirm'
-  | 'danger_zone_delete_failed';
+  | 'danger_zone_delete_failed'
+  | 'feedback';
 
 const DICT: Record<Lang, Record<TranslationKey, string>> = {
   ko: {
@@ -194,6 +195,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     danger_zone_deleting: '삭제 중…',
     danger_zone_confirm: '이 작업은 되돌릴 수 없습니다. 모든 가족 구성원, 습관, 보상 데이터가 영구적으로 삭제됩니다. 정말 삭제하시겠습니까?',
     danger_zone_delete_failed: '가족 데이터 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.',
+    feedback: '의견',
   },
   en: {
     new_record: 'New Record!',
@@ -289,6 +291,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     danger_zone_deleting: 'Deleting…',
     danger_zone_confirm: 'This cannot be undone. All family members, habits, and reward data will be permanently deleted. Are you sure?',
     danger_zone_delete_failed: 'Failed to delete family data. Please try again.',
+    feedback: 'Feedback',
   },
 };
 

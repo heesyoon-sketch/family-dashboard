@@ -569,9 +569,15 @@ export default function AdminPage() {
       router.refresh();
       notifyDashboard();
       toast.success('프로필 사진이 업데이트되었습니다');
-    } catch (error) {
-      console.error('Failed to upload avatar', error);
-      toast.error('프로필 사진 업로드에 실패했습니다');
+    } catch (err) {
+      const sbErr = err as { message?: string; error?: string; statusCode?: string | number };
+      console.error('Avatar upload failed', {
+        message:    sbErr?.message,
+        error:      sbErr?.error,
+        statusCode: sbErr?.statusCode,
+        raw:        err,
+      });
+      toast.error(`프로필 사진 업로드에 실패했습니다: ${sbErr?.message ?? String(err)}`);
     } finally {
       setAvatarUploadingUserId(null);
       setAvatarUploadTargetId(null);

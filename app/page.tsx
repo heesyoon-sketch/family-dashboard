@@ -24,6 +24,7 @@ const iconBtn: React.CSSProperties = {
   flexShrink: 0,
 };
 
+
 function formatDate(d: Date, timeOfDay: 'morning' | 'evening', lang: Lang): string {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
   const dayName = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d);
@@ -143,6 +144,29 @@ export default function Dashboard() {
         <Link href="/stats" aria-label={t('weekly_completions')} style={iconBtn}>
           <BarChart2 size={17} />
         </Link>
+        <a
+          href="https://forms.gle/KgxsBSBHwkdrwdTz7"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            backgroundColor: '#ff4757',
+            color: 'white',
+            padding: '5px 12px',
+            zIndex: 9999,
+            display: 'flex',
+            visibility: 'visible',
+            alignItems: 'center',
+            borderRadius: 8,
+            textDecoration: 'none',
+            flexShrink: 0,
+            fontSize: 13,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            position: 'relative',
+          }}
+        >
+          💬 피드백
+        </a>
         <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
           <Settings size={17} />
         </Link>
