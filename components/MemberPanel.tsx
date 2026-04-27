@@ -4,12 +4,12 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { Store } from 'lucide-react';
-import { User } from '@/lib/db';
+import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
 import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
-import { StoreModal, type Reward } from './StoreModal';
+import { StoreModal } from './StoreModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────

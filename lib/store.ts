@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Level, Badge, Task, User, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
+import { Level, Badge, Task, User, Reward, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions } from './offlineQueue';
 
@@ -25,6 +25,7 @@ interface FamilyState {
   familyId: string | null;
   familyName: string | null;
   users: User[];
+  rewards: Reward[];
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
   tasksByUser: Record<string, Task[]>;
@@ -65,10 +66,31 @@ function taskMutationKey(userId: string, taskId: string): string {
   return `${userId}:${taskId}`;
 }
 
+function normaliseSalePercentage(value: unknown): number {
+  const n = Math.round(Number(value ?? 0));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100, Math.max(0, n));
+}
+
+function mapRewardRow(row: Record<string, unknown>): Reward {
+  const saleName = typeof row.sale_name === 'string' && row.sale_name.trim()
+    ? row.sale_name.trim()
+    : undefined;
+  return {
+    id: row.id as string,
+    title: (row.title ?? row.name ?? '') as string,
+    cost_points: Number(row.cost_points ?? 0),
+    icon: (row.icon ?? 'gift') as string,
+    sale_percentage: normaliseSalePercentage(row.sale_percentage),
+    sale_name: saleName,
+  };
+}
+
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyId: null,
   familyName: null,
   users: [],
+  rewards: [],
   currentMemberId: null,
   currentMemberCanAdmin: false,
   tasksByUser: {},
@@ -99,6 +121,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyId: null,
         familyName: null,
         users: [],
+        rewards: [],
         currentMemberId: null,
         currentMemberCanAdmin: false,
         tasksByUser: {},
@@ -134,6 +157,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyId: null,
         familyName: null,
         users: [],
+        rewards: [],
         currentMemberId: null,
         currentMemberCanAdmin: false,
         tasksByUser: {},
@@ -149,11 +173,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const timeOfDay = getCurrentTimeOfDay();
     const fourteenDaysAgo = addDays(todayStart, -13);
 
-    // Phase 1: load the family's name, users + tasks (explicit family_id filter).
-    const [familyNameRes, uRes, tRes] = await Promise.all([
+    // Phase 1: load the family's name, users, tasks, and rewards (explicit family_id filter).
+    const [familyNameRes, uRes, tRes, rRes] = await Promise.all([
       supabase.rpc('get_my_family_name'),
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId),
+      supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).order('cost_points'),
     ]);
     let familyName = (familyNameRes.data as string | null) ?? null;
     if (!familyName) {
@@ -194,6 +219,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       displayOrder: r.display_order ?? 0,
       createdAt: new Date(r.created_at),
     }));
+    const rewards: Reward[] = (rRes.data ?? []).map(r => mapRewardRow(r as Record<string, unknown>));
     const currentMember = users.find(u => u.authUserId === user.id) ?? null;
     const currentMemberId = currentMember?.id ?? null;
     const currentMemberCanAdmin = currentMember?.role === 'PARENT';
@@ -326,6 +352,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       familyId: resolvedFamilyId,
       familyName,
       users,
+      rewards,
       currentMemberId,
       currentMemberCanAdmin,
       tasksByUser,
@@ -550,6 +577,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     familyId: null,
     familyName: null,
     users: [],
+    rewards: [],
     currentMemberId: null,
     currentMemberCanAdmin: false,
     tasksByUser: {},

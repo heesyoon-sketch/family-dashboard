@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
-import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
+import { User, Task, Reward, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
 import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
@@ -186,21 +186,25 @@ function IconPicker({
   );
 }
 
-interface Reward {
-  id: string;
-  title: string;
-  cost_points: number;
-  icon: string;
-}
-
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'not_found';
 
+function normaliseSalePercentage(value: unknown): number {
+  const n = Math.round(Number(value ?? 0));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100, Math.max(0, n));
+}
+
 function mapReward(row: Record<string, unknown>): Reward {
+  const saleName = typeof row.sale_name === 'string' && row.sale_name.trim()
+    ? row.sale_name.trim()
+    : undefined;
   return {
     id: row.id as string,
     title: (row.title ?? row.name ?? '') as string,
     cost_points: Number(row.cost_points ?? 0),
     icon: (row.icon ?? 'gift') as string,
+    sale_percentage: normaliseSalePercentage(row.sale_percentage),
+    sale_name: saleName,
   };
 }
 
@@ -257,16 +261,19 @@ export default function AdminPage() {
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
   const [iconPickerTaskId, setIconPickerTaskId] = useState<string | null>(null);
   // Rewards CRUD state
-  const [rewards, setRewards] = useState<Reward[]>([]);
   const [newRewardTitle, setNewRewardTitle] = useState('');
   const [newRewardPoints, setNewRewardPoints] = useState(300);
   const [newRewardIcon, setNewRewardIcon] = useState('star');
+  const [newRewardSalePercentage, setNewRewardSalePercentage] = useState(0);
+  const [newRewardSaleName, setNewRewardSaleName] = useState('');
   const [rewardIconPickerOpen, setRewardIconPickerOpen] = useState(false);
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
   const [savingRewardId, setSavingRewardId] = useState<string | null>(null);
   const [rewardSaveStatus, setRewardSaveStatus] = useState<Record<string, SaveStatus>>({});
   const [rewardCostDrafts, setRewardCostDrafts] = useState<Record<string, number>>({});
+  const [rewardSalePercentageDrafts, setRewardSalePercentageDrafts] = useState<Record<string, number>>({});
+  const [rewardSaleNameDrafts, setRewardSaleNameDrafts] = useState<Record<string, string>>({});
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [familyInviteCode, setFamilyInviteCode] = useState<string | null>(null);
   // Admin PIN management
@@ -293,6 +300,14 @@ export default function AdminPage() {
   const addTaskInFlightRef = useRef(false);
   const storeHydrate = useFamilyStore(s => s.hydrate);
   const familyName = useFamilyStore(s => s.familyName);
+  const rewards = useFamilyStore(s => s.rewards);
+  const setRewards = (updater: Reward[] | ((prev: Reward[]) => Reward[])) => {
+    useFamilyStore.setState(state => ({
+      rewards: typeof updater === 'function'
+        ? (updater as (prev: Reward[]) => Reward[])(state.rewards)
+        : updater,
+    }));
+  };
   const router = useRouter();
 
   useEffect(() => {
@@ -890,10 +905,14 @@ export default function AdminPage() {
   const addReward = async () => {
     if (!newRewardTitle.trim()) return;
     const supabase = createBrowserSupabase();
+    const salePercentage = normaliseSalePercentage(newRewardSalePercentage);
+    const saleName = newRewardSaleName.trim() || null;
     const { data, error } = await supabase.rpc('admin_insert_reward', {
       p_title: newRewardTitle.trim(),
       p_cost_points: Math.max(1, newRewardPoints),
       p_icon: newRewardIcon,
+      p_sale_percentage: salePercentage,
+      p_sale_name: saleName,
     });
     if (error) { toast.error(`${t('reward_add_failed')}: ${error.message}`); return; }
     if (data) {
@@ -903,6 +922,8 @@ export default function AdminPage() {
     setNewRewardTitle('');
     setNewRewardPoints(300);
     setNewRewardIcon('star');
+    setNewRewardSalePercentage(0);
+    setNewRewardSaleName('');
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -917,42 +938,51 @@ export default function AdminPage() {
     if (savingRewardId === rewardId) return;
     const trimmed = nextTitle.trim();
     if (!trimmed) return;
+    const previous = rewards.find(r => r.id === rewardId);
+    if (!previous) return;
+    const nextCost = Math.max(1, Math.round(Number(rewardCostDrafts[rewardId] ?? previous.cost_points)) || 1);
+    const nextSalePercentage = normaliseSalePercentage(rewardSalePercentageDrafts[rewardId] ?? previous.sale_percentage ?? 0);
+    const nextSaleNameRaw = rewardSaleNameDrafts[rewardId] ?? previous.sale_name ?? '';
+    const nextSaleName = nextSaleNameRaw.trim() || null;
     setSavingRewardId(rewardId);
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saving' }));
     const supabase = createBrowserSupabase();
     try {
-      const { data, error } = await supabase
-        .from('rewards')
-        .update({ title: trimmed })
-        .eq('id', rewardId)
-        .select('*')
-        .single();
+      const { data, error } = await supabase.rpc('admin_update_reward', {
+        p_reward_id: rewardId,
+        p_title: trimmed,
+        p_cost_points: nextCost,
+        p_sale_percentage: nextSalePercentage,
+        p_sale_name: nextSaleName,
+      });
 
       if (error) {
+        setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'error' }));
         toast.error(`${t('reward_save_failed')}: ${error.message}`);
         return;
       }
       if (!data) {
+        setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'not_found' }));
         toast.error(t('reward_save_failed'));
         return;
       }
 
-      const { data: verified, error: verifyError } = await supabase
-        .from('rewards')
-        .select('*')
-        .eq('id', rewardId)
-        .single();
-
-      if (verifyError) {
-        toast.error(`${t('reward_save_failed')}: ${verifyError.message}`);
-        return;
-      }
-
-      const updated = mapReward((verified ?? data) as Record<string, unknown>);
+      const updated = mapReward(data as Record<string, unknown>);
       setRewards(prev => prev.map(r => r.id === rewardId ? updated : r).sort((a, b) => a.cost_points - b.cost_points));
+      setRewardCostDrafts(prev => ({ ...prev, [rewardId]: updated.cost_points }));
+      setRewardSalePercentageDrafts(prev => ({ ...prev, [rewardId]: updated.sale_percentage ?? 0 }));
+      setRewardSaleNameDrafts(prev => ({ ...prev, [rewardId]: updated.sale_name ?? '' }));
+      setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saved' }));
       if (closeEditor) setEditingRewardId(null);
       await storeHydrate();
       router.refresh();
       notifyDashboard();
+      setTimeout(() => {
+        setRewardSaveStatus(prev => {
+          if (prev[rewardId] !== 'saved') return prev;
+          return { ...prev, [rewardId]: 'idle' };
+        });
+      }, 1500);
     } finally {
       setSavingRewardId(null);
     }
@@ -970,11 +1000,13 @@ export default function AdminPage() {
     setRewards(prev => prev.map(r => r.id === rewardId ? { ...r, cost_points: newCost } : r));
 
     const supabase = createBrowserSupabase();
-    const response = await supabase
-      .from('rewards')
-      .update({ cost_points: newCost })
-      .eq('id', rewardId)
-      .select('*');
+    const response = await supabase.rpc('admin_update_reward', {
+      p_reward_id: rewardId,
+      p_title: previous.title,
+      p_cost_points: newCost,
+      p_sale_percentage: normaliseSalePercentage(previous.sale_percentage ?? 0),
+      p_sale_name: previous.sale_name?.trim() || null,
+    });
 
     if (response.error) {
       setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
@@ -985,7 +1017,7 @@ export default function AdminPage() {
       return;
     }
 
-    if (!response.data || response.data.length === 0) {
+    if (!response.data) {
       setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
       setRewardCostDrafts(prev => ({ ...prev, [rewardId]: previous.cost_points }));
       setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'not_found' }));
@@ -994,9 +1026,11 @@ export default function AdminPage() {
       return;
     }
 
-    const saved = mapReward(response.data[0] as Record<string, unknown>);
+    const saved = mapReward(response.data as Record<string, unknown>);
     setRewards(prev => prev.map(r => r.id === rewardId ? saved : r).sort((a, b) => a.cost_points - b.cost_points));
     setRewardCostDrafts(prev => ({ ...prev, [rewardId]: saved.cost_points }));
+    setRewardSalePercentageDrafts(prev => ({ ...prev, [rewardId]: saved.sale_percentage ?? 0 }));
+    setRewardSaleNameDrafts(prev => ({ ...prev, [rewardId]: saved.sale_name ?? '' }));
     setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saved' }));
     setSavingRewardId(null);
     await storeHydrate();
@@ -1830,7 +1864,7 @@ export default function AdminPage() {
               <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('store_management')}</h2>
               <div className="space-y-3 mb-6">
                 {rewards.map(r => (
-                  <div key={r.id} className="flex items-center gap-2 p-3 rounded-xl bg-[#232831]">
+                  <div key={r.id} className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-[#232831]">
                     <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
                       <LucideIcon name={r.icon} size={18} />
                     </div>
@@ -1852,9 +1886,8 @@ export default function AdminPage() {
                             const nextPoints = Number(e.target.value);
                             setRewardCostDrafts(prev => ({ ...prev, [r.id]: nextPoints }));
                           }}
-                          onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
                           onKeyDown={e => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Enter') void saveRewardEdit(r.id);
                             if (e.key === 'Escape') setEditingRewardId(null);
                           }}
                           min={1}
@@ -1862,6 +1895,39 @@ export default function AdminPage() {
                           style={{ minHeight: 44 }}
                         />
                         <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
+                        <input
+                          type="number"
+                          aria-label="할인율 (%)"
+                          title="할인율 (%)"
+                          value={rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0}
+                          onChange={e => {
+                            setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }));
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') void saveRewardEdit(r.id);
+                            if (e.key === 'Escape') setEditingRewardId(null);
+                          }}
+                          min={0}
+                          max={100}
+                          className="w-24 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
+                          style={{ minHeight: 44 }}
+                        />
+                        <span className="text-[#8a8f99] text-xs shrink-0">%</span>
+                        <input
+                          type="text"
+                          aria-label="세일 명칭"
+                          value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
+                          onChange={e => {
+                            setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') void saveRewardEdit(r.id);
+                            if (e.key === 'Escape') setEditingRewardId(null);
+                          }}
+                          placeholder="세일 명칭"
+                          className="w-32 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
+                          style={{ minHeight: 44, fontSize: 15 }}
+                        />
                         <span className="w-5 text-center text-xs shrink-0">
                           {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
                             ? '…'
@@ -1887,7 +1953,14 @@ export default function AdminPage() {
                       </>
                     ) : (
                       <>
-                        <span className="flex-1 font-medium text-sm truncate">{r.title}</span>
+                        <div className="flex-1 min-w-[120px]">
+                          <span className="block font-medium text-sm truncate">{r.title}</span>
+                          {(r.sale_percentage ?? 0) > 0 && (
+                            <span className="inline-flex mt-1 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
+                              {r.sale_name?.trim() || `${r.sale_percentage}% OFF`}
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="number"
                           value={rewardCostDrafts[r.id] ?? r.cost_points}
@@ -1921,7 +1994,13 @@ export default function AdminPage() {
                                 : ''}
                         </span>
                         <button
-                          onClick={() => { setEditingRewardId(r.id); setEditingRewardTitle(r.title); }}
+                          onClick={() => {
+                            setEditingRewardId(r.id);
+                            setEditingRewardTitle(r.title);
+                            setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
+                            setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
+                            setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
+                          }}
                           className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
                           style={{ minHeight: 44 }}
                         >✏️</button>
@@ -1944,7 +2023,7 @@ export default function AdminPage() {
               {/* Add new reward */}
               <div className="border-t border-[#232831] pt-4">
                 <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_new_reward')}</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setRewardIconPickerOpen(true)}
                     className="w-11 rounded-xl bg-[#232831] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
@@ -1960,7 +2039,7 @@ export default function AdminPage() {
                     onChange={e => setNewRewardTitle(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addReward()}
                     placeholder={t('reward_name_placeholder')}
-                    className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                    className="min-w-[180px] flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                   />
                   <input
                     type="number"
@@ -1968,6 +2047,25 @@ export default function AdminPage() {
                     onChange={e => setNewRewardPoints(Number(e.target.value))}
                     min={1}
                     className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                  />
+                  <input
+                    type="number"
+                    value={newRewardSalePercentage}
+                    onChange={e => setNewRewardSalePercentage(Number(e.target.value))}
+                    onKeyDown={e => e.key === 'Enter' && addReward()}
+                    min={0}
+                    max={100}
+                    aria-label="할인율 (%)"
+                    placeholder="할인율 (%)"
+                    className="w-28 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                  />
+                  <input
+                    type="text"
+                    value={newRewardSaleName}
+                    onChange={e => setNewRewardSaleName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addReward()}
+                    placeholder="세일 명칭"
+                    className="min-w-[140px] flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                   />
                   <button
                     onClick={addReward}

@@ -56,6 +56,15 @@ export interface Task {
   lastCompletedAt: Date | null;
 }
 
+export interface Reward {
+  id: string;
+  title: string;
+  cost_points: number;
+  icon: string;
+  sale_percentage?: number;
+  sale_name?: string;
+}
+
 export interface TaskCompletion {
   id: string;
   userId: string;

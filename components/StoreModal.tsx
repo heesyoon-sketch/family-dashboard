@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
-import { User } from '@/lib/db';
-import { createBrowserSupabase } from '@/lib/supabase';
+import { Reward, User } from '@/lib/db';
+import { useFamilyStore } from '@/lib/store';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Icon renderer ─────────────────────────────────────────────────────────────
@@ -13,60 +13,28 @@ import { useLanguage } from '@/contexts/LanguageContext';
 function pascalCase(s: string) {
   return s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
 }
+
 const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string }>>;
+
 function RewardIcon({ name, size = 20, className }: { name: string; size?: number; className?: string }) {
   const Comp = IconMap[pascalCase(name)] ?? Icons.Gift;
   return <Comp size={size} className={className} />;
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface Reward {
-  id: string;
-  title: string;
-  cost_points: number;
-  icon: string;
+function salePercentage(reward: Reward): number {
+  const n = Math.round(Number(reward.sale_percentage ?? 0));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100, Math.max(0, n));
 }
 
-function normaliseRewardRow(row: Record<string, unknown>): Reward {
-  return {
-    id: row.id as string,
-    title: (row.title ?? row.name ?? '') as string,
-    cost_points: Number(row.cost_points ?? 0),
-    icon: (row.icon ?? 'gift') as string,
-  };
+function discountedCost(reward: Reward): number {
+  const pct = salePercentage(reward);
+  return Math.max(0, Math.floor(reward.cost_points * (100 - pct) / 100));
 }
 
-// ── Weekend deal config ───────────────────────────────────────────────────────
-
-function isWeekendNow(): boolean {
-  const day = new Date().getDay();
-  return day === 0 || day === 6;
-}
-
-function effectiveCost(reward: Reward, weekend: boolean): number {
-  if (!weekend) return reward.cost_points;
-  return Math.max(1, Math.floor(reward.cost_points * 0.7));
-}
-
-function initialWeekendState(): { weekend: boolean; countdown: string } {
-  if (typeof window === 'undefined') return { weekend: false, countdown: '' };
-  const weekend = isWeekendNow();
-  return { weekend, countdown: weekend ? timeUntilWeekendEnds() : '' };
-}
-
-// Returns e.g. "23시간 47분" until next Monday 00:00 local time.
-function timeUntilWeekendEnds(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const daysToMonday = day === 6 ? 2 : 1;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + daysToMonday);
-  monday.setHours(0, 0, 0, 0);
-  const diffMs = monday.getTime() - now.getTime();
-  const h = Math.floor(diffMs / 3_600_000);
-  const m = Math.floor((diffMs % 3_600_000) / 60_000);
-  return `${h}시간 ${m}분`;
+function saleLabel(reward: Reward): string {
+  const customName = reward.sale_name?.trim();
+  return customName || `${salePercentage(reward)}% OFF`;
 }
 
 // ── StoreModal ────────────────────────────────────────────────────────────────
@@ -83,38 +51,28 @@ export function StoreModal({
   onRedeem: (reward: Reward) => Promise<void>;
 }) {
   const { t } = useLanguage();
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [loading, setLoading] = useState(true);
+  const rewards = useFamilyStore(state => state.rewards);
+  const hydrate = useFamilyStore(state => state.hydrate);
+  const hydrated = useFamilyStore(state => state.hydrated);
   const [redeeming, setRedeeming] = useState<string | null>(null);
-  const [{ weekend, countdown }, setWeekendState] = useState(initialWeekendState);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadRewards = useCallback(async (): Promise<Reward[]> => {
-    const supabase = createBrowserSupabase();
-    const { data, error } = await supabase
-      .from('rewards')
-      .select('*')
-      .order('cost_points');
-
-    if (error) throw error;
-    const nextRewards = (data ?? []).map((row: Record<string, unknown>) => normaliseRewardRow(row));
-    setRewards(nextRewards);
-    setLoading(false);
-    return nextRewards;
-  }, []);
+  const refreshRewards = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await hydrate();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [hydrate]);
 
   useEffect(() => {
-    Promise.resolve().then(loadRewards).catch(error => {
-      console.warn('Failed to load rewards', error);
-      setLoading(false);
-    });
-
     const channel = new BroadcastChannel('habit_sync');
     channel.onmessage = () => {
-      loadRewards().catch(error => console.warn('Failed to refresh rewards', error));
+      refreshRewards().catch(error => console.warn('Failed to refresh rewards', error));
     };
     const onFocus = () => {
-      loadRewards().catch(error => console.warn('Failed to refresh rewards', error));
+      refreshRewards().catch(error => console.warn('Failed to refresh rewards', error));
     };
     window.addEventListener('focus', onFocus);
 
@@ -122,28 +80,20 @@ export function StoreModal({
       channel.close();
       window.removeEventListener('focus', onFocus);
     };
-  }, [loadRewards]);
-
-  // Live countdown tick — only runs when weekend is true.
-  useEffect(() => {
-    if (!weekend) return;
-    timerRef.current = setInterval(() => {
-      setWeekendState(prev => ({ ...prev, countdown: timeUntilWeekendEnds() }));
-    }, 60_000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [weekend]);
+  }, [refreshRewards]);
 
   const handleRedeem = async (reward: Reward) => {
-    const latestRewards = await loadRewards().catch(error => {
+    if (redeeming) return;
+
+    await refreshRewards().catch(error => {
       console.warn('Failed to refresh rewards before redeem', error);
-      return rewards;
     });
-    const latestReward = latestRewards.find(r => r.id === reward.id) ?? reward;
-    const cost = effectiveCost(latestReward, weekend);
-    if (balance < cost || redeeming) return;
+
+    const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
+    const cost = discountedCost(latestReward);
+    if (balance < cost) return;
+
     setRedeeming(reward.id);
-    // Backend ignores this cost and recalculates from the DB row; this keeps the
-    // local affordability check aligned with the displayed price.
     const effectiveReward: Reward = { ...latestReward, cost_points: cost };
     try {
       await onRedeem(effectiveReward);
@@ -154,6 +104,8 @@ export function StoreModal({
       setRedeeming(null);
     }
   };
+
+  const loading = !hydrated || refreshing;
 
   return (
     <div
@@ -166,7 +118,6 @@ export function StoreModal({
         className="bg-[var(--bg)] rounded-2xl w-full max-w-xl flex flex-col border border-[var(--border)]"
         style={{ maxHeight: '82vh' }}
       >
-        {/* header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0">
           <span className="font-bold text-[var(--fg)] text-sm">🛒 {user.name}{t('user_store_suffix')}</span>
           <div className="flex items-center gap-2">
@@ -180,32 +131,8 @@ export function StoreModal({
           </div>
         </div>
 
-        {/* weekend banner */}
-        <AnimatePresence>
-          {weekend && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden shrink-0"
-            >
-              <div className="mx-3 mt-2 px-2.5 py-1.5 rounded-xl bg-amber-400/15 border border-amber-400/40 flex items-center gap-2">
-                <span className="text-base leading-none">🎉</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-bold text-amber-400 leading-tight">주말 한정 혜택입니다!</div>
-                  <div className="text-[10px] text-amber-400/70 mt-0.5 leading-tight">
-                    종료까지 {countdown} 남음
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* body */}
         <div className="overflow-y-auto p-3">
-          {loading && (
+          {loading && rewards.length === 0 && (
             <div className="text-center text-[var(--fg-muted)] py-8 text-sm">{t('loading')}</div>
           )}
           {!loading && rewards.length === 0 && (
@@ -216,10 +143,11 @@ export function StoreModal({
           <div className="grid grid-cols-2 gap-2">
             {rewards.map(r => {
               const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
-              const hasDeal   = weekend;
-              const cost      = effectiveCost({ ...r, title: itemTitle }, weekend);
+              const pct = salePercentage(r);
+              const hasDeal = pct > 0;
+              const cost = discountedCost({ ...r, title: itemTitle });
               const canAfford = balance >= cost;
-              const busy      = redeeming === r.id;
+              const busy = redeeming === r.id;
 
               return (
                 <motion.button
@@ -228,24 +156,24 @@ export function StoreModal({
                   onClick={() => handleRedeem(r)}
                   disabled={!canAfford || !!redeeming}
                   className={[
-                    'min-h-[82px] rounded-xl bg-[var(--bg-card)] border p-2 text-left transition-colors',
+                    'min-h-[92px] rounded-xl bg-[var(--bg-card)] border p-2 text-left transition-colors',
                     'flex flex-col justify-between gap-1 disabled:cursor-not-allowed',
-                    hasDeal ? 'border-amber-400/50' : 'border-[var(--border)]',
+                    hasDeal ? 'border-rose-400/60' : 'border-[var(--border)]',
                   ].join(' ')}
                   style={{
                     opacity: canAfford ? 1 : 0.48,
-                    boxShadow: hasDeal ? '0 0 10px rgba(251, 191, 36, 0.14)' : undefined,
+                    boxShadow: hasDeal ? '0 0 12px rgba(251, 113, 133, 0.16)' : undefined,
                   }}
                 >
                   <div className="flex items-start gap-2 min-w-0">
                     <div className={[
                       'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                      hasDeal ? 'bg-amber-400/15' : 'bg-[var(--accent-glow)]',
+                      hasDeal ? 'bg-rose-400/15' : 'bg-[var(--accent-glow)]',
                     ].join(' ')}>
                       <RewardIcon
                         name={r.icon}
                         size={17}
-                        className={hasDeal ? 'text-amber-400' : 'text-[var(--accent)]'}
+                        className={hasDeal ? 'text-rose-300' : 'text-[var(--accent)]'}
                       />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -253,8 +181,8 @@ export function StoreModal({
                         {itemTitle}
                       </div>
                       {hasDeal && (
-                        <div className="text-[9px] font-bold text-amber-400 leading-tight mt-0.5">
-                          30% OFF
+                        <div className="inline-flex max-w-full rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-300 leading-tight mt-1 truncate">
+                          {saleLabel(r)}
                         </div>
                       )}
                     </div>
@@ -266,7 +194,7 @@ export function StoreModal({
                       )}
                       <span className={[
                         'text-xs font-bold',
-                        hasDeal ? 'text-amber-400' : 'text-[var(--fg-muted)]',
+                        hasDeal ? 'text-rose-300' : 'text-[var(--fg-muted)]',
                       ].join(' ')}>
                         {cost}pt
                       </span>
@@ -274,7 +202,7 @@ export function StoreModal({
                     <span className={[
                       'px-2 py-1 rounded-full text-[10px] font-bold shrink-0',
                       canAfford
-                        ? hasDeal ? 'bg-amber-400 text-black' : 'bg-[var(--accent)] text-white'
+                        ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-white'
                         : 'bg-transparent text-[var(--fg-muted)]',
                     ].join(' ')}>
                       {busy ? '…' : t('redeem')}
