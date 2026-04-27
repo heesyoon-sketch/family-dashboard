@@ -209,21 +209,17 @@ export default function Dashboard() {
         >
           💬 피드백
         </a>
-        <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
-          <Settings size={17} />
-        </Link>
         <button
           onClick={() => { void handleLogout(); }}
           aria-label="Logout"
-          style={{
-            ...iconBtn,
-            color: 'rgba(255, 100, 100, 0.7)',
-            border: '1px solid rgba(255,80,80,0.2)',
-          }}
+          style={iconBtn}
           title="Logout"
         >
           <LogOut size={17} />
         </button>
+        <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
+          <Settings size={17} />
+        </Link>
       </header>
 
       <main className="grid flex-1 grid-cols-1 gap-0.5 bg-black md:hidden">
