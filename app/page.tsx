@@ -90,6 +90,10 @@ export default function Dashboard() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('family_dashboard_member_id');
+      localStorage.removeItem('family_dashboard_family_id');
+    }
     useFamilyStore.setState({
       hydrated: false, familyId: null, users: [],
       tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
@@ -137,7 +141,7 @@ export default function Dashboard() {
         className="sticky top-0 z-10 shrink-0 flex items-center gap-2 bg-[#0b0d12]"
         style={{ height: 44, padding: '0 12px', paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <span className="flex-1 text-white/45 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap pl-0.5">
+        <span className="flex-1 min-w-0 text-white/45 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap pl-0.5">
           {dateLabel}
         </span>
         {pageCount > 1 && (
@@ -186,6 +190,19 @@ export default function Dashboard() {
         <Link href="/stats" aria-label={t('weekly_completions')} style={iconBtn}>
           <BarChart2 size={17} />
         </Link>
+        <button
+          onClick={() => { void handleLogout(); }}
+          aria-label="Logout"
+          title="로그아웃"
+          style={{
+            ...iconBtn,
+            color: 'rgba(255,90,90,0.85)',
+            border: '1px solid rgba(255,80,80,0.25)',
+            background: 'rgba(255,60,60,0.08)',
+          }}
+        >
+          <LogOut size={17} />
+        </button>
         <a
           href="https://forms.gle/KgxsBSBHwkdrwdTz7"
           target="_blank"
@@ -209,19 +226,6 @@ export default function Dashboard() {
         >
           💬 피드백
         </a>
-        <button
-          onClick={() => { void handleLogout(); }}
-          aria-label="Logout"
-          title="로그아웃"
-          style={{
-            ...iconBtn,
-            color: 'rgba(255,90,90,0.85)',
-            border: '1px solid rgba(255,80,80,0.25)',
-            background: 'rgba(255,60,60,0.08)',
-          }}
-        >
-          <LogOut size={17} />
-        </button>
         <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
           <Settings size={17} />
         </Link>

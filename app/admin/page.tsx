@@ -335,7 +335,9 @@ export default function AdminPage() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
-    window.location.href = '/';
+    localStorage.removeItem('family_dashboard_member_id');
+    localStorage.removeItem('family_dashboard_family_id');
+    window.location.href = '/login';
   };
 
   const handleDeleteFamilyData = async () => {

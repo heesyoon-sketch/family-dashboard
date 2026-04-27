@@ -76,7 +76,7 @@ export default function SetupPage() {
     <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
 
-        {/* Logged-in user badge */}
+        {/* Logged-in user badge (Google users only) */}
         {googleUser && (
           <div className="flex items-center gap-3 rounded-2xl bg-[#141821] border border-[#232831] p-3 mb-4">
             {googleUser.avatarUrl ? (
@@ -100,6 +100,8 @@ export default function SetupPage() {
               onClick={async () => {
                 const supabase = createBrowserSupabase();
                 await supabase.auth.signOut();
+                localStorage.removeItem('family_dashboard_member_id');
+                localStorage.removeItem('family_dashboard_family_id');
                 router.replace('/login');
               }}
               className="text-[#8a8f99] text-xs hover:text-red-400 transition-colors shrink-0"
@@ -107,6 +109,22 @@ export default function SetupPage() {
               로그아웃
             </button>
           </div>
+        )}
+
+        {/* Universal logout — always visible regardless of login method */}
+        {!googleUser && (
+          <button
+            onClick={async () => {
+              const supabase = createBrowserSupabase();
+              await supabase.auth.signOut();
+              localStorage.removeItem('family_dashboard_member_id');
+              localStorage.removeItem('family_dashboard_family_id');
+              router.replace('/login');
+            }}
+            className="w-full text-center text-red-400 text-sm mb-4 hover:text-red-300 transition-colors"
+          >
+            로그아웃
+          </button>
         )}
 
         {step === 'choose' && (
