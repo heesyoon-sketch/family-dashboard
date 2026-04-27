@@ -184,7 +184,7 @@ export default function JoinFamilyPage() {
           </div>
         ) : (
           <div className="space-y-3 text-left">
-            <p className="text-white text-sm font-semibold">Select which member you are</p>
+            <p className="text-white text-sm font-semibold">Who are you? (이 중 누구신가요?)</p>
             <div className="space-y-2">
               {memberOptions.map(member => (
                 <button

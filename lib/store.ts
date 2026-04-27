@@ -145,8 +145,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const fourteenDaysAgo = addDays(todayStart, -13);
 
     const [uRes, tRes, lRes, sRes, cTodayRes, cHistRes] = await Promise.all([
-      supabase.from('users').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
-      supabase.from('tasks').select('*'),
+      supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
+      supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId),
       supabase.from('levels').select('*'),
       supabase.from('streaks').select('*'),
       supabase.from('task_completions')
