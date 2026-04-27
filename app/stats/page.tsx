@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { User, Task, startOfDay, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 const DOW_LABELS_KO = ['월', '화', '수', '목', '금', '토', '일'];
@@ -55,6 +57,7 @@ function addDays(d: Date, n: number): Date {
 }
 
 export default function StatsPage() {
+  const router = useRouter();
   const { lang, t } = useLanguage();
   const [allStats, setAllStats] = useState<UserStats[]>([]);
   const [idx, setIdx] = useState(0);
@@ -63,6 +66,21 @@ export default function StatsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createBrowserSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+      const { data: familyId } = await supabase.rpc('get_my_family_id');
+      if (!familyId) {
+        router.replace('/setup');
+        return;
+      }
+      if (!await familyHasAdminPin()) {
+        router.replace('/setup/set-pin');
+        return;
+      }
+
       const now = new Date();
       const dayStart   = startOfDay(now);
       const weekStart  = weekMonday(now);
@@ -225,7 +243,7 @@ export default function StatsPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [router]);
 
   const s      = allStats[idx];
   const accent = s ? (THEME_ACCENT[s.user.theme] ?? '#4f9cff') : '#4f9cff';

@@ -9,6 +9,7 @@ import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 const iconBtn: React.CSSProperties = {
@@ -74,11 +75,16 @@ export default function Dashboard() {
           avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
         });
       }
+      const { data: resolvedFamilyId } = await supabase.rpc('get_my_family_id');
+      if (resolvedFamilyId && !await familyHasAdminPin()) {
+        router.replace('/setup/set-pin');
+        return;
+      }
       await hydrate();
     } finally {
       setAuthReady(true);
     }
-  }, [hydrate]);
+  }, [hydrate, router]);
 
   // On every mount: clear stale state then verify session
   useEffect(() => {

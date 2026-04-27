@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { familyHasAdminPin } from '@/lib/adminPin';
 
 interface GoogleUser {
   email: string;
@@ -47,6 +48,10 @@ export default function SetupPage() {
       }
       const { data: familyId } = await supabase.rpc('get_my_family_id');
       if (familyId) {
+        if (!await familyHasAdminPin()) {
+          router.replace('/setup/set-pin');
+          return;
+        }
         router.replace('/');
         return;
       }
@@ -79,7 +84,7 @@ export default function SetupPage() {
         p_admin_avatar_url: null,
       });
       if (seedError) throw seedError;
-      router.replace('/');
+      router.replace('/setup/set-pin');
     } catch (e) {
       console.error(e);
       setErrorMsg(getSetupErrorMessage(e));

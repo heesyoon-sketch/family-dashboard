@@ -12,7 +12,7 @@ import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomI
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
-import { getEffectiveAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
+import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
@@ -301,6 +301,12 @@ export default function AdminPage() {
       const { data: resolvedFamilyId } = await supabase.rpc('get_my_family_id');
       if (!resolvedFamilyId) { router.replace('/setup'); return; }
       setFamilyId(resolvedFamilyId);
+      const hash = await getCurrentFamilyAdminPinHash();
+      if (!hash) {
+        router.replace('/setup/set-pin');
+        return;
+      }
+      setAdminPinHash(hash);
 
       const { data: family } = await supabase
         .from('families')
@@ -324,7 +330,6 @@ export default function AdminPage() {
         displayOrder: r.display_order ?? 0,
         createdAt: new Date(r.created_at),
       }));
-      const parentsList = users.filter(u => u.role === 'PARENT');
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
       const [{ data: parentAllowed }, { data: ownerAllowed }] = await Promise.all([
@@ -333,9 +338,6 @@ export default function AdminPage() {
       ]);
       setIsParentAdmin(Boolean(parentAllowed));
       setIsFamilyOwner(Boolean(ownerAllowed));
-      // Load effective admin PIN hash (family_settings → users.pin_hash → env)
-      const hash = await getEffectiveAdminPinHash(parentsList);
-      setAdminPinHash(hash);
     };
     init();
   }, [router]);
@@ -412,10 +414,6 @@ export default function AdminPage() {
       setPin('');
       return;
     }
-    if (adminPinHash === null) {
-      setView('dashboard');
-      return;
-    }
     if (adminPinHash && await verifyPin(pin, adminPinHash)) {
       setView('dashboard');
       return;
@@ -436,7 +434,7 @@ export default function AdminPage() {
       const { error } = await supabase.rpc('admin_clear_pin_for_owner');
       if (error) throw error;
       setAdminPinHash(null);
-      setView('dashboard');
+      window.location.href = '/setup/set-pin';
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'PIN 초기화 실패');
     } finally {

@@ -2,16 +2,18 @@
 
 import { createBrowserSupabase } from './supabase';
 import { hashPin, verifyPin } from './pin';
-import type { User } from './db';
 
-async function fetchSettingsPinHash(): Promise<string | null> {
+export async function getCurrentFamilyAdminPinHash(): Promise<string | null> {
   try {
     const supabase = createBrowserSupabase();
-    // RLS automatically scopes this to the current user's family
+    const { data: familyId, error: familyError } = await supabase.rpc('get_my_family_id');
+    if (familyError || !familyId) return null;
+
     const { data } = await supabase
       .from('family_settings')
       .select('value')
       .eq('key', 'admin_pin_hash')
+      .eq('family_id', familyId)
       .maybeSingle();
     return data?.value ?? null;
   } catch {
@@ -19,25 +21,8 @@ async function fetchSettingsPinHash(): Promise<string | null> {
   }
 }
 
-/**
- * Returns the effective admin PIN hash, checking sources in priority order:
- *  1. family_settings table  (DB — per-family)
- *  2. users.pin_hash for PARENT users  (legacy backward-compat)
- *  3. NEXT_PUBLIC_ADMIN_PIN env variable  (initial-setup fallback)
- */
-export async function getEffectiveAdminPinHash(
-  parents: Pick<User, 'pinHash'>[],
-): Promise<string | null> {
-  const dbHash = await fetchSettingsPinHash();
-  if (dbHash) return dbHash;
-
-  const legacyHash = parents.find(p => p.pinHash)?.pinHash ?? null;
-  if (legacyHash) return legacyHash;
-
-  const envPin = process.env.NEXT_PUBLIC_ADMIN_PIN;
-  if (envPin) return hashPin(envPin);
-
-  return null;
+export async function familyHasAdminPin(): Promise<boolean> {
+  return Boolean(await getCurrentFamilyAdminPinHash());
 }
 
 /**
