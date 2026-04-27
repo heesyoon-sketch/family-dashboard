@@ -71,6 +71,7 @@ begin
 
     update public.users
     set email = coalesce(email, v_auth_email),
+        role = case when v_auth_email is not null then 'PARENT' else role end,
         login_method = case when v_auth_email is not null then 'google' else login_method end
     where id = v_existing.id
     returning * into v_member;
@@ -100,6 +101,7 @@ begin
       update public.users
       set auth_user_id = v_auth_id,
           email = v_auth_email,
+          role = 'PARENT',
           login_method = 'google'
       where id = v_email_member.id
       returning * into v_member;
@@ -130,6 +132,7 @@ begin
     update public.users
     set auth_user_id = v_auth_id,
         email = coalesce(email, v_auth_email),
+        role = case when v_auth_email is not null then 'PARENT' else role end,
         login_method = case when v_auth_email is not null then 'google' else 'device' end
     where id = v_selected_member.id
     returning * into v_member;
@@ -179,6 +182,7 @@ begin
     update public.users
     set auth_user_id = v_auth_id,
         email = coalesce(email, v_auth_email),
+        role = case when v_auth_email is not null then 'PARENT' else role end,
         login_method = case when v_auth_email is not null then 'google' else 'device' end
     where id = v_named_member.id
     returning * into v_member;
@@ -207,7 +211,7 @@ begin
   values (
     gen_random_uuid()::text,
     v_name,
-    v_role,
+    case when v_auth_email is not null then 'PARENT' else v_role end,
     v_theme,
     v_family_id,
     v_auth_id,

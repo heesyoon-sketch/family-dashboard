@@ -273,6 +273,7 @@ export default function AdminPage() {
   const [confirmPinInput, setConfirmPinInput] = useState('');
   const [pinChanging, setPinChanging] = useState(false);
   const [deletingFamily, setDeletingFamily] = useState(false);
+  const [leavingFamily, setLeavingFamily] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
   const [generatingCode, setGeneratingCode] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
@@ -370,6 +371,39 @@ export default function AdminPage() {
       console.error(error);
       toast.error(t('danger_zone_delete_failed'));
       setDeletingFamily(false);
+    }
+  };
+
+  const handleLeaveFamily = async () => {
+    if (leavingFamily) return;
+    const confirmed = confirm(
+      '가족 공간에서 나가시겠습니까?\n\n현재 Google 계정과 이 가족 멤버 프로필의 연결만 해제됩니다. 가족 데이터는 삭제되지 않습니다.'
+    );
+    if (!confirmed) return;
+
+    setLeavingFamily(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const { error } = await supabase.rpc('leave_current_family');
+      if (error) throw error;
+
+      localStorage.removeItem('family_dashboard_member_id');
+      localStorage.removeItem('family_dashboard_family_id');
+      useFamilyStore.setState({
+        hydrated: false,
+        familyId: null,
+        users: [],
+        currentMemberId: null,
+        currentMemberCanAdmin: false,
+        tasksByUser: {},
+        levelsByUser: {},
+        todayCompletions: {},
+      });
+      window.location.href = '/setup';
+    } catch (error) {
+      console.error(error);
+      toast.error('가족 공간에서 나갈 수 없습니다');
+      setLeavingFamily(false);
     }
   };
 
@@ -1208,8 +1242,16 @@ export default function AdminPage() {
                 <h2 className="text-lg font-bold text-red-300 mb-2">{t('danger_zone')}</h2>
                 <p className="text-sm leading-6 text-[#c8ccd4] mb-4">{t('danger_zone_description')}</p>
                 <button
+                  onClick={handleLeaveFamily}
+                  disabled={leavingFamily || deletingFamily}
+                  className="mb-3 w-full rounded-xl border border-amber-600/70 bg-amber-900/25 px-5 py-4 font-bold text-amber-100 transition-colors hover:bg-amber-800/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ minHeight: 'var(--touch-target)' }}
+                >
+                  {leavingFamily ? '나가는 중...' : 'Leave Family (가족 공간에서 나가기)'}
+                </button>
+                <button
                   onClick={handleDeleteFamilyData}
-                  disabled={deletingFamily}
+                  disabled={deletingFamily || leavingFamily}
                   className="w-full rounded-xl border border-red-700 bg-red-900/60 px-5 py-4 font-bold text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ minHeight: 'var(--touch-target)' }}
                 >

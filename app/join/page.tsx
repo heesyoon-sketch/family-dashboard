@@ -70,7 +70,7 @@ export default function JoinFamilyPage() {
       const { data, error: joinError } = await supabase.rpc('join_family_by_code', {
         p_invite_code: code,
         p_member_name: googleEmail ? null : memberName,
-        p_role: role,
+        p_role: googleEmail ? 'PARENT' : role,
         p_member_id: null,
       });
       if (joinError) throw joinError;
@@ -109,7 +109,7 @@ export default function JoinFamilyPage() {
       const { data, error: joinError } = await supabase.rpc('join_family_by_code', {
         p_invite_code: code,
         p_member_name: null,
-        p_role: role,
+        p_role: googleEmail ? 'PARENT' : role,
         p_member_id: selectedMemberId,
       });
       if (joinError) throw joinError;
