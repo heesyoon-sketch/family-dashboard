@@ -71,6 +71,7 @@ export type TranslationKey =
   | 'try_harder'
   | 'steady'
   | 'icon_group_hygiene'
+  | 'icon_group_store'
   | 'icon_group_health'
   | 'icon_group_study'
   | 'icon_group_chores'
@@ -168,6 +169,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     try_harder: '분발해봐요',
     steady: '유지',
     icon_group_hygiene: '생활/위생',
+    icon_group_store: '상점/보상',
     icon_group_health: '건강',
     icon_group_study: '학습',
     icon_group_chores: '가정',
@@ -264,6 +266,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     try_harder: 'keep it up',
     steady: 'steady',
     icon_group_hygiene: 'Hygiene / Life',
+    icon_group_store: 'Store / Rewards',
     icon_group_health: 'Health',
     icon_group_study: 'Study',
     icon_group_chores: 'Chores',

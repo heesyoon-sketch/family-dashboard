@@ -40,6 +40,62 @@ function LucideIcon({ name, size = 20, className }: { name: string; size?: numbe
 
 const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; label: string }[] }[] = [
   {
+    labelKey: 'icon_group_store',
+    labelKo: '상점/보상',
+    icons: [
+      { key: 'gift',              label: '선물' },
+      { key: 'party-popper',      label: '파티' },
+      { key: 'badge-percent',     label: '할인' },
+      { key: 'tags',              label: '태그' },
+      { key: 'ticket-percent',    label: '쿠폰' },
+      { key: 'ticket',            label: '티켓' },
+      { key: 'shopping-bag',      label: '쇼핑백' },
+      { key: 'shopping-cart',     label: '카트' },
+      { key: 'store',             label: '상점' },
+      { key: 'wallet',            label: '지갑' },
+      { key: 'coins',             label: '코인' },
+      { key: 'gem',               label: '보석' },
+      { key: 'crown',             label: '왕관' },
+      { key: 'medal',             label: '메달' },
+      { key: 'award',             label: '상장' },
+      { key: 'ribbon',            label: '리본' },
+      { key: 'sparkles',          label: '반짝' },
+      { key: 'wand-sparkles',     label: '마법' },
+      { key: 'ice-cream',         label: '아이스크림' },
+      { key: 'cake-slice',        label: '케이크' },
+      { key: 'cookie',            label: '쿠키' },
+      { key: 'candy',             label: '사탕' },
+      { key: 'popcorn',           label: '팝콘' },
+      { key: 'pizza',             label: '피자' },
+      { key: 'sandwich',          label: '간식' },
+      { key: 'cup-soda',          label: '음료' },
+      { key: 'milk',              label: '우유' },
+      { key: 'utensils',          label: '외식' },
+      { key: 'gamepad-2',         label: '게임' },
+      { key: 'joystick',          label: '조이스틱' },
+      { key: 'tv',                label: 'TV' },
+      { key: 'film',              label: '영화' },
+      { key: 'clapperboard',      label: '극장' },
+      { key: 'headphones',        label: '음악' },
+      { key: 'music',             label: '노래' },
+      { key: 'book-open',         label: '책' },
+      { key: 'paintbrush',        label: '미술' },
+      { key: 'palette',           label: '팔레트' },
+      { key: 'puzzle',            label: '퍼즐' },
+      { key: 'blocks',            label: '블록' },
+      { key: 'car',               label: '드라이브' },
+      { key: 'bike',              label: '자전거' },
+      { key: 'plane',             label: '여행' },
+      { key: 'map',               label: '나들이' },
+      { key: 'tent',              label: '캠핑' },
+      { key: 'trees',             label: '공원' },
+      { key: 'camera',            label: '사진' },
+      { key: 'shirt',             label: '옷' },
+      { key: 'heart-handshake',   label: '약속' },
+      { key: 'smile-plus',        label: '기쁨' },
+    ],
+  },
+  {
     labelKey: 'icon_group_hygiene',
     labelKo: '생활/위생',
     icons: [
@@ -264,8 +320,6 @@ export default function AdminPage() {
   const [newRewardTitle, setNewRewardTitle] = useState('');
   const [newRewardPoints, setNewRewardPoints] = useState(300);
   const [newRewardIcon, setNewRewardIcon] = useState('star');
-  const [newRewardSalePercentage, setNewRewardSalePercentage] = useState(0);
-  const [newRewardSaleName, setNewRewardSaleName] = useState('');
   const [rewardIconPickerOpen, setRewardIconPickerOpen] = useState(false);
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
@@ -905,14 +959,12 @@ export default function AdminPage() {
   const addReward = async () => {
     if (!newRewardTitle.trim()) return;
     const supabase = createBrowserSupabase();
-    const salePercentage = normaliseSalePercentage(newRewardSalePercentage);
-    const saleName = newRewardSaleName.trim() || null;
     const { data, error } = await supabase.rpc('admin_insert_reward', {
       p_title: newRewardTitle.trim(),
       p_cost_points: Math.max(1, newRewardPoints),
       p_icon: newRewardIcon,
-      p_sale_percentage: salePercentage,
-      p_sale_name: saleName,
+      p_sale_percentage: 0,
+      p_sale_name: null,
     });
     if (error) { toast.error(`${t('reward_add_failed')}: ${error.message}`); return; }
     if (data) {
@@ -922,8 +974,6 @@ export default function AdminPage() {
     setNewRewardTitle('');
     setNewRewardPoints(300);
     setNewRewardIcon('star');
-    setNewRewardSalePercentage(0);
-    setNewRewardSaleName('');
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -1023,6 +1073,62 @@ export default function AdminPage() {
       setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'not_found' }));
       setSavingRewardId(null);
       toast.error(`${t('reward_save_failed')}: NOT FOUND (${rewardId})`);
+      return;
+    }
+
+    const saved = mapReward(response.data as Record<string, unknown>);
+    setRewards(prev => prev.map(r => r.id === rewardId ? saved : r).sort((a, b) => a.cost_points - b.cost_points));
+    setRewardCostDrafts(prev => ({ ...prev, [rewardId]: saved.cost_points }));
+    setRewardSalePercentageDrafts(prev => ({ ...prev, [rewardId]: saved.sale_percentage ?? 0 }));
+    setRewardSaleNameDrafts(prev => ({ ...prev, [rewardId]: saved.sale_name ?? '' }));
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saved' }));
+    setSavingRewardId(null);
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+
+    setTimeout(() => {
+      setRewardSaveStatus(prev => {
+        if (prev[rewardId] !== 'saved') return prev;
+        return { ...prev, [rewardId]: 'idle' };
+      });
+    }, 1500);
+  };
+
+  const updateRewardSale = async (rewardId: string, rawPercentage: number, rawName: string) => {
+    const previous = rewards.find(r => r.id === rewardId);
+    if (!previous) return;
+
+    const nextSalePercentage = normaliseSalePercentage(rawPercentage);
+    const nextSaleName = rawName.trim() || undefined;
+    const previousSalePercentage = normaliseSalePercentage(previous.sale_percentage ?? 0);
+    const previousSaleName = previous.sale_name?.trim() || undefined;
+    if (previousSalePercentage === nextSalePercentage && previousSaleName === nextSaleName) return;
+
+    setSavingRewardId(rewardId);
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saving' }));
+    setRewards(prev => prev.map(r => r.id === rewardId ? {
+      ...r,
+      sale_percentage: nextSalePercentage,
+      sale_name: nextSaleName,
+    } : r));
+
+    const supabase = createBrowserSupabase();
+    const response = await supabase.rpc('admin_update_reward', {
+      p_reward_id: rewardId,
+      p_title: previous.title,
+      p_cost_points: previous.cost_points,
+      p_sale_percentage: nextSalePercentage,
+      p_sale_name: nextSaleName ?? null,
+    });
+
+    if (response.error || !response.data) {
+      setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
+      setRewardSalePercentageDrafts(prev => ({ ...prev, [rewardId]: previousSalePercentage }));
+      setRewardSaleNameDrafts(prev => ({ ...prev, [rewardId]: previousSaleName ?? '' }));
+      setRewardSaveStatus(prev => ({ ...prev, [rewardId]: response.error ? 'error' : 'not_found' }));
+      setSavingRewardId(null);
+      toast.error(`${t('reward_save_failed')}: ${response.error?.message ?? `NOT FOUND (${rewardId})`}`);
       return;
     }
 
@@ -1915,7 +2021,7 @@ export default function AdminPage() {
                         <span className="text-[#8a8f99] text-xs shrink-0">%</span>
                         <input
                           type="text"
-                          aria-label="세일 명칭"
+                          aria-label="세일 이유 또는 명칭"
                           value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
                           onChange={e => {
                             setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
@@ -1924,7 +2030,7 @@ export default function AdminPage() {
                             if (e.key === 'Enter') void saveRewardEdit(r.id);
                             if (e.key === 'Escape') setEditingRewardId(null);
                           }}
-                          placeholder="세일 명칭"
+                          placeholder="세일 이유 또는 명칭"
                           className="w-32 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
                           style={{ minHeight: 44, fontSize: 15 }}
                         />
@@ -1982,6 +2088,61 @@ export default function AdminPage() {
                           style={{ minHeight: 44 }}
                         />
                         <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
+                        <input
+                          type="number"
+                          aria-label="할인율 (%)"
+                          title="할인율 (%)"
+                          value={rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0}
+                          onChange={e => {
+                            setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }));
+                          }}
+                          onBlur={e => {
+                            void updateRewardSale(
+                              r.id,
+                              Number(e.target.value),
+                              rewardSaleNameDrafts[r.id] ?? r.sale_name ?? '',
+                            );
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') {
+                              setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          min={0}
+                          max={100}
+                          disabled={savingRewardId === r.id}
+                          className="w-24 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] shrink-0"
+                          style={{ minHeight: 44 }}
+                        />
+                        <span className="text-[#8a8f99] text-xs shrink-0">%</span>
+                        <input
+                          type="text"
+                          aria-label="세일 이유 또는 명칭"
+                          value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
+                          onChange={e => {
+                            setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
+                          }}
+                          onBlur={e => {
+                            void updateRewardSale(
+                              r.id,
+                              rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0,
+                              e.target.value,
+                            );
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') {
+                              setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          placeholder="세일 이유 또는 명칭"
+                          disabled={savingRewardId === r.id}
+                          className="min-w-[140px] flex-1 rounded-lg bg-[#1a1f2a] text-white px-3 text-sm outline-none border border-[#232831] focus:border-[#4f9cff]"
+                          style={{ minHeight: 44 }}
+                        />
                         <span className="w-5 text-center text-xs shrink-0">
                           {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
                             ? '…'
@@ -2047,25 +2208,6 @@ export default function AdminPage() {
                     onChange={e => setNewRewardPoints(Number(e.target.value))}
                     min={1}
                     className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-                  />
-                  <input
-                    type="number"
-                    value={newRewardSalePercentage}
-                    onChange={e => setNewRewardSalePercentage(Number(e.target.value))}
-                    onKeyDown={e => e.key === 'Enter' && addReward()}
-                    min={0}
-                    max={100}
-                    aria-label="할인율 (%)"
-                    placeholder="할인율 (%)"
-                    className="w-28 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-                  />
-                  <input
-                    type="text"
-                    value={newRewardSaleName}
-                    onChange={e => setNewRewardSaleName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addReward()}
-                    placeholder="세일 명칭"
-                    className="min-w-[140px] flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                   />
                   <button
                     onClick={addReward}
