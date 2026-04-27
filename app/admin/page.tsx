@@ -234,6 +234,8 @@ export default function AdminPage() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isParentAdmin, setIsParentAdmin] = useState(false);
+  const [isFamilyOwner, setIsFamilyOwner] = useState(false);
+  const [pinResetLoading, setPinResetLoading] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -323,8 +325,12 @@ export default function AdminPage() {
       const parentsList = users.filter(u => u.role === 'PARENT');
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
-      const { data: parentAllowed } = await supabase.rpc('is_my_family_parent');
+      const [{ data: parentAllowed }, { data: ownerAllowed }] = await Promise.all([
+        supabase.rpc('is_my_family_parent'),
+        supabase.rpc('is_family_owner'),
+      ]);
       setIsParentAdmin(Boolean(parentAllowed));
+      setIsFamilyOwner(Boolean(ownerAllowed));
       // Load effective admin PIN hash (family_settings → users.pin_hash → env)
       const hash = await getEffectiveAdminPinHash(parentsList);
       setAdminPinHash(hash);
@@ -361,7 +367,7 @@ export default function AdminPage() {
   const handlePinSubmit = async () => {
     if (adminPinHash === undefined) return; // still loading
     setError('');
-    if (!isParentAdmin) {
+    if (!isParentAdmin && !isFamilyOwner) {
       setError('Parent account required');
       setPin('');
       return;
@@ -376,6 +382,26 @@ export default function AdminPage() {
     }
     setError(t('pin_incorrect'));
     setPin('');
+  };
+
+  const handlePinReset = async () => {
+    if (!isFamilyOwner || pinResetLoading) return;
+    const confirmed = confirm(
+      'Google 계정으로 인증된 가족 생성자로 확인됩니다.\nPIN을 초기화하고 관리자 페이지로 진입할까요?'
+    );
+    if (!confirmed) return;
+    setPinResetLoading(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const { error } = await supabase.rpc('admin_clear_pin_for_owner');
+      if (error) throw error;
+      setAdminPinHash(null);
+      setView('dashboard');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'PIN 초기화 실패');
+    } finally {
+      setPinResetLoading(false);
+    }
   };
 
   const handleChangePin = async () => {
@@ -937,10 +963,20 @@ export default function AdminPage() {
           >
             {adminPinHash === undefined ? '…' : t('confirm')}
           </button>
-          {!isParentAdmin && adminPinHash !== undefined && (
+          {!isParentAdmin && !isFamilyOwner && adminPinHash !== undefined && (
             <p className="text-[#8a8f99] text-xs mt-3">
-              Sign in with a linked parent profile to manage settings.
+              부모 계정으로 로그인해야 관리자 설정을 변경할 수 있습니다.
             </p>
+          )}
+          {/* PIN reset escape hatch — only visible to the family creator */}
+          {isFamilyOwner && adminPinHash !== null && adminPinHash !== undefined && (
+            <button
+              onClick={() => { void handlePinReset(); }}
+              disabled={pinResetLoading}
+              className="mt-4 text-[#4f9cff] text-sm hover:underline disabled:opacity-50"
+            >
+              {pinResetLoading ? '초기화 중…' : 'PIN을 잊으셨나요? Google 계정으로 초기화'}
+            </button>
           )}
           <Link href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</Link>
           <button
