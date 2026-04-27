@@ -117,10 +117,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const { data: memberFamilyId } = await supabase.rpc('get_family_id_for_member', {
         p_member_id: cachedMemberId,
       });
-      resolvedFamilyId = (memberFamilyId as string | null) ?? cachedFamilyId;
+      // Only trust the result when the RPC confirms the member belongs to this auth user.
+      // Do NOT fall back to cachedFamilyId — a stale localStorage value from a previous
+      // session would let a new user resolve a different family, causing data leakage.
+      resolvedFamilyId = memberFamilyId as string | null;
     }
 
     if (!resolvedFamilyId) {
+      // Clear stale cache so the next login starts clean
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('family_dashboard_member_id');
+        localStorage.removeItem('family_dashboard_family_id');
+      }
       set({
         hydrated: true,
         familyId: null,

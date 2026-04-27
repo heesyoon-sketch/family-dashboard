@@ -12,8 +12,11 @@ interface GoogleUser {
   avatarUrl?: string;
 }
 
+type Step = 'choose' | 'create';
+
 export default function SetupPage() {
   const router = useRouter();
+  const [step, setStep] = useState<Step>('choose');
   const [familyName, setFamilyName] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -28,13 +31,11 @@ export default function SetupPage() {
         router.replace('/login');
         return;
       }
-
       const { data: familyId } = await supabase.rpc('get_my_family_id');
       if (familyId) {
         router.replace('/');
         return;
       }
-
       setGoogleUser({
         email: user.email ?? '',
         name: user.user_metadata?.full_name ?? user.email ?? 'Family Admin',
@@ -45,10 +46,9 @@ export default function SetupPage() {
     check();
   }, [router]);
 
-  const handleSetup = async () => {
+  const handleCreate = async () => {
     const trimmed = familyName.trim();
     if (!trimmed || loading) return;
-
     setLoading(true);
     setErrorMsg('');
     try {
@@ -57,13 +57,11 @@ export default function SetupPage() {
         p_name: trimmed,
       });
       if (setupError || !familyId) throw setupError ?? new Error('setup_family returned null');
-
       const { error: seedError } = await supabase.rpc('seed_default_family_data', {
-        p_admin_name: googleUser?.name ?? 'Dad',
+        p_admin_name: googleUser?.name ?? 'Admin',
         p_admin_avatar_url: googleUser?.avatarUrl ?? null,
       });
       if (seedError) throw seedError;
-
       router.replace('/');
     } catch (e) {
       console.error(e);
@@ -72,66 +70,114 @@ export default function SetupPage() {
     }
   };
 
-  if (checking) {
-    return <div className="min-h-screen bg-[#0b0d12]" />;
-  }
+  if (checking) return <div className="min-h-screen bg-[#0b0d12]" />;
 
   return (
     <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
-        <div className="text-5xl mb-3">🏠</div>
-        <h1 className="text-white text-2xl font-bold mb-2">Create Family Dashboard</h1>
-        <p className="text-[#8a8f99] text-sm leading-6 mb-5">
-          Google 로그인은 가족 관리자에게만 필요합니다. 가족을 만들면 예시 멤버, 습관, 보상이 자동으로 채워집니다.
-        </p>
+      <div className="w-full max-w-sm">
 
+        {/* Logged-in user badge */}
         {googleUser && (
-          <div className="flex items-center gap-3 rounded-xl bg-[#1a1f2a] border border-[#2d3545] p-3 mb-5 text-left">
+          <div className="flex items-center gap-3 rounded-2xl bg-[#141821] border border-[#232831] p-3 mb-4">
             {googleUser.avatarUrl ? (
               <Image
                 src={googleUser.avatarUrl}
                 alt={googleUser.name}
-                width={36}
-                height={36}
+                width={36} height={36}
                 referrerPolicy="no-referrer"
                 className="w-9 h-9 rounded-full object-cover shrink-0"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#4f9cff] text-white font-bold flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[#4f9cff] text-white font-bold flex items-center justify-center shrink-0 text-sm">
                 {googleUser.name.charAt(0).toUpperCase()}
               </div>
             )}
-            <div className="min-w-0">
-              <div className="text-white text-sm font-bold truncate">{googleUser.name}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-white text-sm font-semibold truncate">{googleUser.name}</div>
               <div className="text-[#8a8f99] text-xs truncate">{googleUser.email}</div>
             </div>
+            <button
+              onClick={async () => {
+                const supabase = createBrowserSupabase();
+                await supabase.auth.signOut();
+                router.replace('/login');
+              }}
+              className="text-[#8a8f99] text-xs hover:text-red-400 transition-colors shrink-0"
+            >
+              로그아웃
+            </button>
           </div>
         )}
 
-        <input
-          type="text"
-          value={familyName}
-          onChange={e => setFamilyName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') void handleSetup(); }}
-          placeholder="Family name"
-          autoFocus
-          maxLength={40}
-          className="w-full h-12 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
-        />
+        {step === 'choose' && (
+          <div className="rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
+            <div className="text-5xl mb-3">🏠</div>
+            <h1 className="text-white text-2xl font-bold mb-2">Family Dashboard</h1>
+            <p className="text-[#8a8f99] text-sm leading-6 mb-8">
+              아직 어느 가족 공간에도 속해 있지 않습니다.<br />
+              새로 만들거나, 초대 코드로 참여하세요.
+            </p>
 
-        {errorMsg && <p className="text-red-400 text-sm mt-3">{errorMsg}</p>}
+            {/* Primary CTA: Join */}
+            <Link
+              href="/join"
+              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#4f9cff] text-white font-bold text-base mb-3 hover:bg-[#3d8bed] transition-colors"
+            >
+              🔑 초대 코드로 합류하기
+            </Link>
 
-        <button
-          onClick={() => { void handleSetup(); }}
-          disabled={!familyName.trim() || loading}
-          className="mt-5 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99]"
-        >
-          {loading ? 'Creating...' : 'Start Dashboard'}
-        </button>
+            {/* Secondary CTA: Create */}
+            <button
+              onClick={() => setStep('create')}
+              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#232831] text-white font-bold text-base hover:bg-[#2d3545] transition-colors"
+            >
+              ✨ 우리 가족 공간 새로 만들기
+            </button>
 
-        <Link href="/join" className="mt-4 inline-flex text-sm text-[#8a8f99]">
-          가족 코드를 받았다면 여기서 참여하세요
-        </Link>
+            <p className="text-[#8a8f99] text-xs mt-5 leading-5">
+              이미 초대 코드를 받았다면 합류하기를 선택하세요.<br />
+              가족 관리자가 아니라면 초대 코드가 필요합니다.
+            </p>
+          </div>
+        )}
+
+        {step === 'create' && (
+          <div className="rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
+            <button
+              onClick={() => { setStep('choose'); setErrorMsg(''); }}
+              className="flex items-center gap-1 text-[#8a8f99] text-sm mb-4 hover:text-white transition-colors"
+            >
+              ← 뒤로
+            </button>
+            <div className="text-4xl mb-3">✨</div>
+            <h2 className="text-white text-xl font-bold mb-2">새 가족 공간 만들기</h2>
+            <p className="text-[#8a8f99] text-sm leading-6 mb-5">
+              가족 이름을 입력하세요. 예시 멤버, 습관, 보상이 자동으로 채워집니다.
+            </p>
+
+            <input
+              type="text"
+              value={familyName}
+              onChange={e => setFamilyName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void handleCreate(); }}
+              placeholder="예: 김씨 가족, Our Family"
+              autoFocus
+              maxLength={40}
+              className="w-full h-12 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
+            />
+
+            {errorMsg && <p className="text-red-400 text-sm mt-3">{errorMsg}</p>}
+
+            <button
+              onClick={() => { void handleCreate(); }}
+              disabled={!familyName.trim() || loading}
+              className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
+            >
+              {loading ? '생성 중...' : '대시보드 시작하기'}
+            </button>
+          </div>
+        )}
+
       </div>
     </main>
   );

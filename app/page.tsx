@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
@@ -45,50 +45,63 @@ export default function Dashboard() {
   const timeOfDay = useFamilyStore(s => s.timeOfDay);
   const hydrated  = useFamilyStore(s => s.hydrated);
   const familyId  = useFamilyStore(s => s.familyId);
+  // authReady starts as false on every mount — the blank screen is shown until
+  // hydrate() finishes verifying the session. This is the primary guard against
+  // stale Zustand state flashing on Back-button or cross-user navigation.
+  const [authReady, setAuthReady] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [currentPage, setCurrentPage] = useState(0);
   const dateLabel = formatDate(now, timeOfDay, lang);
 
-  // Immediately wipe the previous session's store state before the browser paints,
-  // so pressing Back never flashes another family's data on screen.
-  useLayoutEffect(() => {
+  const resetAndHydrate = useCallback(async () => {
+    setAuthReady(false);
     useFamilyStore.setState({
-      hydrated: false,
-      users: [],
-      familyId: null,
-      tasksByUser: {},
-      levelsByUser: {},
-      todayCompletions: {},
+      hydrated: false, familyId: null, users: [],
+      tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    try {
+      await hydrate();
+    } finally {
+      setAuthReady(true);
+    }
+  }, [hydrate]);
+
+  // On every mount: clear stale state then verify session
+  useEffect(() => {
+    resetAndHydrate().catch(console.error);
+  }, [resetAndHydrate]);
+
+  // Handle browser Back/Forward cache: page is restored from bfcache without
+  // remounting React, so useEffect/useState don't reset — catch it with pageshow.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) resetAndHydrate().catch(console.error);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, [resetAndHydrate]);
 
   useEffect(() => {
-    hydrate().catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (hydrated && familyId === null) {
+    if (authReady && hydrated && familyId === null) {
       router.replace('/setup');
     }
-  }, [hydrated, familyId, router]);
+  }, [authReady, hydrated, familyId, router]);
 
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
     useFamilyStore.setState({
-      hydrated: false,
-      familyId: null,
-      users: [],
-      tasksByUser: {},
-      levelsByUser: {},
-      todayCompletions: {},
+      hydrated: false, familyId: null, users: [],
+      tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
     router.replace('/login');
   };
 
   useEffect(() => {
     const ch = new BroadcastChannel('habit_sync');
-    ch.onmessage = () => hydrate().catch(console.error);
+    ch.onmessage = () => {
+      hydrate().catch(console.error);
+    };
     return () => ch.close();
   }, [hydrate]);
 
@@ -110,7 +123,9 @@ export default function Dashboard() {
   const goToPrevPage = () => setCurrentPage(page => Math.max(0, page - 1));
   const goToNextPage = () => setCurrentPage(page => Math.min(pageCount - 1, page + 1));
 
-  if (!hydrated || (hydrated && familyId === null)) {
+  // Show blank screen until auth is verified for THIS render cycle.
+  // familyId === null check is handled by the redirect useEffect above.
+  if (!authReady || !hydrated || familyId === null) {
     return <div className="min-h-screen bg-[#0b0d12]" />;
   }
 
