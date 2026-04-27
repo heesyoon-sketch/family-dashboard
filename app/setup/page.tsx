@@ -14,6 +14,20 @@ interface GoogleUser {
 
 type Step = 'choose' | 'create';
 
+function getSetupErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object') {
+    const maybeMessage = 'message' in error ? error.message : null;
+    if (typeof maybeMessage === 'string' && maybeMessage) return maybeMessage;
+    const maybeDetails = 'details' in error ? error.details : null;
+    if (typeof maybeDetails === 'string' && maybeDetails) return maybeDetails;
+    const maybeHint = 'hint' in error ? error.hint : null;
+    if (typeof maybeHint === 'string' && maybeHint) return maybeHint;
+  }
+  if (typeof error === 'string' && error) return error;
+  return 'Unknown setup error';
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('choose');
@@ -53,6 +67,9 @@ export default function SetupPage() {
     setErrorMsg('');
     try {
       const supabase = createBrowserSupabase();
+      const { error: cleanupError } = await supabase.rpc('prepare_create_family');
+      if (cleanupError) throw cleanupError;
+
       const { data: familyId, error: setupError } = await supabase.rpc('setup_family', {
         p_name: trimmed,
       });
@@ -65,8 +82,7 @@ export default function SetupPage() {
       router.replace('/');
     } catch (e) {
       console.error(e);
-      const message = e instanceof Error ? e.message : 'Unknown setup error';
-      setErrorMsg(message);
+      setErrorMsg(getSetupErrorMessage(e));
       setLoading(false);
     }
   };
