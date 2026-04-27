@@ -59,7 +59,7 @@ export default function SetupPage() {
       if (setupError || !familyId) throw setupError ?? new Error('setup_family returned null');
       const { error: seedError } = await supabase.rpc('seed_default_family_data', {
         p_admin_name: googleUser?.name ?? 'Admin',
-        p_admin_avatar_url: googleUser?.avatarUrl ?? null,
+        p_admin_avatar_url: null,
       });
       if (seedError) throw seedError;
       router.replace('/');

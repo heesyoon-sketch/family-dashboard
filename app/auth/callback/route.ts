@@ -27,15 +27,6 @@ export async function GET(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // Sync Google profile photo to the linked family profile
-      const googleAvatar = user.user_metadata?.avatar_url as string | undefined;
-      if (googleAvatar) {
-        await supabase
-          .from('users')
-          .update({ avatar_url: googleAvatar, login_method: 'google' })
-          .eq('auth_user_id', user.id);
-      }
-
       const { data: familyId } = await supabase.rpc('get_my_family_id');
       if (!familyId) {
         return NextResponse.redirect(`${origin}/setup`);

@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
+import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { User, Task, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
 import { getEffectiveAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
@@ -238,6 +239,10 @@ export default function AdminPage() {
   const [pinResetLoading, setPinResetLoading] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
+  const [authProfile, setAuthProfile] = useState<{ email: string | null; avatarUrl: string | null }>({
+    email: null,
+    avatarUrl: null,
+  });
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -288,6 +293,10 @@ export default function AdminPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       setCurrentAuthUserId(user.id);
+      setAuthProfile({
+        email: user.email ?? null,
+        avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+      });
       const { data: resolvedFamilyId } = await supabase.rpc('get_my_family_id');
       if (!resolvedFamilyId) { router.replace('/setup'); return; }
       setFamilyId(resolvedFamilyId);
@@ -300,15 +309,6 @@ export default function AdminPage() {
       setFamilyInviteCode(family?.invite_code ?? null);
 
       await supabase.rpc('claim_owner_parent_profile');
-
-      // Sync Google avatar for the currently logged-in user
-      const googleAvatar = user.user_metadata?.avatar_url as string | undefined;
-      if (googleAvatar) {
-        await supabase
-          .from('users')
-          .update({ avatar_url: googleAvatar, login_method: 'google' })
-          .eq('auth_user_id', user.id);
-      }
 
       const [userRes, rewardRes] = await Promise.all([
         supabase.from('users').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
@@ -1035,7 +1035,10 @@ export default function AdminPage() {
         {/* Header */}
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between">
           <h1 className="text-2xl font-bold">{t('admin_mode')}</h1>
-          <Link href="/" className="text-[#8a8f99] text-sm hover:text-white">← {t('back_to_dashboard')}</Link>
+          <div className="flex shrink-0 items-center gap-3">
+            <Link href="/" className="text-[#8a8f99] text-sm hover:text-white whitespace-nowrap">← {t('back_to_dashboard')}</Link>
+            <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
+          </div>
         </div>
 
         {/* Sticky tab bar */}

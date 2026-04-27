@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
+import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
@@ -49,17 +50,30 @@ export default function Dashboard() {
   // hydrate() finishes verifying the session. This is the primary guard against
   // stale Zustand state flashing on Back-button or cross-user navigation.
   const [authReady, setAuthReady] = useState(false);
+  const [authProfile, setAuthProfile] = useState<{ email: string | null; avatarUrl: string | null }>({
+    email: null,
+    avatarUrl: null,
+  });
   const [now, setNow] = useState(() => new Date());
   const [currentPage, setCurrentPage] = useState(0);
   const dateLabel = formatDate(now, timeOfDay, lang);
 
   const resetAndHydrate = useCallback(async () => {
     setAuthReady(false);
+    setAuthProfile({ email: null, avatarUrl: null });
     useFamilyStore.setState({
       hydrated: false, familyId: null, users: [],
       tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
     try {
+      const supabase = createBrowserSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setAuthProfile({
+          email: user.email ?? null,
+          avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+        });
+      }
       await hydrate();
     } finally {
       setAuthReady(true);
@@ -68,7 +82,10 @@ export default function Dashboard() {
 
   // On every mount: clear stale state then verify session
   useEffect(() => {
-    resetAndHydrate().catch(console.error);
+    const timeoutId = window.setTimeout(() => {
+      resetAndHydrate().catch(console.error);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [resetAndHydrate]);
 
   // Handle browser Back/Forward cache: page is restored from bfcache without
@@ -229,6 +246,7 @@ export default function Dashboard() {
         <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
           <Settings size={17} />
         </Link>
+        <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
       </header>
 
       <main className="grid flex-1 grid-cols-1 gap-0.5 bg-black md:hidden">
