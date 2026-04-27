@@ -353,9 +353,17 @@ export default function AdminPage() {
 
     setDeletingFamily(true);
     try {
-      await deleteCurrentFamilyData();
       const supabase = createBrowserSupabase();
+      if (isFamilyOwner) {
+        // Use owner-privileged RPC — bypasses is_my_family_parent check
+        const { error } = await supabase.rpc('delete_family_as_owner');
+        if (error) throw error;
+      } else {
+        await deleteCurrentFamilyData();
+      }
       await supabase.auth.signOut();
+      localStorage.removeItem('family_dashboard_member_id');
+      localStorage.removeItem('family_dashboard_family_id');
       window.location.href = '/login?deleted=1';
     } catch (error) {
       console.error(error);
@@ -414,7 +422,8 @@ export default function AdminPage() {
       toast.error(t('pin_mismatch'));
       return;
     }
-    if (adminPinHash && !await verifyPin(currentPinInput, adminPinHash)) {
+    // Family owner can set a new PIN without knowing the old one
+    if (!isFamilyOwner && adminPinHash && !await verifyPin(currentPinInput, adminPinHash)) {
       toast.error(t('pin_incorrect'));
       return;
     }
