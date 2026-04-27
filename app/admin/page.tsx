@@ -511,7 +511,22 @@ export default function AdminPage() {
       toast.error('현재 로그인한 관리자 본인 프로필은 삭제할 수 없습니다');
       return;
     }
-    if (!confirm(`'${target.name}' 프로필을 삭제할까요?\n이 프로필의 모든 태스크와 기록이 삭제됩니다.\n연결된 계정이 있다면 초대 코드로 다시 참여할 수 있습니다.`)) return;
+    // First confirmation
+    if (!confirm(
+      `⚠️ '${target.name}' 멤버를 삭제하려고 합니다.\n\n` +
+      `• 이 멤버의 모든 습관, 기록, 포인트가 영구 삭제됩니다.\n` +
+      `• 공동 관리자 계정에서도 함께 삭제됩니다.\n` +
+      `• 복구가 불가능합니다.\n\n` +
+      `계속하려면 확인을 누르세요.`
+    )) return;
+    // Second confirmation — type the name to confirm
+    const typed = window.prompt(
+      `정말 삭제하시겠습니까?\n아래 칸에 '${target.name}'을(를) 직접 입력하면 삭제됩니다.`
+    );
+    if (typed?.trim() !== target.name) {
+      if (typed !== null) toast.error('이름이 일치하지 않아 삭제가 취소되었습니다.');
+      return;
+    }
     const supabase = createBrowserSupabase();
     const { error } = await supabase.from('users').delete().eq('id', userId);
     if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
