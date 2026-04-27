@@ -941,6 +941,12 @@ export default function AdminPage() {
             </p>
           )}
           <Link href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</Link>
+          <button
+            onClick={() => { void handleLogout(); }}
+            className="mt-3 w-full rounded-xl bg-[#232831] text-red-400 font-semibold p-3 text-sm hover:bg-[#2d3545] transition-colors"
+          >
+            로그아웃
+          </button>
         </div>
       </main>
     );
