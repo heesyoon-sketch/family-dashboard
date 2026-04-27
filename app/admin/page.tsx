@@ -237,6 +237,10 @@ export default function AdminPage() {
   const [isParentAdmin, setIsParentAdmin] = useState(false);
   const [isFamilyOwner, setIsFamilyOwner] = useState(false);
   const [pinResetLoading, setPinResetLoading] = useState(false);
+  const [pinResetStep, setPinResetStep] = useState<'idle' | 'otp_sent'>('idle');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [authProfile, setAuthProfile] = useState<{ email: string | null; avatarUrl: string | null }>({
@@ -274,6 +278,8 @@ export default function AdminPage() {
   const [pinChanging, setPinChanging] = useState(false);
   const [deletingFamily, setDeletingFamily] = useState(false);
   const [leavingFamily, setLeavingFamily] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [isAddingTask, setIsAddingTask] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
   const [generatingCode, setGeneratingCode] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
@@ -283,7 +289,10 @@ export default function AdminPage() {
   const [avatarUploadTargetId, setAvatarUploadTargetId] = useState<string | null>(null);
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const addMemberInFlightRef = useRef(false);
+  const addTaskInFlightRef = useRef(false);
   const storeHydrate = useFamilyStore(s => s.hydrate);
+  const familyName = useFamilyStore(s => s.familyName);
   const router = useRouter();
 
   useEffect(() => {
@@ -310,16 +319,18 @@ export default function AdminPage() {
 
       const { data: family } = await supabase
         .from('families')
-        .select('id, invite_code')
+        .select('id, invite_code, name')
         .eq('id', resolvedFamilyId)
         .maybeSingle();
+      const { data: resolvedFamilyName } = await supabase.rpc('get_my_family_name');
       setFamilyInviteCode(family?.invite_code ?? null);
+      useFamilyStore.setState({ familyName: (resolvedFamilyName as string | null) ?? family?.name ?? null });
 
       await supabase.rpc('claim_owner_parent_profile');
 
       const [userRes, rewardRes] = await Promise.all([
-        supabase.from('users').select('*').order('display_order', { ascending: true }).order('created_at', { ascending: true }),
-        supabase.from('rewards').select('*').order('cost_points'),
+        supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
+        supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).order('cost_points'),
       ]);
       const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
@@ -359,14 +370,14 @@ export default function AdminPage() {
       const supabase = createBrowserSupabase();
       if (isFamilyOwner) {
         // Use owner-privileged RPC — bypasses is_my_family_parent check
-        const { error } = await supabase.rpc('delete_family_as_owner');
+        const { error } = await supabase.rpc('admin_delete_family');
         if (error) throw error;
       } else {
         await deleteCurrentFamilyData();
       }
-      await supabase.auth.signOut();
       localStorage.clear();
-      window.location.href = '/login?deleted=1';
+      useFamilyStore.getState().reset();
+      window.location.href = '/setup';
     } catch (error) {
       console.error(error);
       toast.error(t('danger_zone_delete_failed'));
@@ -388,16 +399,7 @@ export default function AdminPage() {
       if (error) throw error;
 
       localStorage.clear();
-      useFamilyStore.setState({
-        hydrated: false,
-        familyId: null,
-        users: [],
-        currentMemberId: null,
-        currentMemberCanAdmin: false,
-        tasksByUser: {},
-        levelsByUser: {},
-        todayCompletions: {},
-      });
+      useFamilyStore.getState().reset();
       window.location.href = '/setup';
     } catch (error) {
       console.error(error);
@@ -424,21 +426,53 @@ export default function AdminPage() {
 
   const handlePinReset = async () => {
     if (!isFamilyOwner || pinResetLoading) return;
-    const confirmed = confirm(
-      'Google 계정으로 인증된 가족 생성자로 확인됩니다.\nPIN을 초기화하고 관리자 페이지로 진입할까요?'
-    );
-    if (!confirmed) return;
+    const email = authProfile.email;
+    if (!email) {
+      toast.error('이메일 주소를 확인할 수 없습니다.');
+      return;
+    }
     setPinResetLoading(true);
     try {
       const supabase = createBrowserSupabase();
-      const { error } = await supabase.rpc('admin_clear_pin_for_owner');
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
       if (error) throw error;
+      setPinResetStep('otp_sent');
+      setOtpCode('');
+      setOtpError('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'OTP 전송 실패');
+    } finally {
+      setPinResetLoading(false);
+    }
+  };
+
+  const handleOtpVerify = async () => {
+    if (otpLoading || !authProfile.email) return;
+    if (!/^\d{6}$/.test(otpCode)) {
+      setOtpError('6자리 숫자를 입력하세요.');
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const supabase = createBrowserSupabase();
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: authProfile.email,
+        token: otpCode,
+        type: 'email',
+      });
+      if (verifyError) throw verifyError;
+      const { error: rpcError } = await supabase.rpc('admin_clear_pin_for_owner');
+      if (rpcError) throw rpcError;
       setAdminPinHash(null);
       window.location.href = '/setup/set-pin';
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'PIN 초기화 실패');
+      setOtpError(e instanceof Error ? e.message : '인증 실패. 코드를 다시 확인하세요.');
     } finally {
-      setPinResetLoading(false);
+      setOtpLoading(false);
     }
   };
 
@@ -497,42 +531,55 @@ export default function AdminPage() {
   };
 
   const addMember = async () => {
+    if (addMemberInFlightRef.current) return;
     const trimmed = newMemberName.trim();
     if (!trimmed || !familyId) return;
-    const supabase = createBrowserSupabase();
-    const usedThemes = new Set(allUsers.map(u => u.theme));
-    const allThemes: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
-    const theme = allThemes.find(t => !usedThemes.has(t)) ?? 'pastel_cute';
-    const nextDisplayOrder = allUsers.reduce((max, u) => Math.max(max, u.displayOrder), -1) + 1;
-    const { data, error } = await supabase
-      .from('users')
-      .insert({
-        id: crypto.randomUUID(),
-        name: trimmed,
-        role: newMemberRole,
-        theme,
-        family_id: familyId,
-        login_method: 'device',
-        display_order: nextDisplayOrder,
-        created_at: new Date().toISOString(),
-      })
-      .select().single();
-    if (error) { toast.error(`멤버 추가 실패: ${error.message}`); return; }
-    const newUser: User = {
-      id: data.id, name: data.name, role: data.role as UserRole, theme: data.theme as ThemeName,
-      avatarUrl: data.avatar_url ?? undefined, pinHash: data.pin_hash ?? undefined,
-      email: data.email ?? undefined,
-      authUserId: data.auth_user_id ?? undefined,
-      loginMethod: data.login_method ?? undefined,
-      displayOrder: data.display_order ?? nextDisplayOrder,
-      createdAt: new Date(data.created_at),
-    };
-    setAllUsers(prev => [...prev, newUser].sort((a, b) => a.displayOrder - b.displayOrder || a.createdAt.getTime() - b.createdAt.getTime()));
-    setNewMemberName('');
-    setAddingMember(false);
-    await storeHydrate();
-    notifyDashboard();
-    toast.success(`'${trimmed}' 프로필이 추가되었습니다`);
+
+    addMemberInFlightRef.current = true;
+    setIsAddingMember(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const usedThemes = new Set(allUsers.map(u => u.theme));
+      const allThemes: ThemeName[] = ['dark_minimal', 'warm_minimal', 'robot_neon', 'pastel_cute'];
+      const theme = allThemes.find(t => !usedThemes.has(t)) ?? 'pastel_cute';
+      const nextDisplayOrder = allUsers.reduce((max, u) => Math.max(max, u.displayOrder), -1) + 1;
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: crypto.randomUUID(),
+          name: trimmed,
+          role: newMemberRole,
+          theme,
+          family_id: familyId,
+          login_method: 'device',
+          display_order: nextDisplayOrder,
+          created_at: new Date().toISOString(),
+        })
+        .select().single();
+      if (error) { toast.error(`멤버 추가 실패: ${error.message}`); return; }
+      const newUser: User = {
+        id: data.id, name: data.name, role: data.role as UserRole, theme: data.theme as ThemeName,
+        avatarUrl: data.avatar_url ?? undefined, pinHash: data.pin_hash ?? undefined,
+        email: data.email ?? undefined,
+        authUserId: data.auth_user_id ?? undefined,
+        loginMethod: data.login_method ?? undefined,
+        displayOrder: data.display_order ?? nextDisplayOrder,
+        createdAt: new Date(data.created_at),
+      };
+      setAllUsers(prev => (
+        prev.some(u => u.id === newUser.id)
+          ? prev
+          : [...prev, newUser].sort((a, b) => a.displayOrder - b.displayOrder || a.createdAt.getTime() - b.createdAt.getTime())
+      ));
+      setNewMemberName('');
+      setAddingMember(false);
+      await storeHydrate();
+      notifyDashboard();
+      toast.success(`'${trimmed}' 프로필이 추가되었습니다`);
+    } finally {
+      addMemberInFlightRef.current = false;
+      setIsAddingMember(false);
+    }
   };
 
   const removeMember = async (userId: string) => {
@@ -676,32 +723,46 @@ export default function AdminPage() {
   };
 
   const addTask = async () => {
+    if (addTaskInFlightRef.current) return;
     if (!selectedUser || !newTaskTitle.trim()) return;
-    const supabase = createBrowserSupabase();
-    const maxSort = tasks.reduce((m, task) => Math.max(m, task.sortOrder), -1);
-    const { data, error } = await supabase.rpc('admin_insert_task', {
-      p_user_id: selectedUser.id,
-      p_title: newTaskTitle.trim(),
-      p_icon: 'check-circle',
-      p_difficulty: 'MEDIUM',
-      p_base_points: newTaskPoints,
-      p_recurrence: 'daily',
-      p_days_of_week: ALL_DAYS,
-      p_active: 1,
-      p_sort_order: maxSort + 1,
-    });
-    if (error) {
-      toast.error(`${t('task_add_failed')}: ${error.message}`);
-      return;
+
+    addTaskInFlightRef.current = true;
+    setIsAddingTask(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const maxSort = tasks.reduce((m, task) => Math.max(m, task.sortOrder), -1);
+      const { data, error } = await supabase.rpc('admin_insert_task', {
+        p_user_id: selectedUser.id,
+        p_title: newTaskTitle.trim(),
+        p_icon: 'check-circle',
+        p_difficulty: 'MEDIUM',
+        p_base_points: newTaskPoints,
+        p_recurrence: 'daily',
+        p_days_of_week: ALL_DAYS,
+        p_active: 1,
+        p_sort_order: maxSort + 1,
+      });
+      if (error) {
+        toast.error(`${t('task_add_failed')}: ${error.message}`);
+        return;
+      }
+      if (data) {
+        const newTask = mapTask(data as Record<string, unknown>);
+        setTasks(prev => (
+          prev.some(task => task.id === newTask.id)
+            ? prev
+            : [...prev, newTask].sort((a, b) => a.sortOrder - b.sortOrder)
+        ));
+        await storeHydrate();
+        router.refresh();
+        notifyDashboard();
+      }
+      setNewTaskTitle('');
+      setNewTaskPoints(10);
+    } finally {
+      addTaskInFlightRef.current = false;
+      setIsAddingTask(false);
     }
-    if (data) {
-      setTasks(prev => [...prev, mapTask(data as Record<string, unknown>)]);
-      await storeHydrate();
-      router.refresh();
-      notifyDashboard();
-    }
-    setNewTaskTitle('');
-    setNewTaskPoints(10);
   };
 
   const toggleTask = async (task: Task) => {
@@ -991,7 +1052,9 @@ export default function AdminPage() {
     return (
       <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
         <div className="bg-[#141821] rounded-3xl p-8 w-full max-w-sm text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">{t('admin_mode')}</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
+          </h1>
           <p className="text-[#8a8f99] mb-6 text-sm">{t('enter_parent_pin')}</p>
           {isParentAdmin && adminPinHash === null && (
             <p className="text-[#3ddc97] mb-4 text-sm">
@@ -1025,13 +1088,49 @@ export default function AdminPage() {
           )}
           {/* PIN reset escape hatch — only visible to the family creator */}
           {isFamilyOwner && adminPinHash !== null && adminPinHash !== undefined && (
-            <button
-              onClick={() => { void handlePinReset(); }}
-              disabled={pinResetLoading}
-              className="mt-4 text-[#4f9cff] text-sm hover:underline disabled:opacity-50"
-            >
-              {pinResetLoading ? '초기화 중…' : 'PIN을 잊으셨나요? Google 계정으로 초기화'}
-            </button>
+            pinResetStep === 'idle' ? (
+              <button
+                onClick={() => { void handlePinReset(); }}
+                disabled={pinResetLoading}
+                className="mt-4 text-[#4f9cff] text-sm hover:underline disabled:opacity-50"
+              >
+                {pinResetLoading ? '인증 코드 발송 중…' : 'PIN을 잊으셨나요? 이메일로 초기화'}
+              </button>
+            ) : (
+              <div className="mt-5 text-left">
+                <p className="text-[#8a8f99] text-xs mb-3 text-center">
+                  <span className="text-[#3ddc97]">{authProfile.email}</span>로 발송된<br />
+                  6자리 인증 코드를 입력하세요
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && void handleOtpVerify()}
+                  placeholder="000000"
+                  className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] mb-2"
+                  style={{ minHeight: 'var(--touch-target)' }}
+                  autoFocus
+                />
+                {otpError && <p className="text-red-400 text-xs mb-2 text-center">{otpError}</p>}
+                <button
+                  onClick={() => { void handleOtpVerify(); }}
+                  disabled={otpLoading || otpCode.length !== 6}
+                  className="w-full rounded-xl bg-[#3ddc97] text-[#0b0d12] font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-50 transition-opacity mb-2"
+                >
+                  {otpLoading ? '확인 중…' : '코드 확인 및 PIN 초기화'}
+                </button>
+                <button
+                  onClick={() => { setPinResetStep('idle'); setOtpCode(''); setOtpError(''); }}
+                  className="w-full text-[#8a8f99] text-sm py-2 hover:text-white transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            )
           )}
           <Link href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</Link>
           <button
@@ -1065,7 +1164,9 @@ export default function AdminPage() {
       <main className="min-h-screen bg-[#0b0d12] text-white">
         {/* Header */}
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{t('admin_mode')}</h1>
+          <h1 className="text-2xl font-bold">
+            {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
+          </h1>
           <div className="flex shrink-0 items-center gap-3">
             <Link href="/" className="text-[#8a8f99] text-sm hover:text-white whitespace-nowrap">← {t('back_to_dashboard')}</Link>
             <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
@@ -1278,7 +1379,13 @@ export default function AdminPage() {
                     type="text"
                     value={newMemberName}
                     onChange={e => setNewMemberName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addMember()}
+                    disabled={isAddingMember}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void addMember();
+                      }
+                    }}
                     placeholder="이름 (예: 아람, 주원)"
                     autoFocus
                     className="w-full rounded-xl bg-[#1a1f2a] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
@@ -1286,7 +1393,9 @@ export default function AdminPage() {
                   />
                   <div className="flex gap-2">
                     <button
+                      type="button"
                       onClick={() => setNewMemberRole('PARENT')}
+                      disabled={isAddingMember}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                         newMemberRole === 'PARENT' ? 'bg-[#4f9cff] text-white' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
                       }`}
@@ -1294,7 +1403,9 @@ export default function AdminPage() {
                       {t('parent_role')}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setNewMemberRole('CHILD')}
+                      disabled={isAddingMember}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                         newMemberRole === 'CHILD' ? 'bg-[#4f9cff] text-white' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
                       }`}
@@ -1304,15 +1415,18 @@ export default function AdminPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={addMember}
-                      disabled={!newMemberName.trim()}
-                      className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-white font-semibold disabled:opacity-40 transition-opacity"
+                      type="button"
+                      onClick={() => { void addMember(); }}
+                      disabled={isAddingMember || !newMemberName.trim()}
+                      className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                     >
-                      추가하기
+                      {isAddingMember ? '추가 중...' : '추가하기'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setAddingMember(false)}
-                      className="flex-1 py-3 rounded-xl bg-[#1a1f2a] text-[#8a8f99] font-semibold hover:bg-[#2d3545] transition-colors"
+                      disabled={isAddingMember}
+                      className="flex-1 py-3 rounded-xl bg-[#1a1f2a] text-[#8a8f99] font-semibold hover:bg-[#2d3545] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       취소
                     </button>
@@ -1676,7 +1790,13 @@ export default function AdminPage() {
                         type="text"
                         value={newTaskTitle}
                         onChange={e => setNewTaskTitle(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addTask()}
+                        disabled={isAddingTask}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void addTask();
+                          }
+                        }}
                         placeholder={t('task_name_placeholder')}
                         className="flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                       />
@@ -1686,13 +1806,16 @@ export default function AdminPage() {
                         onChange={e => setNewTaskPoints(Number(e.target.value))}
                         min={1}
                         max={100}
+                        disabled={isAddingTask}
                         className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
                       />
                       <button
-                        onClick={addTask}
-                        className="px-5 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
+                        type="button"
+                        onClick={() => { void addTask(); }}
+                        disabled={isAddingTask || !newTaskTitle.trim()}
+                        className="px-5 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        {t('add')}
+                        {isAddingTask ? '...' : t('add')}
                       </button>
                     </div>
                   </div>

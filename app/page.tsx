@@ -47,6 +47,7 @@ export default function Dashboard() {
   const timeOfDay = useFamilyStore(s => s.timeOfDay);
   const hydrated  = useFamilyStore(s => s.hydrated);
   const familyId  = useFamilyStore(s => s.familyId);
+  const familyName = useFamilyStore(s => s.familyName);
   // authReady starts as false on every mount — the blank screen is shown until
   // hydrate() finishes verifying the session. This is the primary guard against
   // stale Zustand state flashing on Back-button or cross-user navigation.
@@ -63,7 +64,7 @@ export default function Dashboard() {
     setAuthReady(false);
     setAuthProfile({ email: null, avatarUrl: null });
     useFamilyStore.setState({
-      hydrated: false, familyId: null, users: [],
+      hydrated: false, familyId: null, familyName: null, users: [],
       tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
     try {
@@ -117,7 +118,7 @@ export default function Dashboard() {
       localStorage.clear();
     }
     useFamilyStore.setState({
-      hydrated: false, familyId: null, users: [],
+      hydrated: false, familyId: null, familyName: null, users: [],
       tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
     router.replace('/login');
@@ -163,9 +164,20 @@ export default function Dashboard() {
         className="sticky top-0 z-10 shrink-0 flex items-center gap-2 bg-[#0b0d12]"
         style={{ height: 44, padding: '0 12px', paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <span className="flex-1 min-w-0 text-white/45 text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap pl-0.5">
-          {dateLabel}
-        </span>
+        <div className="flex flex-1 min-w-0 items-center gap-2 pl-0.5">
+          <span className="min-w-0 truncate text-white/45 text-[13px] font-medium">
+            {dateLabel}
+          </span>
+          {familyName && (
+            <span
+              title={familyName}
+              className="inline-flex max-w-[45vw] md:max-w-[260px] shrink-0 items-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 text-[13px] font-semibold text-white/80"
+            >
+              <span aria-hidden="true">🏠</span>
+              <span className="min-w-0 truncate">{familyName}</span>
+            </span>
+          )}
+        </div>
         {pageCount > 1 && (
           <div className="hidden md:flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1">
             <button

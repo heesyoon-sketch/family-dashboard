@@ -23,6 +23,7 @@ export function getCurrentTimeOfDay(): TimeOfDay {
 
 interface FamilyState {
   familyId: string | null;
+  familyName: string | null;
   users: User[];
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
@@ -46,6 +47,7 @@ interface FamilyState {
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   dismissCelebration: () => void;
   toggleSound: () => void;
+  reset: () => void;
 }
 
 function loadSoundPref(): boolean {
@@ -65,6 +67,7 @@ function taskMutationKey(userId: string, taskId: string): string {
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyId: null,
+  familyName: null,
   users: [],
   currentMemberId: null,
   currentMemberCanAdmin: false,
@@ -94,6 +97,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       set({
         hydrated: true,
         familyId: null,
+        familyName: null,
         users: [],
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -128,6 +132,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       set({
         hydrated: true,
         familyId: null,
+        familyName: null,
         users: [],
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -144,16 +149,39 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const timeOfDay = getCurrentTimeOfDay();
     const fourteenDaysAgo = addDays(todayStart, -13);
 
-    const [uRes, tRes, lRes, sRes, cTodayRes, cHistRes] = await Promise.all([
+    // Phase 1: load the family's name, users + tasks (explicit family_id filter).
+    const [familyNameRes, uRes, tRes] = await Promise.all([
+      supabase.rpc('get_my_family_name'),
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId),
-      supabase.from('levels').select('*'),
-      supabase.from('streaks').select('*'),
+    ]);
+    let familyName = (familyNameRes.data as string | null) ?? null;
+    if (!familyName) {
+      const { data: family } = await supabase
+        .from('families')
+        .select('name')
+        .eq('id', resolvedFamilyId)
+        .maybeSingle();
+      familyName = family?.name ?? null;
+    }
+
+    // Phase 2: load per-user tables filtered by the verified user IDs.
+    // levels/streaks have no family_id column; task_completions relies on user_id.
+    // Filtering by userIds (not just RLS) ensures data never leaks across families
+    // even if a ghost auth link were to exist.
+    const userIds = (uRes.data ?? []).map((r: { id: string }) => r.id);
+    const safeIds = userIds.length > 0 ? userIds : ['__no_match__'];
+
+    const [lRes, sRes, cTodayRes, cHistRes] = await Promise.all([
+      supabase.from('levels').select('*').in('user_id', safeIds),
+      supabase.from('streaks').select('*').in('user_id', safeIds),
       supabase.from('task_completions')
         .select('id, user_id, task_id, completed_at')
+        .in('user_id', safeIds)
         .gte('completed_at', todayStart.toISOString()),
       supabase.from('task_completions')
         .select('user_id, task_id, completed_at')
+        .in('user_id', safeIds)
         .gte('completed_at', fourteenDaysAgo.toISOString()),
     ]);
 
@@ -296,6 +324,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
     set({
       familyId: resolvedFamilyId,
+      familyName,
       users,
       currentMemberId,
       currentMemberCanAdmin,
@@ -516,4 +545,22 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     localStorage.setItem('sound_enabled', next ? '1' : '0');
     set({ soundEnabled: next });
   },
+
+  reset: () => set({
+    familyId: null,
+    familyName: null,
+    users: [],
+    currentMemberId: null,
+    currentMemberCanAdmin: false,
+    tasksByUser: {},
+    levelsByUser: {},
+    todayCompletions: {},
+    maxStreakByUser: {},
+    longestStreakByUser: {},
+    bestDayByUser: {},
+    growthByUser: {},
+    celebration: null,
+    hydrated: false,
+    timeOfDay: getCurrentTimeOfDay(),
+  }),
 }));

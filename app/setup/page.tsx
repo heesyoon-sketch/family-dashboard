@@ -72,14 +72,17 @@ export default function SetupPage() {
     setErrorMsg('');
     try {
       const supabase = createBrowserSupabase();
-      const { error: cleanupError } = await supabase.rpc('prepare_create_family');
-      if (cleanupError) throw cleanupError;
 
+      // setup_family atomically clears ghost links + creates the new family.
+      // prepare_create_family is no longer called separately.
       const { data: familyId, error: setupError } = await supabase.rpc('setup_family', {
         p_name: trimmed,
       });
       if (setupError || !familyId) throw setupError ?? new Error('setup_family returned null');
+
+      // Pass the explicit familyId so seed never has to guess via get_my_family_id().
       const { error: seedError } = await supabase.rpc('seed_default_family_data', {
+        p_family_id: familyId,
         p_admin_name: googleUser?.name ?? 'Admin',
         p_admin_avatar_url: null,
       });
