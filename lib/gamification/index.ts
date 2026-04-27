@@ -1,5 +1,5 @@
 import { DOW_INDEX, Level, Badge, startOfDay } from '../db';
-import { createBrowserSupabase } from '../supabase';
+import { assertUuid, createBrowserSupabase } from '../supabase';
 import { evaluateCondition } from './conditions';
 
 export const LEVEL_THRESHOLDS = [
@@ -174,8 +174,8 @@ export async function redeemReward(
   const supabase = createBrowserSupabase();
   const now = new Date();
   const { data, error } = await supabase.rpc('redeem_reward_atomic', {
-    p_user_id: userId,
-    p_reward_id: rewardId,
+    p_user_id: assertUuid(userId, 'userId'),
+    p_reward_id: assertUuid(rewardId, 'rewardId'),
     p_day_key: dayKey(now),
     p_now: now.toISOString(),
   });
