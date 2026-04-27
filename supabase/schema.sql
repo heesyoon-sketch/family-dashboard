@@ -10,6 +10,7 @@ create table if not exists public.users (
   role        text not null check (role in ('PARENT', 'CHILD')),
   theme       text not null,
   avatar_url  text,
+  email       text,
   pin_hash    text,
   created_at  timestamptz not null default now()
 );

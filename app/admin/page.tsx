@@ -317,6 +317,7 @@ export default function AdminPage() {
       const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
         avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
+        email: r.email ?? undefined,
         authUserId: r.auth_user_id ?? undefined,
         loginMethod: r.login_method ?? undefined,
         displayOrder: r.display_order ?? 0,
@@ -491,6 +492,7 @@ export default function AdminPage() {
     const newUser: User = {
       id: data.id, name: data.name, role: data.role as UserRole, theme: data.theme as ThemeName,
       avatarUrl: data.avatar_url ?? undefined, pinHash: data.pin_hash ?? undefined,
+      email: data.email ?? undefined,
       authUserId: data.auth_user_id ?? undefined,
       loginMethod: data.login_method ?? undefined,
       displayOrder: data.display_order ?? nextDisplayOrder,

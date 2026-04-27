@@ -124,6 +124,7 @@ export default function StatsPage() {
         .map(r => ({
           id: r.id, name: r.name, role: r.role, theme: r.theme,
           avatarUrl: r.avatar_url ?? undefined,
+          email: r.email ?? undefined,
           pinHash:   r.pin_hash   ?? undefined,
           authUserId: r.auth_user_id ?? undefined,
           loginMethod: r.login_method ?? undefined,

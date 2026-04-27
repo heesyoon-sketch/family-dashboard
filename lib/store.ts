@@ -106,10 +106,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const cachedMemberId = typeof window !== 'undefined'
       ? localStorage.getItem('family_dashboard_member_id')
       : null;
-    const cachedFamilyId = typeof window !== 'undefined'
-      ? localStorage.getItem('family_dashboard_family_id')
-      : null;
-
     const { data: familyId } = await supabase.rpc('get_my_family_id');
     let resolvedFamilyId = familyId as string | null;
 
@@ -164,14 +160,24 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const users: User[] = (uRes.data ?? []).map(r => ({
       id: r.id, name: r.name, role: r.role, theme: r.theme,
       avatarUrl: r.avatar_url ?? undefined, pinHash: r.pin_hash ?? undefined,
+      email: r.email ?? undefined,
       authUserId: r.auth_user_id ?? undefined,
       loginMethod: r.login_method ?? undefined,
       displayOrder: r.display_order ?? 0,
       createdAt: new Date(r.created_at),
     }));
     const currentMember = users.find(u => u.authUserId === user.id) ?? null;
-    const currentMemberId = currentMember?.id ?? cachedMemberId;
+    const currentMemberId = currentMember?.id ?? null;
     const currentMemberCanAdmin = currentMember?.role === 'PARENT';
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('family_dashboard_family_id', resolvedFamilyId);
+      if (currentMemberId) {
+        localStorage.setItem('family_dashboard_member_id', currentMemberId);
+      } else {
+        localStorage.removeItem('family_dashboard_member_id');
+      }
+    }
 
     const allTasks: Task[] = (tRes.data ?? []).map(r => {
       const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;

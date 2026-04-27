@@ -31,6 +31,7 @@ export interface User {
   role: UserRole;
   theme: ThemeName;
   avatarUrl?: string;
+  email?: string;
   pinHash?: string;
   authUserId?: string;
   loginMethod?: 'google' | 'device' | string;
