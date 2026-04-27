@@ -321,6 +321,7 @@ export default function AdminPage() {
   const [newRewardPoints, setNewRewardPoints] = useState(300);
   const [newRewardIcon, setNewRewardIcon] = useState('star');
   const [rewardIconPickerOpen, setRewardIconPickerOpen] = useState(false);
+  const [rewardIconPickerRewardId, setRewardIconPickerRewardId] = useState<string | null>(null);
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [editingRewardTitle, setEditingRewardTitle] = useState('');
   const [savingRewardId, setSavingRewardId] = useState<string | null>(null);
@@ -1004,6 +1005,7 @@ export default function AdminPage() {
         p_cost_points: nextCost,
         p_sale_percentage: nextSalePercentage,
         p_sale_name: nextSaleName,
+        p_icon: previous.icon,
       });
 
       if (error) {
@@ -1056,6 +1058,7 @@ export default function AdminPage() {
       p_cost_points: newCost,
       p_sale_percentage: normaliseSalePercentage(previous.sale_percentage ?? 0),
       p_sale_name: previous.sale_name?.trim() || null,
+      p_icon: previous.icon,
     });
 
     if (response.error) {
@@ -1120,6 +1123,7 @@ export default function AdminPage() {
       p_cost_points: previous.cost_points,
       p_sale_percentage: nextSalePercentage,
       p_sale_name: nextSaleName ?? null,
+      p_icon: previous.icon,
     });
 
     if (response.error || !response.data) {
@@ -1161,6 +1165,56 @@ export default function AdminPage() {
     notifyDashboard();
   };
 
+  const updateRewardIcon = async (rewardId: string, icon: string) => {
+    const previous = rewards.find(r => r.id === rewardId);
+    if (!previous) return;
+    if (previous.icon === icon) {
+      setRewardIconPickerRewardId(null);
+      return;
+    }
+
+    setSavingRewardId(rewardId);
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saving' }));
+    setRewards(prev => prev.map(r => r.id === rewardId ? { ...r, icon } : r));
+    setRewardIconPickerRewardId(null);
+
+    const supabase = createBrowserSupabase();
+    const response = await supabase.rpc('admin_update_reward', {
+      p_reward_id: rewardId,
+      p_title: previous.title,
+      p_cost_points: previous.cost_points,
+      p_sale_percentage: normaliseSalePercentage(previous.sale_percentage ?? 0),
+      p_sale_name: previous.sale_name?.trim() || null,
+      p_icon: icon,
+    });
+
+    if (response.error || !response.data) {
+      setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
+      setRewardSaveStatus(prev => ({ ...prev, [rewardId]: response.error ? 'error' : 'not_found' }));
+      setSavingRewardId(null);
+      toast.error(`${t('reward_save_failed')}: ${response.error?.message ?? `NOT FOUND (${rewardId})`}`);
+      return;
+    }
+
+    const saved = mapReward(response.data as Record<string, unknown>);
+    setRewards(prev => prev.map(r => r.id === rewardId ? saved : r).sort((a, b) => a.cost_points - b.cost_points));
+    setRewardCostDrafts(prev => ({ ...prev, [rewardId]: saved.cost_points }));
+    setRewardSalePercentageDrafts(prev => ({ ...prev, [rewardId]: saved.sale_percentage ?? 0 }));
+    setRewardSaleNameDrafts(prev => ({ ...prev, [rewardId]: saved.sale_name ?? '' }));
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saved' }));
+    setSavingRewardId(null);
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+
+    setTimeout(() => {
+      setRewardSaveStatus(prev => {
+        if (prev[rewardId] !== 'saved') return prev;
+        return { ...prev, [rewardId]: 'idle' };
+      });
+    }, 1500);
+  };
+
   const startEditName = (user: User) => {
     setEditingUserId(user.id);
     setEditingName(user.name);
@@ -1187,6 +1241,9 @@ export default function AdminPage() {
   };
 
   const pickerTask = iconPickerTaskId ? tasks.find(task => task.id === iconPickerTaskId) : null;
+  const pickerReward = rewardIconPickerRewardId
+    ? rewards.find(reward => reward.id === rewardIconPickerRewardId)
+    : null;
 
   if (view === 'pin') {
     return (
@@ -1298,6 +1355,13 @@ export default function AdminPage() {
           currentIcon={newRewardIcon}
           onSelect={icon => { setNewRewardIcon(icon); setRewardIconPickerOpen(false); }}
           onClose={() => setRewardIconPickerOpen(false)}
+        />
+      )}
+      {pickerReward && (
+        <IconPicker
+          currentIcon={pickerReward.icon}
+          onSelect={icon => { void updateRewardIcon(pickerReward.id, icon); }}
+          onClose={() => setRewardIconPickerRewardId(null)}
         />
       )}
 
@@ -1971,9 +2035,16 @@ export default function AdminPage() {
               <div className="space-y-3 mb-6">
                 {rewards.map(r => (
                   <div key={r.id} className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-[#232831]">
-                    <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setRewardIconPickerRewardId(r.id)}
+                      disabled={savingRewardId === r.id}
+                      className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0 hover:bg-[#2d3545] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={t('icon_change')}
+                      aria-label={t('icon_change')}
+                    >
                       <LucideIcon name={r.icon} size={18} />
-                    </div>
+                    </button>
                     {editingRewardId === r.id ? (
                       <>
                         <input
