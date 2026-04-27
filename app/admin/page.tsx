@@ -343,8 +343,7 @@ export default function AdminPage() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
-    localStorage.removeItem('family_dashboard_member_id');
-    localStorage.removeItem('family_dashboard_family_id');
+    localStorage.clear();
     window.location.href = '/login';
   };
 
@@ -364,8 +363,7 @@ export default function AdminPage() {
         await deleteCurrentFamilyData();
       }
       await supabase.auth.signOut();
-      localStorage.removeItem('family_dashboard_member_id');
-      localStorage.removeItem('family_dashboard_family_id');
+      localStorage.clear();
       window.location.href = '/login?deleted=1';
     } catch (error) {
       console.error(error);
@@ -387,8 +385,7 @@ export default function AdminPage() {
       const { error } = await supabase.rpc('leave_current_family');
       if (error) throw error;
 
-      localStorage.removeItem('family_dashboard_member_id');
-      localStorage.removeItem('family_dashboard_family_id');
+      localStorage.clear();
       useFamilyStore.setState({
         hydrated: false,
         familyId: null,

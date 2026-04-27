@@ -108,8 +108,7 @@ export default function Dashboard() {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('family_dashboard_member_id');
-      localStorage.removeItem('family_dashboard_family_id');
+      localStorage.clear();
     }
     useFamilyStore.setState({
       hydrated: false, familyId: null, users: [],

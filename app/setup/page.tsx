@@ -65,7 +65,8 @@ export default function SetupPage() {
       router.replace('/');
     } catch (e) {
       console.error(e);
-      setErrorMsg('오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      const message = e instanceof Error ? e.message : 'Unknown setup error';
+      setErrorMsg(message);
       setLoading(false);
     }
   };
@@ -100,8 +101,7 @@ export default function SetupPage() {
               onClick={async () => {
                 const supabase = createBrowserSupabase();
                 await supabase.auth.signOut();
-                localStorage.removeItem('family_dashboard_member_id');
-                localStorage.removeItem('family_dashboard_family_id');
+                localStorage.clear();
                 router.replace('/login');
               }}
               className="text-[#8a8f99] text-xs hover:text-red-400 transition-colors shrink-0"
@@ -117,8 +117,7 @@ export default function SetupPage() {
             onClick={async () => {
               const supabase = createBrowserSupabase();
               await supabase.auth.signOut();
-              localStorage.removeItem('family_dashboard_member_id');
-              localStorage.removeItem('family_dashboard_family_id');
+              localStorage.clear();
               router.replace('/login');
             }}
             className="w-full text-center text-red-400 text-sm mb-4 hover:text-red-300 transition-colors"
