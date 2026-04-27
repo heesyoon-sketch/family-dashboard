@@ -212,8 +212,13 @@ export default function Dashboard() {
         <button
           onClick={() => { void handleLogout(); }}
           aria-label="Logout"
-          style={iconBtn}
-          title="Logout"
+          title="로그아웃"
+          style={{
+            ...iconBtn,
+            color: 'rgba(255,90,90,0.85)',
+            border: '1px solid rgba(255,80,80,0.25)',
+            background: 'rgba(255,60,60,0.08)',
+          }}
         >
           <LogOut size={17} />
         </button>
