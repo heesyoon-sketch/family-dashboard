@@ -253,36 +253,41 @@ export function MemberPanel({ user }: { user: User }) {
               >
                 💰{spendableBalance}pt
               </button>
-              <button
-                type="button"
-                onClick={openActivityFeed}
-                className="relative h-7 w-7 rounded-full bg-[var(--accent-glow)] text-[var(--accent)] flex items-center justify-center shrink-0"
-                title="편지함 및 기록"
-                aria-label="편지함 및 기록"
-              >
-                <Mail size={14} />
-                {hasRecentUnreadActivity && (
-                  <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
-                )}
-              </button>
-              {giftReceivers.length > 0 && (
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setGiftOpen(true)}
-                  className="h-7 w-7 rounded-full bg-rose-400/15 text-rose-300 flex items-center justify-center shrink-0"
-                  title="마음 나누기"
-                  aria-label="마음 나누기"
+                  onClick={openActivityFeed}
+                  className="relative h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                  title="편지함 및 기록"
+                  aria-label="편지함 및 기록"
                 >
-                  <HeartHandshake size={14} />
+                  <Mail size={13} />
+                  <span>편지함</span>
+                  {hasRecentUnreadActivity && (
+                    <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
+                  )}
                 </button>
-              )}
-              <button
-                onClick={openStore}
-                className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
-              >
-                <Store size={13} />
-                {lang === 'en' ? 'Store' : '상점'}
-              </button>
+                {giftReceivers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setGiftOpen(true)}
+                    className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                    title="마음 나누기"
+                    aria-label="마음 나누기"
+                  >
+                    <HeartHandshake size={13} />
+                    <span>선물</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={openStore}
+                  className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                >
+                  <Store size={13} />
+                  <span>{lang === 'en' ? 'Store' : '상점'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Row 3: XP bar */}
