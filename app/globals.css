@@ -75,8 +75,8 @@ body {
   --accent: #c86a45;
   --accent-glow: rgba(200, 106, 69, 0.16);
   --success: #7cb342;
-  --success-ring: #00e5ff;
-  --success-glow: rgba(0, 229, 255, 0.28);
+  --success-ring: #ff1744;
+  --success-glow: rgba(255, 23, 68, 0.28);
   --border: rgba(218, 202, 185, 0.54);
   --shadow: 0 8px 24px rgba(86, 64, 45, 0.06);
 }
@@ -110,8 +110,8 @@ body {
   --accent: #f47295;
   --accent-glow: rgba(244, 114, 149, 0.16);
   --success: #a0e7c5;
-  --success-ring: #00e5ff;
-  --success-glow: rgba(0, 229, 255, 0.28);
+  --success-ring: #ff1744;
+  --success-glow: rgba(255, 23, 68, 0.28);
   --border: rgba(244, 194, 209, 0.55);
   --shadow: 0 8px 24px rgba(190, 77, 113, 0.07);
 }
