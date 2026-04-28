@@ -45,6 +45,8 @@ interface FamilyState {
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
+  purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
+  transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   dismissCelebration: () => void;
   toggleSound: () => void;
@@ -554,6 +556,70 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         [userId]: state.levelsByUser[userId]
           ? { ...state.levelsByUser[userId], spendableBalance: newBalance }
           : state.levelsByUser[userId],
+      },
+    }));
+    await get().hydrate();
+    new BroadcastChannel('habit_sync').postMessage('update');
+  },
+
+  purchaseRewardJoint: async (rewardId, user1Id, user1Amount, user2Id, user2Amount) => {
+    const supabase = createBrowserSupabase();
+    const { data, error } = await supabase.rpc('purchase_reward_joint', {
+      p_reward_id: rewardId,
+      p_user1_id: user1Id,
+      p_user1_amount: Math.max(0, Math.round(user1Amount)),
+      p_user2_id: user2Id,
+      p_user2_amount: Math.max(0, Math.round(user2Amount)),
+    });
+    if (error) throw new Error(error.message);
+
+    const result = data as {
+      user1Id: string;
+      user1Balance: number;
+      user2Id: string;
+      user2Balance: number;
+    };
+    set(state => ({
+      levelsByUser: {
+        ...state.levelsByUser,
+        [result.user1Id]: state.levelsByUser[result.user1Id]
+          ? { ...state.levelsByUser[result.user1Id], spendableBalance: result.user1Balance }
+          : state.levelsByUser[result.user1Id],
+        [result.user2Id]: state.levelsByUser[result.user2Id]
+          ? { ...state.levelsByUser[result.user2Id], spendableBalance: result.user2Balance }
+          : state.levelsByUser[result.user2Id],
+      },
+    }));
+    await get().hydrate();
+    new BroadcastChannel('habit_sync').postMessage('update');
+  },
+
+  transferPointsWithMessage: async (senderId, receiverId, amount, message) => {
+    const safeAmount = Math.max(1, Math.round(amount));
+    const supabase = createBrowserSupabase();
+    const { data, error } = await supabase.rpc('transfer_points_with_message', {
+      p_sender_id: senderId,
+      p_receiver_id: receiverId,
+      p_amount: safeAmount,
+      p_message: message,
+    });
+    if (error) throw new Error(error.message);
+
+    const result = data as {
+      senderId: string;
+      senderBalance: number;
+      receiverId: string;
+      receiverBalance: number;
+    };
+    set(state => ({
+      levelsByUser: {
+        ...state.levelsByUser,
+        [result.senderId]: state.levelsByUser[result.senderId]
+          ? { ...state.levelsByUser[result.senderId], spendableBalance: result.senderBalance }
+          : state.levelsByUser[result.senderId],
+        [result.receiverId]: state.levelsByUser[result.receiverId]
+          ? { ...state.levelsByUser[result.receiverId], spendableBalance: result.receiverBalance }
+          : state.levelsByUser[result.receiverId],
       },
     }));
     await get().hydrate();

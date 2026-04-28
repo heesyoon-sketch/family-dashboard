@@ -3,13 +3,14 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Store } from 'lucide-react';
+import { HeartHandshake, Store } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
 import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
 import { StoreModal } from './StoreModal';
+import { WarmGiftModal } from './WarmGiftModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
@@ -63,8 +64,10 @@ export function MemberPanel({ user }: { user: User }) {
   const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
+  const allUsers       = useFamilyStore(s => s.users);
 
   const [storeOpen, setStoreOpen] = useState(false);
+  const [giftOpen, setGiftOpen] = useState(false);
   // Incremented on every open so StoreModal always mounts fresh.
   const [storeOpenKey, setStoreOpenKey] = useState(0);
   const [avatarVersion] = useState(() => Date.now());
@@ -74,6 +77,9 @@ export function MemberPanel({ user }: { user: User }) {
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
   const spendableBalance = level?.spendableBalance ?? 0;
+  const giftReceivers = allUsers
+    .filter(member => member.id !== user.id)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
 
   const visibleTasks = tasks.filter(t => {
     if (!t.timeWindow) return true;
@@ -147,6 +153,14 @@ export function MemberPanel({ user }: { user: User }) {
           onRedeem={handleRedeem}
         />
       )}
+      {giftOpen && (
+        <WarmGiftModal
+          sender={user}
+          receivers={giftReceivers}
+          balance={spendableBalance}
+          onClose={() => setGiftOpen(false)}
+        />
+      )}
 
       <section
         data-theme={user.theme}
@@ -208,6 +222,17 @@ export function MemberPanel({ user }: { user: User }) {
               >
                 💰{spendableBalance}pt
               </button>
+              {giftReceivers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setGiftOpen(true)}
+                  className="h-7 w-7 rounded-full bg-rose-400/15 text-rose-300 flex items-center justify-center shrink-0"
+                  title="마음 나누기"
+                  aria-label="마음 나누기"
+                >
+                  <HeartHandshake size={14} />
+                </button>
+              )}
               <button
                 onClick={openStore}
                 className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"

@@ -53,10 +53,18 @@ export function StoreModal({
 }) {
   const { t } = useLanguage();
   const rewards = useFamilyStore(state => state.rewards);
+  const users = useFamilyStore(state => state.users);
+  const levelsByUser = useFamilyStore(state => state.levelsByUser);
   const hydrate = useFamilyStore(state => state.hydrate);
   const hydrated = useFamilyStore(state => state.hydrated);
+  const purchaseRewardJoint = useFamilyStore(state => state.purchaseRewardJoint);
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [checkoutReward, setCheckoutReward] = useState<Reward | null>(null);
+  const [checkoutMode, setCheckoutMode] = useState<'alone' | 'together'>('alone');
+  const [jointUserId, setJointUserId] = useState('');
+  const [userShare, setUserShare] = useState(0);
+  const [partnerShare, setPartnerShare] = useState(0);
 
   const refreshRewards = useCallback(async () => {
     setRefreshing(true);
@@ -83,6 +91,24 @@ export function StoreModal({
     };
   }, [refreshRewards]);
 
+  const jointPartners = users.filter(member => member.id !== user.id);
+  const jointPartner = jointPartners.find(member => member.id === jointUserId) ?? null;
+  const jointPartnerBalance = jointPartner ? (levelsByUser[jointPartner.id]?.spendableBalance ?? 0) : 0;
+
+  const openCheckout = (reward: Reward) => {
+    const cost = discountedCost(reward);
+    setCheckoutReward(reward);
+    setCheckoutMode('alone');
+    setJointUserId(jointPartners[0]?.id ?? '');
+    setUserShare(Math.floor(cost / 2));
+    setPartnerShare(cost - Math.floor(cost / 2));
+  };
+
+  const closeCheckout = () => {
+    if (redeeming) return;
+    setCheckoutReward(null);
+  };
+
   const handleRedeem = async (reward: Reward) => {
     if (redeeming) return;
 
@@ -103,6 +129,38 @@ export function StoreModal({
     try {
       await onRedeem(effectiveReward);
       toast.success(`🎉 "${latestReward.title}" ${t('exchange_complete')}`);
+      setCheckoutReward(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('exchange_fail'));
+    } finally {
+      setRedeeming(null);
+    }
+  };
+
+  const handleJointRedeem = async (reward: Reward) => {
+    if (redeeming || !jointPartner) return;
+
+    await refreshRewards().catch(error => {
+      console.warn('Failed to refresh rewards before joint redeem', error);
+    });
+
+    const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
+    if (latestReward.is_hidden || latestReward.is_sold_out) {
+      toast.error(latestReward.is_sold_out ? '품절된 보상입니다' : t('exchange_fail'));
+      return;
+    }
+
+    const cost = discountedCost(latestReward);
+    const share1 = Math.max(0, Math.round(userShare) || 0);
+    const share2 = Math.max(0, Math.round(partnerShare) || 0);
+    if (share1 + share2 !== cost) return;
+    if (balance < share1 || jointPartnerBalance < share2) return;
+
+    setRedeeming(reward.id);
+    try {
+      await purchaseRewardJoint(latestReward.id, user.id, share1, jointPartner.id, share2);
+      toast.success('합동 구매 성공!');
+      setCheckoutReward(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
     } finally {
@@ -112,6 +170,17 @@ export function StoreModal({
 
   const loading = !hydrated || refreshing;
   const visibleRewards = rewards.filter(reward => !reward.is_hidden);
+  const checkoutCost = checkoutReward ? discountedCost(checkoutReward) : 0;
+  const checkoutSoldOut = Boolean(checkoutReward?.is_sold_out);
+  const shareTotal = Math.max(0, Math.round(userShare) || 0) + Math.max(0, Math.round(partnerShare) || 0);
+  const jointInvalid =
+    !jointPartner ||
+    shareTotal !== checkoutCost ||
+    userShare < 0 ||
+    partnerShare < 0 ||
+    balance < userShare ||
+    jointPartnerBalance < partnerShare ||
+    checkoutSoldOut;
 
   return (
     <div
@@ -160,15 +229,15 @@ export function StoreModal({
                 <motion.button
                   key={r.id}
                   layout
-                  onClick={() => handleRedeem(r)}
-                  disabled={!canAfford || !!redeeming}
+                  onClick={() => openCheckout(r)}
+                  disabled={soldOut || !!redeeming}
                   className={[
                     'min-h-[92px] rounded-xl bg-[var(--bg-card)] border p-2 text-left transition-colors',
                     'flex flex-col justify-between gap-1 disabled:cursor-not-allowed',
                     hasDeal ? 'border-rose-400/60' : 'border-[var(--border)]',
                   ].join(' ')}
                   style={{
-                    opacity: canAfford ? 1 : 0.48,
+                    opacity: soldOut ? 0.48 : 1,
                     boxShadow: hasDeal ? '0 0 12px rgba(251, 113, 133, 0.16)' : undefined,
                   }}
                 >
@@ -217,7 +286,7 @@ export function StoreModal({
                         ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-white'
                         : 'bg-transparent text-[var(--fg-muted)]',
                     ].join(' ')}>
-                      {busy ? '…' : soldOut ? '품절' : t('redeem')}
+                      {busy ? '…' : soldOut ? '품절' : canAfford ? t('redeem') : '같이 결제'}
                     </span>
                   </div>
                 </motion.button>
@@ -225,6 +294,143 @@ export function StoreModal({
             })}
           </div>
         </div>
+
+        {checkoutReward && (
+          <div className="border-t border-[var(--border)] bg-[var(--bg)] p-3">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <RewardIcon name={checkoutReward.icon} size={18} className="text-[var(--accent)]" />
+                    <h3 className="truncate text-sm font-bold text-[var(--fg)]">{checkoutReward.title}</h3>
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--fg-muted)]">
+                    결제 금액 <span className="font-bold text-[var(--accent)]">{checkoutCost}pt</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCheckout}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] text-[var(--fg-muted)]"
+                >
+                  <Icons.X size={15} />
+                </button>
+              </div>
+
+              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-[var(--bg)] p-1">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutMode('alone')}
+                  className={[
+                    'rounded-lg px-2 py-2 text-xs font-bold transition-colors',
+                    checkoutMode === 'alone'
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'text-[var(--fg-muted)]',
+                  ].join(' ')}
+                >
+                  혼자 결제하기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutMode('together')}
+                  disabled={jointPartners.length === 0}
+                  className={[
+                    'rounded-lg px-2 py-2 text-xs font-bold transition-colors disabled:opacity-40',
+                    checkoutMode === 'together'
+                      ? 'bg-rose-400 text-black'
+                      : 'text-[var(--fg-muted)]',
+                  ].join(' ')}
+                >
+                  같이 결제하기
+                </button>
+              </div>
+
+              {checkoutMode === 'alone' ? (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--fg-muted)]">
+                    {user.name} 잔액 {balance}pt
+                    {balance < checkoutCost && (
+                      <span className="ml-2 font-semibold text-rose-300">포인트가 부족해요</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { void handleRedeem(checkoutReward); }}
+                    disabled={redeeming === checkoutReward.id || balance < checkoutCost || checkoutSoldOut}
+                    className="h-11 w-full rounded-xl bg-[var(--accent)] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {redeeming === checkoutReward.id ? '결제 중…' : '결제'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">같이 결제할 가족</span>
+                    <select
+                      value={jointUserId}
+                      onChange={e => setJointUserId(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-sm outline-none"
+                    >
+                      {jointPartners.map(member => (
+                        <option key={member.id} value={member.id}>{member.name}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">{user.name}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={checkoutCost}
+                        value={userShare}
+                        onChange={e => setUserShare(Number(e.target.value))}
+                        className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-center text-sm font-bold outline-none"
+                      />
+                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">잔액 {balance}pt</span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">
+                        {jointPartner?.name ?? '가족'}
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={checkoutCost}
+                        value={partnerShare}
+                        onChange={e => setPartnerShare(Number(e.target.value))}
+                        className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-center text-sm font-bold outline-none"
+                      />
+                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">잔액 {jointPartnerBalance}pt</span>
+                    </label>
+                  </div>
+
+                  <div className={[
+                    'rounded-xl border px-3 py-2 text-xs',
+                    shareTotal === checkoutCost && !jointInvalid
+                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                      : 'border-rose-400/30 bg-rose-400/10 text-rose-300',
+                  ].join(' ')}>
+                    합계 {shareTotal}pt / 필요 {checkoutCost}pt
+                    {shareTotal !== checkoutCost && <span className="ml-2">합계가 맞아야 해요</span>}
+                    {balance < userShare && <span className="ml-2">{user.name} 잔액 부족</span>}
+                    {jointPartner && jointPartnerBalance < partnerShare && <span className="ml-2">{jointPartner.name} 잔액 부족</span>}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { void handleJointRedeem(checkoutReward); }}
+                    disabled={redeeming === checkoutReward.id || jointInvalid}
+                    className="h-11 w-full rounded-xl bg-rose-400 text-sm font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {redeeming === checkoutReward.id ? '결제 중…' : '결제'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
