@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { HeartHandshake, Store } from 'lucide-react';
+import { HeartHandshake, Mail, Store } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -11,6 +11,7 @@ import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
+import { ActivityFeedModal } from './ActivityFeedModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
@@ -65,9 +66,16 @@ export function MemberPanel({ user }: { user: User }) {
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const allUsers       = useFamilyStore(s => s.users);
+  const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? []);
 
   const [storeOpen, setStoreOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activityReadAt, setActivityReadAt] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    return Number(localStorage.getItem(`family_activity_read_at_${user.id}`) ?? 0);
+  });
+  const [recentCutoff] = useState(() => Date.now() - 24 * 60 * 60 * 1000);
   // Incremented on every open so StoreModal always mounts fresh.
   const [storeOpenKey, setStoreOpenKey] = useState(0);
   const [avatarVersion] = useState(() => Date.now());
@@ -77,6 +85,10 @@ export function MemberPanel({ user }: { user: User }) {
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
   const spendableBalance = level?.spendableBalance ?? 0;
+  const hasRecentUnreadActivity = activities.some(activity => {
+    const created = activity.createdAt.getTime();
+    return created >= recentCutoff && created > activityReadAt;
+  });
   const giftReceivers = allUsers
     .filter(member => member.id !== user.id)
     .sort((a, b) => a.displayOrder - b.displayOrder);
@@ -142,6 +154,15 @@ export function MemberPanel({ user }: { user: User }) {
     setStoreOpen(true);
   };
 
+  const openActivityFeed = () => {
+    const now = Date.now();
+    setActivityReadAt(now);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`family_activity_read_at_${user.id}`, String(now));
+    }
+    setActivityOpen(true);
+  };
+
   return (
     <>
       {storeOpen && (
@@ -159,6 +180,13 @@ export function MemberPanel({ user }: { user: User }) {
           receivers={giftReceivers}
           balance={spendableBalance}
           onClose={() => setGiftOpen(false)}
+        />
+      )}
+      {activityOpen && (
+        <ActivityFeedModal
+          user={user}
+          activities={activities}
+          onClose={() => setActivityOpen(false)}
         />
       )}
 
@@ -217,10 +245,25 @@ export function MemberPanel({ user }: { user: User }) {
               )}
               <span className="flex-1" />
               <button
-                onClick={openStore}
+                type="button"
+                onClick={openActivityFeed}
                 className="text-[11px] font-bold text-[var(--accent)] shrink-0"
+                title="편지함 및 기록"
+                aria-label="편지함 및 기록"
               >
                 💰{spendableBalance}pt
+              </button>
+              <button
+                type="button"
+                onClick={openActivityFeed}
+                className="relative h-7 w-7 rounded-full bg-[var(--accent-glow)] text-[var(--accent)] flex items-center justify-center shrink-0"
+                title="편지함 및 기록"
+                aria-label="편지함 및 기록"
+              >
+                <Mail size={14} />
+                {hasRecentUnreadActivity && (
+                  <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
+                )}
               </button>
               {giftReceivers.length > 0 && (
                 <button

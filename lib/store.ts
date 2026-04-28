@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Level, Badge, Task, User, Reward, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
+import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions } from './offlineQueue';
 
@@ -29,6 +29,7 @@ interface FamilyState {
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
   tasksByUser: Record<string, Task[]>;
+  activitiesByUser: Record<string, FamilyActivity[]>;
   levelsByUser: Record<string, Level>;
   todayCompletions: Record<string, string[]>;
   maxStreakByUser: Record<string, number>;
@@ -91,6 +92,19 @@ function mapRewardRow(row: Record<string, unknown>): Reward {
   };
 }
 
+function mapFamilyActivityRow(row: Record<string, unknown>): FamilyActivity {
+  return {
+    id: row.id as string,
+    familyId: row.family_id as string,
+    userId: row.user_id as string,
+    type: row.type as FamilyActivity['type'],
+    amount: Number(row.amount ?? 0),
+    relatedUserName: (row.related_user_name as string | null) ?? undefined,
+    message: (row.message as string | null) ?? undefined,
+    createdAt: new Date(row.created_at as string),
+  };
+}
+
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyId: null,
   familyName: null,
@@ -99,6 +113,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   currentMemberId: null,
   currentMemberCanAdmin: false,
   tasksByUser: {},
+  activitiesByUser: {},
   levelsByUser: {},
   todayCompletions: {},
   maxStreakByUser: {},
@@ -130,6 +145,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         currentMemberId: null,
         currentMemberCanAdmin: false,
         tasksByUser: {},
+        activitiesByUser: {},
         levelsByUser: {},
         todayCompletions: {},
       });
@@ -166,6 +182,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         currentMemberId: null,
         currentMemberCanAdmin: false,
         tasksByUser: {},
+        activitiesByUser: {},
         levelsByUser: {},
         todayCompletions: {},
       });
@@ -202,7 +219,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const userIds = (uRes.data ?? []).map((r: { id: string }) => r.id);
     const safeIds = userIds.length > 0 ? userIds : ['__no_match__'];
 
-    const [lRes, sRes, cTodayRes, cHistRes] = await Promise.all([
+    const [lRes, sRes, cTodayRes, cHistRes, aRes] = await Promise.all([
       supabase.from('levels').select('*').in('user_id', safeIds),
       supabase.from('streaks').select('*').in('user_id', safeIds),
       supabase.from('task_completions')
@@ -213,6 +230,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .select('user_id, task_id, completed_at')
         .in('user_id', safeIds)
         .gte('completed_at', fourteenDaysAgo.toISOString()),
+      supabase.from('family_activities')
+        .select('*')
+        .eq('family_id', resolvedFamilyId)
+        .in('user_id', safeIds)
+        .order('created_at', { ascending: false })
+        .limit(200),
     ]);
 
     const users: User[] = (uRes.data ?? []).map(r => ({
@@ -252,6 +275,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     });
 
     const tasksByUser: Record<string, Task[]> = {};
+    const activitiesByUser: Record<string, FamilyActivity[]> = {};
     const levelsByUser: Record<string, Level> = {};
     const todayCompletions: Record<string, string[]> = {};
     const maxStreakByUser: Record<string, number> = {};
@@ -291,6 +315,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .filter(t => t.userId === u.id && t.active === 1)
         .filter(t => t.daysOfWeek.includes(todayDowKey))
         .sort((a, b) => a.sortOrder - b.sortOrder);
+      activitiesByUser[u.id] = (aRes.data ?? [])
+        .map(row => mapFamilyActivityRow(row as Record<string, unknown>))
+        .filter(activity => activity.userId === u.id);
 
       const lvl = (lRes.data ?? []).find(r => r.user_id === u.id);
       if (lvl) {
@@ -361,6 +388,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       currentMemberId,
       currentMemberCanAdmin,
       tasksByUser,
+      activitiesByUser,
       levelsByUser,
       todayCompletions,
       maxStreakByUser,
@@ -650,6 +678,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     currentMemberId: null,
     currentMemberCanAdmin: false,
     tasksByUser: {},
+    activitiesByUser: {},
     levelsByUser: {},
     todayCompletions: {},
     maxStreakByUser: {},

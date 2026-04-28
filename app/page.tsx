@@ -64,8 +64,8 @@ export default function Dashboard() {
     setAuthReady(false);
     setAuthProfile({ email: null, avatarUrl: null });
     useFamilyStore.setState({
-      hydrated: false, familyId: null, familyName: null, users: [],
-      tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
+      hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
+      tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
     try {
       const supabase = createBrowserSupabase();
@@ -118,8 +118,8 @@ export default function Dashboard() {
       localStorage.clear();
     }
     useFamilyStore.setState({
-      hydrated: false, familyId: null, familyName: null, users: [],
-      tasksByUser: {}, levelsByUser: {}, todayCompletions: {},
+      hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
+      tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
     });
     router.replace('/login');
   };
