@@ -81,8 +81,11 @@ function mapRewardRow(row: Record<string, unknown>): Reward {
     title: (row.title ?? row.name ?? '') as string,
     cost_points: Number(row.cost_points ?? 0),
     icon: (row.icon ?? 'gift') as string,
+    sale_enabled: Boolean(row.sale_enabled),
     sale_percentage: normaliseSalePercentage(row.sale_percentage),
     sale_name: saleName,
+    is_hidden: Boolean(row.is_hidden),
+    is_sold_out: Boolean(row.is_sold_out),
   };
 }
 

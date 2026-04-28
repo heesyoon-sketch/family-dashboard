@@ -22,6 +22,7 @@ function RewardIcon({ name, size = 20, className }: { name: string; size?: numbe
 }
 
 function salePercentage(reward: Reward): number {
+  if (!reward.sale_enabled) return 0;
   const n = Math.round(Number(reward.sale_percentage ?? 0));
   if (!Number.isFinite(n)) return 0;
   return Math.min(100, Math.max(0, n));
@@ -90,6 +91,10 @@ export function StoreModal({
     });
 
     const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
+    if (latestReward.is_hidden || latestReward.is_sold_out) {
+      toast.error(latestReward.is_sold_out ? '품절된 보상입니다' : t('exchange_fail'));
+      return;
+    }
     const cost = discountedCost(latestReward);
     if (balance < cost) return;
 
@@ -106,6 +111,7 @@ export function StoreModal({
   };
 
   const loading = !hydrated || refreshing;
+  const visibleRewards = rewards.filter(reward => !reward.is_hidden);
 
   return (
     <div
@@ -132,21 +138,22 @@ export function StoreModal({
         </div>
 
         <div className="overflow-y-auto p-3">
-          {loading && rewards.length === 0 && (
+          {loading && visibleRewards.length === 0 && (
             <div className="text-center text-[var(--fg-muted)] py-8 text-sm">{t('loading')}</div>
           )}
-          {!loading && rewards.length === 0 && (
+          {!loading && visibleRewards.length === 0 && (
             <div className="text-center text-[var(--fg-muted)] py-8 text-sm">
               {t('no_rewards')}
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            {rewards.map(r => {
+            {visibleRewards.map(r => {
               const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
               const pct = salePercentage(r);
               const hasDeal = pct > 0;
               const cost = discountedCost({ ...r, title: itemTitle });
-              const canAfford = balance >= cost;
+              const soldOut = Boolean(r.is_sold_out);
+              const canAfford = !soldOut && balance >= cost;
               const busy = redeeming === r.id;
 
               return (
@@ -180,7 +187,12 @@ export function StoreModal({
                       <div className="font-semibold text-xs text-[var(--fg)] leading-tight line-clamp-2">
                         {itemTitle}
                       </div>
-                      {hasDeal && (
+                      {soldOut && (
+                        <div className="inline-flex max-w-full rounded-full bg-zinc-500/20 px-1.5 py-0.5 text-[9px] font-bold text-zinc-300 leading-tight mt-1 truncate">
+                          품절
+                        </div>
+                      )}
+                      {!soldOut && hasDeal && (
                         <div className="inline-flex max-w-full rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-300 leading-tight mt-1 truncate">
                           {saleLabel(r)}
                         </div>
@@ -205,7 +217,7 @@ export function StoreModal({
                         ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-white'
                         : 'bg-transparent text-[var(--fg-muted)]',
                     ].join(' ')}>
-                      {busy ? '…' : t('redeem')}
+                      {busy ? '…' : soldOut ? '품절' : t('redeem')}
                     </span>
                   </div>
                 </motion.button>

@@ -61,8 +61,11 @@ export interface Reward {
   title: string;
   cost_points: number;
   icon: string;
+  sale_enabled?: boolean;
   sale_percentage?: number;
   sale_name?: string;
+  is_hidden?: boolean;
+  is_sold_out?: boolean;
 }
 
 export interface TaskCompletion {

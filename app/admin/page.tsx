@@ -244,6 +244,20 @@ function IconPicker({
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'not_found';
 
+interface RewardRedemption {
+  id: string;
+  user_id: string;
+  user_name: string;
+  reward_id: string;
+  reward_title: string;
+  reward_icon: string;
+  cost_charged: number;
+  redeemed_at: string;
+  refunded_at?: string | null;
+  refunded_by?: string | null;
+  refund_reason?: string | null;
+}
+
 function normaliseSalePercentage(value: unknown): number {
   const n = Math.round(Number(value ?? 0));
   if (!Number.isFinite(n)) return 0;
@@ -259,9 +273,39 @@ function mapReward(row: Record<string, unknown>): Reward {
     title: (row.title ?? row.name ?? '') as string,
     cost_points: Number(row.cost_points ?? 0),
     icon: (row.icon ?? 'gift') as string,
+    sale_enabled: Boolean(row.sale_enabled),
     sale_percentage: normaliseSalePercentage(row.sale_percentage),
     sale_name: saleName,
+    is_hidden: Boolean(row.is_hidden),
+    is_sold_out: Boolean(row.is_sold_out),
   };
+}
+
+function mapRewardRedemption(row: Record<string, unknown>): RewardRedemption {
+  return {
+    id: row.id as string,
+    user_id: row.user_id as string,
+    user_name: (row.user_name ?? '') as string,
+    reward_id: row.reward_id as string,
+    reward_title: (row.reward_title ?? '') as string,
+    reward_icon: (row.reward_icon ?? 'gift') as string,
+    cost_charged: Number(row.cost_charged ?? 0),
+    redeemed_at: row.redeemed_at as string,
+    refunded_at: (row.refunded_at as string | null) ?? null,
+    refunded_by: (row.refunded_by as string | null) ?? null,
+    refund_reason: (row.refund_reason as string | null) ?? null,
+  };
+}
+
+function formatShortDateTime(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function withAvatarCache(url: string | undefined, version: number): string | undefined {
@@ -329,6 +373,8 @@ export default function AdminPage() {
   const [rewardCostDrafts, setRewardCostDrafts] = useState<Record<string, number>>({});
   const [rewardSalePercentageDrafts, setRewardSalePercentageDrafts] = useState<Record<string, number>>({});
   const [rewardSaleNameDrafts, setRewardSaleNameDrafts] = useState<Record<string, string>>({});
+  const [rewardRedemptions, setRewardRedemptions] = useState<RewardRedemption[]>([]);
+  const [refundInFlightId, setRefundInFlightId] = useState<string | null>(null);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [familyInviteCode, setFamilyInviteCode] = useState<string | null>(null);
   // Admin PIN management
@@ -364,6 +410,20 @@ export default function AdminPage() {
     }));
   };
   const router = useRouter();
+
+  async function loadRewardRedemptions() {
+    const supabase = createBrowserSupabase();
+    const { data, error } = await supabase.rpc('admin_list_reward_redemptions', {
+      p_limit: 80,
+    });
+    if (error) {
+      console.warn('Failed to load reward redemptions', error);
+      return;
+    }
+    setRewardRedemptions(Array.isArray(data)
+      ? data.map(row => mapRewardRedemption(row as Record<string, unknown>))
+      : []);
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -413,6 +473,7 @@ export default function AdminPage() {
       }));
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
+      await loadRewardRedemptions();
       const [{ data: parentAllowed }, { data: ownerAllowed }] = await Promise.all([
         supabase.rpc('is_my_family_parent'),
         supabase.rpc('is_family_owner'),
@@ -1006,6 +1067,9 @@ export default function AdminPage() {
         p_sale_percentage: nextSalePercentage,
         p_sale_name: nextSaleName,
         p_icon: previous.icon,
+        p_sale_enabled: Boolean(previous.sale_enabled),
+        p_is_hidden: Boolean(previous.is_hidden),
+        p_is_sold_out: Boolean(previous.is_sold_out),
       });
 
       if (error) {
@@ -1059,6 +1123,9 @@ export default function AdminPage() {
       p_sale_percentage: normaliseSalePercentage(previous.sale_percentage ?? 0),
       p_sale_name: previous.sale_name?.trim() || null,
       p_icon: previous.icon,
+      p_sale_enabled: Boolean(previous.sale_enabled),
+      p_is_hidden: Boolean(previous.is_hidden),
+      p_is_sold_out: Boolean(previous.is_sold_out),
     });
 
     if (response.error) {
@@ -1124,6 +1191,9 @@ export default function AdminPage() {
       p_sale_percentage: nextSalePercentage,
       p_sale_name: nextSaleName ?? null,
       p_icon: previous.icon,
+      p_sale_enabled: Boolean(previous.sale_enabled),
+      p_is_hidden: Boolean(previous.is_hidden),
+      p_is_sold_out: Boolean(previous.is_sold_out),
     });
 
     if (response.error || !response.data) {
@@ -1186,6 +1256,9 @@ export default function AdminPage() {
       p_sale_percentage: normaliseSalePercentage(previous.sale_percentage ?? 0),
       p_sale_name: previous.sale_name?.trim() || null,
       p_icon: icon,
+      p_sale_enabled: Boolean(previous.sale_enabled),
+      p_is_hidden: Boolean(previous.is_hidden),
+      p_is_sold_out: Boolean(previous.is_sold_out),
     });
 
     if (response.error || !response.data) {
@@ -1213,6 +1286,94 @@ export default function AdminPage() {
         return { ...prev, [rewardId]: 'idle' };
       });
     }, 1500);
+  };
+
+  const updateRewardFlags = async (
+    rewardId: string,
+    patch: Partial<Pick<Reward, 'sale_enabled' | 'is_hidden' | 'is_sold_out'>>,
+  ) => {
+    const previous = rewards.find(r => r.id === rewardId);
+    if (!previous) return;
+
+    const nextSalePercentage = patch.sale_enabled === true && normaliseSalePercentage(previous.sale_percentage ?? 0) === 0
+      ? 10
+      : normaliseSalePercentage(previous.sale_percentage ?? 0);
+    const next: Reward = { ...previous, ...patch, sale_percentage: nextSalePercentage };
+    if (
+      Boolean(previous.sale_enabled) === Boolean(next.sale_enabled) &&
+      Boolean(previous.is_hidden) === Boolean(next.is_hidden) &&
+      Boolean(previous.is_sold_out) === Boolean(next.is_sold_out)
+    ) return;
+
+    setSavingRewardId(rewardId);
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saving' }));
+    setRewards(prev => prev.map(r => r.id === rewardId ? next : r));
+
+    const supabase = createBrowserSupabase();
+    const response = await supabase.rpc('admin_update_reward', {
+      p_reward_id: rewardId,
+      p_title: previous.title,
+      p_cost_points: previous.cost_points,
+      p_sale_percentage: nextSalePercentage,
+      p_sale_name: previous.sale_name?.trim() || null,
+      p_icon: previous.icon,
+      p_sale_enabled: Boolean(next.sale_enabled),
+      p_is_hidden: Boolean(next.is_hidden),
+      p_is_sold_out: Boolean(next.is_sold_out),
+    });
+
+    if (response.error || !response.data) {
+      setRewards(prev => prev.map(r => r.id === rewardId ? previous : r));
+      setRewardSaveStatus(prev => ({ ...prev, [rewardId]: response.error ? 'error' : 'not_found' }));
+      setSavingRewardId(null);
+      toast.error(`${t('reward_save_failed')}: ${response.error?.message ?? `NOT FOUND (${rewardId})`}`);
+      return;
+    }
+
+    const saved = mapReward(response.data as Record<string, unknown>);
+    setRewards(prev => prev.map(r => r.id === rewardId ? saved : r).sort((a, b) => a.cost_points - b.cost_points));
+    setRewardSalePercentageDrafts(prev => ({ ...prev, [rewardId]: saved.sale_percentage ?? 0 }));
+    setRewardSaleNameDrafts(prev => ({ ...prev, [rewardId]: saved.sale_name ?? '' }));
+    setRewardSaveStatus(prev => ({ ...prev, [rewardId]: 'saved' }));
+    setSavingRewardId(null);
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+
+    setTimeout(() => {
+      setRewardSaveStatus(prev => {
+        if (prev[rewardId] !== 'saved') return prev;
+        return { ...prev, [rewardId]: 'idle' };
+      });
+    }, 1500);
+  };
+
+  const refundRedemption = async (redemption: RewardRedemption) => {
+    if (refundInFlightId || redemption.refunded_at) return;
+    const confirmed = confirm(
+      `${redemption.user_name}의 "${redemption.reward_title}" 구매를 환불할까요?\n\n${redemption.cost_charged}pt가 다시 지급됩니다.`
+    );
+    if (!confirmed) return;
+
+    setRefundInFlightId(redemption.id);
+    const supabase = createBrowserSupabase();
+    const { error } = await supabase.rpc('admin_refund_reward_redemption', {
+      p_redemption_id: redemption.id,
+      p_reason: 'admin_refund',
+    });
+
+    if (error) {
+      setRefundInFlightId(null);
+      toast.error(`환불 실패: ${error.message}`);
+      return;
+    }
+
+    await loadRewardRedemptions();
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+    setRefundInFlightId(null);
+    toast.success('환불 완료');
   };
 
   const startEditName = (user: User) => {
@@ -2134,7 +2295,17 @@ export default function AdminPage() {
                           <span className="block font-medium text-sm truncate">{r.title}</span>
                           {(r.sale_percentage ?? 0) > 0 && (
                             <span className="inline-flex mt-1 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
-                              {r.sale_name?.trim() || `${r.sale_percentage}% OFF`}
+                              {r.sale_enabled ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`) : `세일 꺼짐 · ${r.sale_percentage}%`}
+                            </span>
+                          )}
+                          {r.is_hidden && (
+                            <span className="inline-flex mt-1 ml-1 rounded-full bg-zinc-500/20 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+                              숨김
+                            </span>
+                          )}
+                          {r.is_sold_out && (
+                            <span className="inline-flex mt-1 ml-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                              품절
                             </span>
                           )}
                         </div>
@@ -2214,6 +2385,48 @@ export default function AdminPage() {
                           className="min-w-[140px] flex-1 rounded-lg bg-[#1a1f2a] text-white px-3 text-sm outline-none border border-[#232831] focus:border-[#4f9cff]"
                           style={{ minHeight: 44 }}
                         />
+                        <button
+                          type="button"
+                          onClick={() => { void updateRewardFlags(r.id, { sale_enabled: !r.sale_enabled }); }}
+                          disabled={savingRewardId === r.id}
+                          className={[
+                            'px-3 rounded-lg text-xs font-semibold border shrink-0 disabled:opacity-50 disabled:cursor-not-allowed',
+                            r.sale_enabled
+                              ? 'bg-rose-400/15 text-rose-300 border-rose-400/30'
+                              : 'bg-[#1a1f2a] text-[#8a8f99] border-[#232831]',
+                          ].join(' ')}
+                          style={{ minHeight: 44 }}
+                        >
+                          세일 {r.sale_enabled ? 'ON' : 'OFF'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { void updateRewardFlags(r.id, { is_hidden: !r.is_hidden }); }}
+                          disabled={savingRewardId === r.id}
+                          className={[
+                            'px-3 rounded-lg text-xs font-semibold border shrink-0 disabled:opacity-50 disabled:cursor-not-allowed',
+                            r.is_hidden
+                              ? 'bg-zinc-500/20 text-zinc-200 border-zinc-400/30'
+                              : 'bg-[#1a1f2a] text-[#8a8f99] border-[#232831]',
+                          ].join(' ')}
+                          style={{ minHeight: 44 }}
+                        >
+                          {r.is_hidden ? '숨김' : '공개'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { void updateRewardFlags(r.id, { is_sold_out: !r.is_sold_out }); }}
+                          disabled={savingRewardId === r.id}
+                          className={[
+                            'px-3 rounded-lg text-xs font-semibold border shrink-0 disabled:opacity-50 disabled:cursor-not-allowed',
+                            r.is_sold_out
+                              ? 'bg-amber-400/15 text-amber-300 border-amber-400/30'
+                              : 'bg-[#1a1f2a] text-[#8a8f99] border-[#232831]',
+                          ].join(' ')}
+                          style={{ minHeight: 44 }}
+                        >
+                          {r.is_sold_out ? '품절' : '재고'}
+                        </button>
                         <span className="w-5 text-center text-xs shrink-0">
                           {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
                             ? '…'
@@ -2286,6 +2499,59 @@ export default function AdminPage() {
                   >
                     {t('add')}
                   </button>
+                </div>
+              </div>
+
+              <div className="border-t border-[#232831] mt-6 pt-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="text-sm font-semibold text-[#8a8f99]">구매 내역</h3>
+                  <button
+                    type="button"
+                    onClick={() => { void loadRewardRedemptions(); }}
+                    className="px-3 py-2 rounded-lg bg-[#232831] text-[#8a8f99] hover:text-white hover:bg-[#2d3545] text-xs font-semibold transition-colors"
+                  >
+                    새로고침
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {rewardRedemptions.map(redemption => {
+                    const refunded = Boolean(redemption.refunded_at);
+                    return (
+                      <div
+                        key={redemption.id}
+                        className="flex flex-wrap items-center gap-2 rounded-xl bg-[#232831] p-3"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
+                          <LucideIcon name={redemption.reward_icon} size={18} />
+                        </div>
+                        <div className="min-w-[160px] flex-1">
+                          <div className="text-sm font-semibold text-white truncate">
+                            {redemption.reward_title}
+                          </div>
+                          <div className="text-xs text-[#8a8f99]">
+                            {redemption.user_name} · {formatShortDateTime(redemption.redeemed_at)} · {redemption.cost_charged}pt
+                          </div>
+                          {refunded && (
+                            <div className="text-[11px] text-[#3ddc97] mt-0.5">
+                              환불됨 · {redemption.refunded_at ? formatShortDateTime(redemption.refunded_at) : ''}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { void refundRedemption(redemption); }}
+                          disabled={refunded || refundInFlightId === redemption.id}
+                          className="px-3 rounded-lg bg-[#1a1f2a] text-[#8a8f99] text-xs font-semibold border border-[#232831] hover:border-[#3ddc97]/50 hover:text-[#3ddc97] disabled:opacity-40 disabled:hover:text-[#8a8f99] disabled:hover:border-[#232831] disabled:cursor-not-allowed transition-colors"
+                          style={{ minHeight: 40 }}
+                        >
+                          {refundInFlightId === redemption.id ? '처리중…' : refunded ? '환불 완료' : '환불'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {rewardRedemptions.length === 0 && (
+                    <p className="text-[#8a8f99] text-center py-4 text-sm">아직 구매 내역이 없습니다</p>
+                  )}
                 </div>
               </div>
             </div>
