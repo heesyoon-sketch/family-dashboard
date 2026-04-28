@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Coins, HeartHandshake, Mail, Store } from 'lucide-react';
+import { HeartHandshake, Mail, Store } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -277,12 +277,12 @@ export function MemberPanel({ user }: { user: User }) {
 
             <ProgressRing pct={pct} size={34} />
 
-            <div className="grid w-[min(42vw,152px)] shrink-0 grid-cols-4 gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={() => setGiftOpen(true)}
                 disabled={giftReceivers.length === 0}
-                className="grid h-8 min-w-0 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35"
                 title={t('gift')}
                 aria-label={t('gift')}
               >
@@ -291,7 +291,7 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openStore}
-                className="grid h-8 min-w-0 place-items-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-gray-950 transition hover:brightness-95"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-gray-950 transition hover:brightness-95"
                 title={t('store')}
                 aria-label={t('store')}
               >
@@ -300,7 +300,7 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openActivityFeed}
-                className="relative grid h-8 min-w-0 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105"
+                className="relative grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105"
                 title={t('mailbox_history')}
                 aria-label={t('mailbox_history')}
               >
@@ -310,12 +310,12 @@ export function MemberPanel({ user }: { user: User }) {
                 )}
               </button>
               <div
-                className="flex h-8 min-w-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] px-1 text-[11px] font-black leading-none text-[var(--accent)]"
+                className="flex h-8 min-w-[58px] items-center justify-end text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)]"
                 title={lang === 'en' ? 'Current points' : '현재 포인트'}
                 aria-label={lang === 'en' ? 'Current points' : '현재 포인트'}
               >
-                <Coins size={12} className="mr-0.5 shrink-0" />
-                <span className="max-w-full truncate">{spendableBalance}</span>
+                <span>{spendableBalance}</span>
+                <span className="ml-0.5 text-[9px] font-bold text-[var(--fg-muted)]">pt</span>
               </div>
             </div>
           </div>
