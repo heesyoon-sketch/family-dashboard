@@ -58,6 +58,7 @@ body {
   --accent: #4f9cff;
   --accent-glow: rgba(79, 156, 255, 0.22);
   --success: #3ddc97;
+  --success-ring: #3ddc97;
   --border: #232831;
   --shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
@@ -74,6 +75,7 @@ body {
   --accent: #c86a45;
   --accent-glow: rgba(200, 106, 69, 0.16);
   --success: #7cb342;
+  --success-ring: #16a34a;
   --border: rgba(218, 202, 185, 0.54);
   --shadow: 0 8px 24px rgba(86, 64, 45, 0.06);
 }
@@ -90,6 +92,7 @@ body {
   --accent: #00e5ff;
   --accent-glow: rgba(0, 229, 255, 0.35);
   --success: #39ff88;
+  --success-ring: #39ff88;
   --border: #1e2a55;
   --shadow: 0 0 24px rgba(0, 229, 255, 0.25);
 }
@@ -106,6 +109,7 @@ body {
   --accent: #f47295;
   --accent-glow: rgba(244, 114, 149, 0.16);
   --success: #a0e7c5;
+  --success-ring: #16a34a;
   --border: rgba(244, 194, 209, 0.55);
   --shadow: 0 8px 24px rgba(190, 77, 113, 0.07);
 }
