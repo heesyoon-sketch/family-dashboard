@@ -100,13 +100,8 @@ export type TranslationKey =
   | 'danger_zone_confirm'
   | 'danger_zone_delete_failed'
   | 'feedback'
-  | 'mailbox'
   | 'mailbox_history'
-  | 'gift'
-  | 'current_tasks'
-  | 'all_tasks'
-  | 'completed_tasks'
-  | 'no_completed_tasks';
+  | 'gift';
 
 const DICT: Record<Lang, Record<TranslationKey, string>> = {
   ko: {
@@ -205,13 +200,8 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     danger_zone_confirm: '이 작업은 되돌릴 수 없습니다. 모든 가족 구성원, 습관, 보상 데이터가 영구적으로 삭제됩니다. 정말 삭제하시겠습니까?',
     danger_zone_delete_failed: '가족 데이터 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.',
     feedback: '의견',
-    mailbox: '편지함',
     mailbox_history: '편지함 및 기록',
     gift: '선물',
-    current_tasks: '지금',
-    all_tasks: '전체',
-    completed_tasks: '완료',
-    no_completed_tasks: '오늘 완료한 일이 없어요',
   },
   en: {
     new_record: 'New Record!',
@@ -309,13 +299,8 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     danger_zone_confirm: 'This cannot be undone. All family members, habits, and reward data will be permanently deleted. Are you sure?',
     danger_zone_delete_failed: 'Failed to delete family data. Please try again.',
     feedback: 'Feedback',
-    mailbox: 'Mailbox',
     mailbox_history: 'Mailbox & History',
     gift: 'Gift',
-    current_tasks: 'Now',
-    all_tasks: 'All',
-    completed_tasks: 'Done',
-    no_completed_tasks: 'Nothing completed today',
   },
 };
 

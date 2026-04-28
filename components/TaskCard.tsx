@@ -38,17 +38,7 @@ function nextCompletionStreak(task: Task, completed: boolean): number {
   return 1;
 }
 
-export function TaskCard({
-  task,
-  completed,
-  theme,
-  disabled = false,
-}: {
-  task: Task;
-  completed: boolean;
-  theme: ThemeName;
-  disabled?: boolean;
-}) {
+export function TaskCard({ task, completed, theme }: { task: Task; completed: boolean; theme: ThemeName }) {
   const { lang, t } = useLanguage();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
@@ -85,7 +75,7 @@ export function TaskCard({
   };
 
   const fireComplete = async (clientX?: number, clientY?: number) => {
-    if (busy || disabled) return;
+    if (busy) return;
     setBusy(true);
     if (completed) {
       await undoCompletion(task.userId, task.id);
@@ -97,7 +87,6 @@ export function TaskCard({
   };
 
   const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
-    if (disabled) return;
     if (info.offset.x >= SWIPE_TRIGGER_PX) {
       animate(x, 300, { duration: 0.25, onComplete: fireComplete });
     } else {
@@ -106,7 +95,6 @@ export function TaskCard({
   };
 
   const handleTap = (event: MouseEvent | TouchEvent | PointerEvent) => {
-    if (disabled) return;
     const now = Date.now();
     if (now - tappedAt.current < 300) return;
     tappedAt.current = now;
@@ -157,18 +145,17 @@ export function TaskCard({
           ring-1 ring-inset paints inside the border-box → zero layout contribution.
           Both states (active/completed) carry a ring, so box-model is always identical. */}
       <motion.div
-        drag={completed || disabled ? false : 'x'}
+        drag={completed ? false : 'x'}
         dragConstraints={{ left: 0, right: SWIPE_TRIGGER_PX + 60 }}
         dragElastic={0.15}
         onDragEnd={handleDragEnd}
-        onTap={disabled ? undefined : handleTap}
+        onTap={handleTap}
         style={{ x, ...glowStyle }}
-        whileTap={disabled ? undefined : { scale: 0.92 }}
+        whileTap={{ scale: 0.92 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
-          'px-3.5 py-2.5 flex items-center gap-3',
+          'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
-          disabled ? 'cursor-not-allowed opacity-55' : 'cursor-pointer',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
         ].join(' ')}

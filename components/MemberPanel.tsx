@@ -15,7 +15,6 @@ import { ActivityFeedModal } from './ActivityFeedModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED']);
-type TaskView = 'current' | 'all' | 'done';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -74,7 +73,6 @@ export function MemberPanel({ user }: { user: User }) {
   const [storeOpen, setStoreOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  const [taskView, setTaskView] = useState<TaskView>('current');
   const [activityReadAt, setActivityReadAt] = useState(() => {
     if (typeof window === 'undefined') return 0;
     return Number(localStorage.getItem(`family_activity_read_at_${user.id}`) ?? 0);
@@ -105,14 +103,8 @@ export function MemberPanel({ user }: { user: User }) {
     return true;
   };
   const currentTasks = tasks.filter(isTaskCurrent);
-  const visibleTasks = taskView === 'current'
-    ? currentTasks
-    : taskView === 'done'
-      ? tasks.filter(task => completed.includes(task.id))
-      : tasks;
-
   // Incomplete first, completed sink to bottom. Stable within each group (original index order).
-  const sortedTasks = [...visibleTasks].sort((a, b) => {
+  const sortedTasks = [...currentTasks].sort((a, b) => {
     const aDone = completed.includes(a.id) ? 1 : 0;
     const bDone = completed.includes(b.id) ? 1 : 0;
     return aDone - bDone;
@@ -213,128 +205,103 @@ export function MemberPanel({ user }: { user: User }) {
         }}
       >
         {/* ── Header ── */}
-        <header className="flex items-center gap-2.5 mb-3 shrink-0">
-
-          <div className="relative w-10 h-10 shrink-0">
-            {avatarSrc ? (
-              <Image
-                src={avatarSrc}
-                alt={user.name}
-                width={40}
-                height={40}
-                referrerPolicy="no-referrer"
-                className="w-10 h-10 rounded-xl shrink-0 object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-xl bg-[var(--bg-card)] flex items-center justify-center text-base font-bold text-[var(--accent)] shrink-0 select-none">
-                {user.name[0]}
-              </div>
-            )}
-          </div>
-
-          {/* Middle: name + stats + XP bar */}
-          <div className="flex-1 min-w-0">
-
-            {/* Row 1: Name + motive */}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <h2 className="text-base font-bold leading-tight truncate shrink-0">{user.name}</h2>
-              {motiveMsg && (
-                <span className="text-[11px] font-semibold text-[var(--accent)] truncate">{motiveMsg}</span>
+        <header className="mb-3 shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]/80 p-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="relative h-11 w-11 shrink-0">
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt={user.name}
+                  width={44}
+                  height={44}
+                  referrerPolicy="no-referrer"
+                  className="h-11 w-11 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent-glow)] text-lg font-bold text-[var(--accent)] select-none">
+                  {user.name[0]}
+                </div>
               )}
             </div>
 
-            {/* Row 2: compact stats + balance + store */}
-            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-              <span className="text-[11px] text-[var(--fg-muted)] truncate">
-                Lv.{level?.currentLevel ?? 1} · {level?.totalPoints ?? 0}pt
-              </span>
-              {maxStreak > 0 && (
-                <span className="text-[11px] font-bold text-[var(--accent)]">· 🔥{maxStreak}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <h2 className="min-w-0 truncate text-lg font-bold leading-tight">{user.name}</h2>
+                {motiveMsg && (
+                  <span className="shrink truncate rounded-full bg-[var(--accent-glow)] px-2 py-0.5 text-[11px] font-bold text-[var(--accent)]">
+                    {motiveMsg}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--fg-muted)]">
+                <span className="shrink-0">Lv.{level?.currentLevel ?? 1}</span>
+                <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
+                <span className="truncate">{level?.totalPoints ?? 0}pt</span>
+                {maxStreak > 0 && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
+                    <span className="shrink-0 text-[var(--accent)]">🔥{maxStreak}</span>
+                  </>
+                )}
+                {growth !== null && growth > 0 && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
+                    <span className="shrink-0">📈{growth}%</span>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                <div
+                  className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+                  style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <ProgressRing pct={pct} size={40} />
+          </div>
+
+          <div className={[
+            'mt-2 grid gap-1.5',
+            giftReceivers.length > 0 ? 'grid-cols-3' : 'grid-cols-2',
+          ].join(' ')}>
+            <button
+              type="button"
+              onClick={openActivityFeed}
+              className="relative flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-[11px] font-bold text-[var(--accent)] transition hover:brightness-105"
+              title={t('mailbox_history')}
+              aria-label={t('mailbox_history')}
+            >
+              <Mail size={13} />
+              <span className="min-w-0 truncate">💰{spendableBalance}pt</span>
+              {hasRecentUnreadActivity && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
               )}
-              {growth !== null && growth > 0 && (
-                <span className="text-[11px] text-[var(--fg-muted)]">· 📈{growth}%</span>
-              )}
-              <span className="flex-1" />
+            </button>
+            {giftReceivers.length > 0 && (
               <button
                 type="button"
-                onClick={openActivityFeed}
-                className="text-[11px] font-bold text-[var(--accent)] shrink-0"
-                title={t('mailbox_history')}
-                aria-label={t('mailbox_history')}
+                onClick={() => setGiftOpen(true)}
+                className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-[11px] font-bold text-[var(--fg)] transition hover:brightness-105"
+                title={t('gift')}
+                aria-label={t('gift')}
               >
-                💰{spendableBalance}pt
+                <HeartHandshake size={13} className="text-rose-300" />
+                <span className="min-w-0 truncate">{t('gift')}</span>
               </button>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={openActivityFeed}
-                  className="relative h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
-                  title={t('mailbox_history')}
-                  aria-label={t('mailbox_history')}
-                >
-                  <Mail size={13} />
-                  <span>{t('mailbox')}</span>
-                  {hasRecentUnreadActivity && (
-                    <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
-                  )}
-                </button>
-                {giftReceivers.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setGiftOpen(true)}
-                    className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
-                    title={t('gift')}
-                    aria-label={t('gift')}
-                  >
-                    <HeartHandshake size={13} />
-                    <span>{t('gift')}</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={openStore}
-                  className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
-                >
-                  <Store size={13} />
-                  <span>{t('store')}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Row 3: XP bar */}
-            <div className="h-1 rounded-full bg-[var(--border)] mt-1.5 overflow-hidden">
-              <div
-                className="h-full bg-[var(--accent)] transition-[width] duration-500"
-                style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Progress ring */}
-          <ProgressRing pct={pct} size={36} />
-        </header>
-
-        <div className="mb-2 grid h-8 shrink-0 grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1">
-          {([
-            { key: 'current', label: t('current_tasks') },
-            { key: 'all', label: t('all_tasks') },
-            { key: 'done', label: t('completed_tasks') },
-          ] as const).map(option => (
+            )}
             <button
-              key={option.key}
               type="button"
-              onClick={() => setTaskView(option.key)}
-              className={[
-                'rounded-lg text-[11px] font-bold leading-none transition-colors',
-                taskView === option.key
-                  ? 'bg-[var(--accent)] text-gray-950'
-                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-              ].join(' ')}
+              onClick={openStore}
+              className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--accent)] px-2 text-[11px] font-bold text-gray-950 transition hover:brightness-95"
             >
-              {option.label}
+              <Store size={13} />
+              <span className="min-w-0 truncate">{t('store')}</span>
             </button>
-          ))}
-        </div>
+          </div>
+        </header>
 
         {/* Positioning context for gradient + badge overlays */}
         <div className="relative flex-1" style={{ minHeight: 0 }}>
@@ -347,11 +314,11 @@ export function MemberPanel({ user }: { user: User }) {
           >
             <motion.div
               layout
-              className="grid grid-cols-2 gap-2 auto-rows-[76px] md:auto-rows-[80px]"
+              className="grid grid-cols-2 gap-2 auto-rows-[76px] pb-14 md:auto-rows-[80px]"
             >
               {sortedTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
-                  {taskView === 'done' ? t('no_completed_tasks') : t('no_tasks_today')}
+                  {t('no_tasks_today')}
                 </div>
               )}
               {sortedTasks.map((task, i) => (
@@ -365,7 +332,6 @@ export function MemberPanel({ user }: { user: User }) {
                     task={task}
                     completed={completed.includes(task.id)}
                     theme={user.theme}
-                    disabled={!isTaskCurrent(task) && !completed.includes(task.id)}
                   />
                 </motion.div>
               ))}
