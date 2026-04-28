@@ -11,6 +11,7 @@ const QUICK_MESSAGES = [
   '👍 도와줘서 고마워!',
   '🔥 조금만 더 힘내!',
   '❤️ 사랑해!',
+  '🙏 미안해!',
   '🎁 깜짝 선물이야!',
 ];
 
@@ -38,6 +39,8 @@ export function WarmGiftModal({
   const [receiverId, setReceiverId] = useState(receivers[0]?.id ?? '');
   const [amount, setAmount] = useState(10);
   const [message, setMessage] = useState(QUICK_MESSAGES[0]);
+  const [customMessage, setCustomMessage] = useState('');
+  const [usingCustomMessage, setUsingCustomMessage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const receiver = useMemo(
@@ -45,13 +48,14 @@ export function WarmGiftModal({
     [receiverId, receivers],
   );
   const safeAmount = Math.max(1, Math.round(amount) || 1);
-  const canSubmit = Boolean(receiver) && safeAmount > 0 && safeAmount <= balance && !submitting;
+  const finalMessage = usingCustomMessage ? customMessage.trim() : message;
+  const canSubmit = Boolean(receiver) && safeAmount > 0 && safeAmount <= balance && finalMessage.length > 0 && !submitting;
 
   const submit = async () => {
     if (!canSubmit || !receiver) return;
     setSubmitting(true);
     try {
-      await transferPoints(sender.id, receiver.id, safeAmount, message);
+      await transferPoints(sender.id, receiver.id, safeAmount, finalMessage);
       fireWarmConfetti();
       toast.success(`${receiver.name}에게 ${safeAmount}pt를 보냈어요`);
       onClose();
@@ -126,10 +130,13 @@ export function WarmGiftModal({
                 <button
                   key={option}
                   type="button"
-                  onClick={() => setMessage(option)}
+                  onClick={() => {
+                    setUsingCustomMessage(false);
+                    setMessage(option);
+                  }}
                   className={[
                     'rounded-xl border px-3 py-2 text-left text-sm transition-colors',
-                    message === option
+                    !usingCustomMessage && message === option
                       ? 'border-rose-300/50 bg-rose-300/15 text-[var(--fg)]'
                       : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--fg-muted)]',
                   ].join(' ')}
@@ -138,6 +145,26 @@ export function WarmGiftModal({
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => setUsingCustomMessage(value => !value)}
+              className={[
+                'mt-2 text-xs font-semibold transition-colors',
+                usingCustomMessage ? 'text-rose-300' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+              ].join(' ')}
+            >
+              직접 메시지 쓰기
+            </button>
+            {usingCustomMessage && (
+              <input
+                type="text"
+                value={customMessage}
+                onChange={e => setCustomMessage(e.target.value)}
+                maxLength={60}
+                placeholder="예: 오늘 속상하게 해서 미안해"
+                className="mt-2 h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--fg)] placeholder:text-[var(--fg-muted)] outline-none focus:border-rose-300/60"
+              />
+            )}
           </div>
 
           <button
