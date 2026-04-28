@@ -23,7 +23,7 @@ html, body {
 
 body {
   font-family: var(--font-display);
-  background: #000;
+  background: #0f172a;
   font-size: 18px;
 }
 
@@ -44,6 +44,9 @@ body {
 [data-theme="dark_minimal"] {
   --bg: #0b0d12;
   --bg-card: #141821;
+  --task-card-bg: #141821;
+  --task-card-border: #232831;
+  --task-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.34);
   --fg: #e8eaed;
   --fg-muted: #8a8f99;
   --accent: #4f9cff;
@@ -55,21 +58,27 @@ body {
 
 /* 엄마 — Warm Minimal */
 [data-theme="warm_minimal"] {
-  --bg: #faf6f0;
-  --bg-card: #ffffff;
-  --fg: #2a2420;
-  --fg-muted: #7a6e63;
-  --accent: #d97757;
-  --accent-glow: rgba(217, 119, 87, 0.22);
+  --bg: #fcf9f6;
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --task-card-bg: rgba(255, 255, 255, 0.68);
+  --task-card-border: rgba(255, 255, 255, 0.74);
+  --task-card-shadow: 0 8px 22px rgba(120, 73, 45, 0.08);
+  --fg: #1f2937;
+  --fg-muted: #64748b;
+  --accent: #c86a45;
+  --accent-glow: rgba(200, 106, 69, 0.16);
   --success: #7cb342;
-  --border: #ede5d8;
-  --shadow: 0 4px 16px rgba(42, 36, 32, 0.08);
+  --border: rgba(218, 202, 185, 0.54);
+  --shadow: 0 8px 24px rgba(86, 64, 45, 0.06);
 }
 
 /* 윤준서 — Robot / Neon */
 [data-theme="robot_neon"] {
   --bg: #0a0e27;
   --bg-card: #131a3e;
+  --task-card-bg: #131a3e;
+  --task-card-border: #1e2a55;
+  --task-card-shadow: 0 0 18px rgba(0, 229, 255, 0.14);
   --fg: #e8f4ff;
   --fg-muted: #8fb3d9;
   --accent: #00e5ff;
@@ -81,15 +90,18 @@ body {
 
 /* 윤지우 — Pastel / Cute */
 [data-theme="pastel_cute"] {
-  --bg: #fdf4f8;
-  --bg-card: #ffffff;
-  --fg: #4a3942;
-  --fg-muted: #b897a7;
-  --accent: #ff8fab;
-  --accent-glow: rgba(255, 143, 171, 0.28);
+  --bg: #fdf8f9;
+  --bg-card: rgba(255, 255, 255, 0.70);
+  --task-card-bg: rgba(255, 255, 255, 0.66);
+  --task-card-border: rgba(255, 255, 255, 0.76);
+  --task-card-shadow: 0 8px 22px rgba(190, 77, 113, 0.09);
+  --fg: #1f2937;
+  --fg-muted: #64748b;
+  --accent: #f47295;
+  --accent-glow: rgba(244, 114, 149, 0.16);
   --success: #a0e7c5;
-  --border: #f7dde8;
-  --shadow: 0 6px 20px rgba(255, 143, 171, 0.18);
+  --border: rgba(244, 194, 209, 0.55);
+  --shadow: 0 8px 24px rgba(190, 77, 113, 0.07);
 }
 
 @keyframes burst {

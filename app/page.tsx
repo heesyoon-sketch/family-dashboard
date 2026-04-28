@@ -153,15 +153,15 @@ export default function Dashboard() {
   // Show blank screen until auth is verified for THIS render cycle.
   // familyId === null check is handled by the redirect useEffect above.
   if (!authReady || !hydrated || familyId === null) {
-    return <div className="min-h-screen bg-[#0b0d12]" />;
+    return <div className="min-h-screen bg-[#0F172A]" />;
   }
 
   return (
-    <div className="flex flex-col bg-[#0b0d12] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
+    <div className="flex flex-col bg-[#0F172A] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
 
       {/* Header — sticky on mobile scroll, static on desktop */}
       <header
-        className="sticky top-0 z-10 shrink-0 flex items-center gap-2 bg-[#0b0d12]"
+        className="sticky top-0 z-10 shrink-0 flex items-center gap-2 bg-[#0F172A]"
         style={{ height: 44, padding: '0 12px', paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex flex-1 min-w-0 items-center gap-2 pl-0.5">
@@ -266,18 +266,18 @@ export default function Dashboard() {
         <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
       </header>
 
-      <main className="grid flex-1 grid-cols-1 gap-0.5 bg-black md:hidden">
+      <main className="grid flex-1 grid-cols-1 gap-4 bg-[#0F172A] p-3 md:hidden">
         {orderedUsers.map(user => (
           <MemberPanel key={user.id} user={user} />
         ))}
       </main>
 
-      <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden bg-black md:grid">
+      <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-4 overflow-hidden bg-[#0F172A] p-4 md:grid">
         {desktopSlots.map((user, index) =>
           user ? (
             <MemberPanel key={user.id} user={user} />
           ) : (
-            <div key={`empty-${activePage}-${index}`} className="min-h-0 bg-[#171717]" />
+            <div key={`empty-${activePage}-${index}`} className="min-h-0 bg-[#111827]" />
           ),
         )}
       </main>

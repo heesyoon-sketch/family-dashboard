@@ -115,13 +115,14 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const displayPts  = tier > 1 ? Math.round(task.basePoints * multiplier) : task.basePoints;
   const extraFlames = tier === 3 ? 2 : tier === 2 ? 1 : 0;
   const streakLabel = streak > 0 ? `🔥${streak}${tier === 3 ? ' 1.5×' : tier === 2 ? ' 1.2×' : ''}` : null;
+  const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
   const ringClass   = completed
     ? 'ring-[var(--accent)] opacity-55'
     : tier === 3
       ? 'ring-amber-400'
       : tier === 2
         ? 'ring-orange-400'
-        : 'ring-[var(--border)]';
+        : 'ring-[var(--task-card-border)]';
   const glowStyle: React.CSSProperties = !completed && tier === 3
     ? { boxShadow: '0 0 16px rgba(251, 191, 36, 0.45)' }
     : !completed && tier === 2
@@ -153,9 +154,10 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         style={{ x, ...glowStyle }}
         whileTap={{ scale: 0.92 }}
         className={[
-          'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--bg-card)]',
+          'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
           'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
-          'ring-1 ring-inset',
+          'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
+          isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
         ].join(' ')}
       >
