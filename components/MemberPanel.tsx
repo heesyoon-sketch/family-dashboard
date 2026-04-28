@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { HeartHandshake, Mail, Store } from 'lucide-react';
+import { Coins, HeartHandshake, Mail, Store } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -205,36 +205,36 @@ export function MemberPanel({ user }: { user: User }) {
         }}
       >
         {/* ── Header ── */}
-        <header className="mb-3 shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]/80 p-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="relative h-11 w-11 shrink-0">
+        <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5">
+          <div className="flex items-center gap-2">
+            <div className="relative h-9 w-9 shrink-0">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
                   alt={user.name}
-                  width={44}
-                  height={44}
+                  width={36}
+                  height={36}
                   referrerPolicy="no-referrer"
-                  className="h-11 w-11 rounded-xl object-cover"
+                  className="h-9 w-9 rounded-lg object-cover"
                 />
               ) : (
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent-glow)] text-lg font-bold text-[var(--accent)] select-none">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none">
                   {user.name[0]}
                 </div>
               )}
             </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <h2 className="min-w-0 truncate text-lg font-bold leading-tight">{user.name}</h2>
+            <div className="min-w-0 flex-1 pr-0.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <h2 className="min-w-0 truncate text-base font-bold leading-tight">{user.name}</h2>
                 {motiveMsg && (
-                  <span className="shrink truncate rounded-full bg-[var(--accent-glow)] px-2 py-0.5 text-[11px] font-bold text-[var(--accent)]">
+                  <span className="shrink truncate rounded-full bg-[var(--accent-glow)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[var(--accent)]">
                     {motiveMsg}
                   </span>
                 )}
               </div>
 
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--fg-muted)]">
+              <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--fg-muted)]">
                 <span className="shrink-0">Lv.{level?.currentLevel ?? 1}</span>
                 <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
                 <span className="truncate">{level?.totalPoints ?? 0}pt</span>
@@ -252,7 +252,7 @@ export function MemberPanel({ user }: { user: User }) {
                 )}
               </div>
 
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+              <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)]">
                 <div
                   className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
                   style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
@@ -260,46 +260,50 @@ export function MemberPanel({ user }: { user: User }) {
               </div>
             </div>
 
-            <ProgressRing pct={pct} size={40} />
-          </div>
+            <ProgressRing pct={pct} size={34} />
 
-          <div className={[
-            'mt-2 grid gap-1.5',
-            giftReceivers.length > 0 ? 'grid-cols-3' : 'grid-cols-2',
-          ].join(' ')}>
-            <button
-              type="button"
-              onClick={openActivityFeed}
-              className="relative flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-[11px] font-bold text-[var(--accent)] transition hover:brightness-105"
-              title={t('mailbox_history')}
-              aria-label={t('mailbox_history')}
-            >
-              <Mail size={13} />
-              <span className="min-w-0 truncate">💰{spendableBalance}pt</span>
-              {hasRecentUnreadActivity && (
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
-              )}
-            </button>
-            {giftReceivers.length > 0 && (
+            <div className="grid w-[min(42vw,152px)] shrink-0 grid-cols-4 gap-1">
               <button
                 type="button"
                 onClick={() => setGiftOpen(true)}
-                className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-[11px] font-bold text-[var(--fg)] transition hover:brightness-105"
+                disabled={giftReceivers.length === 0}
+                className="flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[9px] font-bold leading-none text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35"
                 title={t('gift')}
                 aria-label={t('gift')}
               >
-                <HeartHandshake size={13} className="text-rose-300" />
-                <span className="min-w-0 truncate">{t('gift')}</span>
+                <HeartHandshake size={12} className="mb-0.5 text-rose-300" />
+                <span className="truncate">{t('gift')}</span>
               </button>
-            )}
-            <button
-              type="button"
-              onClick={openStore}
-              className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--accent)] px-2 text-[11px] font-bold text-gray-950 transition hover:brightness-95"
-            >
-              <Store size={13} />
-              <span className="min-w-0 truncate">{t('store')}</span>
-            </button>
+              <button
+                type="button"
+                onClick={openStore}
+                className="flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-[9px] font-bold leading-none text-gray-950 transition hover:brightness-95"
+              >
+                <Store size={12} className="mb-0.5" />
+                <span className="truncate">{t('store')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={openActivityFeed}
+                className="relative flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[9px] font-bold leading-none text-[var(--fg)] transition hover:brightness-105"
+                title={t('mailbox_history')}
+                aria-label={t('mailbox_history')}
+              >
+                <Mail size={12} className="mb-0.5 text-[var(--accent)]" />
+                <span className="truncate">{lang === 'en' ? 'Mail' : '편지함'}</span>
+                {hasRecentUnreadActivity && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
+                )}
+              </button>
+              <div
+                className="flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[9px] font-bold leading-none text-[var(--accent)] transition hover:brightness-105"
+                title={lang === 'en' ? 'Current points' : '현재 포인트'}
+                aria-label={lang === 'en' ? 'Current points' : '현재 포인트'}
+              >
+                <Coins size={12} className="mb-0.5" />
+                <span className="max-w-full truncate">{spendableBalance}pt</span>
+              </div>
+            </div>
           </div>
         </header>
 
