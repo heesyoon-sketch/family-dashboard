@@ -199,7 +199,7 @@ export function MemberPanel({ user }: { user: User }) {
         style={{
           padding: 12,
           boxShadow: allDone
-            ? 'var(--shadow), inset 0 0 0 3px var(--success-ring), 0 0 32px var(--accent-glow)'
+            ? 'var(--shadow), inset 0 0 0 3px var(--success-ring), 0 0 32px var(--success-glow, var(--accent-glow))'
             : 'var(--shadow)',
           transition: 'box-shadow 0.8s ease',
         }}
