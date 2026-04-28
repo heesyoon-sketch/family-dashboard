@@ -66,10 +66,10 @@ export function ActivityFeedModal({
     >
       <div
         data-theme={user.theme}
-        className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] shadow-2xl"
+        className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] shadow-2xl"
         style={{ maxHeight: '82vh' }}
       >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+        <div className="shrink-0 flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="flex items-center gap-2 font-bold">
             <span className="grid h-8 w-8 place-items-center rounded-xl bg-[var(--accent-glow)] text-[var(--accent)]">
               <Mail size={17} />
@@ -85,7 +85,7 @@ export function ActivityFeedModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-4">
+        <div className="modal-scroll max-h-[60vh] overflow-y-auto px-4 pb-5 pt-4">
           {visibleActivities.length === 0 ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-8 text-center text-sm text-[var(--fg-muted)]">
               아직 기록이 없어요

@@ -40,6 +40,12 @@ body {
 }
 .task-scroll::-webkit-scrollbar { display: none; }
 
+.modal-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.modal-scroll::-webkit-scrollbar { display: none; }
+
 /* 아빠 — Dark Minimal */
 [data-theme="dark_minimal"] {
   --bg: #0b0d12;
