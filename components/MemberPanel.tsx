@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { Coins, HeartHandshake, Mail, Store } from 'lucide-react';
@@ -82,9 +82,9 @@ export function MemberPanel({ user }: { user: User }) {
   const [storeOpenKey, setStoreOpenKey] = useState(0);
   const [avatarVersion] = useState(() => Date.now());
   const scrollRef      = useRef<HTMLDivElement>(null);
+  const listRef        = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(false);
-
-  if (!hydrated) return <PanelSkeleton theme={user.theme} />;
+  const [hasOverflow, setHasOverflow] = useState(false);
 
   const spendableBalance = level?.spendableBalance ?? 0;
   const mailboxActivities = activities.filter(activity => MAILBOX_ACTIVITY_TYPES.has(activity.type));
@@ -110,14 +110,29 @@ export function MemberPanel({ user }: { user: User }) {
     return aDone - bDone;
   });
 
-  const handleScroll = () => {
+  const updateScrollHint = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 40);
-  };
+    const overflow = el.scrollHeight > el.clientHeight + 8;
+    setHasOverflow(overflow);
+    setAtBottom(!overflow || el.scrollTop + el.clientHeight >= el.scrollHeight - 40);
+  }, []);
+
+  useEffect(() => {
+    updateScrollHint();
+    const el = scrollRef.current;
+    const list = listRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateScrollHint);
+    observer.observe(el);
+    if (list) observer.observe(list);
+    return () => observer.disconnect();
+  }, [sortedTasks.length, timeOfDay, updateScrollHint]);
+
+  if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
   const moreCount = Math.max(0, sortedTasks.length - 8);
-  const showMore  = moreCount > 0 && !atBottom;
+  const showMore  = hasOverflow && !atBottom;
 
   const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = currentTasks.length;
@@ -197,7 +212,7 @@ export function MemberPanel({ user }: { user: User }) {
         data-theme={user.theme}
         className="bg-[var(--bg)] text-[var(--fg)] flex flex-col min-h-[520px] md:min-h-0 md:h-full overflow-hidden"
         style={{
-          padding: 12,
+          padding: 8,
           boxShadow: allDone
             ? 'var(--shadow), inset 0 0 0 3px var(--success-ring), 0 0 32px var(--success-glow, var(--accent-glow))'
             : 'var(--shadow)',
@@ -267,41 +282,40 @@ export function MemberPanel({ user }: { user: User }) {
                 type="button"
                 onClick={() => setGiftOpen(true)}
                 disabled={giftReceivers.length === 0}
-                className="flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[9px] font-bold leading-none text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35"
+                className="grid h-8 min-w-0 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35"
                 title={t('gift')}
                 aria-label={t('gift')}
               >
-                <HeartHandshake size={12} className="mb-0.5 text-rose-300" />
-                <span className="truncate">{t('gift')}</span>
+                <HeartHandshake size={15} className="text-rose-300" />
               </button>
               <button
                 type="button"
                 onClick={openStore}
-                className="flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-[9px] font-bold leading-none text-gray-950 transition hover:brightness-95"
+                className="grid h-8 min-w-0 place-items-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-gray-950 transition hover:brightness-95"
+                title={t('store')}
+                aria-label={t('store')}
               >
-                <Store size={12} className="mb-0.5" />
-                <span className="truncate">{t('store')}</span>
+                <Store size={15} />
               </button>
               <button
                 type="button"
                 onClick={openActivityFeed}
-                className="relative flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[9px] font-bold leading-none text-[var(--fg)] transition hover:brightness-105"
+                className="relative grid h-8 min-w-0 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105"
                 title={t('mailbox_history')}
                 aria-label={t('mailbox_history')}
               >
-                <Mail size={12} className="mb-0.5 text-[var(--accent)]" />
-                <span className="truncate">{lang === 'en' ? 'Mail' : '편지함'}</span>
+                <Mail size={15} className="text-[var(--accent)]" />
                 {hasRecentUnreadActivity && (
                   <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
                 )}
               </button>
               <div
-                className="flex h-8 min-w-0 flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[9px] font-bold leading-none text-[var(--accent)] transition hover:brightness-105"
+                className="flex h-8 min-w-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] px-1 text-[11px] font-black leading-none text-[var(--accent)]"
                 title={lang === 'en' ? 'Current points' : '현재 포인트'}
                 aria-label={lang === 'en' ? 'Current points' : '현재 포인트'}
               >
-                <Coins size={12} className="mb-0.5" />
-                <span className="max-w-full truncate">{spendableBalance}pt</span>
+                <Coins size={12} className="mr-0.5 shrink-0" />
+                <span className="max-w-full truncate">{spendableBalance}</span>
               </div>
             </div>
           </div>
@@ -313,12 +327,13 @@ export function MemberPanel({ user }: { user: User }) {
           {/* Scrollable task list */}
           <div
             ref={scrollRef}
-            onScroll={handleScroll}
+            onScroll={updateScrollHint}
             className="absolute inset-0 overflow-y-auto"
           >
             <motion.div
+              ref={listRef}
               layout
-              className="grid grid-cols-2 gap-2 auto-rows-[76px] pb-14 md:auto-rows-[80px]"
+              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((50vh-108px)/4),76px)]"
             >
               {sortedTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
@@ -364,7 +379,9 @@ export function MemberPanel({ user }: { user: User }) {
                 }}
                 className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-card)] ring-1 ring-[var(--border)] text-[11px] font-semibold text-[var(--fg-muted)] whitespace-nowrap"
               >
-                {lang === 'en' ? `↓ ${moreCount} more` : `↓ ${moreCount}개 더 있어요`}
+                {moreCount > 0
+                  ? (lang === 'en' ? `↓ ${moreCount} more` : `↓ ${moreCount}개 더 있어요`)
+                  : (lang === 'en' ? '↓ more' : '↓ 더 있어요')}
               </motion.div>
             )}
           </AnimatePresence>

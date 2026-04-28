@@ -410,6 +410,56 @@ export default function AdminPage() {
     }));
   };
   const router = useRouter();
+  const adminCopy = {
+    tabs: {
+      settings: lang === 'en' ? 'Settings' : '설정',
+      family:   lang === 'en' ? 'Family' : '가족',
+      tasks:    lang === 'en' ? 'Tasks' : '습관',
+      store:    lang === 'en' ? 'Store' : '상점',
+    },
+    familyInvitation: lang === 'en' ? 'Family Invitation' : '가족 초대',
+    familyInvitationHelp: lang === 'en'
+      ? 'Share this code with a family member after they sign in with Google.'
+      : '가족 구성원이 Google로 로그인한 뒤 이 코드를 입력하면 합류할 수 있습니다.',
+    copyInviteCode: lang === 'en' ? 'Copy invitation code' : '초대 코드 복사',
+    regenerateCode: lang === 'en' ? 'Regenerate code' : '초대 코드 다시 만들기',
+    generateCode: lang === 'en' ? 'Generate code' : '초대 코드 만들기',
+    noInviteCode: lang === 'en'
+      ? 'No invitation code yet. Use refresh to generate one.'
+      : '초대 코드가 없습니다. 새로고침 버튼으로 생성하세요.',
+    language: lang === 'en' ? 'Language' : '언어 설정',
+    korean: lang === 'en' ? 'Korean' : '한국어',
+    english: lang === 'en' ? 'English' : '영어',
+    leaveFamily: lang === 'en' ? 'Leave Family' : '가족 공간에서 나가기',
+    leavingFamily: lang === 'en' ? 'Leaving...' : '나가는 중...',
+    addMember: lang === 'en' ? 'Add member' : '멤버 추가',
+    addMemberHelp: lang === 'en'
+      ? 'Add a new profile. You can link a Google account to it later.'
+      : '새 프로필을 추가합니다. 나중에 이 프로필에 Google 계정을 연결할 수 있습니다.',
+    memberNamePlaceholder: lang === 'en' ? 'Name, e.g. Alex' : '이름 (예: 아람, 주원)',
+    adding: lang === 'en' ? 'Adding...' : '추가 중...',
+    add: lang === 'en' ? 'Add' : '추가하기',
+    cancel: lang === 'en' ? 'Cancel' : '취소',
+    uploadAvatar: lang === 'en' ? 'Upload profile photo' : '프로필 사진 업로드',
+    moveUp: lang === 'en' ? 'Move up' : '위로 이동',
+    moveDown: lang === 'en' ? 'Move down' : '아래로 이동',
+    deleteProfile: lang === 'en' ? 'Delete profile' : '프로필 삭제',
+    linked: lang === 'en' ? 'Account linked' : '계정 연결됨',
+    notLinked: lang === 'en' ? 'No account' : '계정 없음',
+    saleOff: lang === 'en' ? 'Sale off' : '세일 꺼짐',
+    hidden: lang === 'en' ? 'Hidden' : '숨김',
+    visible: lang === 'en' ? 'Visible' : '공개',
+    soldOut: lang === 'en' ? 'Sold out' : '품절',
+    inStock: lang === 'en' ? 'In stock' : '재고',
+    saleLabel: lang === 'en' ? 'Sale label' : '세일 이유 또는 명칭',
+    rewardHistory: lang === 'en' ? 'Purchase history' : '구매 내역',
+    refresh: lang === 'en' ? 'Refresh' : '새로고침',
+    refunded: lang === 'en' ? 'Refunded' : '환불됨',
+    refund: lang === 'en' ? 'Refund' : '환불',
+    refundComplete: lang === 'en' ? 'Refund complete' : '환불 완료',
+    processing: lang === 'en' ? 'Processing...' : '처리중…',
+    noPurchases: lang === 'en' ? 'No purchases yet' : '아직 구매 내역이 없습니다',
+  };
 
   async function loadRewardRedemptions() {
     const supabase = createBrowserSupabase();
@@ -1485,7 +1535,7 @@ export default function AdminPage() {
                   onClick={() => { setPinResetStep('idle'); setOtpCode(''); setOtpError(''); }}
                   className="w-full text-[#8a8f99] text-sm py-2 hover:text-white transition-colors"
                 >
-                  취소
+                  {adminCopy.cancel}
                 </button>
               </div>
             )
@@ -1495,7 +1545,7 @@ export default function AdminPage() {
             onClick={() => { void handleLogout(); }}
             className="mt-3 w-full rounded-xl bg-[#232831] text-red-400 font-semibold p-3 text-sm hover:bg-[#2d3545] transition-colors"
           >
-            로그아웃
+            {t('logout')}
           </button>
         </div>
       </main>
@@ -1553,10 +1603,10 @@ export default function AdminPage() {
           <div className="max-w-4xl mx-auto px-4">
             <div className="flex overflow-x-auto gap-1 py-2" style={{ scrollbarWidth: 'none' }}>
               {([
-                { key: 'settings', label: '⚙️ Settings' },
-                { key: 'family',   label: '👨‍👩‍👧‍👦 Family' },
-                { key: 'tasks',    label: '✅ Tasks' },
-                { key: 'store',    label: '🎁 Store' },
+                { key: 'settings', label: `⚙️ ${adminCopy.tabs.settings}` },
+                { key: 'family',   label: `👨‍👩‍👧‍👦 ${adminCopy.tabs.family}` },
+                { key: 'tasks',    label: `✅ ${adminCopy.tabs.tasks}` },
+                { key: 'store',    label: `🎁 ${adminCopy.tabs.store}` },
               ] as const).map(tab => (
                 <button
                   key={tab.key}
@@ -1584,9 +1634,9 @@ export default function AdminPage() {
               <div className="bg-[#141821] rounded-2xl p-6">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-[#4f9cff]">Family Invitation</h2>
+                    <h2 className="text-lg font-semibold text-[#4f9cff]">{adminCopy.familyInvitation}</h2>
                     <p className="text-[#8a8f99] text-sm mt-1">
-                      Share this code with a family member after they sign in with Google.
+                      {adminCopy.familyInvitationHelp}
                     </p>
                   </div>
                   <Icons.UsersRound className="text-[#4f9cff] shrink-0" size={22} />
@@ -1602,7 +1652,7 @@ export default function AdminPage() {
                     disabled={!familyInviteCode}
                     className="w-14 rounded-xl bg-[#4f9cff] text-[#06111f] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d8bed] transition-colors"
                     style={{ minHeight: 'var(--touch-target)' }}
-                    title="Copy invitation code"
+                    title={adminCopy.copyInviteCode}
                   >
                     <Icons.Copy size={20} />
                   </button>
@@ -1611,21 +1661,21 @@ export default function AdminPage() {
                     disabled={generatingCode}
                     className="w-14 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center disabled:opacity-40 hover:bg-[#2d3545] hover:text-white transition-colors"
                     style={{ minHeight: 'var(--touch-target)' }}
-                    title={familyInviteCode ? 'Regenerate code' : 'Generate code'}
+                    title={familyInviteCode ? adminCopy.regenerateCode : adminCopy.generateCode}
                   >
                     <Icons.RefreshCw size={18} className={generatingCode ? 'animate-spin' : ''} />
                   </button>
                 </div>
                 {!familyInviteCode && (
                   <p className="text-[#f59e0b] text-xs mt-2">
-                    ↑ 초대 코드가 없습니다. 새로고침 버튼으로 생성하세요.
+                    ↑ {adminCopy.noInviteCode}
                   </p>
                 )}
               </div>
 
               {/* Language */}
               <div className="bg-[#141821] rounded-2xl p-6">
-                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">Language / 언어 설정</h2>
+                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{adminCopy.language}</h2>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setLang('ko')}
@@ -1633,7 +1683,7 @@ export default function AdminPage() {
                       lang === 'ko' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
                     }`}
                   >
-                    Korean (한국어)
+                    {adminCopy.korean}
                   </button>
                   <button
                     onClick={() => setLang('en')}
@@ -1641,7 +1691,7 @@ export default function AdminPage() {
                       lang === 'en' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
                     }`}
                   >
-                    English
+                    {adminCopy.english}
                   </button>
                 </div>
               </div>
@@ -1718,7 +1768,7 @@ export default function AdminPage() {
                   className="mb-3 w-full rounded-xl border border-amber-600/70 bg-amber-900/25 px-5 py-4 font-bold text-amber-100 transition-colors hover:bg-amber-800/40 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ minHeight: 'var(--touch-target)' }}
                 >
-                  {leavingFamily ? '나가는 중...' : 'Leave Family (가족 공간에서 나가기)'}
+                  {leavingFamily ? adminCopy.leavingFamily : adminCopy.leaveFamily}
                 </button>
                 <button
                   onClick={handleDeleteFamilyData}
@@ -1742,14 +1792,14 @@ export default function AdminPage() {
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#4f9cff]/15 text-[#4f9cff] text-sm font-semibold hover:bg-[#4f9cff]/25 transition-colors"
                 >
                   <Icons.UserPlus size={15} />
-                  멤버 추가
+                  {adminCopy.addMember}
                 </button>
               </div>
 
               {/* Add member form */}
               {addingMember && (
                 <div className="bg-[#232831] rounded-xl p-4 mb-4 space-y-3 border border-[#4f9cff]/30">
-                  <p className="text-sm text-[#8a8f99]">새 프로필을 추가합니다. 나중에 이 프로필에 Google 계정을 연결할 수 있습니다.</p>
+                  <p className="text-sm text-[#8a8f99]">{adminCopy.addMemberHelp}</p>
                   <input
                     type="text"
                     value={newMemberName}
@@ -1761,7 +1811,7 @@ export default function AdminPage() {
                         void addMember();
                       }
                     }}
-                    placeholder="이름 (예: 아람, 주원)"
+                    placeholder={adminCopy.memberNamePlaceholder}
                     autoFocus
                     className="w-full rounded-xl bg-[#1a1f2a] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
                     style={{ minHeight: '48px', fontSize: '16px' }}
@@ -1795,7 +1845,7 @@ export default function AdminPage() {
                       disabled={isAddingMember || !newMemberName.trim()}
                       className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                     >
-                      {isAddingMember ? '추가 중...' : '추가하기'}
+                      {isAddingMember ? adminCopy.adding : adminCopy.add}
                     </button>
                     <button
                       type="button"
@@ -1803,7 +1853,7 @@ export default function AdminPage() {
                       disabled={isAddingMember}
                       className="flex-1 py-3 rounded-xl bg-[#1a1f2a] text-[#8a8f99] font-semibold hover:bg-[#2d3545] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                      취소
+                      {adminCopy.cancel}
                     </button>
                   </div>
                 </div>
@@ -1856,7 +1906,7 @@ export default function AdminPage() {
                           onClick={() => openAvatarUpload(u.id)}
                           disabled={avatarUploadingUserId === u.id}
                           className="relative w-10 h-10 rounded-full shrink-0 ring-2 ring-[#2d3545] overflow-hidden bg-[#232831] flex items-center justify-center text-[#8a8f99] font-bold text-base hover:ring-[#4f9cff] transition disabled:opacity-60"
-                          title="프로필 사진 업로드"
+                          title={adminCopy.uploadAvatar}
                         >
                           {u.avatarUrl ? (
                             <Image
@@ -1887,14 +1937,14 @@ export default function AdminPage() {
                               : 'bg-[#232831] text-[#8a8f99]'
                           }`}
                         >
-                          {u.authUserId ? 'Account linked' : 'No account'}
+                          {u.authUserId ? adminCopy.linked : adminCopy.notLinked}
                         </span>
                         <button
                           onClick={() => moveMember(u.id, -1)}
                           disabled={index === 0}
                           className="w-10 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
                           style={{ minHeight: '48px', fontSize: '18px' }}
-                          title="위로 이동"
+                          title={adminCopy.moveUp}
                         >
                           ↑
                         </button>
@@ -1903,7 +1953,7 @@ export default function AdminPage() {
                           disabled={index === sortedUsers.length - 1}
                           className="w-10 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
                           style={{ minHeight: '48px', fontSize: '18px' }}
-                          title="아래로 이동"
+                          title={adminCopy.moveDown}
                         >
                           ↓
                         </button>
@@ -1919,7 +1969,7 @@ export default function AdminPage() {
                             onClick={() => removeMember(u.id)}
                             className="w-11 rounded-xl bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-900/40 transition-colors shrink-0"
                             style={{ minHeight: '48px' }}
-                            title="프로필 삭제"
+                            title={adminCopy.deleteProfile}
                           >
                             <Icons.Trash2 size={15} />
                           </button>
@@ -2263,7 +2313,7 @@ export default function AdminPage() {
                         <span className="text-[#8a8f99] text-xs shrink-0">%</span>
                         <input
                           type="text"
-                          aria-label="세일 이유 또는 명칭"
+                          aria-label={adminCopy.saleLabel}
                           value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
                           onChange={e => {
                             setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
@@ -2272,7 +2322,7 @@ export default function AdminPage() {
                             if (e.key === 'Enter') void saveRewardEdit(r.id);
                             if (e.key === 'Escape') setEditingRewardId(null);
                           }}
-                          placeholder="세일 이유 또는 명칭"
+                          placeholder={adminCopy.saleLabel}
                           className="w-32 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
                           style={{ minHeight: 44, fontSize: 15 }}
                         />
@@ -2305,17 +2355,17 @@ export default function AdminPage() {
                           <span className="block font-medium text-sm truncate">{r.title}</span>
                           {(r.sale_percentage ?? 0) > 0 && (
                             <span className="inline-flex mt-1 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
-                              {r.sale_enabled ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`) : `세일 꺼짐 · ${r.sale_percentage}%`}
+                              {r.sale_enabled ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`) : `${adminCopy.saleOff} · ${r.sale_percentage}%`}
                             </span>
                           )}
                           {r.is_hidden && (
                             <span className="inline-flex mt-1 ml-1 rounded-full bg-zinc-500/20 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
-                              숨김
+                              {adminCopy.hidden}
                             </span>
                           )}
                           {r.is_sold_out && (
                             <span className="inline-flex mt-1 ml-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                              품절
+                              {adminCopy.soldOut}
                             </span>
                           )}
                         </div>
@@ -2371,7 +2421,7 @@ export default function AdminPage() {
                         <span className="text-[#8a8f99] text-xs shrink-0">%</span>
                         <input
                           type="text"
-                          aria-label="세일 이유 또는 명칭"
+                          aria-label={adminCopy.saleLabel}
                           value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
                           onChange={e => {
                             setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
@@ -2390,7 +2440,7 @@ export default function AdminPage() {
                               (e.target as HTMLInputElement).blur();
                             }
                           }}
-                          placeholder="세일 이유 또는 명칭"
+                          placeholder={adminCopy.saleLabel}
                           disabled={savingRewardId === r.id}
                           className="min-w-[140px] flex-1 rounded-lg bg-[#1a1f2a] text-white px-3 text-sm outline-none border border-[#232831] focus:border-[#4f9cff]"
                           style={{ minHeight: 44 }}
@@ -2407,7 +2457,7 @@ export default function AdminPage() {
                           ].join(' ')}
                           style={{ minHeight: 44 }}
                         >
-                          세일 {r.sale_enabled ? 'ON' : 'OFF'}
+                          {lang === 'en' ? 'Sale' : '세일'} {r.sale_enabled ? 'ON' : 'OFF'}
                         </button>
                         <button
                           type="button"
@@ -2421,7 +2471,7 @@ export default function AdminPage() {
                           ].join(' ')}
                           style={{ minHeight: 44 }}
                         >
-                          {r.is_hidden ? '숨김' : '공개'}
+                          {r.is_hidden ? adminCopy.hidden : adminCopy.visible}
                         </button>
                         <button
                           type="button"
@@ -2435,7 +2485,7 @@ export default function AdminPage() {
                           ].join(' ')}
                           style={{ minHeight: 44 }}
                         >
-                          {r.is_sold_out ? '품절' : '재고'}
+                          {r.is_sold_out ? adminCopy.soldOut : adminCopy.inStock}
                         </button>
                         <span className="w-5 text-center text-xs shrink-0">
                           {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
@@ -2514,13 +2564,13 @@ export default function AdminPage() {
 
               <div className="border-t border-[#232831] mt-6 pt-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <h3 className="text-sm font-semibold text-[#8a8f99]">구매 내역</h3>
+                  <h3 className="text-sm font-semibold text-[#8a8f99]">{adminCopy.rewardHistory}</h3>
                   <button
                     type="button"
                     onClick={() => { void loadRewardRedemptions(); }}
                     className="px-3 py-2 rounded-lg bg-[#232831] text-[#8a8f99] hover:text-white hover:bg-[#2d3545] text-xs font-semibold transition-colors"
                   >
-                    새로고침
+                    {adminCopy.refresh}
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -2543,7 +2593,7 @@ export default function AdminPage() {
                           </div>
                           {refunded && (
                             <div className="text-[11px] text-[#3ddc97] mt-0.5">
-                              환불됨 · {redemption.refunded_at ? formatShortDateTime(redemption.refunded_at) : ''}
+                              {adminCopy.refunded} · {redemption.refunded_at ? formatShortDateTime(redemption.refunded_at) : ''}
                             </div>
                           )}
                         </div>
@@ -2554,13 +2604,13 @@ export default function AdminPage() {
                           className="px-3 rounded-lg bg-[#1a1f2a] text-[#8a8f99] text-xs font-semibold border border-[#232831] hover:border-[#3ddc97]/50 hover:text-[#3ddc97] disabled:opacity-40 disabled:hover:text-[#8a8f99] disabled:hover:border-[#232831] disabled:cursor-not-allowed transition-colors"
                           style={{ minHeight: 40 }}
                         >
-                          {refundInFlightId === redemption.id ? '처리중…' : refunded ? '환불 완료' : '환불'}
+                          {refundInFlightId === redemption.id ? adminCopy.processing : refunded ? adminCopy.refundComplete : adminCopy.refund}
                         </button>
                       </div>
                     );
                   })}
                   {rewardRedemptions.length === 0 && (
-                    <p className="text-[#8a8f99] text-center py-4 text-sm">아직 구매 내역이 없습니다</p>
+                    <p className="text-[#8a8f99] text-center py-4 text-sm">{adminCopy.noPurchases}</p>
                   )}
                 </div>
               </div>

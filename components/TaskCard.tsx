@@ -154,14 +154,14 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
         whileTap={{ scale: 0.92 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
-          'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
+          'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer md:px-2.5 md:py-2 md:gap-2',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
         ].join(' ')}
       >
         {/* Icon — 40px, readable and comfortable on touch screens */}
-        <div className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0">
+        <div className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
           <LucideIcon size={19} className="text-[var(--accent)]" />
           {extraFlames > 0 && !completed && (
             <div className="absolute -right-1 -top-1 flex gap-0.5" aria-hidden="true">
@@ -174,11 +174,11 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <div className="flex-1 min-w-0">
-          <div className={`text-base font-semibold leading-tight line-clamp-2 ${completed ? 'line-through' : ''}`}>
+          <div className={`text-base font-semibold leading-tight line-clamp-2 md:text-sm ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
           <div className={[
-            'text-xs mt-0.5 truncate flex items-center gap-1',
+            'text-xs mt-0.5 truncate flex items-center gap-1 md:text-[11px]',
             tier >= 2 && !completed
               ? tier === 3 ? 'text-amber-400' : 'text-orange-400'
               : 'text-[var(--fg-muted)]',
@@ -200,7 +200,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
 
         {/* Completed toggle — 48px touch target, shrink-0 */}
         {completed && (
-          <div className="w-12 h-12 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 flex items-center justify-center shrink-0 md:h-9 md:w-9">
             <Icons.CheckCircle2 size={26} className="text-[var(--success)]" />
           </div>
         )}
