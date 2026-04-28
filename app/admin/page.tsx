@@ -1528,11 +1528,21 @@ export default function AdminPage() {
 
       <main className="min-h-screen bg-[#0b0d12] text-white">
         {/* Header */}
-        <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
+        <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between gap-3">
+          <h1 className="min-w-0 truncate text-xl font-bold sm:text-2xl">
             {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
           </h1>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <a
+              href="https://forms.gle/KgxsBSBHwkdrwdTz7"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t('feedback')}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#232831] bg-[#141821] text-sm font-semibold text-[#8a8f99] transition-colors hover:border-[#4f9cff]/50 hover:text-white sm:w-auto sm:px-3"
+            >
+              <Icons.MessageCircle size={15} />
+              <span className="hidden sm:inline">{t('feedback')}</span>
+            </a>
             <Link href="/" className="text-[#8a8f99] text-sm hover:text-white whitespace-nowrap">← {t('back_to_dashboard')}</Link>
             <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
           </div>

@@ -134,6 +134,12 @@ function labels(lang: Lang) {
     noData: lang === 'en' ? 'No data yet' : '아직 데이터 없음',
     vsLastWeek: lang === 'en' ? 'vs last week' : '지난주 대비',
     rank: lang === 'en' ? 'week rank' : '주간 순위',
+    habits: lang === 'en' ? 'habits' : '습관',
+    completedThisWeek: (done: number, possible: number) => (
+      lang === 'en'
+        ? `${done}/${possible} completed this week`
+        : `이번 주 ${done}/${possible} 완료`
+    ),
   };
 }
 
@@ -443,7 +449,7 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
               <span>•</span>
               <span>{copy.rank} #{stat.rank}</span>
               <span>•</span>
-              <span>{stat.activeTasks.length} habits</span>
+              <span>{stat.activeTasks.length} {copy.habits}</span>
             </div>
           </div>
           <div className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
@@ -483,7 +489,7 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
             <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, stat.weekPct)}%`, background: accent }} />
           </div>
           <div className="mt-2 text-xs text-white/45">
-            {stat.weekDone}/{stat.weekPossible || 0} completed this week
+            {copy.completedThisWeek(stat.weekDone, stat.weekPossible || 0)}
           </div>
         </div>
 

@@ -15,6 +15,7 @@ import { ActivityFeedModal } from './ActivityFeedModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED']);
+type TaskView = 'current' | 'all' | 'done';
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export function MemberPanel({ user }: { user: User }) {
   const [storeOpen, setStoreOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [taskView, setTaskView] = useState<TaskView>('current');
   const [activityReadAt, setActivityReadAt] = useState(() => {
     if (typeof window === 'undefined') return 0;
     return Number(localStorage.getItem(`family_activity_read_at_${user.id}`) ?? 0);
@@ -96,12 +98,18 @@ export function MemberPanel({ user }: { user: User }) {
     .filter(member => member.id !== user.id)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
-  const visibleTasks = tasks.filter(t => {
-    if (!t.timeWindow) return true;
-    if (t.timeWindow === 'morning') return timeOfDay === 'morning';
-    if (t.timeWindow === 'evening') return timeOfDay === 'evening';
+  const isTaskCurrent = (task: { timeWindow?: string | null }) => {
+    if (!task.timeWindow) return true;
+    if (task.timeWindow === 'morning') return timeOfDay === 'morning';
+    if (task.timeWindow === 'evening') return timeOfDay === 'evening';
     return true;
-  });
+  };
+  const currentTasks = tasks.filter(isTaskCurrent);
+  const visibleTasks = taskView === 'current'
+    ? currentTasks
+    : taskView === 'done'
+      ? tasks.filter(task => completed.includes(task.id))
+      : tasks;
 
   // Incomplete first, completed sink to bottom. Stable within each group (original index order).
   const sortedTasks = [...visibleTasks].sort((a, b) => {
@@ -119,8 +127,8 @@ export function MemberPanel({ user }: { user: User }) {
   const moreCount = Math.max(0, sortedTasks.length - 8);
   const showMore  = moreCount > 0 && !atBottom;
 
-  const doneCount  = visibleTasks.filter(task => completed.includes(task.id)).length;
-  const totalCount = visibleTasks.length;
+  const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
+  const totalCount = currentTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
 
@@ -251,8 +259,8 @@ export function MemberPanel({ user }: { user: User }) {
                 type="button"
                 onClick={openActivityFeed}
                 className="text-[11px] font-bold text-[var(--accent)] shrink-0"
-                title="편지함 및 기록"
-                aria-label="편지함 및 기록"
+                title={t('mailbox_history')}
+                aria-label={t('mailbox_history')}
               >
                 💰{spendableBalance}pt
               </button>
@@ -261,11 +269,11 @@ export function MemberPanel({ user }: { user: User }) {
                   type="button"
                   onClick={openActivityFeed}
                   className="relative h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
-                  title="편지함 및 기록"
-                  aria-label="편지함 및 기록"
+                  title={t('mailbox_history')}
+                  aria-label={t('mailbox_history')}
                 >
                   <Mail size={13} />
-                  <span>편지함</span>
+                  <span>{t('mailbox')}</span>
                   {hasRecentUnreadActivity && (
                     <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
                   )}
@@ -275,11 +283,11 @@ export function MemberPanel({ user }: { user: User }) {
                     type="button"
                     onClick={() => setGiftOpen(true)}
                     className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
-                    title="마음 나누기"
-                    aria-label="마음 나누기"
+                    title={t('gift')}
+                    aria-label={t('gift')}
                   >
                     <HeartHandshake size={13} />
-                    <span>선물</span>
+                    <span>{t('gift')}</span>
                   </button>
                 )}
                 <button
@@ -288,7 +296,7 @@ export function MemberPanel({ user }: { user: User }) {
                   className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
                 >
                   <Store size={13} />
-                  <span>{lang === 'en' ? 'Store' : '상점'}</span>
+                  <span>{t('store')}</span>
                 </button>
               </div>
             </div>
@@ -306,6 +314,28 @@ export function MemberPanel({ user }: { user: User }) {
           <ProgressRing pct={pct} size={36} />
         </header>
 
+        <div className="mb-2 grid h-8 shrink-0 grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1">
+          {([
+            { key: 'current', label: t('current_tasks') },
+            { key: 'all', label: t('all_tasks') },
+            { key: 'done', label: t('completed_tasks') },
+          ] as const).map(option => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setTaskView(option.key)}
+              className={[
+                'rounded-lg text-[11px] font-bold leading-none transition-colors',
+                taskView === option.key
+                  ? 'bg-[var(--accent)] text-gray-950'
+                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+              ].join(' ')}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
         {/* Positioning context for gradient + badge overlays */}
         <div className="relative flex-1" style={{ minHeight: 0 }}>
 
@@ -321,7 +351,7 @@ export function MemberPanel({ user }: { user: User }) {
             >
               {sortedTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
-                  {t('no_tasks_today')}
+                  {taskView === 'done' ? t('no_completed_tasks') : t('no_tasks_today')}
                 </div>
               )}
               {sortedTasks.map((task, i) => (
@@ -335,6 +365,7 @@ export function MemberPanel({ user }: { user: User }) {
                     task={task}
                     completed={completed.includes(task.id)}
                     theme={user.theme}
+                    disabled={!isTaskCurrent(task) && !completed.includes(task.id)}
                   />
                 </motion.div>
               ))}
@@ -363,7 +394,7 @@ export function MemberPanel({ user }: { user: User }) {
                 }}
                 className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-card)] ring-1 ring-[var(--border)] text-[11px] font-semibold text-[var(--fg-muted)] whitespace-nowrap"
               >
-                ↓ {moreCount} more
+                {lang === 'en' ? `↓ ${moreCount} more` : `↓ ${moreCount}개 더 있어요`}
               </motion.div>
             )}
           </AnimatePresence>

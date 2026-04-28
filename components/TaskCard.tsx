@@ -38,8 +38,18 @@ function nextCompletionStreak(task: Task, completed: boolean): number {
   return 1;
 }
 
-export function TaskCard({ task, completed, theme }: { task: Task; completed: boolean; theme: ThemeName }) {
-  const { t } = useLanguage();
+export function TaskCard({
+  task,
+  completed,
+  theme,
+  disabled = false,
+}: {
+  task: Task;
+  completed: boolean;
+  theme: ThemeName;
+  disabled?: boolean;
+}) {
+  const { lang, t } = useLanguage();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
@@ -75,7 +85,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   };
 
   const fireComplete = async (clientX?: number, clientY?: number) => {
-    if (busy) return;
+    if (busy || disabled) return;
     setBusy(true);
     if (completed) {
       await undoCompletion(task.userId, task.id);
@@ -87,6 +97,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   };
 
   const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
+    if (disabled) return;
     if (info.offset.x >= SWIPE_TRIGGER_PX) {
       animate(x, 300, { duration: 0.25, onComplete: fireComplete });
     } else {
@@ -95,6 +106,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   };
 
   const handleTap = (event: MouseEvent | TouchEvent | PointerEvent) => {
+    if (disabled) return;
     const now = Date.now();
     if (now - tappedAt.current < 300) return;
     tappedAt.current = now;
@@ -145,17 +157,18 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           ring-1 ring-inset paints inside the border-box → zero layout contribution.
           Both states (active/completed) carry a ring, so box-model is always identical. */}
       <motion.div
-        drag={completed ? false : 'x'}
+        drag={completed || disabled ? false : 'x'}
         dragConstraints={{ left: 0, right: SWIPE_TRIGGER_PX + 60 }}
         dragElastic={0.15}
         onDragEnd={handleDragEnd}
-        onTap={handleTap}
+        onTap={disabled ? undefined : handleTap}
         style={{ x, ...glowStyle }}
-        whileTap={{ scale: 0.92 }}
+        whileTap={disabled ? undefined : { scale: 0.92 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
-          'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer',
+          'px-3.5 py-2.5 flex items-center gap-3',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
+          disabled ? 'cursor-not-allowed opacity-55' : 'cursor-pointer',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
         ].join(' ')}
@@ -187,8 +200,8 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
             {task.timeWindow && <span>· {t(task.timeWindow as 'morning' | 'afternoon' | 'evening')}</span>}
             {streak > 0 && !completed && (
               tier === 3
-                ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>🔥 {streak}일</motion.span>
-                : <span>🔥 {streak}일</span>
+                ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>🔥 {lang === 'en' ? `${streak}d` : `${streak}일`}</motion.span>
+                : <span>🔥 {lang === 'en' ? `${streak}d` : `${streak}일`}</span>
             )}
             {tier > 1 && !completed && (
               <span className={`flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${isLightTheme ? 'bg-amber-100/80 text-amber-700' : 'bg-amber-500/20 text-amber-400'}`}>

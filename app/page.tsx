@@ -226,8 +226,8 @@ export default function Dashboard() {
         </Link>
         <button
           onClick={() => { void handleLogout(); }}
-          aria-label="Logout"
-          title="로그아웃"
+          aria-label={t('logout')}
+          title={t('logout')}
           style={{
             ...iconBtn,
             color: 'rgba(255,90,90,0.85)',
@@ -237,29 +237,6 @@ export default function Dashboard() {
         >
           <LogOut size={17} />
         </button>
-        <a
-          href="https://forms.gle/KgxsBSBHwkdrwdTz7"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            backgroundColor: '#ff4757',
-            color: 'white',
-            padding: '5px 12px',
-            zIndex: 9999,
-            display: 'flex',
-            visibility: 'visible',
-            alignItems: 'center',
-            borderRadius: 8,
-            textDecoration: 'none',
-            flexShrink: 0,
-            fontSize: 13,
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            position: 'relative',
-          }}
-        >
-          💬 피드백
-        </a>
         <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
           <Settings size={17} />
         </Link>

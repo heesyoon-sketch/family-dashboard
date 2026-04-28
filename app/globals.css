@@ -9,9 +9,25 @@
 
 * {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button,
+a,
+[role="button"],
+.select-none {
   -webkit-user-select: none;
   user-select: none;
-  touch-action: manipulation;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"],
+.select-text {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
 }
 
 html, body {

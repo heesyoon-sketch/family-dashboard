@@ -51,7 +51,33 @@ export function StoreModal({
   onClose: () => void;
   onRedeem: (reward: Reward) => Promise<void>;
 }) {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+  const copy = {
+    soldOut: lang === 'en' ? 'Sold out' : '품절',
+    totalCost: lang === 'en' ? 'Total cost' : '총 비용',
+    checkoutPrompt: lang === 'en' ? 'How do you want to pay?' : '어떻게 결제할까요?',
+    payAlone: lang === 'en' ? 'Pay alone' : '혼자 결제하기',
+    payTogether: lang === 'en' ? 'Pay together' : '같이 결제하기',
+    aloneSummary: (name: string, cost: number, currentBalance: number) => (
+      lang === 'en'
+        ? `${name} will pay ${cost}pt alone. Current balance is ${currentBalance}pt.`
+        : `${name} 혼자 ${cost}pt를 결제합니다. 현재 잔액은 ${currentBalance}pt예요.`
+    ),
+    insufficientPoints: lang === 'en' ? 'Not enough points' : '포인트가 부족해요',
+    jointPartner: lang === 'en' ? 'Family member to pay with' : '같이 결제할 가족',
+    family: lang === 'en' ? 'Family' : '가족',
+    balance: lang === 'en' ? 'Balance' : '잔액',
+    splitSummary: (shareTotal: number, cost: number) => (
+      lang === 'en' ? `Total ${shareTotal}pt / Need ${cost}pt` : `합계 ${shareTotal}pt / 필요 ${cost}pt`
+    ),
+    splitMismatch: lang === 'en' ? 'Total must match' : '합계가 맞아야 해요',
+    balanceShortage: (name: string) => (
+      lang === 'en' ? `${name} needs more points` : `${name} 잔액 부족`
+    ),
+    paying: lang === 'en' ? 'Paying...' : '결제 중…',
+    payComplete: lang === 'en' ? 'Complete payment' : '결제 완료',
+    jointSuccess: lang === 'en' ? 'Joint purchase complete!' : '합동 구매 성공!',
+  };
   const rewards = useFamilyStore(state => state.rewards);
   const users = useFamilyStore(state => state.users);
   const levelsByUser = useFamilyStore(state => state.levelsByUser);
@@ -118,7 +144,7 @@ export function StoreModal({
 
     const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
     if (latestReward.is_hidden || latestReward.is_sold_out) {
-      toast.error(latestReward.is_sold_out ? '품절된 보상입니다' : t('exchange_fail'));
+      toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
       return;
     }
     const cost = discountedCost(latestReward);
@@ -146,7 +172,7 @@ export function StoreModal({
 
     const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
     if (latestReward.is_hidden || latestReward.is_sold_out) {
-      toast.error(latestReward.is_sold_out ? '품절된 보상입니다' : t('exchange_fail'));
+      toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
       return;
     }
 
@@ -159,7 +185,7 @@ export function StoreModal({
     setRedeeming(reward.id);
     try {
       await purchaseRewardJoint(latestReward.id, user.id, share1, jointPartner.id, share2);
-      toast.success('합동 구매 성공!');
+      toast.success(copy.jointSuccess);
       setCheckoutReward(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
@@ -258,7 +284,7 @@ export function StoreModal({
                       </div>
                       {soldOut && (
                         <div className="inline-flex max-w-full rounded-full bg-zinc-500/20 px-1.5 py-0.5 text-[9px] font-bold text-zinc-300 leading-tight mt-1 truncate">
-                          품절
+                          {copy.soldOut}
                         </div>
                       )}
                       {!soldOut && hasDeal && (
@@ -286,7 +312,7 @@ export function StoreModal({
                         ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-gray-950'
                         : 'bg-transparent text-[var(--fg-muted)]',
                     ].join(' ')}>
-                      {busy ? '…' : soldOut ? '품절' : t('redeem')}
+                      {busy ? '…' : soldOut ? copy.soldOut : t('redeem')}
                     </span>
                   </div>
                 </motion.button>
@@ -309,7 +335,7 @@ export function StoreModal({
                     <h3 className="truncate text-sm font-bold text-[var(--fg)]">{checkoutReward.title}</h3>
                   </div>
                   <div className="mt-1 text-xs text-[var(--fg-muted)]">
-                    총 비용 <span className="font-bold text-[var(--accent)]">{checkoutCost}pt</span>
+                    {copy.totalCost} <span className="font-bold text-[var(--accent)]">{checkoutCost}pt</span>
                   </div>
                 </div>
                 <button
@@ -321,7 +347,7 @@ export function StoreModal({
                 </button>
               </div>
 
-              <div className="mb-2 text-sm font-bold text-[var(--fg)]">어떻게 결제할까요?</div>
+              <div className="mb-2 text-sm font-bold text-[var(--fg)]">{copy.checkoutPrompt}</div>
               <div className="mb-4 grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -333,7 +359,7 @@ export function StoreModal({
                       : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
                   ].join(' ')}
                 >
-                  혼자 결제하기
+                  {copy.payAlone}
                 </button>
                 <button
                   type="button"
@@ -346,23 +372,23 @@ export function StoreModal({
                       : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
                   ].join(' ')}
                 >
-                  🤝 같이 결제하기
+                  🤝 {copy.payTogether}
                 </button>
               </div>
 
               {checkoutMode === 'alone' ? (
                 <div className="space-y-3">
                   <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--fg-muted)]">
-                    {user.name} 혼자 {checkoutCost}pt를 결제합니다. 현재 잔액은 {balance}pt예요.
+                    {copy.aloneSummary(user.name, checkoutCost, balance)}
                     {balance < checkoutCost && (
-                      <span className="ml-2 font-semibold text-rose-300">포인트가 부족해요</span>
+                      <span className="ml-2 font-semibold text-rose-300">{copy.insufficientPoints}</span>
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <label className="block">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">같이 결제할 가족</span>
+                    <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">{copy.jointPartner}</span>
                     <select
                       value={jointUserId}
                       onChange={e => setJointUserId(e.target.value)}
@@ -385,11 +411,11 @@ export function StoreModal({
                         onChange={e => setUserShare(Number(e.target.value))}
                         className="h-10 w-full rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-bold text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
                       />
-                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">잔액 {balance}pt</span>
+                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">{copy.balance} {balance}pt</span>
                     </label>
                     <label className="block">
                       <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">
-                        {jointPartner?.name ?? '가족'}
+                        {jointPartner?.name ?? copy.family}
                       </span>
                       <input
                         type="number"
@@ -399,7 +425,7 @@ export function StoreModal({
                         onChange={e => setPartnerShare(Number(e.target.value))}
                         className="h-10 w-full rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-bold text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
                       />
-                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">잔액 {jointPartnerBalance}pt</span>
+                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">{copy.balance} {jointPartnerBalance}pt</span>
                     </label>
                   </div>
 
@@ -409,10 +435,10 @@ export function StoreModal({
                       ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
                       : 'border-rose-400/30 bg-rose-400/10 text-rose-300',
                   ].join(' ')}>
-                    합계 {shareTotal}pt / 필요 {checkoutCost}pt
-                    {shareTotal !== checkoutCost && <span className="ml-2">합계가 맞아야 해요</span>}
-                    {balance < userShare && <span className="ml-2">{user.name} 잔액 부족</span>}
-                    {jointPartner && jointPartnerBalance < partnerShare && <span className="ml-2">{jointPartner.name} 잔액 부족</span>}
+                    {copy.splitSummary(shareTotal, checkoutCost)}
+                    {shareTotal !== checkoutCost && <span className="ml-2">{copy.splitMismatch}</span>}
+                    {balance < userShare && <span className="ml-2">{copy.balanceShortage(user.name)}</span>}
+                    {jointPartner && jointPartnerBalance < partnerShare && <span className="ml-2">{copy.balanceShortage(jointPartner.name)}</span>}
                   </div>
 
                 </div>
@@ -436,7 +462,7 @@ export function StoreModal({
                     : 'bg-rose-400 text-black',
                 ].join(' ')}
               >
-                {redeeming === checkoutReward.id ? '결제 중…' : '결제 완료'}
+                {redeeming === checkoutReward.id ? copy.paying : copy.payComplete}
               </button>
             </div>
           </div>
