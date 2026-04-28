@@ -114,7 +114,6 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const multiplier  = tier === 3 ? 1.5 : tier === 2 ? 1.2 : 1;
   const displayPts  = tier > 1 ? Math.round(task.basePoints * multiplier) : task.basePoints;
   const extraFlames = tier === 3 ? 2 : tier === 2 ? 1 : 0;
-  const streakLabel = streak > 0 ? `🔥${streak}${tier === 3 ? ' 1.5×' : tier === 2 ? ' 1.2×' : ''}` : null;
   const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
   const ringClass   = completed
     ? 'ring-[var(--accent)] opacity-55'
@@ -186,10 +185,15 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           ].join(' ')}>
             <span>+{displayPts}pt</span>
             {task.timeWindow && <span>· {t(task.timeWindow as 'morning' | 'afternoon' | 'evening')}</span>}
-            {streakLabel && !completed && (
+            {streak > 0 && !completed && (
               tier === 3
-                ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>{streakLabel}</motion.span>
-                : <span>{streakLabel}</span>
+                ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>🔥 {streak}일</motion.span>
+                : <span>🔥 {streak}일</span>
+            )}
+            {tier > 1 && !completed && (
+              <span className={`flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${isLightTheme ? 'bg-amber-100/80 text-amber-700' : 'bg-amber-500/20 text-amber-400'}`}>
+                ✨ {multiplier}x
+              </span>
             )}
           </div>
         </div>
