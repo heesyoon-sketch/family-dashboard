@@ -286,7 +286,7 @@ export function StoreModal({
                         ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-white'
                         : 'bg-transparent text-[var(--fg-muted)]',
                     ].join(' ')}>
-                      {busy ? '…' : soldOut ? '품절' : canAfford ? t('redeem') : '같이 결제'}
+                      {busy ? '…' : soldOut ? '품절' : t('redeem')}
                     </span>
                   </div>
                 </motion.button>
@@ -296,16 +296,20 @@ export function StoreModal({
         </div>
 
         {checkoutReward && (
-          <div className="border-t border-[var(--border)] bg-[var(--bg)] p-3">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3">
-              <div className="mb-3 flex items-start justify-between gap-3">
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.62)' }}
+            onClick={e => { if (e.target === e.currentTarget) closeCheckout(); }}
+          >
+            <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-2xl">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <RewardIcon name={checkoutReward.icon} size={18} className="text-[var(--accent)]" />
                     <h3 className="truncate text-sm font-bold text-[var(--fg)]">{checkoutReward.title}</h3>
                   </div>
                   <div className="mt-1 text-xs text-[var(--fg-muted)]">
-                    결제 금액 <span className="font-bold text-[var(--accent)]">{checkoutCost}pt</span>
+                    총 비용 <span className="font-bold text-[var(--accent)]">{checkoutCost}pt</span>
                   </div>
                 </div>
                 <button
@@ -317,15 +321,16 @@ export function StoreModal({
                 </button>
               </div>
 
-              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-[var(--bg)] p-1">
+              <div className="mb-2 text-sm font-bold text-[var(--fg)]">어떻게 결제할까요?</div>
+              <div className="mb-4 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setCheckoutMode('alone')}
                   className={[
-                    'rounded-lg px-2 py-2 text-xs font-bold transition-colors',
+                    'min-h-14 rounded-xl border px-3 py-2 text-xs font-bold transition-colors',
                     checkoutMode === 'alone'
-                      ? 'bg-[var(--accent)] text-white'
-                      : 'text-[var(--fg-muted)]',
+                      ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                      : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
                   ].join(' ')}
                 >
                   혼자 결제하기
@@ -335,32 +340,24 @@ export function StoreModal({
                   onClick={() => setCheckoutMode('together')}
                   disabled={jointPartners.length === 0}
                   className={[
-                    'rounded-lg px-2 py-2 text-xs font-bold transition-colors disabled:opacity-40',
+                    'min-h-14 rounded-xl border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-40',
                     checkoutMode === 'together'
-                      ? 'bg-rose-400 text-black'
-                      : 'text-[var(--fg-muted)]',
+                      ? 'border-rose-400 bg-rose-400 text-black'
+                      : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
                   ].join(' ')}
                 >
-                  같이 결제하기
+                  🤝 같이 결제하기
                 </button>
               </div>
 
               {checkoutMode === 'alone' ? (
                 <div className="space-y-3">
                   <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--fg-muted)]">
-                    {user.name} 잔액 {balance}pt
+                    {user.name} 혼자 {checkoutCost}pt를 결제합니다. 현재 잔액은 {balance}pt예요.
                     {balance < checkoutCost && (
                       <span className="ml-2 font-semibold text-rose-300">포인트가 부족해요</span>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => { void handleRedeem(checkoutReward); }}
-                    disabled={redeeming === checkoutReward.id || balance < checkoutCost || checkoutSoldOut}
-                    className="h-11 w-full rounded-xl bg-[var(--accent)] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {redeeming === checkoutReward.id ? '결제 중…' : '결제'}
-                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -418,16 +415,29 @@ export function StoreModal({
                     {jointPartner && jointPartnerBalance < partnerShare && <span className="ml-2">{jointPartner.name} 잔액 부족</span>}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => { void handleJointRedeem(checkoutReward); }}
-                    disabled={redeeming === checkoutReward.id || jointInvalid}
-                    className="h-11 w-full rounded-xl bg-rose-400 text-sm font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {redeeming === checkoutReward.id ? '결제 중…' : '결제'}
-                  </button>
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (checkoutMode === 'alone') void handleRedeem(checkoutReward);
+                  else void handleJointRedeem(checkoutReward);
+                }}
+                disabled={
+                  redeeming === checkoutReward.id ||
+                  checkoutSoldOut ||
+                  (checkoutMode === 'alone' ? balance < checkoutCost : jointInvalid)
+                }
+                className={[
+                  'mt-4 h-12 w-full rounded-xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40',
+                  checkoutMode === 'alone'
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-rose-400 text-black',
+                ].join(' ')}
+              >
+                {redeeming === checkoutReward.id ? '결제 중…' : '결제 완료'}
+              </button>
             </div>
           </div>
         )}
