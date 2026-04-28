@@ -171,7 +171,7 @@ export default function JoinFamilyPage() {
                     className={[
                       'h-11 rounded-xl text-sm font-bold transition-colors',
                       role === nextRole
-                        ? 'bg-[#4f9cff] text-white'
+                        ? 'bg-[#4f9cff] text-[#06111f]'
                         : 'bg-[#232831] text-[#8a8f99]',
                     ].join(' ')}
                   >
@@ -228,7 +228,7 @@ export default function JoinFamilyPage() {
           <button
             onClick={() => { void handleJoin(); }}
             disabled={!inviteCode.trim() || (!googleEmail && !name.trim()) || loading}
-            className="mt-5 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99]"
+            className="mt-5 w-full h-12 rounded-xl bg-[#4f9cff] text-[#06111f] font-bold disabled:bg-[#232831] disabled:text-[#8a8f99]"
           >
             {loading ? 'Joining...' : 'Join Dashboard'}
           </button>
@@ -236,7 +236,7 @@ export default function JoinFamilyPage() {
           <button
             onClick={() => { void handleSelectMember(); }}
             disabled={!selectedMemberId || loading}
-            className="mt-5 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99]"
+            className="mt-5 w-full h-12 rounded-xl bg-[#4f9cff] text-[#06111f] font-bold disabled:bg-[#232831] disabled:text-[#8a8f99]"
           >
             {loading ? 'Linking...' : 'Link Selected Member'}
           </button>

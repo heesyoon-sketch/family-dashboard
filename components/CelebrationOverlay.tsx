@@ -59,7 +59,7 @@ export function CelebrationOverlay({
           </p>
           <button
             onClick={onDismiss}
-            className="mt-6 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-semibold min-h-[var(--touch-target)]"
+            className="mt-6 px-6 py-3 rounded-xl bg-[var(--accent)] text-gray-950 font-semibold min-h-[var(--touch-target)]"
           >
             {t('ok')}
           </button>

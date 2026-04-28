@@ -116,7 +116,7 @@ export default function SetPinPage() {
         <button
           onClick={() => { void handleSave(); }}
           disabled={saving || pin.length !== 4 || confirmPin.length !== 4}
-          className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
+          className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-[#06111f] font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
         >
           {saving ? '저장 중...' : 'PIN 저장하고 시작하기'}
         </button>

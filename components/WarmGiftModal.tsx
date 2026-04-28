@@ -10,7 +10,7 @@ import { useFamilyStore } from '@/lib/store';
 const QUICK_MESSAGES = [
   '👍 도와줘서 고마워!',
   '🔥 조금만 더 힘내!',
-  '🤝 우리 같이 모으자!',
+  '❤️ 사랑해!',
   '🎁 깜짝 선물이야!',
 ];
 

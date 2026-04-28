@@ -3,6 +3,12 @@
 import { Mail, X } from 'lucide-react';
 import { FamilyActivity, User } from '@/lib/db';
 
+const MAILBOX_ACTIVITY_TYPES = new Set<FamilyActivity['type']>([
+  'GIFT_SENT',
+  'GIFT_RECEIVED',
+  'REWARD_PURCHASED',
+]);
+
 function formatActivity(activity: FamilyActivity): { icon: string; text: string; amount: string } {
   if (activity.type === 'GIFT_RECEIVED') {
     return {
@@ -50,6 +56,8 @@ export function ActivityFeedModal({
   activities: FamilyActivity[];
   onClose: () => void;
 }) {
+  const visibleActivities = activities.filter(activity => MAILBOX_ACTIVITY_TYPES.has(activity.type));
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
@@ -78,14 +86,14 @@ export function ActivityFeedModal({
         </div>
 
         <div className="overflow-y-auto p-4">
-          {activities.length === 0 ? (
+          {visibleActivities.length === 0 ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-8 text-center text-sm text-[var(--fg-muted)]">
               아직 기록이 없어요
             </div>
           ) : (
             <div className="relative space-y-3">
               <div className="absolute bottom-3 left-[18px] top-3 w-px bg-[var(--border)]" />
-              {activities.map(activity => {
+              {visibleActivities.map(activity => {
                 const display = formatActivity(activity);
                 const positive = display.amount.startsWith('+');
                 return (

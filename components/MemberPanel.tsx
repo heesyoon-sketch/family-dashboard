@@ -14,6 +14,8 @@ import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED']);
+
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
 const pulse = {
@@ -85,7 +87,8 @@ export function MemberPanel({ user }: { user: User }) {
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
   const spendableBalance = level?.spendableBalance ?? 0;
-  const hasRecentUnreadActivity = activities.some(activity => {
+  const mailboxActivities = activities.filter(activity => MAILBOX_ACTIVITY_TYPES.has(activity.type));
+  const hasRecentUnreadActivity = mailboxActivities.some(activity => {
     const created = activity.createdAt.getTime();
     return created >= recentCutoff && created > activityReadAt;
   });
@@ -185,7 +188,7 @@ export function MemberPanel({ user }: { user: User }) {
       {activityOpen && (
         <ActivityFeedModal
           user={user}
-          activities={activities}
+          activities={mailboxActivities}
           onClose={() => setActivityOpen(false)}
         />
       )}
@@ -257,7 +260,7 @@ export function MemberPanel({ user }: { user: User }) {
                 <button
                   type="button"
                   onClick={openActivityFeed}
-                  className="relative h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                  className="relative h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
                   title="편지함 및 기록"
                   aria-label="편지함 및 기록"
                 >
@@ -271,7 +274,7 @@ export function MemberPanel({ user }: { user: User }) {
                   <button
                     type="button"
                     onClick={() => setGiftOpen(true)}
-                    className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                    className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
                     title="마음 나누기"
                     aria-label="마음 나누기"
                   >
@@ -282,7 +285,7 @@ export function MemberPanel({ user }: { user: User }) {
                 <button
                   type="button"
                   onClick={openStore}
-                  className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                  className="h-7 px-2.5 rounded-full bg-[var(--accent)] text-gray-950 text-[11px] font-bold flex items-center gap-1 shrink-0 transition hover:brightness-95"
                 >
                   <Store size={13} />
                   <span>{lang === 'en' ? 'Store' : '상점'}</span>

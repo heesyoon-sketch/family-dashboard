@@ -218,7 +218,7 @@ function IconPicker({
                       onClick={() => onSelect(key)}
                       className={`flex flex-col items-center justify-center gap-1 rounded-xl transition-colors ${
                         selected
-                          ? 'bg-[#4f9cff] text-white'
+                          ? 'bg-[#4f9cff] text-[#06111f]'
                           : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545] hover:text-white'
                       }`}
                       style={{ minHeight: 48 }}
@@ -1435,7 +1435,7 @@ export default function AdminPage() {
           <button
             onClick={handlePinSubmit}
             disabled={adminPinHash === undefined}
-            className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-50 transition-opacity"
+            className="w-full rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-50 transition-opacity"
           >
             {adminPinHash === undefined ? '…' : t('confirm')}
           </button>
@@ -1553,7 +1553,7 @@ export default function AdminPage() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors shrink-0 ${
                     activeTab === tab.key
-                      ? 'bg-[#4f9cff] text-white'
+                      ? 'bg-[#4f9cff] text-[#06111f]'
                       : 'text-[#8a8f99] hover:bg-[#232831] hover:text-white'
                   }`}
                 >
@@ -1590,7 +1590,7 @@ export default function AdminPage() {
                   <button
                     onClick={copyInviteCode}
                     disabled={!familyInviteCode}
-                    className="w-14 rounded-xl bg-[#4f9cff] text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d8bed] transition-colors"
+                    className="w-14 rounded-xl bg-[#4f9cff] text-[#06111f] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d8bed] transition-colors"
                     style={{ minHeight: 'var(--touch-target)' }}
                     title="Copy invitation code"
                   >
@@ -1620,7 +1620,7 @@ export default function AdminPage() {
                   <button
                     onClick={() => setLang('ko')}
                     className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
-                      lang === 'ko' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                      lang === 'ko' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
                     }`}
                   >
                     Korean (한국어)
@@ -1628,7 +1628,7 @@ export default function AdminPage() {
                   <button
                     onClick={() => setLang('en')}
                     className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
-                      lang === 'en' ? 'bg-[#4f9cff] text-white' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                      lang === 'en' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
                     }`}
                   >
                     English
@@ -1673,7 +1673,7 @@ export default function AdminPage() {
                   <button
                     onClick={handleChangePin}
                     disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
-                    className="w-full rounded-xl bg-[#4f9cff] text-white font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                    className="w-full rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                   >
                     {pinChanging ? '…' : t('change_pin_btn')}
                   </button>
@@ -1762,7 +1762,7 @@ export default function AdminPage() {
                       onClick={() => setNewMemberRole('PARENT')}
                       disabled={isAddingMember}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                        newMemberRole === 'PARENT' ? 'bg-[#4f9cff] text-white' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                        newMemberRole === 'PARENT' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
                       }`}
                     >
                       {t('parent_role')}
@@ -1772,7 +1772,7 @@ export default function AdminPage() {
                       onClick={() => setNewMemberRole('CHILD')}
                       disabled={isAddingMember}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                        newMemberRole === 'CHILD' ? 'bg-[#4f9cff] text-white' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                        newMemberRole === 'CHILD' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
                       }`}
                     >
                       {t('child_role')}
@@ -1783,7 +1783,7 @@ export default function AdminPage() {
                       type="button"
                       onClick={() => { void addMember(); }}
                       disabled={isAddingMember || !newMemberName.trim()}
-                      className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                      className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                     >
                       {isAddingMember ? '추가 중...' : '추가하기'}
                     </button>
@@ -1935,7 +1935,7 @@ export default function AdminPage() {
                       onClick={() => loadTasks(u)}
                       className={`px-5 py-3 rounded-xl font-semibold min-h-[var(--touch-target)] transition-colors ${
                         selectedUser?.id === u.id
-                          ? 'bg-[#4f9cff] text-white'
+                          ? 'bg-[#4f9cff] text-[#06111f]'
                           : 'bg-[#232831] text-[#e8eaed] hover:bg-[#2d3545]'
                       }`}
                     >
@@ -1958,7 +1958,7 @@ export default function AdminPage() {
                         className={`relative p-4 rounded-xl bg-[#232831] ${task.active === 0 ? 'opacity-50' : ''}`}
                       >
                         {/* Index badge */}
-                        <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-[#4f9cff] text-white text-xs font-bold flex items-center justify-center leading-none select-none">
+                        <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-[#4f9cff] text-[#06111f] text-xs font-bold flex items-center justify-center leading-none select-none">
                           {idx + 1}
                         </span>
 
@@ -1970,7 +1970,7 @@ export default function AdminPage() {
                             title={t('icon_change')}
                           >
                             <LucideIcon name={task.icon} size={18} />
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-[#06111f] text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               🎨
                             </span>
                           </button>
@@ -2076,7 +2076,7 @@ export default function AdminPage() {
                                   isOn
                                     ? isSat || isSun
                                       ? 'bg-[#f59e0b] text-[#1a1200]'
-                                      : 'bg-[#4f9cff] text-white'
+                                      : 'bg-[#4f9cff] text-[#06111f]'
                                     : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
                                 }`}
                                 style={{ minHeight: 36 }}
@@ -2178,7 +2178,7 @@ export default function AdminPage() {
                         type="button"
                         onClick={() => { void addTask(); }}
                         disabled={isAddingTask || !newTaskTitle.trim()}
-                        className="px-5 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-5 rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {isAddingTask ? '...' : t('add')}
                       </button>
@@ -2476,7 +2476,7 @@ export default function AdminPage() {
                     title={t('icon_select')}
                   >
                     <LucideIcon name={newRewardIcon} size={20} />
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-[#06111f] text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
                   </button>
                   <input
                     type="text"
@@ -2495,7 +2495,7 @@ export default function AdminPage() {
                   />
                   <button
                     onClick={addReward}
-                    className="px-4 rounded-xl bg-[#4f9cff] text-white font-semibold min-h-[var(--touch-target)]"
+                    className="px-4 rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold min-h-[var(--touch-target)]"
                   >
                     {t('add')}
                   </button>

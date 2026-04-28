@@ -113,7 +113,7 @@ export default function SetupPage() {
                 className="w-9 h-9 rounded-full object-cover shrink-0"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#4f9cff] text-white font-bold flex items-center justify-center shrink-0 text-sm">
+              <div className="w-9 h-9 rounded-full bg-[#4f9cff] text-[#06111f] font-bold flex items-center justify-center shrink-0 text-sm">
                 {googleUser.name.charAt(0).toUpperCase()}
               </div>
             )}
@@ -162,7 +162,7 @@ export default function SetupPage() {
             {/* Primary CTA: Join */}
             <Link
               href="/join"
-              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#4f9cff] text-white font-bold text-base mb-3 hover:bg-[#3d8bed] transition-colors"
+              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#4f9cff] text-[#06111f] font-bold text-base mb-3 hover:bg-[#3d8bed] transition-colors"
             >
               🔑 초대 코드로 합류하기
             </Link>
@@ -212,7 +212,7 @@ export default function SetupPage() {
             <button
               onClick={() => { void handleCreate(); }}
               disabled={!familyName.trim() || loading}
-              className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-white font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
+              className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-[#06111f] font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
             >
               {loading ? '생성 중...' : '대시보드 시작하기'}
             </button>

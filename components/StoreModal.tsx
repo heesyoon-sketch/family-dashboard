@@ -283,7 +283,7 @@ export function StoreModal({
                     <span className={[
                       'px-2 py-1 rounded-full text-[10px] font-bold shrink-0',
                       canAfford
-                        ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-white'
+                        ? hasDeal ? 'bg-rose-400 text-black' : 'bg-[var(--accent)] text-gray-950'
                         : 'bg-transparent text-[var(--fg-muted)]',
                     ].join(' ')}>
                       {busy ? '…' : soldOut ? '품절' : t('redeem')}
@@ -329,7 +329,7 @@ export function StoreModal({
                   className={[
                     'min-h-14 rounded-xl border px-3 py-2 text-xs font-bold transition-colors',
                     checkoutMode === 'alone'
-                      ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                      ? 'border-[var(--accent)] bg-[var(--accent)] text-gray-950'
                       : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
                   ].join(' ')}
                 >
@@ -366,7 +366,7 @@ export function StoreModal({
                     <select
                       value={jointUserId}
                       onChange={e => setJointUserId(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-sm outline-none"
+                      className="h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-500"
                     >
                       {jointPartners.map(member => (
                         <option key={member.id} value={member.id}>{member.name}</option>
@@ -383,7 +383,7 @@ export function StoreModal({
                         max={checkoutCost}
                         value={userShare}
                         onChange={e => setUserShare(Number(e.target.value))}
-                        className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-center text-sm font-bold outline-none"
+                        className="h-10 w-full rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-bold text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
                       />
                       <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">잔액 {balance}pt</span>
                     </label>
@@ -397,7 +397,7 @@ export function StoreModal({
                         max={checkoutCost}
                         value={partnerShare}
                         onChange={e => setPartnerShare(Number(e.target.value))}
-                        className="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2 text-center text-sm font-bold outline-none"
+                        className="h-10 w-full rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-bold text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
                       />
                       <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">잔액 {jointPartnerBalance}pt</span>
                     </label>
@@ -432,7 +432,7 @@ export function StoreModal({
                 className={[
                   'mt-4 h-12 w-full rounded-xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40',
                   checkoutMode === 'alone'
-                    ? 'bg-[var(--accent)] text-white'
+                    ? 'bg-[var(--accent)] text-gray-950'
                     : 'bg-rose-400 text-black',
                 ].join(' ')}
               >
