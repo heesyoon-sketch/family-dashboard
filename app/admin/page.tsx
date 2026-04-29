@@ -487,24 +487,22 @@ export default function AdminPage() {
         email: user.email ?? null,
         avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
       });
-      const { data: resolvedFamilyId } = await supabase.rpc('get_my_family_id');
+      const { data: familyInfo } = await supabase.rpc('get_my_family_info');
+      const resolvedFamilyId = (familyInfo as { id: string; name: string } | null)?.id ?? null;
       if (!resolvedFamilyId) { router.replace('/setup'); return; }
       setFamilyId(resolvedFamilyId);
-      const hash = await getCurrentFamilyAdminPinHash();
+      useFamilyStore.setState({ familyName: (familyInfo as { id: string; name: string }).name ?? null });
+
+      const [hash, inviteRes] = await Promise.all([
+        getCurrentFamilyAdminPinHash(),
+        supabase.from('families').select('invite_code').eq('id', resolvedFamilyId).maybeSingle(),
+      ]);
       if (!hash) {
         router.replace('/setup/set-pin');
         return;
       }
       setAdminPinHash(hash);
-
-      const { data: family } = await supabase
-        .from('families')
-        .select('id, invite_code, name')
-        .eq('id', resolvedFamilyId)
-        .maybeSingle();
-      const { data: resolvedFamilyName } = await supabase.rpc('get_my_family_name');
-      setFamilyInviteCode(family?.invite_code ?? null);
-      useFamilyStore.setState({ familyName: (resolvedFamilyName as string | null) ?? family?.name ?? null });
+      setFamilyInviteCode(inviteRes.data?.invite_code ?? null);
 
       await supabase.rpc('claim_owner_parent_profile');
 

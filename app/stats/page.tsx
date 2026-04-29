@@ -161,7 +161,8 @@ export default function StatsPage() {
         return;
       }
 
-      const { data: familyId } = await supabase.rpc('get_my_family_id');
+      const { data: familyInfo } = await supabase.rpc('get_my_family_info');
+      const familyId = (familyInfo as { id: string; name: string } | null)?.id ?? null;
       if (!familyId) {
         router.replace('/setup');
         return;
@@ -171,6 +172,8 @@ export default function StatsPage() {
         return;
       }
 
+      setFamilyName((familyInfo as { id: string; name: string }).name ?? null);
+
       const now = new Date();
       const today = startOfDay(now);
       const weekStart = weekMonday(now);
@@ -179,23 +182,23 @@ export default function StatsPage() {
       const monthStart = addDays(today, -29);
       const historyStart = lastWeekStart;
 
-      const [
-        familyNameRes,
-        usersRes,
-        tasksRes,
-        levelsRes,
-        completionsRes,
-      ] = await Promise.all([
-        supabase.rpc('get_my_family_name'),
+      // Phase 1: fetch users and tasks (need userIds before filtering levels/completions).
+      const [usersRes, tasksRes] = await Promise.all([
         supabase.from('users').select('*').eq('family_id', familyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
         supabase.from('tasks').select('*').eq('family_id', familyId).eq('active', 1),
-        supabase.from('levels').select('*'),
-        supabase.from('task_completions')
-          .select('user_id, task_id, completed_at, points_awarded')
-          .gte('completed_at', historyStart.toISOString()),
       ]);
 
-      setFamilyName((familyNameRes.data as string | null) ?? null);
+      const userIds = (usersRes.data ?? []).map((r: { id: string }) => r.id);
+      const safeIds = userIds.length > 0 ? userIds : ['__no_match__'];
+
+      // Phase 2: filter levels and completions by verified userIds.
+      const [levelsRes, completionsRes] = await Promise.all([
+        supabase.from('levels').select('*').in('user_id', safeIds),
+        supabase.from('task_completions')
+          .select('user_id, task_id, completed_at, points_awarded')
+          .in('user_id', safeIds)
+          .gte('completed_at', historyStart.toISOString()),
+      ]);
 
       const users: User[] = (usersRes.data ?? []).map(row => ({
         id: row.id,
@@ -211,7 +214,6 @@ export default function StatsPage() {
         createdAt: new Date(row.created_at),
       }));
 
-      const userIds = users.map(u => u.id);
       const userIdSet = new Set(userIds);
       const tasks = (tasksRes.data ?? [])
         .map(row => mapTaskRow(row as Record<string, unknown>))
