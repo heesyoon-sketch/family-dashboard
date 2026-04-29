@@ -12,7 +12,7 @@ import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomI
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { User, Task, Reward, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
-import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyPin } from '@/lib/adminPin';
+import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin, verifyPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
@@ -595,9 +595,13 @@ export default function AdminPage() {
       setPin('');
       return;
     }
-    if (adminPinHash && await verifyPin(pin, adminPinHash)) {
-      setView('dashboard');
-      return;
+    if (adminPinHash) {
+      const { ok, upgradedHash } = await verifyAdminPin(pin, adminPinHash);
+      if (ok) {
+        if (upgradedHash) setAdminPinHash(upgradedHash);
+        setView('dashboard');
+        return;
+      }
     }
     setError(t('pin_incorrect'));
     setPin('');
@@ -666,9 +670,12 @@ export default function AdminPage() {
       return;
     }
     // Family owner can set a new PIN without knowing the old one
-    if (!isFamilyOwner && adminPinHash && !await verifyPin(currentPinInput, adminPinHash)) {
-      toast.error(t('pin_incorrect'));
-      return;
+    if (!isFamilyOwner && adminPinHash) {
+      const { ok } = await verifyAdminPin(currentPinInput, adminPinHash);
+      if (!ok) {
+        toast.error(t('pin_incorrect'));
+        return;
+      }
     }
     setPinChanging(true);
     try {

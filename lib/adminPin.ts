@@ -1,7 +1,7 @@
 'use client';
 
 import { createBrowserSupabase } from './supabase';
-import { hashPin, verifyPin } from './pin';
+import { hashPin, isLegacyHash, verifyPin } from './pin';
 
 export async function getCurrentFamilyAdminPinHash(): Promise<string | null> {
   try {
@@ -39,6 +39,35 @@ export async function saveAdminPin(newPin: string): Promise<string> {
   });
   if (error) throw error;
   return hash;
+}
+
+/**
+ * Verifies the PIN and silently upgrades a legacy fixed-salt hash to the
+ * per-family random-salt format (v1) on the next successful login.
+ * Returns { ok, upgradedHash } — if upgradedHash is set, the caller should
+ * update local state so subsequent verifications use the new hash.
+ */
+export async function verifyAdminPin(
+  pin: string,
+  currentHash: string,
+): Promise<{ ok: boolean; upgradedHash?: string }> {
+  const ok = await verifyPin(pin, currentHash);
+  if (!ok) return { ok: false };
+  if (!isLegacyHash(currentHash)) return { ok: true };
+
+  // Legacy hash verified — upgrade to v1 format silently.
+  try {
+    const newHash = await hashPin(pin);
+    const supabase = createBrowserSupabase();
+    const { error } = await supabase.rpc('admin_upsert_family_setting', {
+      p_key: 'admin_pin_hash',
+      p_value: newHash,
+    });
+    if (!error) return { ok: true, upgradedHash: newHash };
+  } catch {
+    // Upgrade failed — still grant access; will retry on next login.
+  }
+  return { ok: true };
 }
 
 export { verifyPin };
