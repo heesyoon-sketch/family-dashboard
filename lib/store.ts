@@ -757,6 +757,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       clearTimeout(_hydrateDebounceTimer);
       _hydrateDebounceTimer = null;
     }
+    _activityCleanupDone = false;
     set({
       familyId: null,
       familyName: null,
