@@ -66,6 +66,25 @@ let _syncInFlight = false;
 let _activityCleanupDone = false;
 const _taskMutationsInFlight = new Set<string>();
 
+let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
+let _realtimeSubscribedFamilyId: string | null = null;
+let _hydrateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function broadcastSync() {
+  const ch = new BroadcastChannel('habit_sync');
+  ch.postMessage('update');
+  ch.close();
+}
+
+function scheduleRealtimeHydrate(ownMemberId: string | null, eventUserId?: string) {
+  if (eventUserId && eventUserId === ownMemberId) return;
+  if (_hydrateDebounceTimer) clearTimeout(_hydrateDebounceTimer);
+  _hydrateDebounceTimer = setTimeout(() => {
+    _hydrateDebounceTimer = null;
+    useFamilyStore.getState().hydrate().catch(console.error);
+  }, 1500);
+}
+
 function taskMutationKey(userId: string, taskId: string): string {
   return `${userId}:${taskId}`;
 }
@@ -429,6 +448,31 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         })();
       }
     }
+
+    // Cross-device realtime sync: subscribe to task_completions + levels changes
+    // from other family members. Only (re)subscribe when the family changes.
+    if (typeof window !== 'undefined' && userIds.length > 0 && resolvedFamilyId !== _realtimeSubscribedFamilyId) {
+      if (_realtimeChannel) {
+        _realtimeChannel.unsubscribe();
+        _realtimeChannel = null;
+      }
+      _realtimeSubscribedFamilyId = resolvedFamilyId;
+      const inFilter = `user_id=in.(${userIds.join(',')})`;
+      const currentMemberId = get().currentMemberId;
+      _realtimeChannel = supabase
+        .channel(`family-sync:${resolvedFamilyId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'task_completions', filter: inFilter },
+          payload => scheduleRealtimeHydrate(currentMemberId, (payload.new as Record<string, string> | null)?.user_id ?? (payload.old as Record<string, string> | null)?.user_id),
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'levels', filter: inFilter },
+          payload => scheduleRealtimeHydrate(currentMemberId, (payload.new as Record<string, string> | null)?.user_id),
+        )
+        .subscribe();
+    }
   },
 
   markCompleted: async (userId, taskId) => {
@@ -580,7 +624,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
 
       await get().hydrate();
-      new BroadcastChannel('habit_sync').postMessage('update');
+      broadcastSync();
     } finally {
       _syncInFlight = false;
     }
@@ -598,7 +642,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       },
     }));
     await get().hydrate();
-    new BroadcastChannel('habit_sync').postMessage('update');
+    broadcastSync();
   },
 
   purchaseRewardJoint: async (rewardId, user1Id, user1Amount, user2Id, user2Amount) => {
@@ -630,7 +674,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       },
     }));
     await get().hydrate();
-    new BroadcastChannel('habit_sync').postMessage('update');
+    broadcastSync();
   },
 
   transferPointsWithMessage: async (senderId, receiverId, amount, message) => {
@@ -662,7 +706,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       },
     }));
     await get().hydrate();
-    new BroadcastChannel('habit_sync').postMessage('update');
+    broadcastSync();
   },
 
   updateMemberAvatar: (userId, avatarUrl) => {
@@ -681,23 +725,34 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     set({ soundEnabled: next });
   },
 
-  reset: () => set({
-    familyId: null,
-    familyName: null,
-    users: [],
-    rewards: [],
-    currentMemberId: null,
-    currentMemberCanAdmin: false,
-    tasksByUser: {},
-    activitiesByUser: {},
-    levelsByUser: {},
-    todayCompletions: {},
-    maxStreakByUser: {},
-    longestStreakByUser: {},
-    bestDayByUser: {},
-    growthByUser: {},
-    celebration: null,
-    hydrated: false,
-    timeOfDay: getCurrentTimeOfDay(),
-  }),
+  reset: () => {
+    if (_realtimeChannel) {
+      _realtimeChannel.unsubscribe();
+      _realtimeChannel = null;
+      _realtimeSubscribedFamilyId = null;
+    }
+    if (_hydrateDebounceTimer) {
+      clearTimeout(_hydrateDebounceTimer);
+      _hydrateDebounceTimer = null;
+    }
+    set({
+      familyId: null,
+      familyName: null,
+      users: [],
+      rewards: [],
+      currentMemberId: null,
+      currentMemberCanAdmin: false,
+      tasksByUser: {},
+      activitiesByUser: {},
+      levelsByUser: {},
+      todayCompletions: {},
+      maxStreakByUser: {},
+      longestStreakByUser: {},
+      bestDayByUser: {},
+      growthByUser: {},
+      celebration: null,
+      hydrated: false,
+      timeOfDay: getCurrentTimeOfDay(),
+    });
+  },
 }));

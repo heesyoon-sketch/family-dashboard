@@ -20,7 +20,9 @@ import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 function notifyDashboard() {
-  new BroadcastChannel('habit_sync').postMessage('update');
+  const ch = new BroadcastChannel('habit_sync');
+  ch.postMessage('update');
+  ch.close();
 }
 
 type View = 'pin' | 'dashboard';

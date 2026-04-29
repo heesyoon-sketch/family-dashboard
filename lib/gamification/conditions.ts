@@ -1,12 +1,13 @@
 import { BadgeCondition } from '../db';
 import { createBrowserSupabase } from '../supabase';
 
+type SupabaseClient = ReturnType<typeof createBrowserSupabase>;
+
 export async function evaluateCondition(
   userId: string,
   cond: BadgeCondition,
+  supabase: SupabaseClient,
 ): Promise<boolean> {
-  const supabase = createBrowserSupabase();
-
   switch (cond.type) {
     case 'streak': {
       const { data: tasks } = await supabase.from('tasks')

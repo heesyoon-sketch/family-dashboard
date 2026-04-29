@@ -201,7 +201,7 @@ export async function evaluateAllBadges(userId: string): Promise<Badge[]> {
     }));
 
   const evaluated = await Promise.all(
-    candidates.map(async badge => ({ badge, met: await evaluateCondition(userId, badge.conditionJson) }))
+    candidates.map(async badge => ({ badge, met: await evaluateCondition(userId, badge.conditionJson, supabase) }))
   );
 
   const newly: Badge[] = [];
