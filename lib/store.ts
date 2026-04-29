@@ -42,6 +42,7 @@ interface FamilyState {
   timeOfDay: TimeOfDay;
 
   hydrate: () => Promise<void>;
+  _hydrateOnce: () => Promise<void>;
   markCompleted: (userId: string, taskId: string) => Promise<void>;
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
   syncOfflineActions: () => Promise<void>;
@@ -69,6 +70,8 @@ const _taskMutationsInFlight = new Set<string>();
 let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
 let _realtimeSubscribedFamilyId: string | null = null;
 let _hydrateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _hydrateInFlight: Promise<void> | null = null;
+let _hydrateQueued = false;
 
 function broadcastSync() {
   const ch = new BroadcastChannel('habit_sync');
@@ -146,6 +149,25 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   timeOfDay: getCurrentTimeOfDay(),
 
   hydrate: async () => {
+    if (_hydrateInFlight) {
+      _hydrateQueued = true;
+      return _hydrateInFlight;
+    }
+    _hydrateInFlight = (async () => {
+      try {
+        await get()._hydrateOnce();
+      } finally {
+        _hydrateInFlight = null;
+        if (_hydrateQueued) {
+          _hydrateQueued = false;
+          get().hydrate().catch(console.error);
+        }
+      }
+    })();
+    return _hydrateInFlight;
+  },
+
+  _hydrateOnce: async () => {
     const supabase = createBrowserSupabase();
 
     // getUser() verifies the token with the Supabase Auth server —
