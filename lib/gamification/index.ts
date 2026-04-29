@@ -187,27 +187,33 @@ export async function redeemReward(
 
 export async function evaluateAllBadges(userId: string): Promise<Badge[]> {
   const supabase = createBrowserSupabase();
-  const { data: all } = await supabase.from('badges').select('*').eq('active', 1);
-  const { data: earned } = await supabase.from('user_badges').select('*').eq('user_id', userId);
+  const [{ data: all }, { data: earned }] = await Promise.all([
+    supabase.from('badges').select('*').eq('active', 1),
+    supabase.from('user_badges').select('badge_id').eq('user_id', userId),
+  ]);
   const earnedIds = new Set((earned ?? []).map(e => e.badge_id));
-  const newly: Badge[] = [];
 
-  for (const b of (all ?? [])) {
-    if (earnedIds.has(b.id)) continue;
-    const badge: Badge = {
+  const candidates: Badge[] = (all ?? [])
+    .filter(b => !earnedIds.has(b.id))
+    .map(b => ({
       id: b.id, code: b.code, name: b.name, description: b.description,
       icon: b.icon, category: b.category, conditionJson: b.condition_json, active: b.active,
-    };
-    const met = await evaluateCondition(userId, badge.conditionJson);
-    if (met) {
-      await supabase.from('user_badges').insert({
-        id: crypto.randomUUID(),
-        user_id: userId,
-        badge_id: b.id,
-        earned_at: new Date().toISOString(),
-      });
-      newly.push(badge);
-    }
+    }));
+
+  const evaluated = await Promise.all(
+    candidates.map(async badge => ({ badge, met: await evaluateCondition(userId, badge.conditionJson) }))
+  );
+
+  const newly: Badge[] = [];
+  for (const { badge, met } of evaluated) {
+    if (!met) continue;
+    await supabase.from('user_badges').insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      badge_id: badge.id,
+      earned_at: new Date().toISOString(),
+    });
+    newly.push(badge);
   }
   return newly;
 }

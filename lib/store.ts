@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { createBrowserSupabase } from './supabase';
-import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions } from './offlineQueue';
+import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
 
 export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
@@ -63,6 +63,7 @@ function loadSoundPref(): boolean {
 let _timeIntervalStarted = false;
 let _offlineSyncListenersStarted = false;
 let _syncInFlight = false;
+let _activityCleanupDone = false;
 const _taskMutationsInFlight = new Set<string>();
 
 function taskMutationKey(userId: string, taskId: string): string {
@@ -154,8 +155,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const cachedMemberId = typeof window !== 'undefined'
       ? localStorage.getItem('family_dashboard_member_id')
       : null;
-    const { data: familyId } = await supabase.rpc('get_my_family_id');
-    let resolvedFamilyId = familyId as string | null;
+
+    // get_my_family_info() returns { id, name } in one round-trip, replacing the
+    // previous get_my_family_id() + get_my_family_name() + fallback families query.
+    const { data: familyInfo } = await supabase.rpc('get_my_family_info');
+    let resolvedFamilyId = (familyInfo as { id: string; name: string } | null)?.id ?? null;
+    let familyName = (familyInfo as { id: string; name: string } | null)?.name ?? null;
 
     if (!resolvedFamilyId && cachedMemberId) {
       const { data: memberFamilyId } = await supabase.rpc('get_family_id_for_member', {
@@ -195,22 +200,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const timeOfDay = getCurrentTimeOfDay();
     const fourteenDaysAgo = addDays(todayStart, -13);
 
-    // Phase 1: load the family's name, users, tasks, and rewards (explicit family_id filter).
-    const [familyNameRes, uRes, tRes, rRes] = await Promise.all([
-      supabase.rpc('get_my_family_name'),
+    // Phase 1: load users, tasks, and rewards (family_id already resolved above).
+    const [uRes, tRes, rRes] = await Promise.all([
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId),
       supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).order('cost_points'),
     ]);
-    let familyName = (familyNameRes.data as string | null) ?? null;
-    if (!familyName) {
-      const { data: family } = await supabase
-        .from('families')
-        .select('name')
-        .eq('id', resolvedFamilyId)
-        .maybeSingle();
-      familyName = family?.name ?? null;
-    }
 
     // Phase 2: load per-user tables filtered by the verified user IDs.
     // levels/streaks have no family_id column; task_completions relies on user_id.
@@ -420,6 +415,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     if (isProbablyOnline()) {
       get().syncOfflineActions().catch(console.error);
     }
+
+    if (!_activityCleanupDone && isProbablyOnline() && typeof window !== 'undefined') {
+      const lastCleanup = localStorage.getItem('activity_cleanup_date');
+      const today = new Date().toDateString();
+      if (lastCleanup !== today) {
+        _activityCleanupDone = true;
+        const supabaseForCleanup = createBrowserSupabase();
+        (async () => {
+          const { error } = await supabaseForCleanup.rpc('prune_old_task_activities');
+          if (error) { _activityCleanupDone = false; return; }
+          localStorage.setItem('activity_cleanup_date', today);
+        })();
+      }
+    }
   },
 
   markCompleted: async (userId, taskId) => {
@@ -550,6 +559,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     if (_syncInFlight || !isProbablyOnline()) return;
     _syncInFlight = true;
     try {
+      await pruneStaleActions();
       const actions = await listTaskActions();
       if (actions.length === 0) return;
 
