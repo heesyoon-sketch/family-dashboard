@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
-import { createBrowserSupabase } from './supabase';
+import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
+
+async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) {
+    throw new Error('로그인이 필요합니다');
+  }
+}
 
 export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
@@ -655,6 +662,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   },
 
   redeemReward: async (userId, rewardId, cost) => {
+    assertUuid(userId, 'userId');
+    assertUuid(rewardId, 'rewardId');
+    const supabase = createBrowserSupabase();
+    await requireAuthSession(supabase);
     const { redeemReward: doRedeem } = await import('./gamification');
     const newBalance = await doRedeem(userId, rewardId, cost);
     set(state => ({
@@ -670,7 +681,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   },
 
   purchaseRewardJoint: async (rewardId, user1Id, user1Amount, user2Id, user2Amount) => {
+    assertUuid(rewardId, 'rewardId');
+    assertUuid(user1Id, 'user1Id');
+    assertUuid(user2Id, 'user2Id');
     const supabase = createBrowserSupabase();
+    await requireAuthSession(supabase);
     const { data, error } = await supabase.rpc('purchase_reward_joint', {
       p_reward_id: rewardId,
       p_user1_id: user1Id,
