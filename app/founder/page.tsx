@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, Gift, Home, Sparkles, Users } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Gift, Home, Sparkles, Users } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { RefreshDataButton } from './RefreshDataButton';
 import { createFounderAdminClient, createFounderAuthClient } from './supabase';
@@ -240,6 +240,37 @@ function KpiCard({ card }: { card: KpiCard }) {
   );
 }
 
+function FounderLoadError({ message }: { message: string }) {
+  return (
+    <main className="min-h-screen bg-[#080b12] text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10 sm:px-6">
+        <section className="w-full rounded-lg border border-amber-400/20 bg-amber-400/10 p-6 shadow-2xl shadow-black/30">
+          <div className="mb-5 inline-flex rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-amber-200">
+            <AlertTriangle size={24} />
+          </div>
+          <h1 className="text-2xl font-black tracking-normal text-white">Founder Dashboard Needs Server Configuration</h1>
+          <p className="mt-3 text-sm leading-6 text-amber-100/80">
+            The founder route loaded securely, but the server-side metrics query failed before data could render.
+          </p>
+          <div className="mt-5 rounded-lg border border-white/10 bg-black/25 p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Most likely fix</div>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Add `SUPABASE_SERVICE_ROLE_KEY` in Vercel Project Settings → Environment Variables, then redeploy.
+            </p>
+          </div>
+          <div className="mt-4 rounded-lg border border-white/10 bg-black/25 p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Server message</div>
+            <p className="mt-2 break-words font-mono text-xs leading-5 text-slate-300">{message}</p>
+          </div>
+          <div className="mt-6">
+            <RefreshDataButton />
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
 export default async function FounderPage() {
   const authClient = await createFounderAuthClient();
   const { data: { user }, error } = await authClient.auth.getUser();
@@ -248,7 +279,15 @@ export default async function FounderPage() {
     redirect('/');
   }
 
-  const data = await getFounderDashboardData();
+  let data: Awaited<ReturnType<typeof getFounderDashboardData>>;
+  try {
+    data = await getFounderDashboardData();
+  } catch (loadError) {
+    console.error('Founder dashboard load failed', loadError);
+    const message = loadError instanceof Error ? loadError.message : 'Unknown founder dashboard server error.';
+    return <FounderLoadError message={message} />;
+  }
+
   const cards: KpiCard[] = [
     {
       label: 'Total Families',
