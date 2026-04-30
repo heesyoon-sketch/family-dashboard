@@ -14,6 +14,11 @@ alter table public.family_activities
 alter table public.rewards
   add column if not exists sale_price integer default null;
 
+drop policy if exists "families_owner_delete" on public.families;
+create policy "families_owner_delete" on public.families
+  for delete to authenticated
+  using (owner_id = auth.uid());
+
 create or replace function public.ensure_default_tasks_for_member(
   p_member_id text,
   p_family_id uuid
@@ -591,11 +596,7 @@ $$;
 
 grant execute on function public.purchase_reward_joint(uuid, uuid, int, uuid, int) to authenticated;
 
-create or replace function public.create_family_with_defaults(
-  p_name text,
-  p_admin_name text default null,
-  p_admin_avatar_url text default null
-)
+create or replace function public.setup_family(p_name text)
 returns uuid
 language plpgsql
 security definer
@@ -626,27 +627,14 @@ begin
   values (v_owner_id, v_name)
   returning id into v_family_id;
 
-  perform public.seed_default_family_data(v_family_id, p_admin_name, p_admin_avatar_url);
+  perform public.seed_default_family_data(v_family_id, null, null);
 
   return v_family_id;
 exception
   when unique_violation then
-    raise exception 'create_family_with_defaults unique violation: %', sqlerrm;
+    raise exception 'setup_family unique violation: %', sqlerrm;
   when others then
-    raise exception 'create_family_with_defaults failed: %', sqlerrm;
-end;
-$$;
-
-grant execute on function public.create_family_with_defaults(text, text, text) to authenticated;
-
-create or replace function public.setup_family(p_name text)
-returns uuid
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  return public.create_family_with_defaults(p_name, null, null);
+    raise exception 'setup_family failed: %', sqlerrm;
 end;
 $$;
 

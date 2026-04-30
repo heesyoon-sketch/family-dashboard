@@ -173,13 +173,18 @@ export async function redeemReward(
   void _cost;
   const supabase = createBrowserSupabase();
   const now = new Date();
-  const { data, error } = await supabase.rpc('redeem_reward_atomic', {
+  const payload = {
     p_user_id: assertUuid(userId, 'userId'),
     p_reward_id: assertUuid(rewardId, 'rewardId'),
     p_day_key: dayKey(now),
     p_now: now.toISOString(),
-  });
-  if (error) throw new Error(error.message);
+  };
+  console.log('[shop:redeem_reward_atomic] supabase.rpc payload', payload);
+  const { data, error } = await supabase.rpc('redeem_reward_atomic', payload);
+  if (error) {
+    console.error('[shop:redeem_reward_atomic] supabase.rpc error', { payload, error });
+    throw new Error(error.message);
+  }
 
   const raw = data as { spendableBalance: number };
   return raw.spendableBalance;

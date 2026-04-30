@@ -686,14 +686,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     assertUuid(user2Id, 'user2Id');
     const supabase = createBrowserSupabase();
     await requireAuthSession(supabase);
-    const { data, error } = await supabase.rpc('purchase_reward_joint', {
+    const payload = {
       p_reward_id: rewardId,
       p_user1_id: user1Id,
       p_user1_amount: Math.max(0, Math.round(user1Amount)),
       p_user2_id: user2Id,
       p_user2_amount: Math.max(0, Math.round(user2Amount)),
-    });
-    if (error) throw new Error(error.message);
+    };
+    console.log('[shop:purchase_reward_joint] supabase.rpc payload', payload);
+    const { data, error } = await supabase.rpc('purchase_reward_joint', payload);
+    if (error) {
+      console.error('[shop:purchase_reward_joint] supabase.rpc error', { payload, error });
+      throw new Error(error.message);
+    }
 
     const result = data as {
       user1Id: string;

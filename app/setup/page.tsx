@@ -76,60 +76,47 @@ export default function SetupPage() {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser) throw new Error('로그인이 필요합니다');
 
-      const { data: family, error: familyError } = await supabase
+      const adminName = googleUser?.name?.trim() || authUser.email || 'Family Admin';
+      const familyId = crypto.randomUUID();
+      const preparePayload = {};
+      console.log('[setup:create-family] supabase.rpc prepare_create_family payload', preparePayload);
+      const { error: prepareError } = await supabase.rpc('prepare_create_family', preparePayload);
+      if (prepareError) {
+        console.error('[setup:create-family] supabase.rpc prepare_create_family error', { payload: preparePayload, error: prepareError });
+        throw prepareError;
+      }
+
+      const familyPayload = { id: familyId, name: trimmed, owner_id: authUser.id };
+      console.log('[setup:create-family] supabase.from(families).insert payload', familyPayload);
+      const { error: familyError } = await supabase
         .from('families')
-        .insert({ name: trimmed, owner_id: authUser.id })
-        .select('id')
-        .single();
-      if (familyError || !family) throw familyError ?? new Error('가족 생성에 실패했습니다');
+        .insert(familyPayload);
+      if (familyError) {
+        console.error('[setup:create-family] supabase.from(families).insert error', { payload: familyPayload, error: familyError });
+        throw familyError;
+      }
 
       // If any seed step fails after the family row exists, delete the family so
       // the next attempt starts from a clean slate. The owner can always retry.
-      const familyId = family.id as string;
       try {
-        const adminName = googleUser?.name?.trim() || authUser.email || 'Family Admin';
-        const memberId = crypto.randomUUID();
-        const { error: memberError } = await supabase.from('users').insert({
-          id: memberId,
-          name: adminName,
-          role: 'PARENT',
-          theme: 'dark_minimal',
-          family_id: familyId,
-          auth_user_id: authUser.id,
-          avatar_url: googleUser?.avatarUrl ?? null,
-          email: authUser.email ?? null,
-          login_method: 'google',
-          display_order: 0,
-        });
-        if (memberError) throw memberError;
-
-        const { error: levelError } = await supabase.from('levels').insert({
-          user_id: memberId,
-          current_level: 1,
-          total_points: 100,
-          spendable_balance: 100,
-        });
-        if (levelError) throw levelError;
-
-        const allDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-        const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
-        const weekend = ['SAT', 'SUN'];
-        const { error: tasksError } = await supabase.from('tasks').insert([
-          { id: crypto.randomUUID(), user_id: memberId, family_id: familyId, title: '🛏️ 아침 이불 개기', icon: 'bed', difficulty: 'EASY', base_points: 10, recurrence: 'daily', days_of_week: allDays, time_window: 'morning', active: 1, sort_order: 1 },
-          { id: crypto.randomUUID(), user_id: memberId, family_id: familyId, title: '🎒 하교/하원 후 가방 정리', icon: 'backpack', difficulty: 'MEDIUM', base_points: 15, recurrence: 'weekdays', days_of_week: weekdays, time_window: 'evening', active: 1, sort_order: 2 },
-          { id: crypto.randomUUID(), user_id: memberId, family_id: familyId, title: '🧹 주말 내 방 청소', icon: 'brush-cleaning', difficulty: 'HARD', base_points: 30, recurrence: 'weekend', days_of_week: weekend, time_window: null, active: 1, sort_order: 3 },
-          { id: crypto.randomUUID(), user_id: memberId, family_id: familyId, title: '💖 가족 안아주며 칭찬하기', icon: 'heart-handshake', difficulty: 'HARD', base_points: 50, recurrence: 'daily', days_of_week: allDays, time_window: null, active: 1, sort_order: 4 },
-        ]);
-        if (tasksError) throw tasksError;
-
-        const { error: rewardsError } = await supabase.from('rewards').insert([
-          { title: '🍿 오늘 간식 1개 선택권', icon: 'ice-cream', cost_points: 100, family_id: familyId, sale_enabled: false },
-          { title: '🎮 30분 영상 보기 / 게임 하기', icon: 'gamepad-2', cost_points: 400, family_id: familyId, sale_enabled: true, sale_percentage: 38, sale_price: 250, sale_name: '튜토리얼 세일' },
-          { title: '👑 YESaturday (하루 종일 예스맨 되기)', icon: 'smile-plus', cost_points: 5000, family_id: familyId, sale_enabled: false },
-        ]);
-        if (rewardsError) throw rewardsError;
+        const seedPayload = {
+          p_family_id: familyId,
+          p_admin_name: adminName,
+          p_admin_avatar_url: googleUser?.avatarUrl ?? null,
+        };
+        console.log('[setup:create-family] supabase.rpc seed_default_family_data payload', seedPayload);
+        const { error: seedError } = await supabase.rpc('seed_default_family_data', seedPayload);
+        if (seedError) {
+          console.error('[setup:create-family] supabase.rpc seed_default_family_data error', { payload: seedPayload, error: seedError });
+          throw seedError;
+        }
       } catch (seedError) {
-        await supabase.from('families').delete().eq('id', familyId);
+        const cleanupPayload = { id: familyId };
+        console.log('[setup:create-family] supabase.from(families).delete payload', cleanupPayload);
+        const { error: cleanupError } = await supabase.from('families').delete().eq('id', familyId);
+        if (cleanupError) {
+          console.error('[setup:create-family] supabase.from(families).delete error', { payload: cleanupPayload, error: cleanupError });
+        }
         throw seedError;
       }
 
