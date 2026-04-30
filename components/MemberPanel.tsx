@@ -220,69 +220,71 @@ export function MemberPanel({ user }: { user: User }) {
         }}
       >
         {/* ── Header ── */}
-        <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5">
-          <div className="flex items-center gap-2">
-            <div className="relative h-9 w-9 shrink-0">
-              {avatarSrc ? (
-                <Image
-                  src={avatarSrc}
-                  alt={user.name}
-                  width={36}
-                  height={36}
-                  referrerPolicy="no-referrer"
-                  className="h-9 w-9 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none">
-                  {user.name[0]}
+        <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5 max-[380px]:px-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:basis-[calc(100%-42px)]">
+              <div className="relative h-9 w-9 shrink-0">
+                {avatarSrc ? (
+                  <Image
+                    src={avatarSrc}
+                    alt={user.name}
+                    width={36}
+                    height={36}
+                    referrerPolicy="no-referrer"
+                    className="h-9 w-9 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none">
+                    {user.name[0]}
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 overflow-hidden pr-0.5">
+                <div className="flex min-w-0 items-center gap-1.5 max-[380px]:gap-1">
+                  <h2 className="min-w-0 truncate text-base font-bold leading-tight max-[380px]:text-sm">{user.name}</h2>
+                  {motiveMsg && (
+                    <span className="min-w-0 shrink truncate rounded-full bg-[var(--accent-glow)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[var(--accent)] max-[380px]:px-1 max-[380px]:text-[9px]">
+                      {motiveMsg}
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="min-w-0 flex-1 pr-0.5">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <h2 className="min-w-0 truncate text-base font-bold leading-tight">{user.name}</h2>
-                {motiveMsg && (
-                  <span className="shrink truncate rounded-full bg-[var(--accent-glow)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[var(--accent)]">
-                    {motiveMsg}
-                  </span>
-                )}
-              </div>
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[9px]">
+                  <span className="shrink-0">Lv.{level?.currentLevel ?? 1}</span>
+                  <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
+                  <span className="min-w-0 truncate">{level?.totalPoints ?? 0}pt</span>
+                  {maxStreak > 0 && (
+                    <>
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
+                      <span className="shrink-0 text-[var(--accent)]">🔥{maxStreak}</span>
+                    </>
+                  )}
+                  {growth !== null && growth > 0 && (
+                    <>
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
+                      <span className="shrink-0">📈{growth}%</span>
+                    </>
+                  )}
+                </div>
 
-              <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--fg-muted)]">
-                <span className="shrink-0">Lv.{level?.currentLevel ?? 1}</span>
-                <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
-                <span className="truncate">{level?.totalPoints ?? 0}pt</span>
-                {maxStreak > 0 && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
-                    <span className="shrink-0 text-[var(--accent)]">🔥{maxStreak}</span>
-                  </>
-                )}
-                {growth !== null && growth > 0 && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-[var(--fg-muted)]/40" />
-                    <span className="shrink-0">📈{growth}%</span>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)]">
-                <div
-                  className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
-                  style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
-                />
+                <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+                    style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
+                  />
+                </div>
               </div>
             </div>
 
             <ProgressRing pct={pct} size={34} />
 
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
               <button
                 type="button"
                 onClick={() => setGiftOpen(true)}
                 disabled={giftReceivers.length === 0}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35 max-[380px]:h-7 max-[380px]:w-7"
                 title={t('gift')}
                 aria-label={t('gift')}
               >
@@ -291,7 +293,7 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openStore}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-gray-950 transition hover:brightness-95"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-gray-950 transition hover:brightness-95 max-[380px]:h-7 max-[380px]:w-7"
                 title={t('store')}
                 aria-label={t('store')}
               >
@@ -300,7 +302,7 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openActivityFeed}
-                className="relative grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105"
+                className="relative grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 max-[380px]:h-7 max-[380px]:w-7"
                 title={t('mailbox_history')}
                 aria-label={t('mailbox_history')}
               >
@@ -310,7 +312,7 @@ export function MemberPanel({ user }: { user: User }) {
                 )}
               </button>
               <div
-                className="flex h-8 min-w-[58px] items-center justify-end text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)]"
+                className="flex h-8 min-w-[58px] items-center justify-end text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)] max-[380px]:h-7 max-[380px]:min-w-[48px] max-[380px]:text-[11px]"
                 title={lang === 'en' ? 'Current points' : '현재 포인트'}
                 aria-label={lang === 'en' ? 'Current points' : '현재 포인트'}
               >
