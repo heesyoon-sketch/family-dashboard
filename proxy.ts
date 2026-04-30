@@ -8,6 +8,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/join') ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/home') ||
     pathname.startsWith('/privacy')
   ) {
     return NextResponse.next();
