@@ -29,13 +29,18 @@ function salePercentage(reward: Reward): number {
 }
 
 function discountedCost(reward: Reward): number {
+  if (reward.sale_enabled && reward.sale_price != null) {
+    return Math.max(0, Math.min(reward.cost_points, Math.round(reward.sale_price)));
+  }
   const pct = salePercentage(reward);
   return Math.max(0, Math.floor(reward.cost_points * (100 - pct) / 100));
 }
 
 function saleLabel(reward: Reward): string {
   const customName = reward.sale_name?.trim();
-  return customName || `${salePercentage(reward)}% OFF`;
+  if (customName) return customName;
+  if (reward.sale_price != null) return 'SALE';
+  return `${salePercentage(reward)}% OFF`;
 }
 
 // ── StoreModal ────────────────────────────────────────────────────────────────
@@ -245,8 +250,8 @@ export function StoreModal({
             {visibleRewards.map(r => {
               const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
               const pct = salePercentage(r);
-              const hasDeal = pct > 0;
               const cost = discountedCost({ ...r, title: itemTitle });
+              const hasDeal = Boolean(r.sale_enabled) && cost < r.cost_points && (pct > 0 || r.sale_price != null);
               const soldOut = Boolean(r.is_sold_out);
               const canAfford = !soldOut && balance >= cost;
               const busy = redeeming === r.id;

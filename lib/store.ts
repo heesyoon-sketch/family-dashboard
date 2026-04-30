@@ -102,6 +102,7 @@ function mapRewardRow(row: Record<string, unknown>): Reward {
   const saleName = typeof row.sale_name === 'string' && row.sale_name.trim()
     ? row.sale_name.trim()
     : undefined;
+  const salePrice = Number(row.sale_price);
   return {
     id: row.id as string,
     title: (row.title ?? row.name ?? '') as string,
@@ -109,6 +110,7 @@ function mapRewardRow(row: Record<string, unknown>): Reward {
     icon: (row.icon ?? 'gift') as string,
     sale_enabled: Boolean(row.sale_enabled),
     sale_percentage: normaliseSalePercentage(row.sale_percentage),
+    sale_price: row.sale_price == null || !Number.isFinite(salePrice) ? undefined : Math.max(0, Math.round(salePrice)),
     sale_name: saleName,
     is_hidden: Boolean(row.is_hidden),
     is_sold_out: Boolean(row.is_sold_out),
@@ -201,7 +203,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // previous get_my_family_id() + get_my_family_name() + fallback families query.
     const { data: familyInfo } = await supabase.rpc('get_my_family_info');
     let resolvedFamilyId = (familyInfo as { id: string; name: string } | null)?.id ?? null;
-    let familyName = (familyInfo as { id: string; name: string } | null)?.name ?? null;
+    const familyName = (familyInfo as { id: string; name: string } | null)?.name ?? null;
 
     if (!resolvedFamilyId && cachedMemberId) {
       const { data: memberFamilyId } = await supabase.rpc('get_family_id_for_member', {
@@ -270,7 +272,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .select('*')
         .eq('family_id', resolvedFamilyId)
         .in('user_id', safeIds)
-        .in('type', ['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED'])
+        .in('type', ['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE'])
         .order('created_at', { ascending: false })
         .limit(200),
     ]);

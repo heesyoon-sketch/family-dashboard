@@ -8,6 +8,7 @@ const MAILBOX_ACTIVITY_TYPES = new Set<FamilyActivity['type']>([
   'GIFT_SENT',
   'GIFT_RECEIVED',
   'REWARD_PURCHASED',
+  'SYSTEM_MESSAGE',
 ]);
 
 function formatActivity(activity: FamilyActivity, lang: Lang): { icon: string; text: string; amount: string } {
@@ -39,6 +40,13 @@ function formatActivity(activity: FamilyActivity, lang: Lang): { icon: string; t
         ? `Bought ${activity.message ?? 'a reward'}!`
         : `${activity.message ?? '리워드'}을(를) 구매했어요!`,
       amount: `-${activity.amount}pt`,
+    };
+  }
+  if (activity.type === 'SYSTEM_MESSAGE') {
+    return {
+      icon: '🎉',
+      text: activity.message ?? (lang === 'en' ? 'Welcome to your family dashboard!' : '가족 대시보드에 오신 것을 환영합니다!'),
+      amount: activity.amount > 0 ? `+${activity.amount}pt` : '',
     };
   }
   return {
@@ -120,12 +128,14 @@ export function ActivityFeedModal({
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-3">
                         <span className="text-[11px] text-[var(--fg-muted)]">{formatTime(activity.createdAt, lang)}</span>
-                        <span className={[
-                          'text-xs font-bold',
-                          positive ? 'text-emerald-300' : 'text-rose-300',
-                        ].join(' ')}>
-                          {display.amount}
-                        </span>
+                        {display.amount && (
+                          <span className={[
+                            'text-xs font-bold',
+                            positive ? 'text-emerald-300' : 'text-rose-300',
+                          ].join(' ')}>
+                            {display.amount}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

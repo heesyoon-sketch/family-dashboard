@@ -63,12 +63,13 @@ export interface Reward {
   icon: string;
   sale_enabled?: boolean;
   sale_percentage?: number;
+  sale_price?: number;
   sale_name?: string;
   is_hidden?: boolean;
   is_sold_out?: boolean;
 }
 
-export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'TASK_COMPLETED';
+export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';
 
 export interface FamilyActivity {
   id: string;

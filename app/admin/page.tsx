@@ -12,7 +12,7 @@ import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomI
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { User, Task, Reward, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
-import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin, verifyPin } from '@/lib/adminPin';
+import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
@@ -270,6 +270,7 @@ function mapReward(row: Record<string, unknown>): Reward {
   const saleName = typeof row.sale_name === 'string' && row.sale_name.trim()
     ? row.sale_name.trim()
     : undefined;
+  const salePrice = Number(row.sale_price);
   return {
     id: row.id as string,
     title: (row.title ?? row.name ?? '') as string,
@@ -277,6 +278,7 @@ function mapReward(row: Record<string, unknown>): Reward {
     icon: (row.icon ?? 'gift') as string,
     sale_enabled: Boolean(row.sale_enabled),
     sale_percentage: normaliseSalePercentage(row.sale_percentage),
+    sale_price: row.sale_price == null || !Number.isFinite(salePrice) ? undefined : Math.max(0, Math.round(salePrice)),
     sale_name: saleName,
     is_hidden: Boolean(row.is_hidden),
     is_sold_out: Boolean(row.is_sold_out),

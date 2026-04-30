@@ -73,20 +73,12 @@ export default function SetupPage() {
     try {
       const supabase = createBrowserSupabase();
 
-      // setup_family atomically clears ghost links + creates the new family.
-      // prepare_create_family is no longer called separately.
-      const { data: familyId, error: setupError } = await supabase.rpc('setup_family', {
+      // create_family_with_defaults atomically clears ghost links, creates the
+      // family, and seeds members, tasks, rewards, points, and welcome mail.
+      const { data: familyId, error: setupError } = await supabase.rpc('create_family_with_defaults', {
         p_name: trimmed,
       });
-      if (setupError || !familyId) throw setupError ?? new Error('setup_family returned null');
-
-      // Pass the explicit familyId so seed never has to guess via get_my_family_id().
-      const { error: seedError } = await supabase.rpc('seed_default_family_data', {
-        p_family_id: familyId,
-        p_admin_name: googleUser?.name ?? 'Admin',
-        p_admin_avatar_url: null,
-      });
-      if (seedError) throw seedError;
+      if (setupError || !familyId) throw setupError ?? new Error('create_family_with_defaults returned null');
       router.replace('/setup/set-pin');
     } catch (e) {
       console.error(e);
