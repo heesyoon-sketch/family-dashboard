@@ -262,7 +262,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // Filtering by userIds (not just RLS) ensures data never leaks across families
     // even if a ghost auth link were to exist.
     const userIds = (uRes.data ?? []).map((r: { id: string }) => r.id);
-    const safeIds = userIds.length > 0 ? userIds : ['__no_match__'];
+    const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
 
     const [lRes, sRes, cTodayRes, cHistRes, aRes] = await Promise.all([
       supabase.from('levels').select('*').in('user_id', safeIds),

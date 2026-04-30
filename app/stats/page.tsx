@@ -189,7 +189,7 @@ export default function StatsPage() {
       ]);
 
       const userIds = (usersRes.data ?? []).map((r: { id: string }) => r.id);
-      const safeIds = userIds.length > 0 ? userIds : ['__no_match__'];
+      const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
 
       // Phase 2: filter levels and completions by verified userIds.
       const [levelsRes, completionsRes] = await Promise.all([
