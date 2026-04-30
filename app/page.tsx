@@ -7,6 +7,7 @@ import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, Volume
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
+import { FamBitWordmark } from '@/components/FamBitLogo';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
@@ -16,9 +17,9 @@ const iconBtn: React.CSSProperties = {
   width: 36,
   height: 36,
   borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.1)',
-  background: 'rgba(255,255,255,0.05)',
-  color: 'rgba(255,255,255,0.45)',
+  border: '1px solid rgba(255,255,255,0.11)',
+  background: 'rgba(255,255,255,0.045)',
+  color: 'rgba(255,255,255,0.56)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -153,108 +154,129 @@ export default function Dashboard() {
   // Show blank screen until auth is verified for THIS render cycle.
   // familyId === null check is handled by the redirect useEffect above.
   if (!authReady || !hydrated || familyId === null) {
-    return <div className="min-h-screen bg-[#0F172A]" />;
+    return <div className="min-h-screen bg-[#0D0E1C]" />;
   }
 
   return (
-    <div className="flex flex-col bg-[#0F172A] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
+    <div className="flex flex-col bg-[#0D0E1C] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
 
       {/* Header — sticky on mobile scroll, static on desktop */}
       <header
-        className="sticky top-0 z-10 shrink-0 flex items-center gap-2 bg-[#0F172A]"
-        style={{ height: 44, padding: '0 12px', paddingTop: 'env(safe-area-inset-top)' }}
+        className="sticky top-0 z-10 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-white/8 bg-[#0D0E1C]/95 px-2.5 backdrop-blur-md md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:px-3"
+        style={{ minHeight: 52, paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="flex flex-1 min-w-0 items-center gap-2 pl-0.5">
-          <span className="min-w-0 truncate text-white/45 text-[13px] font-medium">
+        <div className="flex min-w-0 items-center gap-2 pl-0.5">
+          <span className="shrink-0 md:hidden">
+            <FamBitWordmark markSize={30} showText={false} />
+          </span>
+          <span className="min-w-0 truncate text-[12px] font-semibold text-white/42 md:text-[13px]">
             {dateLabel}
           </span>
-          {familyName && (
-            <span
-              title={familyName}
-              className="inline-flex max-w-[45vw] md:max-w-[260px] shrink-0 items-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 text-[13px] font-semibold text-white/80"
-            >
-              <span aria-hidden="true">🏠</span>
-              <span className="min-w-0 truncate">{familyName}</span>
-            </span>
-          )}
         </div>
-        {pageCount > 1 && (
-          <div className="hidden md:flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1">
-            <button
-              type="button"
-              onClick={goToPrevPage}
-              disabled={activePage === 0}
-              aria-label="Previous members page"
-              className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <div className="flex items-center gap-1 px-1">
-              {Array.from({ length: pageCount }, (_, page) => (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => setCurrentPage(page)}
-                  aria-label={`Members page ${page + 1}`}
-                  className={[
-                    'h-1.5 rounded-full transition-all',
-                    page === activePage ? 'w-4 bg-white/70' : 'w-1.5 bg-white/25 hover:bg-white/45',
-                  ].join(' ')}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={goToNextPage}
-              disabled={activePage === pageCount - 1}
-              aria-label="Next members page"
-              className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-            >
-              <ChevronRight size={16} />
-            </button>
+
+        <div className="hidden min-w-0 justify-center md:flex">
+          <div className="flex h-10 max-w-full items-center gap-2 rounded-xl border border-white/9 bg-[#111224] px-2.5 shadow-[0_6px_22px_rgba(0,0,0,0.22)] md:h-11 md:px-3">
+            <FamBitWordmark
+              compact
+              markSize={30}
+              textClassName="hidden text-[18px] font-black text-white sm:inline"
+            />
+            <div className="h-4 w-px bg-white/10" />
+            {familyName ? (
+              <span
+                title={familyName}
+                className="min-w-0 max-w-[46vw] truncate text-[12px] font-black text-white/78 md:max-w-[210px]"
+              >
+                {familyName}
+              </span>
+            ) : (
+              <span className="text-[12px] font-black text-white/52">Family Dashboard</span>
+            )}
+            <span className="hidden rounded-full bg-[#4EEDB0]/12 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0] md:inline">
+              LIVE
+            </span>
           </div>
-        )}
-        <button
-          onClick={toggleSound}
-          aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
-          style={iconBtn}
-        >
-          {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
-        </button>
-        <Link href="/stats" aria-label={t('weekly_completions')} style={iconBtn}>
-          <BarChart2 size={17} />
-        </Link>
-        <button
-          onClick={() => { void handleLogout(); }}
-          aria-label={t('logout')}
-          title={t('logout')}
-          style={{
-            ...iconBtn,
-            color: 'rgba(255,90,90,0.85)',
-            border: '1px solid rgba(255,80,80,0.25)',
-            background: 'rgba(255,60,60,0.08)',
-          }}
-        >
-          <LogOut size={17} />
-        </button>
-        <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
-          <Settings size={17} />
-        </Link>
-        <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
+        </div>
+
+        <div className="flex min-w-0 items-center justify-end gap-1.5">
+          {pageCount > 1 && (
+            <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1 md:flex">
+              <button
+                type="button"
+                onClick={goToPrevPage}
+                disabled={activePage === 0}
+                aria-label="Previous members page"
+                className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: pageCount }, (_, page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    aria-label={`Members page ${page + 1}`}
+                    className={[
+                      'h-1.5 rounded-full transition-all',
+                      page === activePage ? 'w-4 bg-[#4EEDB0]' : 'w-1.5 bg-white/25 hover:bg-white/45',
+                    ].join(' ')}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={goToNextPage}
+                disabled={activePage === pageCount - 1}
+                aria-label="Next members page"
+                className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+          <button
+            onClick={toggleSound}
+            aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
+            style={iconBtn}
+          >
+            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+          </button>
+          <Link href="/stats" aria-label={t('weekly_completions')} style={iconBtn}>
+            <BarChart2 size={17} />
+          </Link>
+          <button
+            onClick={() => { void handleLogout(); }}
+            aria-label={t('logout')}
+            title={t('logout')}
+            style={{
+              ...iconBtn,
+              color: 'rgba(255,123,172,0.9)',
+              border: '1px solid rgba(255,123,172,0.28)',
+              background: 'rgba(255,123,172,0.08)',
+            }}
+          >
+            <LogOut size={17} />
+          </button>
+          <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
+            <Settings size={17} />
+          </Link>
+          <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
+        </div>
       </header>
 
-      <main className="grid flex-1 grid-cols-1 gap-4 bg-[#0F172A] p-3 md:hidden">
+      <main className="grid flex-1 grid-cols-1 gap-4 bg-[#0D0E1C] p-3 md:hidden">
         {orderedUsers.map(user => (
           <MemberPanel key={user.id} user={user} />
         ))}
       </main>
 
-      <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-4 overflow-hidden bg-[#0F172A] p-4 md:grid">
+      <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-4 overflow-hidden bg-[#0D0E1C] p-4 md:grid">
         {desktopSlots.map((user, index) =>
           user ? (
             <MemberPanel key={user.id} user={user} />
           ) : (
-            <div key={`empty-${activePage}-${index}`} className="min-h-0 bg-[#111827]" />
+            <div key={`empty-${activePage}-${index}`} className="min-h-0 rounded-lg border border-white/6 bg-[#111224]" />
           ),
         )}
       </main>

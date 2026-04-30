@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LockKeyhole, LogOut } from 'lucide-react';
+import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { getCurrentFamilyAdminPinHash, saveAdminPin } from '@/lib/adminPin';
 
@@ -76,16 +78,25 @@ export default function SetPinPage() {
     }
   };
 
-  if (checking) return <div className="min-h-screen bg-[#0b0d12]" />;
+  const handleLogout = async () => {
+    const supabase = createBrowserSupabase();
+    await supabase.auth.signOut();
+    localStorage.clear();
+    router.replace('/login');
+  };
+
+  if (checking) return <div className="min-h-screen bg-[#0D0E1C]" />;
 
   return (
-    <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
-        <div className="text-4xl mb-3">🔒</div>
-        <h1 className="text-white text-2xl font-bold mb-2">관리자 PIN 설정</h1>
-        <p className="text-[#8a8f99] text-sm leading-6 mb-6">
-          이 가족 공간 전용 PIN을 설정해야 대시보드를 사용할 수 있습니다.
-        </p>
+    <FamBitAuthShell
+      eyebrow="Admin protection"
+      title="관리자 PIN 설정"
+      description="이 가족 공간의 민감한 설정을 보호할 4자리 숫자 PIN을 만드세요."
+    >
+      <div className="space-y-3">
+        <div className="mb-2 flex justify-center text-[#4EEDB0]">
+          <LockKeyhole size={24} />
+        </div>
 
         <input
           type="password"
@@ -96,7 +107,7 @@ export default function SetPinPage() {
           onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
           placeholder="새 PIN"
           autoFocus
-          className="w-full h-12 rounded-xl bg-[#232831] text-white text-center text-xl tracking-widest px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff] mb-3"
+          className="h-12 w-full rounded-lg border border-white/10 bg-[#111224] px-4 text-center text-xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
         />
 
         <input
@@ -108,31 +119,31 @@ export default function SetPinPage() {
           onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
           onKeyDown={e => { if (e.key === 'Enter') void handleSave(); }}
           placeholder="PIN 확인"
-          className="w-full h-12 rounded-xl bg-[#232831] text-white text-center text-xl tracking-widest px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
+          className="h-12 w-full rounded-lg border border-white/10 bg-[#111224] px-4 text-center text-xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
         />
 
-        {errorMsg && <p className="text-red-400 text-sm mt-3">{errorMsg}</p>}
+        {errorMsg && (
+          <p className="rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/10 px-3 py-2 text-sm leading-5 text-[#FFB8CF]">
+            {errorMsg}
+          </p>
+        )}
 
         <button
           onClick={() => { void handleSave(); }}
           disabled={saving || pin.length !== 4 || confirmPin.length !== 4}
-          className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-[#06111f] font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
+          className="h-12 w-full rounded-lg bg-[#4EEDB0] text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
         >
           {saving ? '저장 중...' : 'PIN 저장하고 시작하기'}
         </button>
 
         <button
-          onClick={async () => {
-            const supabase = createBrowserSupabase();
-            await supabase.auth.signOut();
-            localStorage.clear();
-            router.replace('/login');
-          }}
-          className="mt-4 text-[#8a8f99] text-sm hover:text-red-400 transition-colors"
+          onClick={() => { void handleLogout(); }}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] text-sm font-bold text-white/58 transition-colors hover:border-[#FF7BAC]/35 hover:text-[#FFB8CF]"
         >
+          <LogOut size={16} />
           로그아웃
         </button>
       </div>
-    </main>
+    </FamBitAuthShell>
   );
 }

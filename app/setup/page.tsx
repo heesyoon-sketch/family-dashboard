@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowLeft, LogOut, Plus, Ticket } from 'lucide-react';
+import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 
@@ -128,106 +130,97 @@ export default function SetupPage() {
     }
   };
 
-  if (checking) return <div className="min-h-screen bg-[#0b0d12]" />;
+  const handleLogout = async () => {
+    const supabase = createBrowserSupabase();
+    await supabase.auth.signOut();
+    localStorage.clear();
+    router.replace('/login');
+  };
+
+  if (checking) return <div className="min-h-screen bg-[#0D0E1C]" />;
 
   return (
-    <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-
-        {/* Logged-in user badge (Google users only) */}
-        {googleUser && (
-          <div className="flex items-center gap-3 rounded-2xl bg-[#141821] border border-[#232831] p-3 mb-4">
+    <FamBitAuthShell
+      eyebrow="Setup"
+      title={step === 'choose' ? '가족 공간 설정' : '새 가족 공간 만들기'}
+      description={
+        step === 'choose'
+          ? 'FamBit을 시작하려면 가족 공간을 만들거나 이미 받은 초대 코드로 합류하세요.'
+          : '가족 이름을 입력하면 예시 멤버, 습관, 보상이 자동으로 채워집니다.'
+      }
+    >
+      <div className="space-y-4">
+        {googleUser ? (
+          <div className="flex items-center gap-3 rounded-lg border border-white/8 bg-[#111224] p-3">
             {googleUser.avatarUrl ? (
               <Image
                 src={googleUser.avatarUrl}
                 alt={googleUser.name}
-                width={36} height={36}
+                width={36}
+                height={36}
                 referrerPolicy="no-referrer"
-                className="w-9 h-9 rounded-full object-cover shrink-0"
+                className="h-9 w-9 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#4f9cff] text-[#06111f] font-bold flex items-center justify-center shrink-0 text-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5B8EFF] text-sm font-black text-white">
                 {googleUser.name.charAt(0).toUpperCase()}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <div className="text-white text-sm font-semibold truncate">{googleUser.name}</div>
-              <div className="text-[#8a8f99] text-xs truncate">{googleUser.email}</div>
+              <div className="truncate text-sm font-bold text-white">{googleUser.name}</div>
+              <div className="truncate text-xs text-white/46">{googleUser.email}</div>
             </div>
             <button
-              onClick={async () => {
-                const supabase = createBrowserSupabase();
-                await supabase.auth.signOut();
-                localStorage.clear();
-                router.replace('/login');
-              }}
-              className="text-[#8a8f99] text-xs hover:text-red-400 transition-colors shrink-0"
+              onClick={() => { void handleLogout(); }}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/8 bg-white/[0.045] text-white/50 transition-colors hover:border-[#FF7BAC]/40 hover:text-[#FF7BAC]"
+              aria-label="로그아웃"
             >
-              로그아웃
+              <LogOut size={16} />
             </button>
           </div>
-        )}
-
-        {/* Universal logout — always visible regardless of login method */}
-        {!googleUser && (
+        ) : (
           <button
-            onClick={async () => {
-              const supabase = createBrowserSupabase();
-              await supabase.auth.signOut();
-              localStorage.clear();
-              router.replace('/login');
-            }}
-            className="w-full text-center text-red-400 text-sm mb-4 hover:text-red-300 transition-colors"
+            onClick={() => { void handleLogout(); }}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#FF7BAC]/30 bg-[#FF7BAC]/10 text-sm font-bold text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/12"
           >
+            <LogOut size={15} />
             로그아웃
           </button>
         )}
 
         {step === 'choose' && (
-          <div className="rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
-            <div className="text-5xl mb-3">🏠</div>
-            <h1 className="text-white text-2xl font-bold mb-2">Family Dashboard</h1>
-            <p className="text-[#8a8f99] text-sm leading-6 mb-8">
-              아직 어느 가족 공간에도 속해 있지 않습니다.<br />
-              새로 만들거나, 초대 코드로 참여하세요.
-            </p>
-
-            {/* Primary CTA: Join */}
+          <>
             <Link
               href="/join"
-              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#4f9cff] text-[#06111f] font-bold text-base mb-3 hover:bg-[#3d8bed] transition-colors"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0]"
             >
-              🔑 초대 코드로 합류하기
+              <Ticket size={17} />
+              초대 코드로 합류하기
             </Link>
 
-            {/* Secondary CTA: Create */}
             <button
               onClick={() => setStep('create')}
-              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-[#232831] text-white font-bold text-base hover:bg-[#2d3545] transition-colors"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.055] px-4 text-sm font-black text-white transition-colors hover:bg-white/10"
             >
-              ✨ 우리 가족 공간 새로 만들기
+              <Plus size={17} />
+              우리 가족 공간 새로 만들기
             </button>
 
-            <p className="text-[#8a8f99] text-xs mt-5 leading-5">
-              이미 초대 코드를 받았다면 합류하기를 선택하세요.<br />
+            <p className="text-center text-xs leading-5 text-white/42">
               가족 관리자가 아니라면 초대 코드가 필요합니다.
             </p>
-          </div>
+          </>
         )}
 
         {step === 'create' && (
-          <div className="rounded-[28px] bg-[#141821] border border-[#232831] p-8 text-center">
+          <>
             <button
               onClick={() => { setStep('choose'); setErrorMsg(''); }}
-              className="flex items-center gap-1 text-[#8a8f99] text-sm mb-4 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-sm font-bold text-white/52 transition-colors hover:text-white"
             >
-              ← 뒤로
+              <ArrowLeft size={16} />
+              뒤로
             </button>
-            <div className="text-4xl mb-3">✨</div>
-            <h2 className="text-white text-xl font-bold mb-2">새 가족 공간 만들기</h2>
-            <p className="text-[#8a8f99] text-sm leading-6 mb-5">
-              가족 이름을 입력하세요. 예시 멤버, 습관, 보상이 자동으로 채워집니다.
-            </p>
 
             <input
               type="text"
@@ -237,22 +230,25 @@ export default function SetupPage() {
               placeholder="예: 김씨 가족, Our Family"
               autoFocus
               maxLength={40}
-              className="w-full h-12 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
+              className="h-12 w-full rounded-lg border border-white/10 bg-[#111224] px-4 text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
             />
 
-            {errorMsg && <p className="text-red-400 text-sm mt-3">{errorMsg}</p>}
+            {errorMsg && (
+              <p className="rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/10 px-3 py-2 text-sm leading-5 text-[#FFB8CF]">
+                {errorMsg}
+              </p>
+            )}
 
             <button
               onClick={() => { void handleCreate(); }}
               disabled={!familyName.trim() || loading}
-              className="mt-4 w-full h-12 rounded-xl bg-[#4f9cff] text-[#06111f] font-bold disabled:bg-[#232831] disabled:text-[#8a8f99] transition-colors"
+              className="h-12 w-full rounded-lg bg-[#4EEDB0] text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
             >
               {loading ? '생성 중...' : '대시보드 시작하기'}
             </button>
-          </div>
+          </>
         )}
-
       </div>
-    </main>
+    </FamBitAuthShell>
   );
 }

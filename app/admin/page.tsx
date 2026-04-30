@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
+import { FamBitWordmark } from '@/components/FamBitLogo';
 import { User, Task, Reward, Difficulty, DayOfWeek, ALL_DAYS, WEEKDAYS, WEEKEND, ThemeName, UserRole } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
 import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin } from '@/lib/adminPin';
@@ -1467,14 +1468,25 @@ export default function AdminPage() {
 
   if (view === 'pin') {
     return (
-      <main className="min-h-screen bg-[#0b0d12] flex items-center justify-center p-6">
-        <div className="bg-[#141821] rounded-3xl p-8 w-full max-w-sm text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0D0E1C] px-4 py-8 text-white sm:px-6">
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-44 border-b border-white/8 bg-[#111224]" />
+        <div className="relative z-10 w-full max-w-md">
+          <Link href="/home" aria-label="FamBit home" className="mx-auto mb-5 flex w-fit">
+            <FamBitWordmark compact />
+          </Link>
+          <section className="rounded-lg border border-white/8 bg-[#14162A]/95 p-6 text-center shadow-2xl shadow-black/35 sm:p-7">
+          <div className="mb-5 flex justify-center">
+            <FamBitWordmark markSize={52} showText={false} />
+          </div>
+          <p className="mb-2 text-center text-xs font-black uppercase text-[#4EEDB0]">
+            Admin protection
+          </p>
+          <h1 className="text-2xl font-black leading-tight text-white">
             {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
           </h1>
-          <p className="text-[#8a8f99] mb-6 text-sm">{t('enter_parent_pin')}</p>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-white/62">{t('enter_parent_pin')}</p>
           {isParentAdmin && adminPinHash === null && (
-            <p className="text-[#3ddc97] mb-4 text-sm">
+            <p className="mt-4 rounded-lg border border-[#4EEDB0]/35 bg-[#4EEDB0]/10 px-3 py-2 text-sm leading-5 text-[#4EEDB0]">
               No Admin PIN is set yet. Press confirm to continue and set one.
             </p>
           )}
@@ -1485,21 +1497,26 @@ export default function AdminPage() {
             maxLength={4}
             value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
+            onKeyDown={e => { if (e.key === 'Enter') void handlePinSubmit(); }}
             placeholder="••••"
-            className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] mb-4"
+            className="mt-6 w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
             style={{ minHeight: 'var(--touch-target)' }}
           />
-          {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+          {error && (
+            <p className="mt-3 rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/10 px-3 py-2 text-sm leading-5 text-[#FFB8CF]">
+              {error}
+            </p>
+          )}
           <button
             onClick={handlePinSubmit}
             disabled={adminPinHash === undefined}
-            className="w-full rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-50 transition-opacity"
+            className="mt-4 w-full rounded-lg bg-[#4EEDB0] p-4 font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
+            style={{ minHeight: 'var(--touch-target)' }}
           >
             {adminPinHash === undefined ? '…' : t('confirm')}
           </button>
           {!isParentAdmin && !isFamilyOwner && adminPinHash !== undefined && (
-            <p className="text-[#8a8f99] text-xs mt-3">
+            <p className="mt-3 text-xs leading-5 text-white/42">
               부모 계정으로 로그인해야 관리자 설정을 변경할 수 있습니다.
             </p>
           )}
@@ -1509,14 +1526,14 @@ export default function AdminPage() {
               <button
                 onClick={() => { void handlePinReset(); }}
                 disabled={pinResetLoading}
-                className="mt-4 text-[#4f9cff] text-sm hover:underline disabled:opacity-50"
+                className="mt-4 text-sm font-bold text-[#5B8EFF] transition-colors hover:text-[#8EAFFF] disabled:opacity-50"
               >
                 {pinResetLoading ? '인증 코드 발송 중…' : 'PIN을 잊으셨나요? 이메일로 초기화'}
               </button>
             ) : (
               <div className="mt-5 text-left">
-                <p className="text-[#8a8f99] text-xs mb-3 text-center">
-                  <span className="text-[#3ddc97]">{authProfile.email}</span>로 발송된<br />
+                <p className="mb-3 text-center text-xs leading-5 text-white/48">
+                  <span className="text-[#4EEDB0]">{authProfile.email}</span>로 발송된<br />
                   6자리 인증 코드를 입력하세요
                 </p>
                 <input
@@ -1528,34 +1545,36 @@ export default function AdminPage() {
                   onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
                   onKeyDown={e => e.key === 'Enter' && void handleOtpVerify()}
                   placeholder="000000"
-                  className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] mb-2"
+                  className="mb-2 w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   style={{ minHeight: 'var(--touch-target)' }}
                   autoFocus
                 />
-                {otpError && <p className="text-red-400 text-xs mb-2 text-center">{otpError}</p>}
+                {otpError && <p className="mb-2 text-center text-xs text-[#FFB8CF]">{otpError}</p>}
                 <button
                   onClick={() => { void handleOtpVerify(); }}
                   disabled={otpLoading || otpCode.length !== 6}
-                  className="w-full rounded-xl bg-[#3ddc97] text-[#0b0d12] font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-50 transition-opacity mb-2"
+                  className="mb-2 w-full rounded-lg bg-[#4EEDB0] p-4 font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
+                  style={{ minHeight: 'var(--touch-target)' }}
                 >
                   {otpLoading ? '확인 중…' : '코드 확인 및 PIN 초기화'}
                 </button>
                 <button
                   onClick={() => { setPinResetStep('idle'); setOtpCode(''); setOtpError(''); }}
-                  className="w-full text-[#8a8f99] text-sm py-2 hover:text-white transition-colors"
+                  className="w-full py-2 text-sm font-bold text-white/50 transition-colors hover:text-white"
                 >
                   {adminCopy.cancel}
                 </button>
               </div>
             )
           )}
-          <Link href="/" className="block mt-4 text-[#8a8f99] text-sm">← {t('back_to_dashboard')}</Link>
+          <Link href="/" className="mt-5 block text-sm font-bold text-white/50 transition-colors hover:text-white">← {t('back_to_dashboard')}</Link>
           <button
             onClick={() => { void handleLogout(); }}
-            className="mt-3 w-full rounded-xl bg-[#232831] text-red-400 font-semibold p-3 text-sm hover:bg-[#2d3545] transition-colors"
+            className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.045] p-3 text-sm font-bold text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/35 hover:bg-[#FF7BAC]/10"
           >
             {t('logout')}
           </button>
+          </section>
         </div>
       </main>
     );
@@ -1585,50 +1604,64 @@ export default function AdminPage() {
         />
       )}
 
-      <main className="min-h-screen bg-[#0b0d12] text-white">
+      <main className="min-h-screen bg-[#0D0E1C] text-white">
         {/* Header */}
-        <div className="max-w-4xl mx-auto px-4 pt-6 pb-2 flex items-center justify-between gap-3">
-          <h1 className="min-w-0 truncate text-xl font-bold sm:text-2xl">
-            {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
-          </h1>
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 pb-3 pt-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <FamBitWordmark
+              compact
+              markSize={32}
+              textClassName="hidden text-lg font-black text-white sm:inline"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase text-[#4EEDB0]">{adminCopy.tabs.settings}</p>
+              <h1 className="min-w-0 truncate text-xl font-black sm:text-2xl">
+                {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
+              </h1>
+            </div>
+          </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <a
               href="https://forms.gle/KgxsBSBHwkdrwdTz7"
               target="_blank"
               rel="noopener noreferrer"
               aria-label={t('feedback')}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#232831] bg-[#141821] text-sm font-semibold text-[#8a8f99] transition-colors hover:border-[#4f9cff]/50 hover:text-white sm:w-auto sm:px-3"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-sm font-bold text-white/54 transition-colors hover:border-[#4EEDB0]/45 hover:text-white sm:w-auto sm:px-3"
             >
               <Icons.MessageCircle size={15} />
               <span className="hidden sm:inline">{t('feedback')}</span>
             </a>
-            <Link href="/" className="text-[#8a8f99] text-sm hover:text-white whitespace-nowrap">← {t('back_to_dashboard')}</Link>
+            <Link href="/" className="whitespace-nowrap text-sm font-bold text-white/54 transition-colors hover:text-white">← {t('back_to_dashboard')}</Link>
             <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
           </div>
         </div>
 
         {/* Sticky tab bar */}
-        <div className="sticky top-0 z-40 bg-[#0b0d12]/95 backdrop-blur border-b border-[#232831]">
-          <div className="max-w-4xl mx-auto px-4">
-            <div className="flex overflow-x-auto gap-1 py-2" style={{ scrollbarWidth: 'none' }}>
+        <div className="sticky top-0 z-40 border-b border-white/8 bg-[#0D0E1C]/95 backdrop-blur">
+          <div className="mx-auto max-w-4xl px-4">
+            <div className="flex gap-1 overflow-x-auto py-2" style={{ scrollbarWidth: 'none' }}>
               {([
-                { key: 'settings', label: `⚙️ ${adminCopy.tabs.settings}` },
-                { key: 'family',   label: `👨‍👩‍👧‍👦 ${adminCopy.tabs.family}` },
-                { key: 'tasks',    label: `✅ ${adminCopy.tabs.tasks}` },
-                { key: 'store',    label: `🎁 ${adminCopy.tabs.store}` },
-              ] as const).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors shrink-0 ${
-                    activeTab === tab.key
-                      ? 'bg-[#4f9cff] text-[#06111f]'
-                      : 'text-[#8a8f99] hover:bg-[#232831] hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                { key: 'settings', label: adminCopy.tabs.settings, icon: Icons.Settings2 },
+                { key: 'family',   label: adminCopy.tabs.family, icon: Icons.UsersRound },
+                { key: 'tasks',    label: adminCopy.tabs.tasks, icon: Icons.ListChecks },
+                { key: 'store',    label: adminCopy.tabs.store, icon: Icons.Store },
+              ] as const).map(tab => {
+                const TabIcon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-black transition-colors ${
+                      activeTab === tab.key
+                        ? 'bg-[#4EEDB0] text-[#07120E]'
+                        : 'text-white/54 hover:bg-white/[0.055] hover:text-white'
+                    }`}
+                  >
+                    <TabIcon size={16} />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1640,26 +1673,26 @@ export default function AdminPage() {
           {activeTab === 'settings' && (
             <div className="space-y-6">
               {/* Family invitation */}
-              <div className="bg-[#141821] rounded-2xl p-6">
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-[#4f9cff]">{adminCopy.familyInvitation}</h2>
-                    <p className="text-[#8a8f99] text-sm mt-1">
+                    <h2 className="text-lg font-black text-[#4EEDB0]">{adminCopy.familyInvitation}</h2>
+                    <p className="mt-1 text-sm leading-6 text-white/58">
                       {adminCopy.familyInvitationHelp}
                     </p>
                   </div>
-                  <Icons.UsersRound className="text-[#4f9cff] shrink-0" size={22} />
+                  <Icons.UsersRound className="shrink-0 text-[#4EEDB0]" size={22} />
                 </div>
                 <div className="flex gap-3">
-                  <div className="flex-1 rounded-xl bg-[#232831] border border-[#2d3545] px-4 py-3 min-h-[var(--touch-target)] flex items-center justify-center">
-                    <span className="text-white text-2xl font-bold tracking-[0.25em]">
+                  <div className="flex min-h-[var(--touch-target)] flex-1 items-center justify-center rounded-lg border border-white/10 bg-[#111224] px-4 py-3">
+                    <span className="text-2xl font-black tracking-[0.25em] text-white">
                       {familyInviteCode ?? '------'}
                     </span>
                   </div>
                   <button
                     onClick={copyInviteCode}
                     disabled={!familyInviteCode}
-                    className="w-14 rounded-xl bg-[#4f9cff] text-[#06111f] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d8bed] transition-colors"
+                    className="flex w-14 items-center justify-center rounded-lg bg-[#4EEDB0] text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:opacity-40"
                     style={{ minHeight: 'var(--touch-target)' }}
                     title={adminCopy.copyInviteCode}
                   >
@@ -1668,7 +1701,7 @@ export default function AdminPage() {
                   <button
                     onClick={generateInviteCode}
                     disabled={generatingCode}
-                    className="w-14 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center disabled:opacity-40 hover:bg-[#2d3545] hover:text-white transition-colors"
+                    className="flex w-14 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/54 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
                     style={{ minHeight: 'var(--touch-target)' }}
                     title={familyInviteCode ? adminCopy.regenerateCode : adminCopy.generateCode}
                   >
@@ -1676,28 +1709,28 @@ export default function AdminPage() {
                   </button>
                 </div>
                 {!familyInviteCode && (
-                  <p className="text-[#f59e0b] text-xs mt-2">
+                  <p className="mt-2 text-xs text-[#FFB830]">
                     ↑ {adminCopy.noInviteCode}
                   </p>
                 )}
               </div>
 
               {/* Language */}
-              <div className="bg-[#141821] rounded-2xl p-6">
-                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{adminCopy.language}</h2>
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-5 sm:p-6">
+                <h2 className="mb-4 text-lg font-black text-[#5B8EFF]">{adminCopy.language}</h2>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setLang('ko')}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
-                      lang === 'ko' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                    className={`min-h-[var(--touch-target)] flex-1 rounded-lg py-3 font-black transition-colors ${
+                      lang === 'ko' ? 'bg-[#5B8EFF] text-white' : 'border border-white/10 bg-white/[0.045] text-white/54 hover:bg-white/10 hover:text-white'
                     }`}
                   >
                     {adminCopy.korean}
                   </button>
                   <button
                     onClick={() => setLang('en')}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-colors min-h-[var(--touch-target)] ${
-                      lang === 'en' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545]'
+                    className={`min-h-[var(--touch-target)] flex-1 rounded-lg py-3 font-black transition-colors ${
+                      lang === 'en' ? 'bg-[#5B8EFF] text-white' : 'border border-white/10 bg-white/[0.045] text-white/54 hover:bg-white/10 hover:text-white'
                     }`}
                   >
                     {adminCopy.english}
@@ -1706,8 +1739,8 @@ export default function AdminPage() {
               </div>
 
               {/* Change Admin PIN */}
-              <div className="bg-[#141821] rounded-2xl p-6">
-                <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('change_admin_pin')}</h2>
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-5 sm:p-6">
+                <h2 className="mb-4 text-lg font-black text-[#FFB830]">{t('change_admin_pin')}</h2>
                 <div className="space-y-3">
                   <input
                     type="password"
@@ -1717,7 +1750,7 @@ export default function AdminPage() {
                     value={currentPinInput}
                     onChange={e => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('current_pin')}
-                    className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                    className="min-h-[var(--touch-target)] w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
                   <input
                     type="password"
@@ -1727,7 +1760,7 @@ export default function AdminPage() {
                     value={newPinInput}
                     onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('new_pin')}
-                    className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                    className="min-h-[var(--touch-target)] w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
                   <input
                     type="password"
@@ -1737,12 +1770,12 @@ export default function AdminPage() {
                     value={confirmPinInput}
                     onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('confirm_new_pin')}
-                    className="w-full rounded-xl bg-[#232831] text-white text-center text-2xl tracking-widest p-4 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
+                    className="min-h-[var(--touch-target)] w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
                   <button
                     onClick={handleChangePin}
                     disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
-                    className="w-full rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold p-4 min-h-[var(--touch-target)] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                    className="min-h-[var(--touch-target)] w-full rounded-lg bg-[#4EEDB0] p-4 font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36"
                   >
                     {pinChanging ? '…' : t('change_pin_btn')}
                   </button>
@@ -1750,9 +1783,9 @@ export default function AdminPage() {
               </div>
 
               {/* Progress Reset */}
-              <div className="rounded-2xl p-6 border border-red-900/30 bg-red-900/5">
+              <div className="rounded-lg border border-[#FF7BAC]/22 bg-[#FF7BAC]/10 p-5 sm:p-6">
                 <h2 className="text-lg font-semibold mb-2 text-red-400">{t('reset_all_progress')}</h2>
-                <p className="text-[#8a8f99] text-sm mb-4">{t('reset_description')}</p>
+                <p className="mb-4 text-sm leading-6 text-white/58">{t('reset_description')}</p>
                 <button
                   onClick={async () => {
                     if (!confirm(t('reset_confirm'))) return;
@@ -1761,20 +1794,20 @@ export default function AdminPage() {
                     toast.success(t('reset_success'));
                     setTimeout(() => { location.href = '/'; }, 1000);
                   }}
-                  className="px-6 py-3 rounded-xl bg-red-900/40 text-red-400 font-semibold border border-red-900/60 min-h-[var(--touch-target)] hover:bg-red-900/60 transition-colors"
+                  className="min-h-[var(--touch-target)] rounded-lg border border-[#FF7BAC]/45 bg-[#FF7BAC]/12 px-6 py-3 font-bold text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/18"
                 >
                   {t('reset_full')}
                 </button>
               </div>
 
               {/* Danger Zone — permanent family data deletion */}
-              <div className="rounded-2xl border border-red-800/50 bg-red-950/20 p-6">
+              <div className="rounded-lg border border-[#FF7BAC]/32 bg-[#FF7BAC]/10 p-5 sm:p-6">
                 <h2 className="text-lg font-bold text-red-300 mb-2">{t('danger_zone')}</h2>
-                <p className="text-sm leading-6 text-[#c8ccd4] mb-4">{t('danger_zone_description')}</p>
+                <p className="mb-4 text-sm leading-6 text-white/70">{t('danger_zone_description')}</p>
                 <button
                   onClick={handleLeaveFamily}
                   disabled={leavingFamily || deletingFamily}
-                  className="mb-3 w-full rounded-xl border border-amber-600/70 bg-amber-900/25 px-5 py-4 font-bold text-amber-100 transition-colors hover:bg-amber-800/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mb-3 w-full rounded-lg border border-[#FFB830]/45 bg-[#FFB830]/12 px-5 py-4 font-bold text-[#FFE4A3] transition-colors hover:bg-[#FFB830]/18 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ minHeight: 'var(--touch-target)' }}
                 >
                   {leavingFamily ? adminCopy.leavingFamily : adminCopy.leaveFamily}
@@ -1782,7 +1815,7 @@ export default function AdminPage() {
                 <button
                   onClick={handleDeleteFamilyData}
                   disabled={deletingFamily || leavingFamily}
-                  className="w-full rounded-xl border border-red-700 bg-red-900/60 px-5 py-4 font-bold text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-lg border border-[#FF7BAC]/45 bg-[#FF7BAC]/18 px-5 py-4 font-bold text-[#FFE0EA] transition-colors hover:bg-[#FF7BAC]/24 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ minHeight: 'var(--touch-target)' }}
                 >
                   {deletingFamily ? t('danger_zone_deleting') : t('danger_zone_button')}
