@@ -722,6 +722,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   },
 
   transferPointsWithMessage: async (senderId, receiverId, amount, message) => {
+    assertUuid(senderId, 'senderId');
+    assertUuid(receiverId, 'receiverId');
     const safeAmount = Math.max(1, Math.round(amount));
     const supabase = createBrowserSupabase();
     const { data, error } = await supabase.rpc('transfer_points_with_message', {
