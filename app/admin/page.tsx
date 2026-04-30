@@ -1671,42 +1671,43 @@ export default function AdminPage() {
 
           {/* ─── SETTINGS & SECURITY ─── */}
           {activeTab === 'settings' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Family invitation */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-5 sm:p-6">
-                <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+                <div className="mb-3 flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-black text-[#4EEDB0]">{adminCopy.familyInvitation}</h2>
-                    <p className="mt-1 text-sm leading-6 text-white/58">
+                    <h2 className="text-base font-black text-white">{adminCopy.familyInvitation}</h2>
+                    <p className="mt-1 text-sm leading-6 text-white/54">
                       {adminCopy.familyInvitationHelp}
                     </p>
                   </div>
-                  <Icons.UsersRound className="shrink-0 text-[#4EEDB0]" size={22} />
+                  <Icons.UsersRound className="shrink-0 text-[#4EEDB0]" size={20} />
                 </div>
-                <div className="flex gap-3">
-                  <div className="flex min-h-[var(--touch-target)] flex-1 items-center justify-center rounded-lg border border-white/10 bg-[#111224] px-4 py-3">
-                    <span className="text-2xl font-black tracking-[0.25em] text-white">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-white/10 bg-[#111224] px-3">
+                    <span className="truncate text-lg font-black tracking-[0.22em] text-white sm:text-xl">
                       {familyInviteCode ?? '------'}
                     </span>
                   </div>
-                  <button
-                    onClick={copyInviteCode}
-                    disabled={!familyInviteCode}
-                    className="flex w-14 items-center justify-center rounded-lg bg-[#4EEDB0] text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:opacity-40"
-                    style={{ minHeight: 'var(--touch-target)' }}
-                    title={adminCopy.copyInviteCode}
-                  >
-                    <Icons.Copy size={20} />
-                  </button>
-                  <button
-                    onClick={generateInviteCode}
-                    disabled={generatingCode}
-                    className="flex w-14 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/54 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
-                    style={{ minHeight: 'var(--touch-target)' }}
-                    title={familyInviteCode ? adminCopy.regenerateCode : adminCopy.generateCode}
-                  >
-                    <Icons.RefreshCw size={18} className={generatingCode ? 'animate-spin' : ''} />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={copyInviteCode}
+                      disabled={!familyInviteCode}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4EEDB0]/14 px-3 text-sm font-black text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      title={adminCopy.copyInviteCode}
+                    >
+                      <Icons.Copy size={16} />
+                      <span className="hidden sm:inline">{adminCopy.copyInviteCode}</span>
+                    </button>
+                    <button
+                      onClick={generateInviteCode}
+                      disabled={generatingCode}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/56 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
+                      title={familyInviteCode ? adminCopy.regenerateCode : adminCopy.generateCode}
+                    >
+                      <Icons.RefreshCw size={16} className={generatingCode ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
                 </div>
                 {!familyInviteCode && (
                   <p className="mt-2 text-xs text-[#FFB830]">
@@ -1716,21 +1717,24 @@ export default function AdminPage() {
               </div>
 
               {/* Language */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-5 sm:p-6">
-                <h2 className="mb-4 text-lg font-black text-[#5B8EFF]">{adminCopy.language}</h2>
-                <div className="flex gap-3">
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Icons.Languages size={18} className="text-[#5B8EFF]" />
+                  <h2 className="text-base font-black text-white">{adminCopy.language}</h2>
+                </div>
+                <div className="inline-flex w-full rounded-lg border border-white/10 bg-[#111224] p-1 sm:w-auto">
                   <button
                     onClick={() => setLang('ko')}
-                    className={`min-h-[var(--touch-target)] flex-1 rounded-lg py-3 font-black transition-colors ${
-                      lang === 'ko' ? 'bg-[#5B8EFF] text-white' : 'border border-white/10 bg-white/[0.045] text-white/54 hover:bg-white/10 hover:text-white'
+                    className={`h-9 flex-1 rounded-md px-4 text-sm font-black transition-colors sm:min-w-24 ${
+                      lang === 'ko' ? 'bg-[#5B8EFF] text-white' : 'text-white/50 hover:bg-white/[0.055] hover:text-white'
                     }`}
                   >
                     {adminCopy.korean}
                   </button>
                   <button
                     onClick={() => setLang('en')}
-                    className={`min-h-[var(--touch-target)] flex-1 rounded-lg py-3 font-black transition-colors ${
-                      lang === 'en' ? 'bg-[#5B8EFF] text-white' : 'border border-white/10 bg-white/[0.045] text-white/54 hover:bg-white/10 hover:text-white'
+                    className={`h-9 flex-1 rounded-md px-4 text-sm font-black transition-colors sm:min-w-24 ${
+                      lang === 'en' ? 'bg-[#5B8EFF] text-white' : 'text-white/50 hover:bg-white/[0.055] hover:text-white'
                     }`}
                   >
                     {adminCopy.english}
@@ -1739,9 +1743,12 @@ export default function AdminPage() {
               </div>
 
               {/* Change Admin PIN */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-5 sm:p-6">
-                <h2 className="mb-4 text-lg font-black text-[#FFB830]">{t('change_admin_pin')}</h2>
-                <div className="space-y-3">
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Icons.LockKeyhole size={18} className="text-[#FFB830]" />
+                  <h2 className="text-base font-black text-white">{t('change_admin_pin')}</h2>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
                   <input
                     type="password"
                     inputMode="numeric"
@@ -1750,7 +1757,7 @@ export default function AdminPage() {
                     value={currentPinInput}
                     onChange={e => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('current_pin')}
-                    className="min-h-[var(--touch-target)] w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-center text-lg font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
                   <input
                     type="password"
@@ -1760,7 +1767,7 @@ export default function AdminPage() {
                     value={newPinInput}
                     onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('new_pin')}
-                    className="min-h-[var(--touch-target)] w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-center text-lg font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
                   <input
                     type="password"
@@ -1770,12 +1777,14 @@ export default function AdminPage() {
                     value={confirmPinInput}
                     onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('confirm_new_pin')}
-                    className="min-h-[var(--touch-target)] w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-center text-lg font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
+                </div>
+                <div className="mt-3 flex justify-end">
                   <button
                     onClick={handleChangePin}
                     disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
-                    className="min-h-[var(--touch-target)] w-full rounded-lg bg-[#4EEDB0] p-4 font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36 sm:w-auto"
                   >
                     {pinChanging ? '…' : t('change_pin_btn')}
                   </button>
@@ -1783,9 +1792,14 @@ export default function AdminPage() {
               </div>
 
               {/* Progress Reset */}
-              <div className="rounded-lg border border-[#FF7BAC]/22 bg-[#FF7BAC]/10 p-5 sm:p-6">
-                <h2 className="text-lg font-semibold mb-2 text-red-400">{t('reset_all_progress')}</h2>
-                <p className="mb-4 text-sm leading-6 text-white/58">{t('reset_description')}</p>
+              <div className="flex flex-col gap-3 rounded-lg border border-white/8 bg-[#14162A] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="min-w-0">
+                  <div className="mb-1 flex items-center gap-2">
+                    <Icons.RotateCcw size={17} className="text-[#FFB830]" />
+                    <h2 className="text-base font-black text-white">{t('reset_all_progress')}</h2>
+                  </div>
+                  <p className="text-sm leading-6 text-white/54">{t('reset_description')}</p>
+                </div>
                 <button
                   onClick={async () => {
                     if (!confirm(t('reset_confirm'))) return;
@@ -1794,32 +1808,35 @@ export default function AdminPage() {
                     toast.success(t('reset_success'));
                     setTimeout(() => { location.href = '/'; }, 1000);
                   }}
-                  className="min-h-[var(--touch-target)] rounded-lg border border-[#FF7BAC]/45 bg-[#FF7BAC]/12 px-6 py-3 font-bold text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/18"
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#FFB830]/30 bg-[#FFB830]/10 px-4 text-sm font-bold text-[#FFE0A0] transition-colors hover:bg-[#FFB830]/15"
                 >
                   {t('reset_full')}
                 </button>
               </div>
 
               {/* Danger Zone — permanent family data deletion */}
-              <div className="rounded-lg border border-[#FF7BAC]/32 bg-[#FF7BAC]/10 p-5 sm:p-6">
-                <h2 className="text-lg font-bold text-red-300 mb-2">{t('danger_zone')}</h2>
-                <p className="mb-4 text-sm leading-6 text-white/70">{t('danger_zone_description')}</p>
-                <button
-                  onClick={handleLeaveFamily}
-                  disabled={leavingFamily || deletingFamily}
-                  className="mb-3 w-full rounded-lg border border-[#FFB830]/45 bg-[#FFB830]/12 px-5 py-4 font-bold text-[#FFE4A3] transition-colors hover:bg-[#FFB830]/18 disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ minHeight: 'var(--touch-target)' }}
-                >
-                  {leavingFamily ? adminCopy.leavingFamily : adminCopy.leaveFamily}
-                </button>
-                <button
-                  onClick={handleDeleteFamilyData}
-                  disabled={deletingFamily || leavingFamily}
-                  className="w-full rounded-lg border border-[#FF7BAC]/45 bg-[#FF7BAC]/18 px-5 py-4 font-bold text-[#FFE0EA] transition-colors hover:bg-[#FF7BAC]/24 disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ minHeight: 'var(--touch-target)' }}
-                >
-                  {deletingFamily ? t('danger_zone_deleting') : t('danger_zone_button')}
-                </button>
+              <div className="rounded-lg border border-[#FF7BAC]/22 bg-[#FF7BAC]/8 p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Icons.TriangleAlert size={18} className="text-[#FF7BAC]" />
+                  <h2 className="text-base font-black text-[#FFD5E3]">{t('danger_zone')}</h2>
+                </div>
+                <p className="text-sm leading-6 text-white/62">{t('danger_zone_description')}</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    onClick={handleLeaveFamily}
+                    disabled={leavingFamily || deletingFamily}
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-[#FFB830]/30 bg-[#FFB830]/10 px-4 text-sm font-bold text-[#FFE0A0] transition-colors hover:bg-[#FFB830]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {leavingFamily ? adminCopy.leavingFamily : adminCopy.leaveFamily}
+                  </button>
+                  <button
+                    onClick={handleDeleteFamilyData}
+                    disabled={deletingFamily || leavingFamily}
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/14 px-4 text-sm font-bold text-[#FFD5E3] transition-colors hover:bg-[#FF7BAC]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingFamily ? t('danger_zone_deleting') : t('danger_zone_button')}
+                  </button>
+                </div>
               </div>
             </div>
           )}

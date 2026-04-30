@@ -104,7 +104,7 @@ const landingCopy: Record<LandingLocale, {
       languageHref: '/home/ko',
     },
     hero: {
-      tagline: '온 가족의 습관을 함께. Family routines, rewards, and warm encouragement in one daily dashboard.',
+      tagline: 'Family routines, rewards, and warm encouragement in one daily dashboard.',
       headline: 'Build better family habits without turning home into a chore chart.',
       body: 'FamBit gives each family member a focused habit panel, turns consistency into points, and lets those points become rewards, gifts, notes, and shared momentum.',
       primary: 'Start with Google',
