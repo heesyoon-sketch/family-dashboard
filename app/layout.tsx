@@ -4,13 +4,13 @@ import { Toaster } from 'sonner';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 
 export const metadata: Metadata = {
-  title: 'Family Habit Dashboard',
+  title: 'FamBit',
   description: 'A family habit dashboard for tasks, rewards, XP, and coins.',
-  applicationName: 'Family Habit Dashboard',
+  applicationName: 'FamBit',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    title: 'FamilyHabit',
+    title: 'FamBit',
     statusBarStyle: 'black-translucent',
   },
   formatDetection: {
@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: '/fambit-icon.svg', type: 'image/svg+xml' },
       { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
@@ -33,7 +34,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#141821',
+  themeColor: '#0D0E1C',
   colorScheme: 'dark',
 };
 

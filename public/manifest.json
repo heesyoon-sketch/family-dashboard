@@ -1,13 +1,13 @@
 {
-  "name": "Family Habit Dashboard",
-  "short_name": "FamilyHabit",
+  "name": "FamBit",
+  "short_name": "FamBit",
   "description": "A family habit dashboard for tasks, rewards, XP, and coins.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#141821",
-  "theme_color": "#141821",
+  "background_color": "#0D0E1C",
+  "theme_color": "#0D0E1C",
   "orientation": "landscape",
   "icons": [
     {

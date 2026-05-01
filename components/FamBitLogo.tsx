@@ -16,19 +16,15 @@ export function FamBitMark({ size = 44, className }: FamBitMarkProps) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 84 84"
+      viewBox="0 0 80 80"
       fill="none"
       aria-hidden="true"
       className={className ?? 'shrink-0'}
     >
-      <rect width="84" height="84" rx="22" fill="#1A1B2E" />
-      <rect x="16" y="16" width="13" height="52" rx="6.5" fill="#5B8EFF" />
-      <rect x="33" y="16" width="36" height="13" rx="6.5" fill="#ffffff10" />
-      <rect x="33" y="16" width="36" height="13" rx="6.5" fill="#5B8EFF" />
-      <rect x="33" y="35" width="36" height="13" rx="6.5" fill="#ffffff10" />
-      <rect x="33" y="35" width="26" height="13" rx="6.5" fill="#FF7BAC" />
-      <rect x="33" y="54" width="36" height="13" rx="6.5" fill="#ffffff10" />
-      <rect x="33" y="54" width="16" height="13" rx="6.5" fill="#4EEDB0" />
+      <rect width="80" height="80" rx="22" fill="#1A1B2E" />
+      <rect x="18" y="19" width="44" height="11" rx="5.5" fill="#5B8EFF" />
+      <rect x="18" y="35" width="32" height="11" rx="5.5" fill="#FF7BAC" />
+      <rect x="18" y="51" width="18" height="11" rx="5.5" fill="#4EEDB0" />
     </svg>
   );
 }
