@@ -13,7 +13,8 @@ import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const SWIPE_TRIGGER_PX = 110;
+const SWIPE_TRIGGER_PX = 54;
+const SWIPE_LIMIT_PX = 88;
 
 function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
@@ -45,11 +46,12 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
 
   const x            = useMotionValue(0);
-  const bgOpacity    = useTransform(x, [0, SWIPE_TRIGGER_PX], [0, 1]);
-  const checkOpacity = useTransform(x, [0, SWIPE_TRIGGER_PX * 0.5, SWIPE_TRIGGER_PX], [0, 0, 1]);
+  const completeBgOpacity    = useTransform(x, [0, SWIPE_TRIGGER_PX], [0, 1]);
+  const completeHintOpacity  = useTransform(x, [0, SWIPE_TRIGGER_PX * 0.55, SWIPE_TRIGGER_PX], [0, 0, 1]);
+  const undoBgOpacity        = useTransform(x, [-SWIPE_TRIGGER_PX, 0], [1, 0]);
+  const undoHintOpacity      = useTransform(x, [-SWIPE_TRIGGER_PX, -SWIPE_TRIGGER_PX * 0.55, 0], [1, 0, 0]);
 
   const [busy, setBusy]           = useState(false);
-  const tappedAt                  = useRef(0);
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
   const particleTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -86,21 +88,36 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     setBusy(false);
   };
 
-  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
-    if (info.offset.x >= SWIPE_TRIGGER_PX) {
-      animate(x, 300, { duration: 0.25, onComplete: fireComplete });
-    } else {
-      animate(x, 0, { type: 'spring', stiffness: 260, damping: 20 });
-    }
+  const snapBack = () => animate(x, 0, { type: 'spring', stiffness: 300, damping: 24 });
+
+  const runSwipeAction = (targetX: number, clientX?: number, clientY?: number) => {
+    animate(x, targetX, {
+      duration: 0.14,
+      onComplete: () => {
+        void fireComplete(clientX, clientY).finally(() => {
+          snapBack();
+        });
+      },
+    });
   };
 
-  const handleTap = (event: MouseEvent | TouchEvent | PointerEvent) => {
-    const now = Date.now();
-    if (now - tappedAt.current < 300) return;
-    tappedAt.current = now;
-    const clientX = 'clientX' in event ? (event as PointerEvent).clientX : undefined;
-    const clientY = 'clientY' in event ? (event as PointerEvent).clientY : undefined;
-    fireComplete(clientX, clientY);
+  const handleDragEnd = (_: unknown, info: { offset: { x: number }; point?: { x: number; y: number } }) => {
+    if (busy) {
+      snapBack();
+      return;
+    }
+
+    if (!completed && info.offset.x >= SWIPE_TRIGGER_PX) {
+      runSwipeAction(SWIPE_TRIGGER_PX + 24, info.point?.x, info.point?.y);
+      return;
+    }
+
+    if (completed && info.offset.x <= -SWIPE_TRIGGER_PX) {
+      runSwipeAction(-(SWIPE_TRIGGER_PX + 24), info.point?.x, info.point?.y);
+      return;
+    }
+
+    snapBack();
   };
 
   const iconKey = pascalCase(task.icon);
@@ -132,29 +149,44 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     <div className="relative h-full w-full">
 
       {/* Swipe success bg — absolute, zero layout impact */}
-      <motion.div
-        style={{ opacity: bgOpacity }}
-        className="absolute inset-0 rounded-2xl bg-[var(--success)] flex items-center justify-end pr-5"
-      >
-        <motion.div style={{ opacity: checkOpacity }}>
-          <Icons.Check size={24} className="text-white" strokeWidth={3} />
+      {!completed && (
+        <motion.div
+          style={{ opacity: completeBgOpacity }}
+          className="absolute inset-0 flex items-center justify-end rounded-2xl bg-[var(--success)] pr-4"
+        >
+          <motion.div style={{ opacity: completeHintOpacity }} className="flex items-center gap-1.5 text-sm font-black text-white">
+            <span>{lang === 'en' ? 'Done' : '완료'}</span>
+            <Icons.Check size={21} strokeWidth={3} />
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
+      {completed && (
+        <motion.div
+          style={{ opacity: undoBgOpacity }}
+          className="absolute inset-0 flex items-center justify-start rounded-2xl bg-[var(--accent)] pl-4"
+        >
+          <motion.div style={{ opacity: undoHintOpacity }} className="flex items-center gap-1.5 text-sm font-black text-white">
+            <Icons.RotateCcw size={18} strokeWidth={3} />
+            <span>{lang === 'en' ? 'Undo' : '취소'}</span>
+          </motion.div>
+        </motion.div>
+      )}
 
       {/* Card — absolute inset-0 + overflow-hidden: content is ALWAYS clipped to CARD_H.
           ring-1 ring-inset paints inside the border-box → zero layout contribution.
           Both states (active/completed) carry a ring, so box-model is always identical. */}
       <motion.div
-        drag={completed ? false : 'x'}
-        dragConstraints={{ left: 0, right: SWIPE_TRIGGER_PX + 60 }}
-        dragElastic={0.15}
+        drag="x"
+        dragConstraints={completed ? { left: -SWIPE_LIMIT_PX, right: 0 } : { left: 0, right: SWIPE_LIMIT_PX }}
+        dragDirectionLock
+        dragElastic={0.08}
+        dragMomentum={false}
         onDragEnd={handleDragEnd}
-        onTap={handleTap}
-        style={{ x, ...glowStyle }}
-        whileTap={{ scale: 0.92 }}
+        style={{ x, touchAction: 'pan-y', ...glowStyle }}
+        whileTap={{ scale: 0.98 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
-          'px-3.5 py-2.5 flex items-center gap-3 cursor-pointer md:px-2.5 md:py-2 md:gap-2',
+          'px-3.5 py-2.5 flex items-center gap-3 cursor-grab active:cursor-grabbing md:px-2.5 md:py-2 md:gap-2',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
