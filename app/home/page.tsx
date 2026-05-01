@@ -2,9 +2,13 @@ import type { Metadata } from 'next';
 import { FamBitLanding } from '@/components/FamBitLanding';
 
 export const metadata: Metadata = {
-  title: 'FamBit | Family Habit Dashboard',
+  title: 'Fambit — The family currency your kids want to earn',
   description:
-    'A private family habit dashboard for daily routines, points, rewards, warm gifts, and parent-friendly admin tools.',
+    'Stop nagging. Set the prices once, and your kids run the system. A family habit and reward app where every family designs its own rules.',
+  openGraph: {
+    title: "Nagging doesn't work. Price tags do.",
+    description: 'Fambit is the family currency your kids actually want to earn.',
+  },
   alternates: {
     canonical: '/home',
     languages: {

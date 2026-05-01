@@ -48,6 +48,11 @@ interface AdminCardCopy {
   body: string;
 }
 
+interface LandingTextSection {
+  headline: string;
+  body: string[];
+}
+
 const landingCopy: Record<LandingLocale, {
   nav: {
     features: string;
@@ -64,8 +69,11 @@ const landingCopy: Record<LandingLocale, {
     body: string;
     primary: string;
     secondary: string;
+    secondaryHref: string;
   };
   proof: Array<{ label: string; value: string }>;
+  problem?: LandingTextSection;
+  story?: LandingTextSection;
   features: {
     eyebrow: string;
     headline: string;
@@ -84,6 +92,7 @@ const landingCopy: Record<LandingLocale, {
     body: string;
     cards: AdminCardCopy[];
   };
+  why?: LandingTextSection;
   final: {
     label: string;
     headline: string;
@@ -104,41 +113,60 @@ const landingCopy: Record<LandingLocale, {
       languageHref: '/home/ko',
     },
     hero: {
-      tagline: 'Family routines, rewards, and warm encouragement in one daily dashboard.',
-      headline: 'Build better family habits without turning home into a chore chart.',
-      body: 'FamBit gives each family member a focused habit panel, turns consistency into points, and lets those points become rewards, gifts, notes, and shared momentum.',
-      primary: 'Start with Google',
-      secondary: 'Join with invite code',
+      tagline: '',
+      headline: "Nagging doesn't work. Price tags do.",
+      body: 'Fambit is the family currency your kids actually want to earn. Brushing teeth, packing the bag, doing homework — your family sets the prices. Your kids do the rest.',
+      primary: 'Start your family',
+      secondary: 'See how it works ↓',
+      secondaryHref: '#flow',
     },
     proof: [
       { label: 'For parents', value: 'Admin PIN, rewards, resets, invites' },
       { label: 'For kids', value: 'Clear tasks, points, streaks, store goals' },
       { label: 'For connection', value: 'Gift notes, mailbox history, shared wins' },
     ],
+    problem: {
+      headline: 'You\'ve said "brush your teeth" four thousand times. There\'s a better way.',
+      body: [
+        'Most mornings end the same way. You ask. They ignore. You ask louder. They negotiate. By the time everyone\'s out the door, nobody\'s happy.',
+        'The problem isn\'t your kid. It\'s that the rules keep changing. Today screen time is fine. Tomorrow it\'s a fight. Kids don\'t push back against rules. They push back against feeling like the rules are unfair.',
+        'Fambit takes the daily decisions off your plate. You set the prices once. Your kids earn, save, and spend on what they want. No more "can I?" — just "I bought it."',
+      ],
+    },
+    story: {
+      headline: 'The night I scolded him, my son sent me 10 points.',
+      body: [
+        '"Sorry, dad."',
+        'That\'s what the message said.',
+        'He earned those 10 points himself — brushing his teeth, doing his homework, reading for thirty minutes. Then he opened the mailbox and chose to send them to me.',
+        'A nine-year-old can\'t say "I\'m sorry" to your face. But he\'ll send ten points he earned himself.',
+        'Fambit isn\'t just a chore tracker. It\'s a way for families to say the things that are hardest to say out loud.',
+      ],
+    },
     features: {
       eyebrow: 'Key functions',
-      headline: 'Everything the daily family loop needs.',
-      body: 'The app is built for repeat use: quick scanning, low-friction task completion, parent controls, and meaningful rewards that families can actually maintain.',
+      headline: 'Built for how your family actually works.',
+      body: '',
       items: [
         {
           icon: CheckCircle2,
-          title: 'Daily habits that feel visible',
-          body: 'Each family member gets a focused panel for today’s routines, streaks, morning and evening tasks, and quick completion.',
+          title: 'Family currency, not allowance',
+          body: 'Set your own habits. Set your own prices. Thirty minutes of screen time. Choosing dinner. An extra story at bedtime. Whatever your family treats as valuable, your family writes the catalog. No real money. No bank linking. Just your rules.',
         },
         {
           icon: Trophy,
-          title: 'Points, XP, and streak momentum',
-          body: 'Kids can see progress turn into levels, spendable balances, bonus multipliers, and personal bests without a parent spreadsheet.',
+          title: 'A shop for each child',
+          body: 'Your 8-year-old wants screen time. Your 11-year-old wants to stay up late. Same family, different shops. Each kid earns and spends in a system that fits what motivates them.',
         },
         {
           icon: Gift,
-          title: 'A real reward store',
-          body: 'Parents can create rewards, sale events, hidden items, sold-out states, joint purchases, refunds, and point costs that match family rules.',
+          title: 'Streaks that compound',
+          body: 'Three days in a row earns a 1.2× multiplier. Seven days earns 1.5×. The longer your kid sticks with it, the bigger the payoff. Habits that compound, like interest.',
         },
         {
           icon: HeartHandshake,
-          title: 'Warm gifts and small notes',
-          body: 'Family members can send points with a short message, creating a mailbox history for encouragement, apologies, and small celebrations.',
+          title: "A mailbox for what's hard to say",
+          body: 'Send a few points with a "thank you," "I\'m sorry," or "I love you." Sometimes the easiest way to say something hard is to attach it to something small.',
         },
         {
           icon: Settings2,
@@ -174,11 +202,20 @@ const landingCopy: Record<LandingLocale, {
         { icon: LockKeyhole, title: 'Admin protection', body: 'A family PIN and owner recovery flow for sensitive actions.' },
       ],
     },
+    why: {
+      headline: "Wait — isn't this just paying kids to do what they should already do?",
+      body: [
+        'Fair question. Here\'s the honest answer.',
+        'Brushing teeth. Packing a bag. Doing homework. These aren\'t activities your kid finds intrinsically rewarding to begin with. There\'s no internal motivation here for an external reward to "ruin." The classic research on extrinsic rewards undermining intrinsic motivation applies to activities kids already enjoy. It doesn\'t apply to remembering to floss.',
+        'What Fambit actually does: it makes effort visible, rules consistent, and rewards predictable. Your kid learns that effort has value, savings have purpose, and decisions have weight. That isn\'t bribery. That\'s how money, work, and trade-offs work in the real world — taught early, in a system small enough to be safe.',
+        'This works especially well for kids — often boys — who shut down when rules feel unfair or arbitrary. A clear price beats a thousand reminders.',
+      ],
+    },
     final: {
       label: 'FamBit',
-      headline: 'Give your family habits a place to live.',
-      body: 'Start a family workspace, invite members, and turn small daily actions into visible progress.',
-      primary: 'Sign in with Google',
+      headline: 'Stop the nagging. Start the system.',
+      body: 'Free to start. Set up your family in five minutes. No credit card.',
+      primary: 'Create your family',
       secondary: 'Privacy',
     },
     previewPanels: [
@@ -244,6 +281,7 @@ const landingCopy: Record<LandingLocale, {
       body: 'FamBit은 가족 구성원마다 오늘의 습관 패널을 만들고, 꾸준함을 포인트와 보상, 선물, 작은 편지로 이어 줍니다.',
       primary: 'Google로 시작하기',
       secondary: '초대 코드로 참여',
+      secondaryHref: '/join',
     },
     proof: [
       { label: '부모를 위해', value: '관리자 PIN, 보상, 초기화, 초대 코드' },
@@ -445,6 +483,7 @@ function DashboardScene({ panels }: { panels: PreviewPanelCopy[] }) {
 
 export function FamBitLanding({ locale }: { locale: LandingLocale }) {
   const c = landingCopy[locale];
+  const HeroSecondaryIcon = c.hero.secondaryHref.startsWith('#') ? ArrowRight : Ticket;
 
   return (
     <main className="min-h-screen bg-[#0D0E1C] text-white">
@@ -489,9 +528,11 @@ export function FamBitLanding({ locale }: { locale: LandingLocale }) {
         <div className="relative z-10 mx-auto flex min-h-[86svh] w-full max-w-7xl flex-col justify-center px-4 pb-16 pt-12 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <FamBitWordmark />
-            <p className="mt-6 max-w-2xl text-base font-bold text-[#4EEDB0] sm:text-lg">
-              {c.hero.tagline}
-            </p>
+            {c.hero.tagline && (
+              <p className="mt-6 max-w-2xl text-base font-bold text-[#4EEDB0] sm:text-lg">
+                {c.hero.tagline}
+              </p>
+            )}
             <h1 className="mt-5 text-5xl font-black leading-[1.02] text-white sm:text-6xl lg:text-7xl">
               {c.hero.headline}
             </h1>
@@ -507,11 +548,11 @@ export function FamBitLanding({ locale }: { locale: LandingLocale }) {
                 <ArrowRight size={17} />
               </Link>
               <Link
-                href="/join"
+                href={c.hero.secondaryHref}
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-white/12 bg-white/[0.055] px-5 text-sm font-black text-white hover:bg-white/10"
               >
                 {c.hero.secondary}
-                <Ticket size={17} />
+                <HeroSecondaryIcon size={17} />
               </Link>
             </div>
           </div>
@@ -529,15 +570,50 @@ export function FamBitLanding({ locale }: { locale: LandingLocale }) {
         </div>
       </section>
 
+      {c.problem && (
+        <section className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-20 sm:px-6 lg:grid-cols-[0.88fr_1.12fr] lg:px-8">
+          <h2 className="max-w-2xl text-3xl font-black leading-tight text-white sm:text-4xl">
+            {c.problem.headline}
+          </h2>
+          <div className="space-y-5 text-base leading-7 text-white/68">
+            {c.problem.body.map(paragraph => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {c.story && (
+        <section className="border-y border-white/8 bg-[#111224] px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
+            <h2 className="max-w-2xl text-3xl font-black leading-tight text-white sm:text-4xl">
+              {c.story.headline}
+            </h2>
+            <div className="space-y-5 text-base leading-7 text-white/68">
+              {c.story.body.map((paragraph, index) => (
+                <p
+                  key={paragraph}
+                  className={index === 0 ? 'text-2xl font-black leading-tight text-[#4EEDB0]' : undefined}
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section id="features" className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
           <p className="text-sm font-black text-[#FF7BAC]">{c.features.eyebrow}</p>
           <h2 className="mt-3 text-3xl font-black leading-tight text-white sm:text-4xl">
             {c.features.headline}
           </h2>
-          <p className="mt-4 text-base leading-7 text-white/64">
-            {c.features.body}
-          </p>
+          {c.features.body && (
+            <p className="mt-4 text-base leading-7 text-white/64">
+              {c.features.body}
+            </p>
+          )}
         </div>
         <div className="mt-10 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {c.features.items.map(feature => {
@@ -554,6 +630,21 @@ export function FamBitLanding({ locale }: { locale: LandingLocale }) {
           })}
         </div>
       </section>
+
+      {c.why && (
+        <section className="bg-[#F4F7FB] px-4 py-20 text-[#111224] sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
+            <h2 className="text-3xl font-black leading-tight sm:text-4xl">
+              {c.why.headline}
+            </h2>
+            <div className="space-y-5 text-base leading-7 text-slate-600">
+              {c.why.body.map(paragraph => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section id="flow" className="bg-[#F4F7FB] px-4 py-20 text-[#111224] sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
