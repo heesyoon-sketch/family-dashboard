@@ -314,16 +314,16 @@ interface LangContextType {
 }
 
 const LanguageContext = createContext<LangContextType>({
-  lang: 'ko',
+  lang: 'en',
   setLang: () => {},
-  t: (key) => DICT.ko[key],
+  t: (key) => DICT.en[key],
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
-    if (typeof window === 'undefined') return 'ko';
+    if (typeof window === 'undefined') return 'en';
     const stored = localStorage.getItem('app_lang');
-    return stored === 'en' || stored === 'ko' ? stored : 'ko';
+    return stored === 'en' || stored === 'ko' ? stored : 'en';
   });
 
   useEffect(() => {
@@ -332,7 +332,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const setLang = (l: Lang) => setLangState(l);
-  const t = (key: TranslationKey): string => DICT[lang][key] ?? DICT.ko[key];
+  const t = (key: TranslationKey): string => DICT[lang][key] ?? DICT.en[key];
 
   return (
     <LanguageContext.Provider value={{ lang, setLang, t }}>

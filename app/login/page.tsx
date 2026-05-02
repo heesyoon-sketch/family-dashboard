@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Ticket } from 'lucide-react';
 import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function GoogleMark() {
   return (
@@ -22,6 +23,25 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const deleted = searchParams.get('deleted') === '1';
   const [loginError, setLoginError] = useState('');
+  const { lang } = useLanguage();
+
+  const copy = lang === 'en'
+    ? {
+        title: 'Sign in to FamBit',
+        description: 'Use a Google account to create or manage a family space, or join with an invite code.',
+        deletedNotice: 'All family data has been permanently deleted.',
+        loginErr: "Couldn't start Google sign-in. Please try again in a moment.",
+        google: 'Sign in with Google',
+        join: 'Join family with invite code',
+      }
+    : {
+        title: 'FamBit에 로그인',
+        description: 'Google 계정으로 가족 공간을 만들고 관리하거나, 초대 코드를 받은 가족은 바로 참여할 수 있습니다.',
+        deletedNotice: '가족 데이터가 영구 삭제되었습니다.',
+        loginErr: 'Google 로그인을 시작할 수 없습니다. 잠시 후 다시 시도하세요.',
+        google: 'Google로 로그인',
+        join: '초대 코드로 가족 참여',
+      };
 
   const handleGoogleLogin = async () => {
     setLoginError('');
@@ -42,20 +62,20 @@ function LoginContent() {
       if (data.url) window.location.assign(data.url);
     } catch (error) {
       console.error(error);
-      setLoginError('Google 로그인을 시작할 수 없습니다. 잠시 후 다시 시도하세요.');
+      setLoginError(copy.loginErr);
     }
   };
 
   return (
     <FamBitAuthShell
       eyebrow="Family Habit Dashboard"
-      title="FamBit에 로그인"
-      description="Google 계정으로 가족 공간을 만들고 관리하거나, 초대 코드를 받은 가족은 바로 참여할 수 있습니다."
+      title={copy.title}
+      description={copy.description}
     >
       <div className="space-y-3">
         {deleted && (
           <div className="rounded-lg border border-[#4EEDB0]/35 bg-[#4EEDB0]/10 px-4 py-3 text-sm leading-6 text-[#4EEDB0]">
-            가족 데이터가 영구 삭제되었습니다. All family data has been permanently deleted.
+            {copy.deletedNotice}
           </div>
         )}
 
@@ -70,7 +90,7 @@ function LoginContent() {
           className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-[#111224] transition-colors hover:bg-[#F4F7FB]"
         >
           <GoogleMark />
-          Google로 로그인
+          {copy.google}
         </button>
 
         <Link
@@ -78,7 +98,7 @@ function LoginContent() {
           className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.055] px-4 text-sm font-black text-white transition-colors hover:bg-white/10"
         >
           <Ticket size={17} />
-          초대 코드로 가족 참여
+          {copy.join}
         </Link>
       </div>
     </FamBitAuthShell>
