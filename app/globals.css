@@ -39,7 +39,8 @@ html, body {
 
 body {
   font-family: var(--font-display);
-  background: #0f172a;
+  background: #0D0E1C;
+  color: #ffffff;
   font-size: 18px;
 }
 

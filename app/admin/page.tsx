@@ -1626,9 +1626,10 @@ export default function AdminPage() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={t('feedback')}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-sm font-bold text-white/54 transition-colors hover:border-[#4EEDB0]/45 hover:text-white sm:w-auto sm:px-3"
+              title={t('feedback_subtitle')}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-[#4EEDB0]/30 bg-[#4EEDB0]/10 px-3 text-sm font-black text-[#4EEDB0] transition-colors hover:border-[#4EEDB0]/60 hover:bg-[#4EEDB0]/16 sm:px-4"
             >
-              <Icons.MessageCircle size={15} />
+              <Icons.MessageCircleHeart size={16} />
               <span className="hidden sm:inline">{t('feedback')}</span>
             </a>
             <Link href="/" className="whitespace-nowrap text-sm font-bold text-white/54 transition-colors hover:text-white">← {t('back_to_dashboard')}</Link>
@@ -1851,22 +1852,34 @@ export default function AdminPage() {
 
           {/* ─── FAMILY ─── */}
           {activeTab === 'family' && (
-            <div className="bg-[#141821] rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-[#4f9cff]">{t('set_family_names')}</h2>
+            <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                      <Icons.UsersRound size={18} className="text-[#5B8EFF]" />
+                    </span>
+                    <h2 className="text-base font-black text-white">{t('set_family_names')}</h2>
+                  </div>
+                  <p className="text-sm leading-6 text-white/54">
+                    {lang === 'en'
+                      ? 'Manage family members, roles, and order.'
+                      : '가족 멤버의 이름, 역할, 순서를 관리합니다.'}
+                  </p>
+                </div>
                 <button
                   onClick={() => { setAddingMember(true); setNewMemberName(''); setNewMemberRole('CHILD'); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#4f9cff]/15 text-[#4f9cff] text-sm font-semibold hover:bg-[#4f9cff]/25 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#4EEDB0] px-4 py-2.5 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0]"
                 >
-                  <Icons.UserPlus size={15} />
+                  <Icons.UserPlus size={16} />
                   {adminCopy.addMember}
                 </button>
               </div>
 
               {/* Add member form */}
               {addingMember && (
-                <div className="bg-[#232831] rounded-xl p-4 mb-4 space-y-3 border border-[#4f9cff]/30">
-                  <p className="text-sm text-[#8a8f99]">{adminCopy.addMemberHelp}</p>
+                <div className="mb-4 space-y-3 rounded-lg border border-[#4EEDB0]/30 bg-[#111224] p-4">
+                  <p className="text-sm leading-6 text-white/54">{adminCopy.addMemberHelp}</p>
                   <input
                     type="text"
                     value={newMemberName}
@@ -1880,16 +1893,18 @@ export default function AdminPage() {
                     }}
                     placeholder={adminCopy.memberNamePlaceholder}
                     autoFocus
-                    className="w-full rounded-xl bg-[#1a1f2a] text-white px-4 outline-none border border-[#2d3545] focus:border-[#4f9cff]"
-                    style={{ minHeight: '48px', fontSize: '16px' }}
+                    className="w-full rounded-lg border border-white/10 bg-[#1A1B2E] px-4 text-base font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
+                    style={{ minHeight: 'var(--touch-target)', fontSize: '16px' }}
                   />
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setNewMemberRole('PARENT')}
                       disabled={isAddingMember}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                        newMemberRole === 'PARENT' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                      className={`min-h-11 rounded-lg text-sm font-black transition-colors ${
+                        newMemberRole === 'PARENT'
+                          ? 'bg-[#5B8EFF] text-white'
+                          : 'border border-white/8 bg-[#1A1B2E] text-white/54 hover:bg-white/[0.06] hover:text-white'
                       }`}
                     >
                       {t('parent_role')}
@@ -1898,19 +1913,21 @@ export default function AdminPage() {
                       type="button"
                       onClick={() => setNewMemberRole('CHILD')}
                       disabled={isAddingMember}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                        newMemberRole === 'CHILD' ? 'bg-[#4f9cff] text-[#06111f]' : 'bg-[#1a1f2a] text-[#8a8f99] hover:bg-[#2d3545]'
+                      className={`min-h-11 rounded-lg text-sm font-black transition-colors ${
+                        newMemberRole === 'CHILD'
+                          ? 'bg-[#FF7BAC] text-[#220610]'
+                          : 'border border-white/8 bg-[#1A1B2E] text-white/54 hover:bg-white/[0.06] hover:text-white'
                       }`}
                     >
                       {t('child_role')}
                     </button>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => { void addMember(); }}
                       disabled={isAddingMember || !newMemberName.trim()}
-                      className="flex-1 py-3 rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                      className="min-h-[var(--touch-target)] rounded-lg bg-[#4EEDB0] text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36"
                     >
                       {isAddingMember ? adminCopy.adding : adminCopy.add}
                     </button>
@@ -1918,7 +1935,7 @@ export default function AdminPage() {
                       type="button"
                       onClick={() => setAddingMember(false)}
                       disabled={isAddingMember}
-                      className="flex-1 py-3 rounded-xl bg-[#1a1f2a] text-[#8a8f99] font-semibold hover:bg-[#2d3545] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="min-h-[var(--touch-target)] rounded-lg border border-white/10 bg-white/[0.045] text-sm font-bold text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {adminCopy.cancel}
                     </button>
@@ -1934,119 +1951,148 @@ export default function AdminPage() {
                 onChange={e => { void handleAvatarUpload(e.target.files?.[0]); }}
               />
 
-              <div className="space-y-3">
-                {sortedUsers.map((u, index) => (
-                  <div key={u.id} className="flex items-center gap-3">
-                    {editingUserId === u.id ? (
-                      <>
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={e => setEditingName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') confirmEditName(u.id);
-                            if (e.key === 'Escape') cancelEditName();
-                          }}
-                          autoFocus
-                          className="flex-1 rounded-xl bg-[#232831] text-white px-4 outline-none border border-[#4f9cff]"
-                          style={{ minHeight: '48px', fontSize: '18px' }}
-                        />
-                        <button
-                          onClick={() => confirmEditName(u.id)}
-                          className="w-12 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors"
-                          style={{ minHeight: '48px' }}
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={cancelEditName}
-                          className="w-12 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors"
-                          style={{ minHeight: '48px' }}
-                        >
-                          ✗
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => openAvatarUpload(u.id)}
-                          disabled={avatarUploadingUserId === u.id}
-                          className="relative w-10 h-10 rounded-full shrink-0 ring-2 ring-[#2d3545] overflow-hidden bg-[#232831] flex items-center justify-center text-[#8a8f99] font-bold text-base hover:ring-[#4f9cff] transition disabled:opacity-60"
-                          title={adminCopy.uploadAvatar}
-                        >
-                          {u.avatarUrl ? (
-                            <Image
-                              src={withAvatarCache(u.avatarUrl, avatarVersion) ?? u.avatarUrl}
-                              alt={u.name}
-                              width={40}
-                              height={40}
-                              referrerPolicy="no-referrer"
-                              className="w-10 h-10 object-cover"
-                            />
-                          ) : (
-                            u.name.charAt(0)
-                          )}
-                          <span className="absolute inset-x-0 bottom-0 h-4 bg-black/55 text-white flex items-center justify-center">
-                            {avatarUploadingUserId === u.id
-                              ? <Icons.Loader2 size={10} className="animate-spin" />
-                              : <Icons.Camera size={10} />}
-                          </span>
-                        </button>
-                        <span className="flex-1 font-medium text-[18px]">{u.name}</span>
-                        <span className="text-xs text-[#8a8f99] px-2 py-1 rounded-lg bg-[#232831]">
-                          {u.role === 'PARENT' ? t('parent_role') : t('child_role')}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-lg ${
-                            u.authUserId
-                              ? 'bg-[#3ddc97]/15 text-[#3ddc97]'
-                              : 'bg-[#232831] text-[#8a8f99]'
-                          }`}
-                        >
-                          {u.authUserId ? adminCopy.linked : adminCopy.notLinked}
-                        </span>
-                        <button
-                          onClick={() => moveMember(u.id, -1)}
-                          disabled={index === 0}
-                          className="w-10 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                          style={{ minHeight: '48px', fontSize: '18px' }}
-                          title={adminCopy.moveUp}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={() => moveMember(u.id, 1)}
-                          disabled={index === sortedUsers.length - 1}
-                          className="w-10 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                          style={{ minHeight: '48px', fontSize: '18px' }}
-                          title={adminCopy.moveDown}
-                        >
-                          ↓
-                        </button>
-                        <button
-                          onClick={() => startEditName(u)}
-                          className="w-11 rounded-xl bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
-                          style={{ minHeight: '48px', fontSize: '20px' }}
-                        >
-                          ✏️
-                        </button>
-                        {!(u.authUserId && u.authUserId === currentAuthUserId) && (
-                          <button
-                            onClick={() => removeMember(u.id)}
-                            className="w-11 rounded-xl bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-900/40 transition-colors shrink-0"
-                            style={{ minHeight: '48px' }}
-                            title={adminCopy.deleteProfile}
-                          >
-                            <Icons.Trash2 size={15} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-2.5">
+                {sortedUsers.map((u, index) => {
+                  const isEditing = editingUserId === u.id;
+                  const isParent = u.role === 'PARENT';
+                  const isLinked = Boolean(u.authUserId);
+                  return (
+                    <div
+                      key={u.id}
+                      className="rounded-lg border border-white/8 bg-[#1A1B2E] p-3 transition-colors sm:p-4"
+                    >
+                      {isEditing ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            value={editingName}
+                            onChange={e => setEditingName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') confirmEditName(u.id);
+                              if (e.key === 'Escape') cancelEditName();
+                            }}
+                            autoFocus
+                            className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#4EEDB0] bg-[#111224] px-3 text-base font-bold text-white outline-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => confirmEditName(u.id)}
+                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26"
+                              title={t('confirm')}
+                            >
+                              <Icons.Check size={18} />
+                            </button>
+                            <button
+                              onClick={cancelEditName}
+                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
+                              title={adminCopy.cancel}
+                            >
+                              <Icons.X size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+                          {/* Profile section: avatar + name + chips */}
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openAvatarUpload(u.id)}
+                              disabled={avatarUploadingUserId === u.id}
+                              className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#111224] ring-2 ring-white/10 transition hover:ring-[#5B8EFF]/60 disabled:opacity-60"
+                              title={adminCopy.uploadAvatar}
+                            >
+                              {u.avatarUrl ? (
+                                <Image
+                                  src={withAvatarCache(u.avatarUrl, avatarVersion) ?? u.avatarUrl}
+                                  alt={u.name}
+                                  width={48}
+                                  height={48}
+                                  referrerPolicy="no-referrer"
+                                  className="h-12 w-12 object-cover"
+                                />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-base font-black text-white/72">
+                                  {u.name.charAt(0)}
+                                </span>
+                              )}
+                              <span className="absolute inset-x-0 bottom-0 flex h-4 items-center justify-center bg-black/65 text-white">
+                                {avatarUploadingUserId === u.id
+                                  ? <Icons.Loader2 size={10} className="animate-spin" />
+                                  : <Icons.Camera size={10} />}
+                              </span>
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-base font-black text-white sm:text-lg">{u.name}</div>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                                  isParent
+                                    ? 'bg-[#5B8EFF]/14 text-[#8EAFFF]'
+                                    : 'bg-[#FF7BAC]/14 text-[#FFB8CF]'
+                                }`}>
+                                  {isParent ? <Icons.Shield size={11} /> : <Icons.Sparkles size={11} />}
+                                  {isParent ? t('parent_role') : t('child_role')}
+                                </span>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                                  isLinked
+                                    ? 'bg-[#4EEDB0]/14 text-[#4EEDB0]'
+                                    : 'bg-white/[0.06] text-white/45'
+                                }`}>
+                                  {isLinked
+                                    ? <Icons.CheckCircle2 size={11} />
+                                    : <Icons.CircleDashed size={11} />}
+                                  {isLinked ? adminCopy.linked : adminCopy.notLinked}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex shrink-0 items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => moveMember(u.id, -1)}
+                              disabled={index === 0}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111224] text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                              title={adminCopy.moveUp}
+                              aria-label={adminCopy.moveUp}
+                            >
+                              <Icons.ChevronUp size={17} />
+                            </button>
+                            <button
+                              onClick={() => moveMember(u.id, 1)}
+                              disabled={index === sortedUsers.length - 1}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111224] text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                              title={adminCopy.moveDown}
+                              aria-label={adminCopy.moveDown}
+                            >
+                              <Icons.ChevronDown size={17} />
+                            </button>
+                            <button
+                              onClick={() => startEditName(u)}
+                              className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
+                              title={lang === 'en' ? 'Edit name' : '이름 수정'}
+                              aria-label={lang === 'en' ? 'Edit name' : '이름 수정'}
+                            >
+                              <Icons.Pencil size={16} />
+                            </button>
+                            {!(u.authUserId && u.authUserId === currentAuthUserId) && (
+                              <button
+                                onClick={() => removeMember(u.id)}
+                                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
+                                title={adminCopy.deleteProfile}
+                                aria-label={adminCopy.deleteProfile}
+                              >
+                                <Icons.Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            </section>
           )}
 
           {/* ─── TASKS ─── */}
@@ -2137,18 +2183,18 @@ export default function AdminPage() {
                               : 'border-white/6 opacity-60'
                           }`}
                         >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                          <div className="flex items-start gap-3">
                             <button
                               onClick={() => setIconPickerTaskId(task.id)}
-                              className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#5B8EFF]/24 bg-[#5B8EFF]/10 text-[#8EAFFF] transition-colors hover:border-[#5B8EFF]/50 hover:bg-[#5B8EFF]/16"
+                              className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#5B8EFF]/24 bg-[#5B8EFF]/10 text-[#8EAFFF] transition-colors hover:border-[#5B8EFF]/50 hover:bg-[#5B8EFF]/16 sm:h-12 sm:w-12"
                               title={t('icon_change')}
                               aria-label={t('icon_change')}
                             >
-                              <LucideIcon name={task.icon} size={21} />
+                              <LucideIcon name={task.icon} size={20} />
                             </button>
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                              <div className="flex min-w-0 items-center gap-2">
                                 {editingTaskId === task.id ? (
                                   <>
                                     <input
@@ -2162,40 +2208,34 @@ export default function AdminPage() {
                                       autoFocus
                                       className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#5B8EFF] bg-[#111224] px-3 text-base font-bold text-white outline-none"
                                     />
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() => confirmEditTask(task.id)}
-                                        className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26"
-                                        title={t('confirm')}
-                                      >
-                                        <Icons.Check size={18} />
-                                      </button>
-                                      <button
-                                        onClick={cancelEditTask}
-                                        className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                                        title={adminCopy.cancel}
-                                      >
-                                        <Icons.X size={18} />
-                                      </button>
-                                    </div>
+                                    <button
+                                      onClick={() => confirmEditTask(task.id)}
+                                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26"
+                                      title={t('confirm')}
+                                    >
+                                      <Icons.Check size={18} />
+                                    </button>
+                                    <button
+                                      onClick={cancelEditTask}
+                                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
+                                      title={adminCopy.cancel}
+                                    >
+                                      <Icons.X size={18} />
+                                    </button>
                                   </>
                                 ) : (
                                   <>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="flex h-6 min-w-6 items-center justify-center rounded-md bg-[#4EEDB0]/14 px-1.5 text-xs font-black text-[#4EEDB0]">
-                                          {idx + 1}
-                                        </span>
-                                        <h3 className="min-w-0 truncate text-base font-black text-white">{task.title}</h3>
-                                      </div>
-                                    </div>
+                                    <span className="flex h-6 min-w-6 items-center justify-center rounded-md bg-[#4EEDB0]/14 px-1.5 text-xs font-black text-[#4EEDB0]">
+                                      {idx + 1}
+                                    </span>
+                                    <h3 className="min-w-0 flex-1 truncate text-base font-black text-white">{task.title}</h3>
                                     <button
                                       onClick={() => startEditTask(task)}
-                                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
+                                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
                                       title={lang === 'en' ? 'Edit habit' : '습관 이름 수정'}
                                       aria-label={lang === 'en' ? 'Edit habit' : '습관 이름 수정'}
                                     >
-                                      <Icons.Pencil size={16} />
+                                      <Icons.Pencil size={15} />
                                     </button>
                                   </>
                                 )}
@@ -2219,10 +2259,7 @@ export default function AdminPage() {
                                   >
                                     <Icons.ChevronDown size={17} />
                                   </button>
-                                </div>
-
-                                <div className="grid gap-2 sm:grid-cols-[112px_minmax(0,1fr)]">
-                                  <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
+                                  <label className="flex h-10 flex-1 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2 md:flex-initial md:w-28">
                                     <Icons.Coins size={15} className="text-[#FFB830]" />
                                     <input
                                       type="number"
@@ -2237,35 +2274,35 @@ export default function AdminPage() {
                                     />
                                     <span className="text-xs font-bold text-white/40">pt</span>
                                   </label>
+                                </div>
 
-                                  <div className="grid grid-cols-7 gap-1">
-                                    {ALL_DAYS.map(day => {
-                                      const isOn = task.daysOfWeek.includes(day);
-                                      const isWeekend = day === 'SAT' || day === 'SUN';
-                                      return (
-                                        <button
-                                          key={day}
-                                          onClick={() => toggleDay(task, day)}
-                                          className={`h-10 rounded-lg text-xs font-black transition-colors ${
-                                            isOn
-                                              ? isWeekend
-                                                ? 'bg-[#FF7BAC] text-[#220610]'
-                                                : 'bg-[#5B8EFF] text-white'
-                                              : 'bg-[#111224] text-white/42 hover:bg-white/[0.07] hover:text-white'
-                                          }`}
-                                          title={day}
-                                        >
-                                          {DAY_LABELS[lang][day]}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
+                                <div className="grid grid-cols-7 gap-1">
+                                  {ALL_DAYS.map(day => {
+                                    const isOn = task.daysOfWeek.includes(day);
+                                    const isWeekend = day === 'SAT' || day === 'SUN';
+                                    return (
+                                      <button
+                                        key={day}
+                                        onClick={() => toggleDay(task, day)}
+                                        className={`h-9 rounded-lg text-[11px] font-black transition-colors sm:h-10 sm:text-xs ${
+                                          isOn
+                                            ? isWeekend
+                                              ? 'bg-[#FF7BAC] text-[#220610]'
+                                              : 'bg-[#5B8EFF] text-white'
+                                            : 'bg-[#111224] text-white/42 hover:bg-white/[0.07] hover:text-white'
+                                        }`}
+                                        title={day}
+                                      >
+                                        {DAY_LABELS[lang][day]}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
 
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => toggleTask(task)}
-                                    className={`flex h-10 min-w-20 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-black transition-colors ${
+                                    className={`flex h-10 flex-1 min-w-20 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-black transition-colors md:flex-initial ${
                                       isActiveTask
                                         ? 'bg-[#4EEDB0]/16 text-[#4EEDB0] hover:bg-[#4EEDB0]/22'
                                         : 'bg-white/[0.055] text-white/42 hover:bg-white/[0.08]'
@@ -2276,7 +2313,7 @@ export default function AdminPage() {
                                   </button>
                                   <button
                                     onClick={() => deleteTask(task.id)}
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
                                     title={t('delete')}
                                     aria-label={t('delete')}
                                   >
@@ -2285,7 +2322,7 @@ export default function AdminPage() {
                                 </div>
                               </div>
 
-                              <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-white/8 bg-[#111224] p-1">
+                              <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
                                 {([
                                   { value: null, label: t('all_day'), icon: Icons.Clock3 },
                                   { value: 'morning', label: t('morning'), icon: Icons.Sun },
@@ -2297,13 +2334,13 @@ export default function AdminPage() {
                                     <button
                                       key={String(opt.value)}
                                       onClick={() => setTimeWindow(task, opt.value)}
-                                      className={`flex min-h-10 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-black transition-colors sm:text-sm ${
+                                      className={`flex min-h-9 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-black transition-colors ${
                                         isActive
                                           ? 'bg-[#4EEDB0] text-[#07120E]'
                                           : 'text-white/45 hover:bg-white/[0.055] hover:text-white'
                                       }`}
                                     >
-                                      <TimeIcon size={14} />
+                                      <TimeIcon size={13} />
                                       <span className="truncate">{opt.label}</span>
                                     </button>
                                   );
@@ -2370,379 +2407,467 @@ export default function AdminPage() {
 
           {/* ─── STORE ─── */}
           {activeTab === 'store' && (
-            <div className="bg-[#141821] rounded-2xl p-6">
-              <h2 className="text-lg font-semibold mb-4 text-[#4f9cff]">{t('store_management')}</h2>
-              <div className="space-y-3 mb-6">
-                {rewards.map(r => (
-                  <div key={r.id} className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-[#232831]">
-                    <button
-                      type="button"
-                      onClick={() => setRewardIconPickerRewardId(r.id)}
-                      disabled={savingRewardId === r.id}
-                      className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0 hover:bg-[#2d3545] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title={t('icon_change')}
-                      aria-label={t('icon_change')}
-                    >
-                      <LucideIcon name={r.icon} size={18} />
-                    </button>
-                    {editingRewardId === r.id ? (
-                      <>
-                        <input
-                          type="text"
-                          value={editingRewardTitle}
-                          onChange={e => setEditingRewardTitle(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
-                          autoFocus
-                          className="flex-1 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
-                          style={{ minHeight: 44, fontSize: 15 }}
-                        />
-                        <input
-                          type="number"
-                          value={rewardCostDrafts[r.id] ?? r.cost_points}
-                          onChange={e => {
-                            const nextPoints = Number(e.target.value);
-                            setRewardCostDrafts(prev => ({ ...prev, [r.id]: nextPoints }));
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') void saveRewardEdit(r.id);
-                            if (e.key === 'Escape') setEditingRewardId(null);
-                          }}
-                          min={1}
-                          className="w-20 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
-                          style={{ minHeight: 44 }}
-                        />
-                        <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
-                        <input
-                          type="number"
-                          aria-label="할인율 (%)"
-                          title="할인율 (%)"
-                          value={rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0}
-                          onChange={e => {
-                            setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }));
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') void saveRewardEdit(r.id);
-                            if (e.key === 'Escape') setEditingRewardId(null);
-                          }}
-                          min={0}
-                          max={100}
-                          className="w-24 rounded-xl bg-[#1a1f2a] text-white px-2 outline-none text-center border border-[#4f9cff]"
-                          style={{ minHeight: 44 }}
-                        />
-                        <span className="text-[#8a8f99] text-xs shrink-0">%</span>
-                        <input
-                          type="text"
-                          aria-label={adminCopy.saleLabel}
-                          value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
-                          onChange={e => {
-                            setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') void saveRewardEdit(r.id);
-                            if (e.key === 'Escape') setEditingRewardId(null);
-                          }}
-                          placeholder={adminCopy.saleLabel}
-                          className="w-32 rounded-xl bg-[#1a1f2a] text-white px-3 outline-none border border-[#4f9cff]"
-                          style={{ minHeight: 44, fontSize: 15 }}
-                        />
-                        <span className="w-5 text-center text-xs shrink-0">
-                          {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
-                            ? '…'
-                            : rewardSaveStatus[r.id] === 'saved'
-                              ? '✓'
-                              : rewardSaveStatus[r.id] === 'not_found'
-                                ? 'NOT FOUND'
-                              : rewardSaveStatus[r.id] === 'error'
-                                ? '!'
-                                : ''}
-                        </span>
-                        <button
-                          onClick={() => saveRewardEdit(r.id)}
-                          disabled={savingRewardId === r.id}
-                          className="w-11 rounded-xl bg-[#3ddc97]/20 text-[#3ddc97] font-bold text-lg flex items-center justify-center hover:bg-[#3ddc97]/30 transition-colors shrink-0"
-                          style={{ minHeight: 44 }}
-                        >✓</button>
-                        <button
-                          onClick={() => setEditingRewardId(null)}
-                          className="w-11 rounded-xl bg-red-900/30 text-red-400 font-bold text-lg flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
-                          style={{ minHeight: 44 }}
-                        >✗</button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex-1 min-w-[120px]">
-                          <span className="block font-medium text-sm truncate">{r.title}</span>
-                          {(r.sale_percentage ?? 0) > 0 && (
-                            <span className="inline-flex mt-1 rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
-                              {r.sale_enabled ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`) : `${adminCopy.saleOff} · ${r.sale_percentage}%`}
-                            </span>
-                          )}
-                          {r.is_hidden && (
-                            <span className="inline-flex mt-1 ml-1 rounded-full bg-zinc-500/20 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
-                              {adminCopy.hidden}
-                            </span>
-                          )}
-                          {r.is_sold_out && (
-                            <span className="inline-flex mt-1 ml-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                              {adminCopy.soldOut}
-                            </span>
-                          )}
-                        </div>
-                        <input
-                          type="number"
-                          value={rewardCostDrafts[r.id] ?? r.cost_points}
-                          onChange={e => {
-                            const nextPoints = Number(e.target.value);
-                            setRewardCostDrafts(prev => ({ ...prev, [r.id]: nextPoints }));
-                          }}
-                          onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                            if (e.key === 'Escape') {
-                              setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
-                              (e.target as HTMLInputElement).blur();
-                            }
-                          }}
-                          min={1}
-                          disabled={savingRewardId === r.id}
-                          className="w-20 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] shrink-0"
-                          style={{ minHeight: 44 }}
-                        />
-                        <span className="text-[#8a8f99] text-xs shrink-0">pt</span>
-                        <input
-                          type="number"
-                          aria-label="할인율 (%)"
-                          title="할인율 (%)"
-                          value={rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0}
-                          onChange={e => {
-                            setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }));
-                          }}
-                          onBlur={e => {
-                            void updateRewardSale(
-                              r.id,
-                              Number(e.target.value),
-                              rewardSaleNameDrafts[r.id] ?? r.sale_name ?? '',
-                            );
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                            if (e.key === 'Escape') {
-                              setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
-                              (e.target as HTMLInputElement).blur();
-                            }
-                          }}
-                          min={0}
-                          max={100}
-                          disabled={savingRewardId === r.id}
-                          className="w-24 rounded-lg bg-[#1a1f2a] text-white text-center text-sm outline-none border border-[#232831] focus:border-[#4f9cff] shrink-0"
-                          style={{ minHeight: 44 }}
-                        />
-                        <span className="text-[#8a8f99] text-xs shrink-0">%</span>
-                        <input
-                          type="text"
-                          aria-label={adminCopy.saleLabel}
-                          value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
-                          onChange={e => {
-                            setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }));
-                          }}
-                          onBlur={e => {
-                            void updateRewardSale(
-                              r.id,
-                              rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0,
-                              e.target.value,
-                            );
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                            if (e.key === 'Escape') {
-                              setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
-                              (e.target as HTMLInputElement).blur();
-                            }
-                          }}
-                          placeholder={adminCopy.saleLabel}
-                          disabled={savingRewardId === r.id}
-                          className="min-w-[140px] flex-1 rounded-lg bg-[#1a1f2a] text-white px-3 text-sm outline-none border border-[#232831] focus:border-[#4f9cff]"
-                          style={{ minHeight: 44 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => { void updateRewardFlags(r.id, { sale_enabled: !r.sale_enabled }); }}
-                          disabled={savingRewardId === r.id}
-                          className={[
-                            'px-3 rounded-lg text-xs font-semibold border shrink-0 disabled:opacity-50 disabled:cursor-not-allowed',
-                            r.sale_enabled
-                              ? 'bg-rose-400/15 text-rose-300 border-rose-400/30'
-                              : 'bg-[#1a1f2a] text-[#8a8f99] border-[#232831]',
-                          ].join(' ')}
-                          style={{ minHeight: 44 }}
-                        >
-                          {lang === 'en' ? 'Sale' : '세일'} {r.sale_enabled ? 'ON' : 'OFF'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void updateRewardFlags(r.id, { is_hidden: !r.is_hidden }); }}
-                          disabled={savingRewardId === r.id}
-                          className={[
-                            'px-3 rounded-lg text-xs font-semibold border shrink-0 disabled:opacity-50 disabled:cursor-not-allowed',
-                            r.is_hidden
-                              ? 'bg-zinc-500/20 text-zinc-200 border-zinc-400/30'
-                              : 'bg-[#1a1f2a] text-[#8a8f99] border-[#232831]',
-                          ].join(' ')}
-                          style={{ minHeight: 44 }}
-                        >
-                          {r.is_hidden ? adminCopy.hidden : adminCopy.visible}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void updateRewardFlags(r.id, { is_sold_out: !r.is_sold_out }); }}
-                          disabled={savingRewardId === r.id}
-                          className={[
-                            'px-3 rounded-lg text-xs font-semibold border shrink-0 disabled:opacity-50 disabled:cursor-not-allowed',
-                            r.is_sold_out
-                              ? 'bg-amber-400/15 text-amber-300 border-amber-400/30'
-                              : 'bg-[#1a1f2a] text-[#8a8f99] border-[#232831]',
-                          ].join(' ')}
-                          style={{ minHeight: 44 }}
-                        >
-                          {r.is_sold_out ? adminCopy.soldOut : adminCopy.inStock}
-                        </button>
-                        <span className="w-5 text-center text-xs shrink-0">
-                          {savingRewardId === r.id || rewardSaveStatus[r.id] === 'saving'
-                            ? '…'
-                            : rewardSaveStatus[r.id] === 'saved'
-                              ? '✓'
-                              : rewardSaveStatus[r.id] === 'not_found'
-                                ? 'NOT FOUND'
-                              : rewardSaveStatus[r.id] === 'error'
-                                ? '!'
-                                : ''}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setEditingRewardId(r.id);
-                            setEditingRewardTitle(r.title);
-                            setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
-                            setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
-                            setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
-                          }}
-                          className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors shrink-0 text-base"
-                          style={{ minHeight: 44 }}
-                        >✏️</button>
-                        <button
-                          onClick={() => deleteReward(r.id)}
-                          className="w-9 h-9 rounded-lg bg-red-900/30 text-red-400 flex items-center justify-center hover:bg-red-900/50 transition-colors shrink-0"
-                          style={{ minHeight: 44 }}
-                        >
-                          <Icons.Trash2 size={15} />
-                        </button>
-                      </>
-                    )}
+            <div className="space-y-5">
+              <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                        <Icons.Store size={18} className="text-[#FF7BAC]" />
+                      </span>
+                      <h2 className="text-base font-black text-white">{t('store_management')}</h2>
+                    </div>
+                    <p className="text-sm leading-6 text-white/54">
+                      {lang === 'en'
+                        ? 'Manage rewards, prices, sales, and stock.'
+                        : '보상, 가격, 세일, 재고를 한 곳에서 관리하세요.'}
+                    </p>
                   </div>
-                ))}
-                {rewards.length === 0 && (
-                  <p className="text-[#8a8f99] text-center py-4">{t('no_rewards_registered')}</p>
-                )}
-              </div>
-
-              {/* Add new reward */}
-              <div className="border-t border-[#232831] pt-4">
-                <h3 className="text-sm font-semibold text-[#8a8f99] mb-3">{t('add_new_reward')}</h3>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setRewardIconPickerOpen(true)}
-                    className="w-11 rounded-xl bg-[#232831] text-[#4f9cff] flex items-center justify-center hover:bg-[#2d3545] transition-colors shrink-0 relative group"
-                    style={{ minHeight: 'var(--touch-target)' }}
-                    title={t('icon_select')}
-                  >
-                    <LucideIcon name={newRewardIcon} size={20} />
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4f9cff] text-[#06111f] text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">🎨</span>
-                  </button>
-                  <input
-                    type="text"
-                    value={newRewardTitle}
-                    onChange={e => setNewRewardTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addReward()}
-                    placeholder={t('reward_name_placeholder')}
-                    className="min-w-[180px] flex-1 rounded-xl bg-[#232831] text-white p-3 outline-none border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-                  />
-                  <input
-                    type="number"
-                    value={newRewardPoints}
-                    onChange={e => setNewRewardPoints(Number(e.target.value))}
-                    min={1}
-                    className="w-20 rounded-xl bg-[#232831] text-white p-3 outline-none text-center border border-[#232831] focus:border-[#4f9cff] min-h-[var(--touch-target)]"
-                  />
-                  <button
-                    onClick={addReward}
-                    className="px-4 rounded-xl bg-[#4f9cff] text-[#06111f] font-semibold min-h-[var(--touch-target)]"
-                  >
-                    {t('add')}
-                  </button>
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-[#FF7BAC]/20 bg-[#FF7BAC]/10 px-3 py-2 text-sm font-black text-[#FFB8CF]">
+                    <Icons.Tags size={15} />
+                    <span>{rewards.length}</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="border-t border-[#232831] mt-6 pt-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <h3 className="text-sm font-semibold text-[#8a8f99]">{adminCopy.rewardHistory}</h3>
+                <div className="space-y-2.5">
+                  {rewards.map(r => {
+                    const isEditing = editingRewardId === r.id;
+                    const saveStatus = rewardSaveStatus[r.id];
+                    const isSaving = savingRewardId === r.id || saveStatus === 'saving';
+                    const salePct = rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0;
+                    return (
+                      <div
+                        key={r.id}
+                        className={`rounded-lg border bg-[#1A1B2E] p-3 transition-colors sm:p-4 ${
+                          r.is_hidden ? 'border-white/6 opacity-70' : 'border-white/10'
+                        }`}
+                      >
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setRewardIconPickerRewardId(r.id)}
+                                disabled={isSaving}
+                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16 disabled:opacity-50"
+                                title={t('icon_change')}
+                                aria-label={t('icon_change')}
+                              >
+                                <LucideIcon name={r.icon} size={21} />
+                              </button>
+                              <input
+                                type="text"
+                                value={editingRewardTitle}
+                                onChange={e => setEditingRewardTitle(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
+                                autoFocus
+                                className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#FF7BAC] bg-[#111224] px-3 text-base font-bold text-white outline-none"
+                              />
+                              <div className="flex shrink-0 gap-2">
+                                <button
+                                  onClick={() => saveRewardEdit(r.id)}
+                                  disabled={isSaving}
+                                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26 disabled:opacity-50"
+                                  title={t('confirm')}
+                                >
+                                  <Icons.Check size={18} />
+                                </button>
+                                <button
+                                  onClick={() => setEditingRewardId(null)}
+                                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
+                                  title={adminCopy.cancel}
+                                >
+                                  <Icons.X size={18} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <label className="flex h-11 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-3">
+                                <Icons.Coins size={15} className="text-[#FFB830]" />
+                                <input
+                                  type="number"
+                                  value={rewardCostDrafts[r.id] ?? r.cost_points}
+                                  onChange={e => setRewardCostDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') void saveRewardEdit(r.id);
+                                    if (e.key === 'Escape') setEditingRewardId(null);
+                                  }}
+                                  min={1}
+                                  className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
+                                  aria-label={lang === 'en' ? 'Points' : '포인트'}
+                                />
+                                <span className="text-xs font-bold text-white/40">pt</span>
+                              </label>
+                              <label className="flex h-11 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-3">
+                                <Icons.BadgePercent size={15} className="text-[#FF7BAC]" />
+                                <input
+                                  type="number"
+                                  aria-label={lang === 'en' ? 'Discount %' : '할인율 %'}
+                                  value={salePct}
+                                  onChange={e => setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') void saveRewardEdit(r.id);
+                                    if (e.key === 'Escape') setEditingRewardId(null);
+                                  }}
+                                  min={0}
+                                  max={100}
+                                  className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
+                                />
+                                <span className="text-xs font-bold text-white/40">%</span>
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              aria-label={adminCopy.saleLabel}
+                              value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
+                              onChange={e => setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') void saveRewardEdit(r.id);
+                                if (e.key === 'Escape') setEditingRewardId(null);
+                              }}
+                              placeholder={adminCopy.saleLabel}
+                              className="min-h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                            <button
+                              type="button"
+                              onClick={() => setRewardIconPickerRewardId(r.id)}
+                              disabled={isSaving}
+                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16 disabled:opacity-50"
+                              title={t('icon_change')}
+                              aria-label={t('icon_change')}
+                            >
+                              <LucideIcon name={r.icon} size={21} />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              {/* Title row + edit/delete actions */}
+                              <div className="flex min-w-0 items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="min-w-0 truncate text-base font-black text-white">{r.title}</h3>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    {(r.sale_percentage ?? 0) > 0 && (
+                                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                                        r.sale_enabled
+                                          ? 'bg-[#FF7BAC]/16 text-[#FFB8CF]'
+                                          : 'bg-white/[0.06] text-white/45'
+                                      }`}>
+                                        <Icons.BadgePercent size={11} />
+                                        {r.sale_enabled
+                                          ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`)
+                                          : `${adminCopy.saleOff} · ${r.sale_percentage}%`}
+                                      </span>
+                                    )}
+                                    {r.is_hidden && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-black text-white/55">
+                                        <Icons.EyeOff size={11} />
+                                        {adminCopy.hidden}
+                                      </span>
+                                    )}
+                                    {r.is_sold_out && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-[#FFB830]/16 px-2 py-0.5 text-[11px] font-black text-[#FFB830]">
+                                        <Icons.PackageX size={11} />
+                                        {adminCopy.soldOut}
+                                      </span>
+                                    )}
+                                    {saveStatus === 'saved' && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[11px] font-black text-[#4EEDB0]">
+                                        <Icons.Check size={11} />
+                                        {lang === 'en' ? 'Saved' : '저장됨'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 gap-1.5">
+                                  <button
+                                    onClick={() => {
+                                      setEditingRewardId(r.id);
+                                      setEditingRewardTitle(r.title);
+                                      setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
+                                      setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
+                                      setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
+                                    }}
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
+                                    title={lang === 'en' ? 'Edit reward' : '보상 수정'}
+                                    aria-label={lang === 'en' ? 'Edit reward' : '보상 수정'}
+                                  >
+                                    <Icons.Pencil size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteReward(r.id)}
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
+                                    title={t('delete')}
+                                    aria-label={t('delete')}
+                                  >
+                                    <Icons.Trash2 size={15} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Inline price + sale controls */}
+                              <div className="mt-3 grid gap-2 sm:grid-cols-[120px_120px_minmax(0,1fr)]">
+                                <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
+                                  <Icons.Coins size={15} className="text-[#FFB830]" />
+                                  <input
+                                    type="number"
+                                    value={rewardCostDrafts[r.id] ?? r.cost_points}
+                                    onChange={e => setRewardCostDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
+                                    onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                      if (e.key === 'Escape') {
+                                        setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                    min={1}
+                                    disabled={isSaving}
+                                    className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
+                                    aria-label={lang === 'en' ? 'Points' : '포인트'}
+                                  />
+                                  <span className="text-xs font-bold text-white/40">pt</span>
+                                </label>
+                                <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
+                                  <Icons.BadgePercent size={15} className="text-[#FF7BAC]" />
+                                  <input
+                                    type="number"
+                                    aria-label={lang === 'en' ? 'Discount %' : '할인율 %'}
+                                    value={salePct}
+                                    onChange={e => setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
+                                    onBlur={e => {
+                                      void updateRewardSale(
+                                        r.id,
+                                        Number(e.target.value),
+                                        rewardSaleNameDrafts[r.id] ?? r.sale_name ?? '',
+                                      );
+                                    }}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                      if (e.key === 'Escape') {
+                                        setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                    min={0}
+                                    max={100}
+                                    disabled={isSaving}
+                                    className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
+                                  />
+                                  <span className="text-xs font-bold text-white/40">%</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  aria-label={adminCopy.saleLabel}
+                                  value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
+                                  onChange={e => setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
+                                  onBlur={e => {
+                                    void updateRewardSale(
+                                      r.id,
+                                      rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0,
+                                      e.target.value,
+                                    );
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                    if (e.key === 'Escape') {
+                                      setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
+                                      (e.target as HTMLInputElement).blur();
+                                    }
+                                  }}
+                                  placeholder={adminCopy.saleLabel}
+                                  disabled={isSaving}
+                                  className="min-h-10 rounded-lg border border-white/8 bg-[#111224] px-3 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
+                                />
+                              </div>
+
+                              {/* Toggles */}
+                              <div className="mt-3 grid grid-cols-3 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => { void updateRewardFlags(r.id, { sale_enabled: !r.sale_enabled }); }}
+                                  disabled={isSaving}
+                                  className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
+                                    r.sale_enabled
+                                      ? 'bg-[#FF7BAC] text-[#220610]'
+                                      : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
+                                  }`}
+                                >
+                                  <Icons.BadgePercent size={13} />
+                                  {lang === 'en' ? 'Sale' : '세일'} {r.sale_enabled ? 'ON' : 'OFF'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { void updateRewardFlags(r.id, { is_hidden: !r.is_hidden }); }}
+                                  disabled={isSaving}
+                                  className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
+                                    r.is_hidden
+                                      ? 'bg-white/[0.12] text-white'
+                                      : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
+                                  }`}
+                                >
+                                  {r.is_hidden ? <Icons.EyeOff size={13} /> : <Icons.Eye size={13} />}
+                                  {r.is_hidden ? adminCopy.hidden : adminCopy.visible}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { void updateRewardFlags(r.id, { is_sold_out: !r.is_sold_out }); }}
+                                  disabled={isSaving}
+                                  className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
+                                    r.is_sold_out
+                                      ? 'bg-[#FFB830] text-[#221606]'
+                                      : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
+                                  }`}
+                                >
+                                  {r.is_sold_out ? <Icons.PackageX size={13} /> : <Icons.Package size={13} />}
+                                  {r.is_sold_out ? adminCopy.soldOut : adminCopy.inStock}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {rewards.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-white/12 bg-[#111224] px-4 py-8 text-center">
+                      <Icons.Gift className="mx-auto mb-2 text-white/34" size={24} />
+                      <p className="text-sm font-bold text-white/50">{t('no_rewards_registered')}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Add new reward */}
+                <div className="mt-5 rounded-lg border border-white/10 bg-[#111224] p-3 sm:p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Icons.PlusCircle size={17} className="text-[#FF7BAC]" />
+                    <h3 className="text-sm font-black text-white">{t('add_new_reward')}</h3>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[44px_minmax(0,1fr)_88px_auto]">
+                    <button
+                      onClick={() => setRewardIconPickerOpen(true)}
+                      className="flex h-11 w-full items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16"
+                      title={t('icon_select')}
+                      aria-label={t('icon_select')}
+                    >
+                      <LucideIcon name={newRewardIcon} size={20} />
+                    </button>
+                    <input
+                      type="text"
+                      value={newRewardTitle}
+                      onChange={e => setNewRewardTitle(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addReward()}
+                      placeholder={t('reward_name_placeholder')}
+                      className="min-h-[var(--touch-target)] min-w-0 rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-base font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
+                    />
+                    <input
+                      type="number"
+                      value={newRewardPoints}
+                      onChange={e => setNewRewardPoints(Number(e.target.value))}
+                      min={1}
+                      aria-label={lang === 'en' ? 'Points' : '포인트'}
+                      className="min-h-[var(--touch-target)] rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-center font-black text-white outline-none transition-colors focus:border-[#FF7BAC]"
+                    />
+                    <button
+                      onClick={addReward}
+                      className="inline-flex min-h-[var(--touch-target)] items-center justify-center gap-2 rounded-lg bg-[#FF7BAC] px-4 text-sm font-black text-[#220610] transition-colors hover:bg-[#FF99BF]"
+                    >
+                      <Icons.Plus size={16} />
+                      {t('add')}
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Purchase history */}
+              <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                        <Icons.History size={18} className="text-[#5B8EFF]" />
+                      </span>
+                      <h2 className="text-base font-black text-white">{adminCopy.rewardHistory}</h2>
+                    </div>
+                    <p className="text-sm leading-6 text-white/54">
+                      {lang === 'en'
+                        ? 'Recent reward redemptions across the family.'
+                        : '최근 가족 보상 교환 내역입니다.'}
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => { void loadRewardRedemptions(); }}
-                    className="px-3 py-2 rounded-lg bg-[#232831] text-[#8a8f99] hover:text-white hover:bg-[#2d3545] text-xs font-semibold transition-colors"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] px-3 text-xs font-black text-white/64 transition-colors hover:bg-white/[0.08] hover:text-white"
                   >
+                    <Icons.RefreshCw size={14} />
                     {adminCopy.refresh}
                   </button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {rewardRedemptions.map(redemption => {
                     const refunded = Boolean(redemption.refunded_at);
                     return (
                       <div
                         key={redemption.id}
-                        className="flex flex-wrap items-center gap-2 rounded-xl bg-[#232831] p-3"
+                        className="flex flex-col gap-3 rounded-lg border border-white/8 bg-[#1A1B2E] p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-[#1a1f2a] text-[#4f9cff] flex items-center justify-center shrink-0">
-                          <LucideIcon name={redemption.reward_icon} size={18} />
-                        </div>
-                        <div className="min-w-[160px] flex-1">
-                          <div className="text-sm font-semibold text-white truncate">
-                            {redemption.reward_title}
-                          </div>
-                          <div className="text-xs text-[#8a8f99]">
-                            {redemption.user_name} · {formatShortDateTime(redemption.redeemed_at)} · {redemption.cost_charged}pt
-                          </div>
-                          {refunded && (
-                            <div className="text-[11px] text-[#3ddc97] mt-0.5">
-                              {adminCopy.refunded} · {redemption.refunded_at ? formatShortDateTime(redemption.refunded_at) : ''}
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#5B8EFF]/24 bg-[#5B8EFF]/10 text-[#8EAFFF]">
+                            <LucideIcon name={redemption.reward_icon} size={18} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-black text-white">
+                              {redemption.reward_title}
                             </div>
-                          )}
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-white/54">
+                              <span>{redemption.user_name}</span>
+                              <span className="h-1 w-1 rounded-full bg-white/30" />
+                              <span>{formatShortDateTime(redemption.redeemed_at)}</span>
+                              <span className="h-1 w-1 rounded-full bg-white/30" />
+                              <span className="font-bold text-[#FFB830]">{redemption.cost_charged}pt</span>
+                            </div>
+                            {refunded && (
+                              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0]">
+                                <Icons.Undo2 size={11} />
+                                {adminCopy.refunded} · {redemption.refunded_at ? formatShortDateTime(redemption.refunded_at) : ''}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => { void refundRedemption(redemption); }}
                           disabled={refunded || refundInFlightId === redemption.id}
-                          className="px-3 rounded-lg bg-[#1a1f2a] text-[#8a8f99] text-xs font-semibold border border-[#232831] hover:border-[#3ddc97]/50 hover:text-[#3ddc97] disabled:opacity-40 disabled:hover:text-[#8a8f99] disabled:hover:border-[#232831] disabled:cursor-not-allowed transition-colors"
-                          style={{ minHeight: 40 }}
+                          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-[#111224] px-3 text-xs font-black text-white/64 transition-colors hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:bg-[#111224] disabled:hover:text-white/64"
                         >
+                          <Icons.Undo2 size={13} />
                           {refundInFlightId === redemption.id ? adminCopy.processing : refunded ? adminCopy.refundComplete : adminCopy.refund}
                         </button>
                       </div>
                     );
                   })}
                   {rewardRedemptions.length === 0 && (
-                    <p className="text-[#8a8f99] text-center py-4 text-sm">{adminCopy.noPurchases}</p>
+                    <div className="rounded-lg border border-dashed border-white/12 bg-[#111224] px-4 py-8 text-center">
+                      <Icons.History className="mx-auto mb-2 text-white/34" size={24} />
+                      <p className="text-sm font-bold text-white/50">{adminCopy.noPurchases}</p>
+                    </div>
                   )}
                 </div>
-              </div>
+              </section>
             </div>
           )}
         </div>
 
         {/* Logout — always visible outside tabs */}
-        <div className="max-w-4xl mx-auto px-4 pb-6">
+        <div className="mx-auto max-w-4xl px-4 pb-6">
           <button
             onClick={handleLogout}
-            className="w-full py-4 rounded-2xl bg-[#141821] border border-red-900/30 text-red-400 hover:bg-red-900/10 font-semibold transition-colors"
+            className="inline-flex w-full min-h-[var(--touch-target)] items-center justify-center gap-2 rounded-lg border border-[#FF7BAC]/30 bg-[#FF7BAC]/10 text-sm font-black text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/55 hover:bg-[#FF7BAC]/16"
           >
+            <Icons.LogOut size={16} />
             {t('logout')}
           </button>
         </div>

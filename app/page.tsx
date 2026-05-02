@@ -13,20 +13,8 @@ import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
-const iconBtn: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.11)',
-  background: 'rgba(255,255,255,0.045)',
-  color: 'rgba(255,255,255,0.56)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  textDecoration: 'none',
-  flexShrink: 0,
-};
+const iconBtnClass =
+  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/56 transition-colors hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0]';
 
 
 function formatDate(d: Date, timeOfDay: 'morning' | 'evening', lang: Lang): string {
@@ -238,27 +226,22 @@ export default function Dashboard() {
           <button
             onClick={toggleSound}
             aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
-            style={iconBtn}
+            className={iconBtnClass}
           >
             {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
           </button>
-          <Link href="/stats" aria-label={t('weekly_completions')} style={iconBtn}>
+          <Link href="/stats" aria-label={t('weekly_completions')} className={`${iconBtnClass} hover:border-[#5B8EFF]/40 hover:bg-[#5B8EFF]/10 hover:text-[#8EAFFF]`}>
             <BarChart2 size={17} />
           </Link>
           <button
             onClick={() => { void handleLogout(); }}
             aria-label={t('logout')}
             title={t('logout')}
-            style={{
-              ...iconBtn,
-              color: 'rgba(255,123,172,0.9)',
-              border: '1px solid rgba(255,123,172,0.28)',
-              background: 'rgba(255,123,172,0.08)',
-            }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/28 bg-[#FF7BAC]/8 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/55 hover:bg-[#FF7BAC]/14"
           >
             <LogOut size={17} />
           </button>
-          <Link href="/admin" aria-label={t('admin_mode')} style={iconBtn}>
+          <Link href="/admin" aria-label={t('admin_mode')} className={iconBtnClass}>
             <Settings size={17} />
           </Link>
           <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
@@ -276,7 +259,15 @@ export default function Dashboard() {
           user ? (
             <MemberPanel key={user.id} user={user} />
           ) : (
-            <div key={`empty-${activePage}-${index}`} className="min-h-0 rounded-lg border border-white/6 bg-[#111224]" />
+            <div
+              key={`empty-${activePage}-${index}`}
+              className="grid min-h-0 place-items-center rounded-lg border border-dashed border-white/8 bg-[#111224]/60"
+            >
+              <div className="flex flex-col items-center gap-2 opacity-40">
+                <FamBitWordmark markSize={28} showText={false} />
+                <span className="text-xs font-black tracking-widest text-white/40">FAMBIT</span>
+              </div>
+            </div>
           ),
         )}
       </main>
