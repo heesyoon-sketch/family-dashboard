@@ -7,6 +7,7 @@ import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, Volume
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { FamBitWordmark } from '@/components/FamBitLogo';
 import { useFamilyStore } from '@/lib/store';
@@ -321,6 +322,8 @@ export default function Dashboard() {
       {recapOpen && recapEntries.length > 0 && (
         <WeeklyRecapModal entries={recapEntries} onDismiss={dismissRecap} />
       )}
+
+      <PWAInstallPrompt />
     </div>
   );
 }

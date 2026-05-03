@@ -70,7 +70,11 @@ export default function SetPinPage() {
     setSaving(true);
     try {
       await saveAdminPin(pin);
-      router.replace('/');
+      // First-time setup → onboarding wizard. Returning users with the flag set
+      // skip directly to the dashboard.
+      const seenWelcome =
+        typeof window !== 'undefined' && localStorage.getItem('family_onboarding_complete') === '1';
+      router.replace(seenWelcome ? '/' : '/setup/welcome');
     } catch (error) {
       console.error(error);
       setErrorMsg(getPinErrorMessage(error));
