@@ -502,6 +502,9 @@ export default function AdminPage() {
       if (!resolvedFamilyId) { router.replace('/setup'); return; }
       setFamilyId(resolvedFamilyId);
       useFamilyStore.setState({ familyName: (familyInfo as { id: string; name: string }).name ?? null });
+      // Bring up the realtime channel for this family even if the user
+      // landed here without first visiting the dashboard.
+      useFamilyStore.getState().hydrate().catch(err => console.warn('[admin hydrate]', err));
 
       const [hash, inviteRes] = await Promise.all([
         getCurrentFamilyAdminPinHash(),

@@ -174,6 +174,11 @@ export default function StatsPage() {
 
       setFamilyName((familyInfo as { id: string; name: string }).name ?? null);
 
+      // Bring up the realtime channel for this family even when the user
+      // lands here without first visiting the dashboard.
+      const { useFamilyStore } = await import('@/lib/store');
+      useFamilyStore.getState().hydrate().catch(err => console.warn('[stats hydrate]', err));
+
       const now = new Date();
       const today = startOfDay(now);
       const weekStart = weekMonday(now);

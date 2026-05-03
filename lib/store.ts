@@ -104,13 +104,29 @@ function broadcastSync() {
   ch.close();
 }
 
+// 400ms debounce: long enough to coalesce a burst of admin edits or a
+// rapid sequence of completions, short enough that the second device
+// feels live. Earlier value (1500ms) felt laggy on phones.
+const REALTIME_HYDRATE_DEBOUNCE_MS = 400;
+
 function scheduleRealtimeHydrate(ownMemberId: string | null, eventUserId?: string) {
   if (eventUserId && eventUserId === ownMemberId) return;
   if (_hydrateDebounceTimer) clearTimeout(_hydrateDebounceTimer);
   _hydrateDebounceTimer = setTimeout(() => {
     _hydrateDebounceTimer = null;
     useFamilyStore.getState().hydrate().catch(console.error);
-  }, 1500);
+  }, REALTIME_HYDRATE_DEBOUNCE_MS);
+}
+
+// Admin-driven tables (tasks, users, rewards, family_activities) are scoped by
+// family_id rather than user_id, so the per-member self-filter above doesn't
+// apply. We still debounce so a burst of edits coalesces into one hydrate.
+function scheduleFamilyHydrate() {
+  if (_hydrateDebounceTimer) clearTimeout(_hydrateDebounceTimer);
+  _hydrateDebounceTimer = setTimeout(() => {
+    _hydrateDebounceTimer = null;
+    useFamilyStore.getState().hydrate().catch(console.error);
+  }, REALTIME_HYDRATE_DEBOUNCE_MS);
 }
 
 function taskMutationKey(userId: string, taskId: string): string {
@@ -601,27 +617,51 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
     }
 
-    // Cross-device realtime sync: subscribe to task_completions + levels changes
-    // from other family members. Only (re)subscribe when the family changes.
+    // Cross-device realtime sync. Subscribes once per family; resubscribes only if
+    // the family changes. The user-scoped tables (task_completions, levels) use a
+    // self-filter via scheduleRealtimeHydrate so a device doesn't bounce on its own
+    // optimistic write coming back. The family-scoped tables (tasks, users, rewards,
+    // family_activities) are admin-driven and rare, so we always hydrate.
     if (typeof window !== 'undefined' && userIds.length > 0 && resolvedFamilyId !== _realtimeSubscribedFamilyId) {
       if (_realtimeChannel) {
         _realtimeChannel.unsubscribe();
         _realtimeChannel = null;
       }
       _realtimeSubscribedFamilyId = resolvedFamilyId;
-      const inFilter = `user_id=in.(${userIds.join(',')})`;
+      const userFilter = `user_id=in.(${userIds.join(',')})`;
+      const familyFilter = `family_id=eq.${resolvedFamilyId}`;
       const currentMemberId = get().currentMemberId;
       _realtimeChannel = supabase
         .channel(`family-sync:${resolvedFamilyId}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'task_completions', filter: inFilter },
+          { event: '*', schema: 'public', table: 'task_completions', filter: userFilter },
           payload => scheduleRealtimeHydrate(currentMemberId, (payload.new as Record<string, string> | null)?.user_id ?? (payload.old as Record<string, string> | null)?.user_id),
         )
         .on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'levels', filter: inFilter },
+          { event: 'UPDATE', schema: 'public', table: 'levels', filter: userFilter },
           payload => scheduleRealtimeHydrate(currentMemberId, (payload.new as Record<string, string> | null)?.user_id),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tasks', filter: familyFilter },
+          () => scheduleFamilyHydrate(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'users', filter: familyFilter },
+          () => scheduleFamilyHydrate(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rewards', filter: familyFilter },
+          () => scheduleFamilyHydrate(),
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'family_activities', filter: familyFilter },
+          () => scheduleFamilyHydrate(),
         )
         .subscribe();
     }
