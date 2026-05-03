@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
+import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { FamBitWordmark } from '@/components/FamBitLogo';
 import { useFamilyStore } from '@/lib/store';
@@ -37,6 +38,8 @@ export default function Dashboard() {
   const hydrated  = useFamilyStore(s => s.hydrated);
   const familyId  = useFamilyStore(s => s.familyId);
   const familyName = useFamilyStore(s => s.familyName);
+  const weeklyRecapByUser = useFamilyStore(s => s.weeklyRecapByUser);
+  const [recapDismissedKey, setRecapDismissedKey] = useState<string | null>(null);
   // authReady starts as false on every mount — the blank screen is shown until
   // hydrate() finishes verifying the session. This is the primary guard against
   // stale Zustand state flashing on Back-button or cross-user navigation.
@@ -55,6 +58,7 @@ export default function Dashboard() {
     useFamilyStore.setState({
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
+      dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     try {
       const supabase = createBrowserSupabase();
@@ -109,6 +113,7 @@ export default function Dashboard() {
     useFamilyStore.setState({
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
+      dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     router.replace('/login');
   };
@@ -125,6 +130,43 @@ export default function Dashboard() {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  const recapEntries = useMemo(() => {
+    return users
+      .map(user => {
+        const recap = weeklyRecapByUser[user.id];
+        return recap ? { user, recap } : null;
+      })
+      .filter((entry): entry is { user: typeof users[number]; recap: NonNullable<typeof weeklyRecapByUser[string]> } => entry !== null)
+      // Only include members who actually have anything happening this/last week.
+      .filter(entry => entry.recap.weekDone > 0 || (entry.recap.lastWeekPct ?? 0) > 0)
+      .sort((a, b) => a.user.displayOrder - b.user.displayOrder);
+  }, [users, weeklyRecapByUser]);
+
+  // Derived recap trigger — no setState-in-effect needed. Show on Mon/Tue/Wed for the
+  // most recently completed ISO week, once per family per week.
+  const recapWeekKey = recapEntries[0]?.recap.weekStartISO ?? null;
+  const dow = now.getDay();
+  const isRecapWindow = dow === 1 || dow === 2 || dow === 3;
+  const recapStorageKey = familyId ? `family_weekly_recap_seen_${familyId}` : null;
+  const persistedSeenKey =
+    typeof window !== 'undefined' && recapStorageKey ? localStorage.getItem(recapStorageKey) : null;
+  const recapOpen = Boolean(
+    hydrated &&
+    familyId &&
+    isRecapWindow &&
+    recapWeekKey &&
+    recapEntries.length > 0 &&
+    persistedSeenKey !== recapWeekKey &&
+    recapDismissedKey !== recapWeekKey,
+  );
+
+  const dismissRecap = useCallback(() => {
+    if (recapStorageKey && recapWeekKey && typeof window !== 'undefined') {
+      localStorage.setItem(recapStorageKey, recapWeekKey);
+    }
+    setRecapDismissedKey(recapWeekKey);
+  }, [recapStorageKey, recapWeekKey]);
 
   const orderedUsers = [...users].sort((a, b) => {
     const displayOrder = a.displayOrder - b.displayOrder;
@@ -274,6 +316,10 @@ export default function Dashboard() {
 
       {celebration && (
         <CelebrationOverlay data={celebration} onDismiss={dismissCelebration} />
+      )}
+
+      {recapOpen && recapEntries.length > 0 && (
+        <WeeklyRecapModal entries={recapEntries} onDismiss={dismissRecap} />
       )}
     </div>
   );

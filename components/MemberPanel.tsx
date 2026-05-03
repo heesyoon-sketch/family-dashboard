@@ -65,6 +65,8 @@ export function MemberPanel({ user }: { user: User }) {
   const longestStreak  = useFamilyStore(s => s.longestStreakByUser[user.id] ?? 0);
   const bestDay        = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
   const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
+  const dailyStreak    = useFamilyStore(s => s.dailyStreakByUser[user.id] ?? 0);
+  const dailyStreakAtRisk = useFamilyStore(s => s.dailyStreakAtRiskByUser[user.id] ?? false);
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const allUsers       = useFamilyStore(s => s.users);
@@ -254,10 +256,30 @@ export function MemberPanel({ user }: { user: User }) {
                   <span className="shrink-0">Lv.{level?.currentLevel ?? 1}</span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
                   <span className="min-w-0 truncate">{level?.totalPoints ?? 0}pt</span>
+                  {dailyStreak > 0 && (
+                    <>
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
+                      <motion.span
+                        className={`shrink-0 ${dailyStreakAtRisk ? 'text-rose-300' : 'text-[var(--accent)]'}`}
+                        animate={dailyStreakAtRisk ? { opacity: [1, 0.45, 1] } : { opacity: 1 }}
+                        transition={dailyStreakAtRisk ? { duration: 1.4, repeat: Infinity, ease: 'easeInOut' } : { duration: 0 }}
+                        title={dailyStreakAtRisk
+                          ? (lang === 'en' ? 'Finish a task today to keep your streak!' : '오늘 한 개라도 완료해서 연속 기록을 지켜요!')
+                          : (lang === 'en' ? `${dailyStreak}-day streak` : `${dailyStreak}일 연속`)}
+                      >
+                        🔥{dailyStreak}d
+                      </motion.span>
+                    </>
+                  )}
                   {maxStreak > 0 && (
                     <>
                       <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                      <span className="shrink-0 text-[var(--accent)]">🔥{maxStreak}</span>
+                      <span
+                        className="shrink-0"
+                        title={lang === 'en' ? 'Best per-task streak' : '습관 최고 연속'}
+                      >
+                        ⭐{maxStreak}
+                      </span>
                     </>
                   )}
                   {growth !== null && growth > 0 && (

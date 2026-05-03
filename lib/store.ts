@@ -28,6 +28,21 @@ export function getCurrentTimeOfDay(): TimeOfDay {
   return new Date().getHours() < 12 ? 'morning' : 'evening';
 }
 
+export interface WeeklyRecap {
+  userId: string;
+  weekStartISO: string;     // Monday of the recapped week
+  weekDone: number;
+  weekPossible: number;
+  weekPct: number;
+  weeklyPoints: number;
+  perfectDays: number;      // 0–7
+  topTaskTitle: string | null;
+  topTaskCount: number;
+  lastWeekPct: number | null;
+  deltaPct: number | null;
+  dailyStreak: number;
+}
+
 interface FamilyState {
   familyId: string | null;
   familyName: string | null;
@@ -43,6 +58,9 @@ interface FamilyState {
   longestStreakByUser: Record<string, number>;
   bestDayByUser: Record<string, number>;
   growthByUser: Record<string, number | null>;
+  dailyStreakByUser: Record<string, number>;
+  dailyStreakAtRiskByUser: Record<string, boolean>;
+  weeklyRecapByUser: Record<string, WeeklyRecap>;
   celebration: Celebration | null;
   hydrated: boolean;
   soundEnabled: boolean;
@@ -152,6 +170,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   longestStreakByUser: {},
   bestDayByUser: {},
   growthByUser: {},
+  dailyStreakByUser: {},
+  dailyStreakAtRiskByUser: {},
+  weeklyRecapByUser: {},
   celebration: null,
   hydrated: false,
   soundEnabled: loadSoundPref(),
@@ -248,7 +269,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const todayStart = startOfDayLocal(now);
     const noonToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
     const timeOfDay = getCurrentTimeOfDay();
-    const fourteenDaysAgo = addDays(todayStart, -13);
+    // Recap window needs three trailing weeks (current week-in-progress so we can show
+    // a daily streak that extends into today, plus the two completed weeks we compare).
+    const thirtyDaysAgo = addDays(todayStart, -29);
 
     // Phase 1: load users, tasks, and rewards (family_id already resolved above).
     const [uRes, tRes, rRes] = await Promise.all([
@@ -272,9 +295,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .in('user_id', safeIds)
         .gte('completed_at', todayStart.toISOString()),
       supabase.from('task_completions')
-        .select('user_id, task_id, completed_at')
+        .select('user_id, task_id, completed_at, points_awarded')
         .in('user_id', safeIds)
-        .gte('completed_at', fourteenDaysAgo.toISOString()),
+        .gte('completed_at', thirtyDaysAgo.toISOString()),
       supabase.from('family_activities')
         .select('*')
         .eq('family_id', resolvedFamilyId)
@@ -328,6 +351,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const longestStreakByUser: Record<string, number> = {};
     const bestDayByUser: Record<string, number> = {};
     const growthByUser: Record<string, number | null> = {};
+    const dailyStreakByUser: Record<string, number> = {};
+    const dailyStreakAtRiskByUser: Record<string, boolean> = {};
+    const weeklyRecapByUser: Record<string, WeeklyRecap> = {};
+
+    // Recap focuses on the most recently *completed* ISO week (Mon–Sun).
+    // weekMonday matches stats/page.tsx behaviour.
+    const dowToday = now.getDay();
+    const mondayOffset = dowToday === 0 ? 6 : dowToday - 1;
+    const thisWeekMonday = startOfDayLocal(addDays(todayStart, -mondayOffset));
+    const recapWeekStart = addDays(thisWeekMonday, -7);
+    const recapWeekEnd = thisWeekMonday;
+    const priorWeekStart = addDays(recapWeekStart, -7);
+    const eveningCutoffHour = 18;
 
     const todayDow = now.getDay();
     const todayDowKey = DOW_INDEX[todayDow];
@@ -424,6 +460,88 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       } else {
         growthByUser[u.id] = null;
       }
+
+      // Daily streak — consecutive days ending today (or yesterday if today is empty)
+      // where the user completed ≥1 task. dayMap is already keyed by startOfDay ISO.
+      const todayHadActivity = (dayMap.get(todayStart.toISOString())?.size ?? 0) > 0;
+      let dailyStreak = 0;
+      let cursor = todayHadActivity ? todayStart : addDays(todayStart, -1);
+      // Bound the walk by the history window (30 days back) to avoid infinite loops on bad data.
+      for (let safety = 0; safety < 30; safety++) {
+        const dayActive = (dayMap.get(cursor.toISOString())?.size ?? 0) > 0;
+        if (!dayActive) break;
+        dailyStreak++;
+        cursor = addDays(cursor, -1);
+      }
+      dailyStreakByUser[u.id] = dailyStreak;
+      dailyStreakAtRiskByUser[u.id] =
+        dailyStreak > 0 && !todayHadActivity && now.getHours() >= eveningCutoffHour;
+
+      // Weekly recap for the just-completed ISO week.
+      const allUserActiveTasks = allTasks.filter(t => t.userId === u.id && t.active === 1);
+      let recapDone = 0;
+      let recapPossible = 0;
+      let perfectDays = 0;
+      let recapPoints = 0;
+      const recapTaskCounts = new Map<string, number>();
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(recapWeekStart, i);
+        const dayKeyStr = DOW_INDEX[day.getDay()];
+        const due = allUserActiveTasks.filter(t => t.daysOfWeek.includes(dayKeyStr));
+        const dueIds = new Set(due.map(t => t.id));
+        const dayDoneIds = dayMap.get(day.toISOString()) ?? new Set<string>();
+        const intersect = new Set([...dayDoneIds].filter(id => dueIds.has(id)));
+        recapDone += intersect.size;
+        recapPossible += due.length;
+        if (due.length > 0 && intersect.size >= due.length) perfectDays++;
+        for (const id of intersect) recapTaskCounts.set(id, (recapTaskCounts.get(id) ?? 0) + 1);
+      }
+      for (const c of userHistComps) {
+        const t = new Date(c.completed_at).getTime();
+        if (t >= recapWeekStart.getTime() && t < recapWeekEnd.getTime()) {
+          // points_awarded was added to the select list above.
+          const pts = (c as { points_awarded?: number }).points_awarded ?? 0;
+          recapPoints += pts;
+        }
+      }
+
+      // Prior week comparison
+      let priorDone = 0;
+      let priorPossible = 0;
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(priorWeekStart, i);
+        const dayKeyStr = DOW_INDEX[day.getDay()];
+        const due = allUserActiveTasks.filter(t => t.daysOfWeek.includes(dayKeyStr));
+        const dueIds = new Set(due.map(t => t.id));
+        const dayDoneIds = dayMap.get(day.toISOString()) ?? new Set<string>();
+        const intersect = new Set([...dayDoneIds].filter(id => dueIds.has(id)));
+        priorDone += intersect.size;
+        priorPossible += due.length;
+      }
+      const recapPct = recapPossible > 0 ? Math.round((recapDone / recapPossible) * 100) : 0;
+      const lastWeekPct = priorPossible > 0 ? Math.round((priorDone / priorPossible) * 100) : null;
+
+      let topTaskId: string | null = null;
+      let topTaskCount = 0;
+      for (const [id, n] of recapTaskCounts) {
+        if (n > topTaskCount) { topTaskId = id; topTaskCount = n; }
+      }
+      const topTask = topTaskId ? allUserActiveTasks.find(t => t.id === topTaskId) : null;
+
+      weeklyRecapByUser[u.id] = {
+        userId: u.id,
+        weekStartISO: recapWeekStart.toISOString(),
+        weekDone: recapDone,
+        weekPossible: recapPossible,
+        weekPct: recapPct,
+        weeklyPoints: recapPoints,
+        perfectDays,
+        topTaskTitle: topTask?.title ?? null,
+        topTaskCount,
+        lastWeekPct,
+        deltaPct: lastWeekPct === null ? null : recapPct - lastWeekPct,
+        dailyStreak,
+      };
     }
 
     set({
@@ -441,6 +559,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       longestStreakByUser,
       bestDayByUser,
       growthByUser,
+      dailyStreakByUser,
+      dailyStreakAtRiskByUser,
+      weeklyRecapByUser,
       hydrated: true,
       timeOfDay,
     });
@@ -797,6 +918,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       longestStreakByUser: {},
       bestDayByUser: {},
       growthByUser: {},
+      dailyStreakByUser: {},
+      dailyStreakAtRiskByUser: {},
+      weeklyRecapByUser: {},
       celebration: null,
       hydrated: false,
       timeOfDay: getCurrentTimeOfDay(),
