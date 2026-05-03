@@ -357,7 +357,7 @@ export function MemberPanel({ user }: { user: User }) {
             <motion.div
               ref={listRef}
               layout
-              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((50vh-108px)/4),76px)]"
+              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-108px)/4),76px)]"
             >
               {sortedTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
