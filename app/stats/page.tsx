@@ -45,6 +45,20 @@ interface HeatDay {
   possible: number;
 }
 
+interface DayOfWeekStat {
+  index: number;     // 0=Mon … 6=Sun
+  done: number;
+  possible: number;
+  pct: number;
+}
+
+interface BestWindow {
+  startDate: Date;
+  pct: number;
+  done: number;
+  possible: number;
+}
+
 interface UserStats {
   user: User;
   activeTasks: Task[];
@@ -69,6 +83,12 @@ interface UserStats {
   taskRates: TaskRate[];
   weekCounts: number[];
   heatmap: HeatDay[];
+  // Pattern insights computed across the last 30 days
+  dayOfWeekStats: DayOfWeekStat[];   // 7 entries
+  bestDayOfWeek: DayOfWeekStat | null;
+  worstDayOfWeek: DayOfWeekStat | null;
+  bestWindow: BestWindow | null;     // best rolling 7-day window
+  longestRun30: number;              // longest run of consecutive days with ≥1 completion
 }
 
 function addDays(d: Date, n: number): Date {
@@ -139,6 +159,16 @@ function labels(lang: Lang) {
       lang === 'en'
         ? `${done}/${possible} completed this week`
         : `이번 주 ${done}/${possible} 완료`
+    ),
+    patterns: lang === 'en' ? 'Patterns (30d)' : '패턴 (30일)',
+    bestDay: lang === 'en' ? 'Best day' : '최고 요일',
+    worstDay: lang === 'en' ? 'Focus day' : '약한 요일',
+    bestWindow: lang === 'en' ? 'Best week' : '최고 주',
+    longestRun: lang === 'en' ? 'Longest run' : '최장 연속',
+    weekOf: (d: Date) => (
+      lang === 'en'
+        ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d)
+        : `${d.getMonth() + 1}/${d.getDate()}`
     ),
   };
 }
@@ -276,6 +306,62 @@ export default function StatsPage() {
         const thisWeek = rangeTotals(user.id, activeTasks, weekStart, 7);
         const lastWeek = rangeTotals(user.id, activeTasks, lastWeekStart, 7);
         const month = rangeTotals(user.id, activeTasks, monthStart, 30);
+
+        // Per-day breakdown over 30 days, used for day-of-week, best-window, and run-length insights.
+        const perDay: { date: Date; dow: number; done: number; possible: number }[] = [];
+        for (let i = 0; i < 30; i++) {
+          const d = addDays(monthStart, i);
+          const due = activeTasks.filter(task => isTaskDue(task, d));
+          const dueIds = new Set(due.map(task => task.id));
+          const dayDone = dueIds.size > 0 ? uniqueDoneForDay(user.id, d, dueIds) : 0;
+          // Mon=0 … Sun=6, matching the existing DOW_LABELS ordering.
+          const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
+          perDay.push({ date: d, dow, done: dayDone, possible: due.length });
+        }
+
+        // Day-of-week aggregation
+        const dowAgg: DayOfWeekStat[] = Array.from({ length: 7 }, (_, i) => ({
+          index: i, done: 0, possible: 0, pct: 0,
+        }));
+        for (const day of perDay) {
+          dowAgg[day.dow].done += day.done;
+          dowAgg[day.dow].possible += day.possible;
+        }
+        const dayOfWeekStats: DayOfWeekStat[] = dowAgg.map(d => ({
+          ...d,
+          pct: d.possible > 0 ? Math.round((d.done / d.possible) * 100) : 0,
+        }));
+        const dowWithData = dayOfWeekStats.filter(d => d.possible > 0);
+        const bestDayOfWeek = dowWithData.length > 0
+          ? [...dowWithData].sort((a, b) => b.pct - a.pct || b.done - a.done)[0]
+          : null;
+        const worstDayOfWeek = dowWithData.length > 0
+          ? [...dowWithData].sort((a, b) => a.pct - b.pct || b.possible - a.possible)[0]
+          : null;
+
+        // Best rolling 7-day window
+        let bestWindow: BestWindow | null = null;
+        for (let i = 0; i + 7 <= perDay.length; i++) {
+          let wd = 0, wp = 0;
+          for (let j = 0; j < 7; j++) { wd += perDay[i + j].done; wp += perDay[i + j].possible; }
+          if (wp === 0) continue;
+          const wpct = Math.round((wd / wp) * 100);
+          if (!bestWindow || wpct > bestWindow.pct) {
+            bestWindow = { startDate: perDay[i].date, pct: wpct, done: wd, possible: wp };
+          }
+        }
+
+        // Longest run of consecutive days with ≥1 completion in last 30 days
+        let longestRun30 = 0;
+        let runCursor = 0;
+        for (const day of perDay) {
+          if (day.done > 0) {
+            runCursor += 1;
+            if (runCursor > longestRun30) longestRun30 = runCursor;
+          } else {
+            runCursor = 0;
+          }
+        }
         const weekComps = completions.filter(c => {
           const tms = new Date(c.completed_at).getTime();
           return c.user_id === user.id && tms >= weekStart.getTime() && tms < weekEnd.getTime() && activeTaskIds.has(c.task_id);
@@ -329,6 +415,11 @@ export default function StatsPage() {
           taskRates,
           weekCounts: thisWeek.weekCounts,
           heatmap: month.heatmap,
+          dayOfWeekStats,
+          bestDayOfWeek,
+          worstDayOfWeek,
+          bestWindow,
+          longestRun30,
         };
       });
 
@@ -517,6 +608,41 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
           <HabitCallout icon={<Award size={15} />} label={copy.best} task={stat.bestTask} empty={copy.noData} tone="best" />
         </div>
 
+        <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white/45">
+            <Sparkles size={14} style={{ color: accent }} />
+            <span>{copy.patterns}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <PatternMetric
+              label={copy.bestDay}
+              value={stat.bestDayOfWeek
+                ? `${DOW_LABELS[stat.bestDayOfWeek.index]} · ${stat.bestDayOfWeek.pct}%`
+                : '—'}
+              tone="good"
+            />
+            <PatternMetric
+              label={copy.worstDay}
+              value={stat.worstDayOfWeek && stat.worstDayOfWeek !== stat.bestDayOfWeek
+                ? `${DOW_LABELS[stat.worstDayOfWeek.index]} · ${stat.worstDayOfWeek.pct}%`
+                : '—'}
+              tone="bad"
+            />
+            <PatternMetric
+              label={copy.bestWindow}
+              value={stat.bestWindow
+                ? `${copy.weekOf(stat.bestWindow.startDate)} · ${stat.bestWindow.pct}%`
+                : '—'}
+              tone="good"
+            />
+            <PatternMetric
+              label={copy.longestRun}
+              value={stat.longestRun30 > 0 ? `${stat.longestRun30}d` : '—'}
+              tone="neutral"
+            />
+          </div>
+        </div>
+
         <div className="mt-4 min-h-0 flex-1 overflow-hidden">
           <TaskBars tasks={stat.taskRates.slice(0, 4)} accent={accent} copy={copy} />
         </div>
@@ -539,6 +665,19 @@ function ProgressDial({ value, done, total, accent, label }: { value: number; do
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PatternMetric({ label, value, tone }: { label: string; value: string; tone: 'good' | 'bad' | 'neutral' }) {
+  const valueColor =
+    tone === 'good' ? 'text-[#3ddc97]' :
+    tone === 'bad'  ? 'text-[#ffb1bb]' :
+    'text-white';
+  return (
+    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-2.5">
+      <div className="mb-1 truncate text-[10px] font-semibold uppercase tracking-wider text-white/45">{label}</div>
+      <div className={`truncate text-sm font-bold ${valueColor}`}>{value}</div>
     </div>
   );
 }

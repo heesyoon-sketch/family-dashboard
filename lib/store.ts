@@ -65,6 +65,10 @@ interface FamilyState {
   hydrated: boolean;
   soundEnabled: boolean;
   timeOfDay: TimeOfDay;
+  // ms since epoch of the last successful hydrate. Used by SyncBootstrap to
+  // skip wake-up refetches when data is still fresh — realtime keeps state
+  // up-to-date between hydrates, so we only need to refetch on stale wakes.
+  lastHydrateAt: number;
 
   hydrate: () => Promise<void>;
   _hydrateOnce: () => Promise<void>;
@@ -193,6 +197,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   hydrated: false,
   soundEnabled: loadSoundPref(),
   timeOfDay: getCurrentTimeOfDay(),
+  lastHydrateAt: 0,
 
   hydrate: async () => {
     if (_hydrateInFlight) {
@@ -580,6 +585,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       weeklyRecapByUser,
       hydrated: true,
       timeOfDay,
+      lastHydrateAt: Date.now(),
     });
 
     if (!_timeIntervalStarted && typeof window !== 'undefined') {
@@ -964,6 +970,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       celebration: null,
       hydrated: false,
       timeOfDay: getCurrentTimeOfDay(),
+      lastHydrateAt: 0,
     });
   },
 }));

@@ -16,7 +16,13 @@ import { useFamilyStore } from '@/lib/store';
 // Hydrate itself is debounced inside the store via _hydrateInFlight, so
 // concurrent triggers collapse safely.
 
-const WAKE_DEBOUNCE_MS = 250;
+const WAKE_DEBOUNCE_MS = 500;
+// Realtime keeps state current while the tab is alive. If a wake-up fires
+// within this window of the last successful hydrate, we trust realtime and
+// skip the refetch — saves 7+ Supabase queries per visibility flicker on
+// mobile, where switching back from another app fires multiple events in
+// quick succession.
+const FRESH_WINDOW_MS = 30_000;
 
 export function SyncBootstrap() {
   useEffect(() => {
@@ -30,9 +36,10 @@ export function SyncBootstrap() {
         const state = useFamilyStore.getState();
         // Only hydrate if a family is already known — otherwise this is
         // a public/auth route and there's nothing to refresh.
-        if (state.familyId) {
-          state.hydrate().catch(err => console.warn(`[sync wake:${reason}]`, err));
-        }
+        if (!state.familyId) return;
+        const sinceMs = Date.now() - state.lastHydrateAt;
+        if (sinceMs < FRESH_WINDOW_MS) return;
+        state.hydrate().catch(err => console.warn(`[sync wake:${reason}]`, err));
       }, WAKE_DEBOUNCE_MS);
     };
 
