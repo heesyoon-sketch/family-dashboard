@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
+import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
@@ -297,10 +298,15 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="grid flex-1 grid-cols-1 gap-4 bg-[#0D0E1C] p-3 md:hidden">
-        {orderedUsers.map(user => (
-          <MemberPanel key={user.id} user={user} />
-        ))}
+      <main className="flex flex-1 flex-col bg-[#0D0E1C] p-3 md:hidden">
+        <MobileMemberTabs users={orderedUsers} />
+        <div className="grid grid-cols-1 gap-4">
+          {orderedUsers.map(user => (
+            <div key={user.id} id={`mobile-member-${user.id}`} style={{ scrollMarginTop: 100 }}>
+              <MemberPanel user={user} />
+            </div>
+          ))}
+        </div>
       </main>
 
       <main className="hidden flex-1 grid-cols-2 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-4 overflow-hidden bg-[#0D0E1C] p-4 md:grid">

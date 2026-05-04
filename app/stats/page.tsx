@@ -219,8 +219,8 @@ export default function StatsPage() {
 
       // Phase 1: fetch users and tasks (need userIds before filtering levels/completions).
       const [usersRes, tasksRes] = await Promise.all([
-        supabase.from('users').select('*').eq('family_id', familyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
-        supabase.from('tasks').select('*').eq('family_id', familyId).eq('active', 1),
+        supabase.from('users').select('*').eq('family_id', familyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
+        supabase.from('tasks').select('*').eq('family_id', familyId).eq('active', 1).is('deleted_at', null),
       ]);
 
       const userIds = (usersRes.data ?? []).map((r: { id: string }) => r.id);

@@ -520,8 +520,8 @@ export default function AdminPage() {
       await supabase.rpc('claim_owner_parent_profile');
 
       const [userRes, rewardRes] = await Promise.all([
-        supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
-        supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).order('cost_points'),
+        supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
+        supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
       ]);
       const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
@@ -790,10 +790,10 @@ export default function AdminPage() {
     }
     // First confirmation
     if (!confirm(
-      `⚠️ '${target.name}' 멤버를 삭제하려고 합니다.\n\n` +
-      `• 이 멤버의 모든 습관, 기록, 포인트가 영구 삭제됩니다.\n` +
-      `• 공동 관리자 계정에서도 함께 삭제됩니다.\n` +
-      `• 복구가 불가능합니다.\n\n` +
+      `'${target.name}' 멤버를 삭제하려고 합니다.\n\n` +
+      `• 대시보드와 통계에서 즉시 사라집니다.\n` +
+      `• 습관, 완료 기록, 포인트는 보존되며 잠시 후 알림으로 되돌릴 수 있어요.\n` +
+      `• 영구 삭제는 별도로 가능합니다.\n\n` +
       `계속하려면 확인을 누르세요.`
     )) return;
     // Second confirmation — type the name to confirm
@@ -805,11 +805,30 @@ export default function AdminPage() {
       return;
     }
     const supabase = createBrowserSupabase();
-    const { error } = await supabase.from('users').delete().eq('id', userId);
+    // Soft-delete via RPC (migration 060). Server enforces parent admin auth
+    // and refuses to remove the last parent.
+    const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
     if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
     setAllUsers(prev => prev.filter(u => u.id !== userId));
     await storeHydrate();
     notifyDashboard();
+
+    toast.success(`${target.name} 삭제됨`, {
+      action: {
+        label: '되돌리기',
+        onClick: async () => {
+          const { error: restoreErr } = await supabase.rpc('admin_restore_user', { p_user_id: userId });
+          if (restoreErr) { toast.error(restoreErr.message); return; }
+          setAllUsers(prev => [...prev, target].sort((a, b) =>
+            a.displayOrder - b.displayOrder || a.createdAt.getTime() - b.createdAt.getTime()
+          ));
+          await storeHydrate();
+          notifyDashboard();
+          toast.success(`${target.name} 복구됨`);
+        },
+      },
+      duration: 8000,
+    });
   };
 
   const sortedUsers = useMemo(
@@ -921,7 +940,7 @@ export default function AdminPage() {
     setSelectedUser(user);
     setTasks([]);
     const supabase = createBrowserSupabase();
-    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order');
+    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).is('deleted_at', null).order('sort_order');
     setTasks((data ?? []).map(r => mapTask(r as Record<string, unknown>)));
   }, []);
 
@@ -979,12 +998,31 @@ export default function AdminPage() {
   };
 
   const deleteTask = async (taskId: string) => {
+    const target = tasks.find(t => t.id === taskId);
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_delete_task', { p_task_id: taskId });
+    const { error } = await supabase.rpc('admin_delete_task', { p_task_id: taskId });
+    if (error) { toast.error(error.message); return; }
     setTasks(prev => prev.filter(task => task.id !== taskId));
     await storeHydrate();
     router.refresh();
     notifyDashboard();
+
+    if (!target) return;
+    toast.success(`'${target.title}' 삭제됨`, {
+      action: {
+        label: '되돌리기',
+        onClick: async () => {
+          const { error: restoreErr } = await supabase.rpc('admin_restore_task', { p_task_id: taskId });
+          if (restoreErr) { toast.error(restoreErr.message); return; }
+          setTasks(prev => [...prev, target].sort((a, b) => a.sortOrder - b.sortOrder));
+          await storeHydrate();
+          router.refresh();
+          notifyDashboard();
+          toast.success(`'${target.title}' 복구됨`);
+        },
+      },
+      duration: 8000,
+    });
   };
 
   const moveTask = async (index: number, dir: 'up' | 'down') => {
@@ -1289,6 +1327,7 @@ export default function AdminPage() {
   };
 
   const deleteReward = async (rewardId: string) => {
+    const target = rewards.find(r => r.id === rewardId);
     const supabase = createBrowserSupabase();
     const { error } = await supabase.rpc('admin_delete_reward', { p_reward_id: rewardId });
     if (error) { toast.error(error.message); return; }
@@ -1296,6 +1335,23 @@ export default function AdminPage() {
     await storeHydrate();
     router.refresh();
     notifyDashboard();
+
+    if (!target) return;
+    toast.success(`'${target.title}' 삭제됨`, {
+      action: {
+        label: '되돌리기',
+        onClick: async () => {
+          const { error: restoreErr } = await supabase.rpc('admin_restore_reward', { p_reward_id: rewardId });
+          if (restoreErr) { toast.error(restoreErr.message); return; }
+          setRewards(prev => [...prev, target].sort((a, b) => a.cost_points - b.cost_points));
+          await storeHydrate();
+          router.refresh();
+          notifyDashboard();
+          toast.success(`'${target.title}' 복구됨`);
+        },
+      },
+      duration: 8000,
+    });
   };
 
   const updateRewardIcon = async (rewardId: string, icon: string) => {

@@ -295,10 +295,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const thirtyDaysAgo = addDays(todayStart, -29);
 
     // Phase 1: load users, tasks, and rewards (family_id already resolved above).
+    // .is('deleted_at', null) filters out soft-deleted rows. Migration 060
+    // added the column with a default null and partial indexes scoped by
+    // (family_id) where deleted_at is null, so this filter is cheap.
     const [uRes, tRes, rRes] = await Promise.all([
-      supabase.from('users').select('*').eq('family_id', resolvedFamilyId).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
-      supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId),
-      supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).order('cost_points'),
+      supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
+      supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null),
+      supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
     ]);
 
     // Phase 2: load per-user tables filtered by the verified user IDs.

@@ -47,6 +47,7 @@ export default function WelcomePage() {
         .from('users')
         .select('id, name, role, theme, display_order')
         .eq('family_id', familyId)
+        .is('deleted_at', null)
         .order('display_order', { ascending: true });
       if (error) {
         setErrorMsg(error.message);
