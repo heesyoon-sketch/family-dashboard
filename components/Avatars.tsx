@@ -1,5 +1,5 @@
 /**
- * Fambit kid avatars — 4 original toy-like adventure characters with
+ * Fambit kid avatars — 4 original collectible creature companions with
  * hot-swappable cosmetics.
  *
  * Layered groups (consistent across all characters):
@@ -7,12 +7,7 @@
  *   #shadow      contact shadow under figure
  *   #cape        optional cape (drawn behind body)
  *   #wings       optional wings (drawn behind body)
- *   #body        torso + clothing (tinted)
- *   #neck        skin under chin
- *   #head-base   skin head + ears
- *   #hair        hair tufts
- *   #face        eyes, brows, mouth, blush
- *   #accessory   character-defining hat/hood/helmet
+ *   #creature-*  character-defining creature body
  *   #extras      bow_tie / star_pin / crown / flowers / halo
  *   #sparkles    optional twinkles
  */
@@ -31,29 +26,15 @@ type AvatarProps = {
 const COLORS = {
   shadow: '#1F1B2E',
   outline: '#3A2A2A',
-  outlineSoft: '#6D4B48',
   white: '#FFFFFF',
   shine: '#FFFDF7',
-  skin: '#FFE2C7',
-  skinShade: '#F5C6A0',
-  skinDeep: '#EAA77E',
   cheek: '#FF9DB1',
-  hairBoy: '#5A3A22',
-  hairBoyShade: '#3F2614',
-  hairGirl: '#6B3E26',
-  hairGirlShade: '#4A2A18',
   starYellow: '#FFE066',
   starYellowShade: '#F5B82B',
   bowLavender: '#C8B6FF',
   bowLavenderShade: '#9C84F0',
-  pink: '#FFC8DD',
-  pinkShade: '#F49EBE',
   pinkInner: '#FF9CC0',
   cream: '#FFF1DD',
-  visorBlue: '#7DCBEA',
-  visorBlueShade: '#3F88B0',
-  helmetGray: '#E5EBF1',
-  helmetGrayShade: '#A8B5C2',
 };
 
 /* ───────────────────────────── Background ─────────────────────────────── */
@@ -91,103 +72,6 @@ function Shadow() {
   return <ellipse cx="110" cy="226" rx="62" ry="8" fill={COLORS.shadow} opacity="0.24" />;
 }
 
-/* ─────────────────────────── Shared face ──────────────────────────────── */
-function Face({ idSuffix, eyelashes }: { idSuffix: string; eyelashes?: boolean }) {
-  return (
-    <g id="face">
-      <defs>
-        <radialGradient id={`eye-${idSuffix}`} cx="0.35" cy="0.35" r="0.75">
-          <stop offset="0%" stopColor="#715C58" />
-          <stop offset="58%" stopColor="#2C1720" />
-          <stop offset="100%" stopColor="#11080D" />
-        </radialGradient>
-      </defs>
-
-      <path d="M75 111 Q86 103 98 109" stroke={COLORS.hairBoyShade} strokeWidth="3.4" strokeLinecap="round" fill="none" opacity="0.9" />
-      <path d="M122 109 Q134 103 145 111" stroke={COLORS.hairBoyShade} strokeWidth="3.4" strokeLinecap="round" fill="none" opacity="0.9" />
-
-      <ellipse cx="86" cy="132" rx="13.5" ry="16" fill="#2B1820" opacity="0.16" />
-      <ellipse cx="134" cy="132" rx="13.5" ry="16" fill="#2B1820" opacity="0.16" />
-      <ellipse cx="86" cy="130" rx="13" ry="15.5" fill={COLORS.white} />
-      <ellipse cx="134" cy="130" rx="13" ry="15.5" fill={COLORS.white} />
-      <ellipse cx="86" cy="131" rx="10.5" ry="12.8" fill={`url(#eye-${idSuffix})`} />
-      <ellipse cx="134" cy="131" rx="10.5" ry="12.8" fill={`url(#eye-${idSuffix})`} />
-      <circle cx="82" cy="124" r="4" fill={COLORS.white} />
-      <circle cx="90.5" cy="136.5" r="1.9" fill={COLORS.white} opacity="0.9" />
-      <circle cx="130" cy="124" r="4" fill={COLORS.white} />
-      <circle cx="138.5" cy="136.5" r="1.9" fill={COLORS.white} opacity="0.9" />
-
-      {eyelashes && (
-        <>
-          <path d="M75 122 Q72 119 70 117" stroke={COLORS.outline} strokeWidth="1.6" strokeLinecap="round" fill="none" />
-          <path d="M145 122 Q148 119 150 117" stroke={COLORS.outline} strokeWidth="1.6" strokeLinecap="round" fill="none" />
-        </>
-      )}
-
-      <ellipse cx="72" cy="150" rx="11" ry="6.5" fill={COLORS.cheek} opacity="0.75" />
-      <ellipse cx="148" cy="150" rx="11" ry="6.5" fill={COLORS.cheek} opacity="0.75" />
-
-      <path d="M108 141 Q110 145 112 141" stroke={COLORS.skinDeep} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.65" />
-      <path d="M101 156 Q106 163 110 159 Q114 163 119 156" stroke="#B93D53" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <path d="M104 154 Q110 157 116 154" stroke={COLORS.white} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.52" />
-    </g>
-  );
-}
-
-function HeadBase({ idSuffix }: { idSuffix: string }) {
-  return (
-    <g id="head-base">
-      <defs>
-        <radialGradient id={`skin-${idSuffix}`} cx="0.4" cy="0.35" r="0.85">
-          <stop offset="0%" stopColor={COLORS.shine} />
-          <stop offset="54%" stopColor={COLORS.skin} />
-          <stop offset="100%" stopColor={COLORS.skinShade} />
-        </radialGradient>
-      </defs>
-      <ellipse cx="46" cy="120" rx="8" ry="11" fill={COLORS.skin} stroke={COLORS.skinShade} strokeWidth="1" />
-      <ellipse cx="46" cy="122" rx="3.5" ry="6" fill={COLORS.cheek} opacity="0.55" />
-      <ellipse cx="174" cy="120" rx="8" ry="11" fill={COLORS.skin} stroke={COLORS.skinShade} strokeWidth="1" />
-      <ellipse cx="174" cy="122" rx="3.5" ry="6" fill={COLORS.cheek} opacity="0.55" />
-      <ellipse cx="110" cy="116" rx="62" ry="64" fill={`url(#skin-${idSuffix})`} stroke="#F0B98E" strokeWidth="1.4" />
-      <path d="M70 91 Q94 66 130 74" stroke={COLORS.white} strokeWidth="6" strokeLinecap="round" opacity="0.18" fill="none" />
-      <path d="M62 140 Q110 190 158 140 Q150 170 110 176 Q70 170 62 140 Z" fill={COLORS.skinShade} opacity="0.45" />
-      <path d="M154 91 Q170 120 154 151" stroke={COLORS.skinDeep} strokeWidth="5" strokeLinecap="round" opacity="0.18" fill="none" />
-    </g>
-  );
-}
-
-function Neck() {
-  return (
-    <g id="neck">
-      <path d="M94 178 Q110 188 126 178 L124 168 Q110 174 96 168 Z" fill={COLORS.skinShade} />
-    </g>
-  );
-}
-
-function Body({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="body">
-      <defs>
-        <radialGradient id={`body-${idSuffix}`} cx="0.5" cy="0.2" r="0.9">
-          <stop offset="0%" stopColor={lighten(tintColor)} />
-          <stop offset="62%" stopColor={tintColor} />
-          <stop offset="100%" stopColor={tintColor} />
-        </radialGradient>
-      </defs>
-      <path d="M60 202 C48 204 42 214 46 224 C56 226 66 222 72 212 Z" fill={COLORS.skin} stroke={COLORS.skinShade} strokeWidth="1" />
-      <path d="M160 202 C172 204 178 214 174 224 C164 226 154 222 148 212 Z" fill={COLORS.skin} stroke={COLORS.skinShade} strokeWidth="1" />
-      <path d="M52 222 C58 188 80 178 110 178 C140 178 162 188 168 222 Z" fill={`url(#body-${idSuffix})`} stroke={tintShade} strokeWidth="1.4" />
-      <path d="M142 186 C156 194 162 207 164 222 L142 222 C148 205 148 193 142 186 Z" fill={tintShade} opacity="0.28" />
-      <path d="M52 222 C58 198 78 192 110 192 C142 192 162 198 168 222" fill="none" stroke={tintShade} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
-      <path d="M88 184 Q110 199 132 184 L128 178 Q110 188 92 178 Z" fill={COLORS.white} opacity="0.88" />
-      <path d="M88 184 Q110 195 132 184" stroke={tintShade} strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.38" />
-      <ellipse cx="84" cy="226" rx="22" ry="6" fill={tintShade} opacity="0.42" />
-      <ellipse cx="136" cy="226" rx="22" ry="6" fill={tintShade} opacity="0.42" />
-      <path d="M77 184 C68 190 62 201 60 213" stroke={COLORS.white} strokeWidth="4" strokeLinecap="round" opacity="0.2" />
-    </g>
-  );
-}
-
 function lighten(hex: string): string {
   const c = hex.replace('#', '');
   const r = Math.min(255, parseInt(c.slice(0, 2), 16) + 30);
@@ -196,154 +80,12 @@ function lighten(hex: string): string {
   return `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
-/* ──────────────────────── Per-character accessories ────────────────────── */
-
-function HairBoy() {
-  return (
-    <g id="hair">
-      <path d="M72 86 Q82 70 96 78 Q92 86 86 90 Z" fill={COLORS.hairBoy} />
-      <path d="M96 78 Q108 64 122 80 Q116 88 108 90 Z" fill={COLORS.hairBoy} />
-      <path d="M122 80 Q138 70 148 88 Q138 92 128 90 Z" fill={COLORS.hairBoy} />
-    </g>
-  );
-}
-
-function HairGirl() {
-  return (
-    <g id="hair">
-      <path d="M64 102 Q72 82 96 88 Q88 100 78 104 Z" fill={COLORS.hairGirl} />
-      <path d="M96 88 Q108 76 124 88 Q116 102 104 100 Z" fill={COLORS.hairGirl} />
-      <path d="M124 88 Q140 80 156 102 Q146 106 132 100 Z" fill={COLORS.hairGirl} />
-      <path d="M168 134 Q190 136 192 162 Q180 158 170 152 Z" fill={COLORS.hairGirl} />
-    </g>
-  );
-}
-
-function DinoHood({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="accessory">
-      <defs>
-        <radialGradient id={`dino-${idSuffix}`} cx="0.4" cy="0.3" r="0.9">
-          <stop offset="0%" stopColor={lighten(tintColor)} />
-          <stop offset="100%" stopColor={tintColor} />
-        </radialGradient>
-      </defs>
-      <path d="M158 108 Q188 100 190 131 Q174 123 162 124 Z" fill={tintShade} stroke={COLORS.outlineSoft} strokeWidth="1" opacity="0.95" />
-      <path
-        d="M48 108 Q44 56 110 50 Q176 56 172 108 Q170 90 152 84 Q148 96 140 92 Q132 80 110 80 Q88 80 80 92 Q72 96 68 84 Q50 90 48 108 Z"
-        fill={`url(#dino-${idSuffix})`}
-        stroke={tintShade}
-        strokeWidth="1.6"
-      />
-      <path d="M68 77 Q100 52 148 70" stroke={COLORS.white} strokeWidth="5" strokeLinecap="round" opacity="0.22" fill="none" />
-      <path d="M151 84 Q162 92 168 108" stroke={tintShade} strokeWidth="4" strokeLinecap="round" opacity="0.3" fill="none" />
-      <path d="M88 56 Q92 42 101 54 Z" fill={COLORS.starYellow} stroke={tintShade} strokeWidth="1" />
-      <path d="M104 50 Q110 36 119 50 Z" fill={COLORS.starYellow} stroke={tintShade} strokeWidth="1" />
-      <path d="M122 54 Q130 42 135 56 Z" fill={COLORS.starYellow} stroke={tintShade} strokeWidth="1" />
-      <circle cx="84" cy="68" r="5.5" fill={COLORS.white} />
-      <circle cx="84" cy="69" r="3" fill={COLORS.outline} />
-      <circle cx="83" cy="67.5" r="1" fill={COLORS.white} />
-      <circle cx="136" cy="68" r="5.5" fill={COLORS.white} />
-      <circle cx="136" cy="69" r="3" fill={COLORS.outline} />
-      <circle cx="135" cy="67.5" r="1" fill={COLORS.white} />
-      {/* teeth */}
-      <polygon points="62,98 68,108 74,98" fill={COLORS.white} />
-      <polygon points="76,96 82,106 88,96" fill={COLORS.white} />
-      <polygon points="92,94 98,104 104,94" fill={COLORS.white} />
-      <polygon points="116,94 122,104 128,94" fill={COLORS.white} />
-      <polygon points="132,96 138,106 144,96" fill={COLORS.white} />
-      <polygon points="146,98 152,108 158,98" fill={COLORS.white} />
-    </g>
-  );
-}
-
-function SpaceHelmet({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="accessory">
-      <defs>
-        <radialGradient id={`helm-${idSuffix}`} cx="0.4" cy="0.35" r="0.95">
-          <stop offset="0%" stopColor={COLORS.white} />
-          <stop offset="100%" stopColor={COLORS.helmetGray} />
-        </radialGradient>
-        <linearGradient id={`visor-${idSuffix}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#BDE8FA" />
-          <stop offset="100%" stopColor={COLORS.visorBlue} />
-        </linearGradient>
-      </defs>
-      {/* helmet outer dome */}
-      <circle cx="110" cy="116" r="76" fill={`url(#helm-${idSuffix})`} stroke={COLORS.helmetGrayShade} strokeWidth="2.4" opacity="0.96" />
-      {/* visor cutout — a tinted bubble that frames the face */}
-      <ellipse cx="110" cy="124" rx="58" ry="50" fill={`url(#visor-${idSuffix})`} opacity="0.85" stroke={COLORS.visorBlueShade} strokeWidth="1.6" />
-      <path d="M64 101 C78 64 138 55 160 96" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.42" fill="none" />
-      <path d="M156 138 C148 163 120 178 88 166" stroke={COLORS.visorBlueShade} strokeWidth="5" strokeLinecap="round" opacity="0.18" fill="none" />
-      {/* oxygen tank knobs on top */}
-      <circle cx="86" cy="46" r="6" fill={tintColor} stroke={tintShade} strokeWidth="1.5" />
-      <circle cx="134" cy="46" r="6" fill={tintColor} stroke={tintShade} strokeWidth="1.5" />
-      <rect x="100" y="40" width="20" height="6" rx="3" fill={COLORS.helmetGray} stroke={COLORS.helmetGrayShade} strokeWidth="1.5" />
-      {/* antenna */}
-      <line x1="110" y1="40" x2="110" y2="22" stroke={COLORS.helmetGrayShade} strokeWidth="2" />
-      <circle cx="110" cy="20" r="4" fill="#FF6B6B" />
-      <circle cx="109" cy="19" r="1.4" fill={COLORS.white} opacity="0.85" />
-      {/* visor highlights */}
-      <ellipse cx="80" cy="100" rx="14" ry="10" fill={COLORS.white} opacity="0.45" transform="rotate(-25 80 100)" />
-      <ellipse cx="142" cy="148" rx="6" ry="3" fill={COLORS.white} opacity="0.35" transform="rotate(-25 142 148)" />
-      {/* helmet rim band */}
-      <path d="M44 168 Q110 196 176 168" stroke={tintColor} strokeWidth="6" strokeLinecap="round" fill="none" />
-    </g>
-  );
-}
-
-function CatHood({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="accessory">
-      <defs>
-        <radialGradient id={`cat-${idSuffix}`} cx="0.4" cy="0.3" r="0.95">
-          <stop offset="0%" stopColor={lighten(tintColor)} />
-          <stop offset="100%" stopColor={tintColor} />
-        </radialGradient>
-      </defs>
-      <path d="M150 110 Q202 110 197 171 Q180 158 168 158 L160 130 Z" fill={tintShade} stroke={COLORS.outlineSoft} strokeWidth="1" opacity="0.78" />
-      {/* ears */}
-      <path d="M58 90 L46 36 L98 70 Z" fill={`url(#cat-${idSuffix})`} stroke={tintShade} strokeWidth="1.5" />
-      <path d="M64 80 L56 52 L86 70 Z" fill={COLORS.pinkInner} />
-      <path d="M162 90 L174 36 L122 70 Z" fill={`url(#cat-${idSuffix})`} stroke={tintShade} strokeWidth="1.5" />
-      <path d="M156 80 L164 52 L134 70 Z" fill={COLORS.pinkInner} />
-      {/* hood */}
-      <path d="M48 116 Q44 64 110 58 Q176 64 172 116 Q170 100 150 96 Q132 78 110 78 Q88 78 70 96 Q50 100 48 116 Z" fill={`url(#cat-${idSuffix})`} stroke={tintShade} strokeWidth="1.5" />
-      <path d="M63 98 Q108 78 157 99" fill="none" stroke={COLORS.white} strokeWidth="4" strokeLinecap="round" opacity="0.28" />
-      <path d="M151 96 Q166 105 170 120" fill="none" stroke={tintShade} strokeWidth="4" strokeLinecap="round" opacity="0.22" />
-      {/* whisker dots */}
-      <circle cx="100" cy="108" r="1.4" fill={tintShade} />
-      <circle cx="120" cy="108" r="1.4" fill={tintShade} />
-    </g>
-  );
-}
-
-function PuppyHood({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="accessory">
-      <defs>
-        <radialGradient id={`pup-${idSuffix}`} cx="0.4" cy="0.3" r="0.95">
-          <stop offset="0%" stopColor={lighten(tintColor)} />
-          <stop offset="100%" stopColor={tintColor} />
-        </radialGradient>
-      </defs>
-      {/* hood dome */}
-      <path d="M48 116 Q44 64 110 58 Q176 64 172 116 Q170 100 150 96 Q132 78 110 78 Q88 78 70 96 Q50 100 48 116 Z" fill={`url(#pup-${idSuffix})`} stroke={tintShade} strokeWidth="1.5" />
-      {/* floppy left ear */}
-      <path d="M50 96 Q24 110 32 158 Q52 152 62 134 Q58 116 56 102 Z" fill={`url(#pup-${idSuffix})`} stroke={tintShade} strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M40 130 Q44 138 52 144" stroke={tintShade} strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.6" />
-      {/* floppy right ear */}
-      <path d="M170 96 Q196 110 188 158 Q168 152 158 134 Q162 116 164 102 Z" fill={`url(#pup-${idSuffix})`} stroke={tintShade} strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M180 130 Q176 138 168 144" stroke={tintShade} strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.6" />
-      {/* puppy nose patch on hood */}
-      <ellipse cx="110" cy="92" rx="14" ry="9" fill={COLORS.cream} opacity="0.85" />
-      <ellipse cx="110" cy="88" rx="3.5" ry="2.5" fill={COLORS.outline} />
-      {/* tongue hint at bottom-front */}
-      <path d="M64 101 Q110 80 156 102" fill="none" stroke={COLORS.white} strokeWidth="4" strokeLinecap="round" opacity="0.26" />
-      <path d="M151 98 Q166 107 170 121" fill="none" stroke={tintShade} strokeWidth="4" strokeLinecap="round" opacity="0.22" />
-    </g>
-  );
+function darken(hex: string): string {
+  const c = hex.replace('#', '');
+  const r = Math.max(0, parseInt(c.slice(0, 2), 16) - 44);
+  const g = Math.max(0, parseInt(c.slice(2, 4), 16) - 44);
+  const b = Math.max(0, parseInt(c.slice(4, 6), 16) - 44);
+  return `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /* ────────────────────────────── Extras ────────────────────────────────── */
@@ -451,6 +193,173 @@ function Spark({ cx, cy, small }: { cx: number; cy: number; small?: boolean }) {
   );
 }
 
+/* ───────────────────────── Creature Companions ─────────────────────────── */
+
+function CreatureDefs({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
+  return (
+    <defs>
+      <radialGradient id={`creature-${idSuffix}`} cx="0.36" cy="0.24" r="0.86">
+        <stop offset="0%" stopColor={COLORS.shine} />
+        <stop offset="18%" stopColor={lighten(tintColor)} />
+        <stop offset="66%" stopColor={tintColor} />
+        <stop offset="100%" stopColor={tintShade} />
+      </radialGradient>
+      <radialGradient id={`belly-${idSuffix}`} cx="0.4" cy="0.28" r="0.8">
+        <stop offset="0%" stopColor="#FFF9E8" />
+        <stop offset="100%" stopColor="#FFE3B4" />
+      </radialGradient>
+      <radialGradient id={`muzzle-${idSuffix}`} cx="0.38" cy="0.22" r="0.86">
+        <stop offset="0%" stopColor="#FFFDF2" />
+        <stop offset="100%" stopColor="#FFDDBB" />
+      </radialGradient>
+      <radialGradient id={`creature-eye-${idSuffix}`} cx="0.34" cy="0.3" r="0.78">
+        <stop offset="0%" stopColor="#6F564C" />
+        <stop offset="55%" stopColor="#211116" />
+        <stop offset="100%" stopColor="#080406" />
+      </radialGradient>
+      <linearGradient id={`rim-${idSuffix}`} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.55" />
+        <stop offset="48%" stopColor="#FFFFFF" stopOpacity="0.12" />
+        <stop offset="100%" stopColor={darken(tintShade)} stopOpacity="0.28" />
+      </linearGradient>
+    </defs>
+  );
+}
+
+function CreatureEye({ cx, cy, scale = 1, idSuffix }: { cx: number; cy: number; scale?: number; idSuffix: string }) {
+  return (
+    <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
+      <ellipse cx="0" cy="2" rx="13.5" ry="16" fill="#180B11" opacity="0.18" />
+      <ellipse cx="0" cy="0" rx="13" ry="16" fill={COLORS.white} />
+      <ellipse cx="0" cy="1" rx="9.8" ry="12.2" fill={`url(#creature-eye-${idSuffix})`} />
+      <circle cx="-3.8" cy="-5.1" r="3.8" fill={COLORS.white} />
+      <circle cx="3.9" cy="5.4" r="1.6" fill={COLORS.white} opacity="0.86" />
+    </g>
+  );
+}
+
+function Paw({ cx, cy, color, shade, flip }: { cx: number; cy: number; color: string; shade: string; flip?: boolean }) {
+  return (
+    <g transform={`translate(${cx} ${cy}) scale(${flip ? -1 : 1} 1)`}>
+      <path d="M-18 2 C-18 -12 -6 -19 8 -14 C20 -10 22 4 12 13 C0 23 -18 17 -18 2 Z" fill={color} stroke={shade} strokeWidth="1.4" />
+      <circle cx="-7" cy="11" r="2.4" fill={shade} opacity="0.36" />
+      <circle cx="1" cy="13" r="2.4" fill={shade} opacity="0.36" />
+      <circle cx="9" cy="10" r="2.4" fill={shade} opacity="0.36" />
+      <path d="M-10 -7 C-4 -13 8 -12 14 -4" stroke={COLORS.white} strokeWidth="3" strokeLinecap="round" opacity="0.18" fill="none" />
+    </g>
+  );
+}
+
+function DinoCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
+  return (
+    <g id="creature-dino">
+      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
+      <path d="M52 177 C22 171 14 143 36 122 C54 139 64 157 66 177 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" />
+      <path d="M146 177 C184 160 195 124 174 100 C159 124 151 150 146 177 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" />
+      <ellipse cx="110" cy="164" rx="54" ry="56" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <ellipse cx="110" cy="178" rx="31" ry="34" fill={`url(#belly-${idSuffix})`} opacity="0.95" />
+      <ellipse cx="110" cy="105" rx="62" ry="57" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <path d="M78 50 L90 74 L104 44 L116 75 L132 47 L141 80" fill={COLORS.starYellow} stroke={tintShade} strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M68 80 C86 55 124 48 150 69" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.2" fill="none" />
+      <CreatureEye cx={88} cy={103} idSuffix={idSuffix} />
+      <CreatureEye cx={132} cy={103} idSuffix={idSuffix} />
+      <ellipse cx="110" cy="128" rx="30" ry="18" fill={`url(#muzzle-${idSuffix})`} stroke="#E9B481" strokeWidth="1.2" />
+      <ellipse cx="99" cy="122" rx="3" ry="2.2" fill={COLORS.outline} opacity="0.75" />
+      <ellipse cx="121" cy="122" rx="3" ry="2.2" fill={COLORS.outline} opacity="0.75" />
+      <path d="M97 136 Q110 145 123 136" stroke="#A94350" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <polygon points="95,136 101,145 107,137" fill={COLORS.white} />
+      <polygon points="113,137 119,145 125,136" fill={COLORS.white} />
+      <Paw cx={75} cy={207} color={tintColor} shade={tintShade} />
+      <Paw cx={145} cy={207} color={tintColor} shade={tintShade} flip />
+      <path d="M153 113 C167 118 179 129 185 146" stroke={`url(#rim-${idSuffix})`} strokeWidth="6" strokeLinecap="round" fill="none" />
+    </g>
+  );
+}
+
+function StarCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
+  return (
+    <g id="creature-star">
+      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
+      <path d="M62 152 C30 142 25 110 45 87 C58 105 67 125 70 150 Z" fill={lighten(tintColor)} stroke={tintShade} strokeWidth="2" />
+      <path d="M158 152 C190 142 195 110 175 87 C162 105 153 125 150 150 Z" fill={lighten(tintColor)} stroke={tintShade} strokeWidth="2" />
+      <ellipse cx="110" cy="160" rx="49" ry="58" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <ellipse cx="110" cy="181" rx="28" ry="31" fill={`url(#belly-${idSuffix})`} opacity="0.86" />
+      <path d="M75 78 C67 45 89 31 110 54 C131 31 153 45 145 78 C171 87 173 118 151 139 C132 157 88 157 69 139 C47 118 49 87 75 78 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.5" />
+      <path d="M110 54 L118 31 L126 56" fill="none" stroke={tintShade} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="126" cy="54" r="8" fill={COLORS.starYellow} stroke={COLORS.starYellowShade} strokeWidth="1.4" />
+      <path d="M71 83 C88 58 122 53 146 73" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.22" fill="none" />
+      <CreatureEye cx={88} cy={108} idSuffix={idSuffix} />
+      <CreatureEye cx={132} cy={108} idSuffix={idSuffix} />
+      <path d="M100 132 Q110 140 120 132" stroke="#A94350" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <circle cx="73" cy="128" r="7" fill={COLORS.cheek} opacity="0.7" />
+      <circle cx="147" cy="128" r="7" fill={COLORS.cheek} opacity="0.7" />
+      <path d="M159 174 C190 168 202 188 192 208 C174 205 160 194 153 180 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2" />
+      <Paw cx={75} cy={207} color={lighten(tintColor)} shade={tintShade} />
+      <Paw cx={145} cy={207} color={lighten(tintColor)} shade={tintShade} flip />
+      <Spark cx={51} cy={64} small />
+      <Spark cx={171} cy={62} />
+    </g>
+  );
+}
+
+function CatCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
+  return (
+    <g id="creature-cat">
+      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
+      <path d="M151 160 C192 157 203 191 177 211 C162 202 150 186 146 166 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" />
+      <ellipse cx="110" cy="166" rx="50" ry="55" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <ellipse cx="110" cy="184" rx="27" ry="29" fill={`url(#belly-${idSuffix})`} opacity="0.86" />
+      <path d="M66 91 L54 38 L96 69 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M154 91 L166 38 L124 69 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M64 78 L58 53 L82 70 Z" fill={COLORS.pinkInner} opacity="0.84" />
+      <path d="M156 78 L162 53 L138 70 Z" fill={COLORS.pinkInner} opacity="0.84" />
+      <ellipse cx="110" cy="106" rx="58" ry="55" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <path d="M68 85 C91 62 128 59 153 82" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.22" fill="none" />
+      <CreatureEye cx={88} cy={110} idSuffix={idSuffix} />
+      <CreatureEye cx={132} cy={110} idSuffix={idSuffix} />
+      <ellipse cx="110" cy="132" rx="25" ry="17" fill={`url(#muzzle-${idSuffix})`} stroke="#E9B481" strokeWidth="1.2" />
+      <path d="M105 125 L110 130 L115 125" fill={COLORS.outline} opacity="0.78" />
+      <path d="M110 130 Q104 137 98 133" stroke="#A94350" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+      <path d="M110 130 Q116 137 122 133" stroke="#A94350" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+      <path d="M77 129 L51 123 M78 137 L53 139 M143 129 L169 123 M142 137 L167 139" stroke={darken(tintShade)} strokeWidth="2" strokeLinecap="round" opacity="0.65" />
+      <Paw cx={76} cy={207} color={lighten(tintColor)} shade={tintShade} />
+      <Paw cx={144} cy={207} color={lighten(tintColor)} shade={tintShade} flip />
+    </g>
+  );
+}
+
+function PuppyCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
+  return (
+    <g id="creature-puppy">
+      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
+      <ellipse cx="110" cy="166" rx="52" ry="55" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <ellipse cx="110" cy="184" rx="29" ry="30" fill={`url(#belly-${idSuffix})`} opacity="0.88" />
+      <path d="M65 82 C34 84 24 118 42 150 C64 145 76 124 76 95 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.3" />
+      <path d="M155 82 C186 84 196 118 178 150 C156 145 144 124 144 95 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.3" />
+      <ellipse cx="110" cy="105" rx="59" ry="54" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
+      <path d="M72 85 C94 62 130 61 151 84" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.22" fill="none" />
+      <path d="M88 67 C101 55 119 56 132 69 C122 77 99 77 88 67 Z" fill={COLORS.cream} opacity="0.62" />
+      <CreatureEye cx={88} cy={108} idSuffix={idSuffix} />
+      <CreatureEye cx={132} cy={108} idSuffix={idSuffix} />
+      <ellipse cx="110" cy="132" rx="29" ry="19" fill={`url(#muzzle-${idSuffix})`} stroke="#E9B481" strokeWidth="1.2" />
+      <ellipse cx="110" cy="124" rx="7" ry="5" fill={COLORS.outline} />
+      <circle cx="107.5" cy="122" r="1.8" fill={COLORS.white} opacity="0.72" />
+      <path d="M110 130 Q103 139 96 134" stroke="#A94350" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <path d="M110 130 Q117 139 124 134" stroke="#A94350" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <path d="M113 137 Q112 148 121 146" stroke="#FF6F91" strokeWidth="4" strokeLinecap="round" fill="none" />
+      <Paw cx={76} cy={207} color={lighten(tintColor)} shade={tintShade} />
+      <Paw cx={144} cy={207} color={lighten(tintColor)} shade={tintShade} flip />
+    </g>
+  );
+}
+
+function CreatureFigure({ kind, tintColor, tintShade, idSuffix }: { kind: AvatarKind; tintColor: string; tintShade: string; idSuffix: string }) {
+  if (kind === 'dino') return <DinoCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
+  if (kind === 'spaceman') return <StarCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
+  if (kind === 'kitty') return <CatCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
+  return <PuppyCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
+}
+
 /* ───────────────────────── Composed Avatar ───────────────────────────── */
 
 export function Avatar({ config, size = 200, className, showBg = true, title }: AvatarProps) {
@@ -485,19 +394,12 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
       {config.extras.includes('wings') && <Extras extras={['wings']} tintColor={tint.color} idSuffix={`wings-${idSuffix}`} />}
 
       <g filter={`url(#${figureFilterId})`}>
-        <Body tintColor={tint.color} tintShade={tint.shade} idSuffix={idSuffix} />
-        <Neck />
-        <HeadBase idSuffix={idSuffix} />
-
-        {/* hair behind the accessory; spaceman has no visible hair under helmet */}
-        {(config.kind === 'dino' || config.kind === 'spaceman') ? <HairBoy /> : <HairGirl />}
-
-        <Face idSuffix={idSuffix} eyelashes={config.kind === 'kitty' || config.kind === 'puppy'} />
-
-        {config.kind === 'dino' && <DinoHood tintColor={tint.color} tintShade={tint.shade} idSuffix={idSuffix} />}
-        {config.kind === 'spaceman' && <SpaceHelmet tintColor={tint.color} tintShade={tint.shade} idSuffix={idSuffix} />}
-        {config.kind === 'kitty' && <CatHood tintColor={tint.color} tintShade={tint.shade} idSuffix={idSuffix} />}
-        {config.kind === 'puppy' && <PuppyHood tintColor={tint.color} tintShade={tint.shade} idSuffix={idSuffix} />}
+        <CreatureFigure
+          kind={config.kind}
+          tintColor={tint.color}
+          tintShade={tint.shade}
+          idSuffix={idSuffix}
+        />
       </g>
 
       <Extras
