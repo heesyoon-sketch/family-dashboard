@@ -27,14 +27,10 @@ const COLORS = {
   shadow: '#1F1B2E',
   outline: '#3A2A2A',
   white: '#FFFFFF',
-  shine: '#FFFDF7',
-  cheek: '#FF9DB1',
   starYellow: '#FFE066',
   starYellowShade: '#F5B82B',
   bowLavender: '#C8B6FF',
   bowLavenderShade: '#9C84F0',
-  pinkInner: '#FF9CC0',
-  cream: '#FFF1DD',
 };
 
 /* ───────────────────────────── Background ─────────────────────────────── */
@@ -70,22 +66,6 @@ function Background({ id, gradId }: { id: string; gradId: string }) {
 
 function Shadow() {
   return <ellipse cx="110" cy="226" rx="62" ry="8" fill={COLORS.shadow} opacity="0.24" />;
-}
-
-function lighten(hex: string): string {
-  const c = hex.replace('#', '');
-  const r = Math.min(255, parseInt(c.slice(0, 2), 16) + 30);
-  const g = Math.min(255, parseInt(c.slice(2, 4), 16) + 30);
-  const b = Math.min(255, parseInt(c.slice(4, 6), 16) + 30);
-  return `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
-}
-
-function darken(hex: string): string {
-  const c = hex.replace('#', '');
-  const r = Math.max(0, parseInt(c.slice(0, 2), 16) - 44);
-  const g = Math.max(0, parseInt(c.slice(2, 4), 16) - 44);
-  const b = Math.max(0, parseInt(c.slice(4, 6), 16) - 44);
-  return `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /* ────────────────────────────── Extras ────────────────────────────────── */
@@ -193,172 +173,12 @@ function Spark({ cx, cy, small }: { cx: number; cy: number; small?: boolean }) {
   );
 }
 
-/* ───────────────────────── Creature Companions ─────────────────────────── */
-
-function CreatureDefs({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <defs>
-      <radialGradient id={`creature-${idSuffix}`} cx="0.36" cy="0.24" r="0.86">
-        <stop offset="0%" stopColor={COLORS.shine} />
-        <stop offset="18%" stopColor={lighten(tintColor)} />
-        <stop offset="66%" stopColor={tintColor} />
-        <stop offset="100%" stopColor={tintShade} />
-      </radialGradient>
-      <radialGradient id={`belly-${idSuffix}`} cx="0.4" cy="0.28" r="0.8">
-        <stop offset="0%" stopColor="#FFF9E8" />
-        <stop offset="100%" stopColor="#FFE3B4" />
-      </radialGradient>
-      <radialGradient id={`muzzle-${idSuffix}`} cx="0.38" cy="0.22" r="0.86">
-        <stop offset="0%" stopColor="#FFFDF2" />
-        <stop offset="100%" stopColor="#FFDDBB" />
-      </radialGradient>
-      <radialGradient id={`creature-eye-${idSuffix}`} cx="0.34" cy="0.3" r="0.78">
-        <stop offset="0%" stopColor="#6F564C" />
-        <stop offset="55%" stopColor="#211116" />
-        <stop offset="100%" stopColor="#080406" />
-      </radialGradient>
-      <linearGradient id={`rim-${idSuffix}`} x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.55" />
-        <stop offset="48%" stopColor="#FFFFFF" stopOpacity="0.12" />
-        <stop offset="100%" stopColor={darken(tintShade)} stopOpacity="0.28" />
-      </linearGradient>
-    </defs>
-  );
-}
-
-function CreatureEye({ cx, cy, scale = 1, idSuffix }: { cx: number; cy: number; scale?: number; idSuffix: string }) {
-  return (
-    <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
-      <ellipse cx="0" cy="2" rx="13.5" ry="16" fill="#180B11" opacity="0.18" />
-      <ellipse cx="0" cy="0" rx="13" ry="16" fill={COLORS.white} />
-      <ellipse cx="0" cy="1" rx="9.8" ry="12.2" fill={`url(#creature-eye-${idSuffix})`} />
-      <circle cx="-3.8" cy="-5.1" r="3.8" fill={COLORS.white} />
-      <circle cx="3.9" cy="5.4" r="1.6" fill={COLORS.white} opacity="0.86" />
-    </g>
-  );
-}
-
-function Paw({ cx, cy, color, shade, flip }: { cx: number; cy: number; color: string; shade: string; flip?: boolean }) {
-  return (
-    <g transform={`translate(${cx} ${cy}) scale(${flip ? -1 : 1} 1)`}>
-      <path d="M-18 2 C-18 -12 -6 -19 8 -14 C20 -10 22 4 12 13 C0 23 -18 17 -18 2 Z" fill={color} stroke={shade} strokeWidth="1.4" />
-      <circle cx="-7" cy="11" r="2.4" fill={shade} opacity="0.36" />
-      <circle cx="1" cy="13" r="2.4" fill={shade} opacity="0.36" />
-      <circle cx="9" cy="10" r="2.4" fill={shade} opacity="0.36" />
-      <path d="M-10 -7 C-4 -13 8 -12 14 -4" stroke={COLORS.white} strokeWidth="3" strokeLinecap="round" opacity="0.18" fill="none" />
-    </g>
-  );
-}
-
-function DinoCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="creature-dino">
-      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
-      <path d="M52 177 C22 171 14 143 36 122 C54 139 64 157 66 177 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" />
-      <path d="M146 177 C184 160 195 124 174 100 C159 124 151 150 146 177 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" />
-      <ellipse cx="110" cy="164" rx="54" ry="56" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <ellipse cx="110" cy="178" rx="31" ry="34" fill={`url(#belly-${idSuffix})`} opacity="0.95" />
-      <ellipse cx="110" cy="105" rx="62" ry="57" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <path d="M78 50 L90 74 L104 44 L116 75 L132 47 L141 80" fill={COLORS.starYellow} stroke={tintShade} strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M68 80 C86 55 124 48 150 69" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.2" fill="none" />
-      <CreatureEye cx={88} cy={103} idSuffix={idSuffix} />
-      <CreatureEye cx={132} cy={103} idSuffix={idSuffix} />
-      <ellipse cx="110" cy="128" rx="30" ry="18" fill={`url(#muzzle-${idSuffix})`} stroke="#E9B481" strokeWidth="1.2" />
-      <ellipse cx="99" cy="122" rx="3" ry="2.2" fill={COLORS.outline} opacity="0.75" />
-      <ellipse cx="121" cy="122" rx="3" ry="2.2" fill={COLORS.outline} opacity="0.75" />
-      <path d="M97 136 Q110 145 123 136" stroke="#A94350" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <polygon points="95,136 101,145 107,137" fill={COLORS.white} />
-      <polygon points="113,137 119,145 125,136" fill={COLORS.white} />
-      <Paw cx={75} cy={207} color={tintColor} shade={tintShade} />
-      <Paw cx={145} cy={207} color={tintColor} shade={tintShade} flip />
-      <path d="M153 113 C167 118 179 129 185 146" stroke={`url(#rim-${idSuffix})`} strokeWidth="6" strokeLinecap="round" fill="none" />
-    </g>
-  );
-}
-
-function StarCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="creature-star">
-      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
-      <path d="M62 152 C30 142 25 110 45 87 C58 105 67 125 70 150 Z" fill={lighten(tintColor)} stroke={tintShade} strokeWidth="2" />
-      <path d="M158 152 C190 142 195 110 175 87 C162 105 153 125 150 150 Z" fill={lighten(tintColor)} stroke={tintShade} strokeWidth="2" />
-      <ellipse cx="110" cy="160" rx="49" ry="58" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <ellipse cx="110" cy="181" rx="28" ry="31" fill={`url(#belly-${idSuffix})`} opacity="0.86" />
-      <path d="M75 78 C67 45 89 31 110 54 C131 31 153 45 145 78 C171 87 173 118 151 139 C132 157 88 157 69 139 C47 118 49 87 75 78 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.5" />
-      <path d="M110 54 L118 31 L126 56" fill="none" stroke={tintShade} strokeWidth="3" strokeLinecap="round" />
-      <circle cx="126" cy="54" r="8" fill={COLORS.starYellow} stroke={COLORS.starYellowShade} strokeWidth="1.4" />
-      <path d="M71 83 C88 58 122 53 146 73" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.22" fill="none" />
-      <CreatureEye cx={88} cy={108} idSuffix={idSuffix} />
-      <CreatureEye cx={132} cy={108} idSuffix={idSuffix} />
-      <path d="M100 132 Q110 140 120 132" stroke="#A94350" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <circle cx="73" cy="128" r="7" fill={COLORS.cheek} opacity="0.7" />
-      <circle cx="147" cy="128" r="7" fill={COLORS.cheek} opacity="0.7" />
-      <path d="M159 174 C190 168 202 188 192 208 C174 205 160 194 153 180 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2" />
-      <Paw cx={75} cy={207} color={lighten(tintColor)} shade={tintShade} />
-      <Paw cx={145} cy={207} color={lighten(tintColor)} shade={tintShade} flip />
-      <Spark cx={51} cy={64} small />
-      <Spark cx={171} cy={62} />
-    </g>
-  );
-}
-
-function CatCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="creature-cat">
-      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
-      <path d="M151 160 C192 157 203 191 177 211 C162 202 150 186 146 166 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" />
-      <ellipse cx="110" cy="166" rx="50" ry="55" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <ellipse cx="110" cy="184" rx="27" ry="29" fill={`url(#belly-${idSuffix})`} opacity="0.86" />
-      <path d="M66 91 L54 38 L96 69 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M154 91 L166 38 L124 69 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M64 78 L58 53 L82 70 Z" fill={COLORS.pinkInner} opacity="0.84" />
-      <path d="M156 78 L162 53 L138 70 Z" fill={COLORS.pinkInner} opacity="0.84" />
-      <ellipse cx="110" cy="106" rx="58" ry="55" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <path d="M68 85 C91 62 128 59 153 82" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.22" fill="none" />
-      <CreatureEye cx={88} cy={110} idSuffix={idSuffix} />
-      <CreatureEye cx={132} cy={110} idSuffix={idSuffix} />
-      <ellipse cx="110" cy="132" rx="25" ry="17" fill={`url(#muzzle-${idSuffix})`} stroke="#E9B481" strokeWidth="1.2" />
-      <path d="M105 125 L110 130 L115 125" fill={COLORS.outline} opacity="0.78" />
-      <path d="M110 130 Q104 137 98 133" stroke="#A94350" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      <path d="M110 130 Q116 137 122 133" stroke="#A94350" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      <path d="M77 129 L51 123 M78 137 L53 139 M143 129 L169 123 M142 137 L167 139" stroke={darken(tintShade)} strokeWidth="2" strokeLinecap="round" opacity="0.65" />
-      <Paw cx={76} cy={207} color={lighten(tintColor)} shade={tintShade} />
-      <Paw cx={144} cy={207} color={lighten(tintColor)} shade={tintShade} flip />
-    </g>
-  );
-}
-
-function PuppyCreature({ tintColor, tintShade, idSuffix }: { tintColor: string; tintShade: string; idSuffix: string }) {
-  return (
-    <g id="creature-puppy">
-      <CreatureDefs tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />
-      <ellipse cx="110" cy="166" rx="52" ry="55" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <ellipse cx="110" cy="184" rx="29" ry="30" fill={`url(#belly-${idSuffix})`} opacity="0.88" />
-      <path d="M65 82 C34 84 24 118 42 150 C64 145 76 124 76 95 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.3" />
-      <path d="M155 82 C186 84 196 118 178 150 C156 145 144 124 144 95 Z" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.3" />
-      <ellipse cx="110" cy="105" rx="59" ry="54" fill={`url(#creature-${idSuffix})`} stroke={tintShade} strokeWidth="2.4" />
-      <path d="M72 85 C94 62 130 61 151 84" stroke={COLORS.white} strokeWidth="7" strokeLinecap="round" opacity="0.22" fill="none" />
-      <path d="M88 67 C101 55 119 56 132 69 C122 77 99 77 88 67 Z" fill={COLORS.cream} opacity="0.62" />
-      <CreatureEye cx={88} cy={108} idSuffix={idSuffix} />
-      <CreatureEye cx={132} cy={108} idSuffix={idSuffix} />
-      <ellipse cx="110" cy="132" rx="29" ry="19" fill={`url(#muzzle-${idSuffix})`} stroke="#E9B481" strokeWidth="1.2" />
-      <ellipse cx="110" cy="124" rx="7" ry="5" fill={COLORS.outline} />
-      <circle cx="107.5" cy="122" r="1.8" fill={COLORS.white} opacity="0.72" />
-      <path d="M110 130 Q103 139 96 134" stroke="#A94350" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <path d="M110 130 Q117 139 124 134" stroke="#A94350" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <path d="M113 137 Q112 148 121 146" stroke="#FF6F91" strokeWidth="4" strokeLinecap="round" fill="none" />
-      <Paw cx={76} cy={207} color={lighten(tintColor)} shade={tintShade} />
-      <Paw cx={144} cy={207} color={lighten(tintColor)} shade={tintShade} flip />
-    </g>
-  );
-}
-
-function CreatureFigure({ kind, tintColor, tintShade, idSuffix }: { kind: AvatarKind; tintColor: string; tintShade: string; idSuffix: string }) {
-  if (kind === 'dino') return <DinoCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
-  if (kind === 'spaceman') return <StarCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
-  if (kind === 'kitty') return <CatCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
-  return <PuppyCreature tintColor={tintColor} tintShade={tintShade} idSuffix={idSuffix} />;
-}
+const CREATURE_ASSETS: Record<AvatarKind, string> = {
+  dino: '/avatars/creatures/dino-monster.png',
+  spaceman: '/avatars/creatures/star-dragon.png',
+  kitty: '/avatars/creatures/mystic-cat.png',
+  puppy: '/avatars/creatures/bolt-puppy.png',
+};
 
 /* ───────────────────────── Composed Avatar ───────────────────────────── */
 
@@ -368,6 +188,7 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
   const idSuffix = `${uniqueId}-${config.kind}-${config.tint}-${config.bg}`;
   const ariaTitle = title ?? `${config.kind} avatar`;
   const figureFilterId = `figure-shadow-${idSuffix}`;
+  const creatureAsset = CREATURE_ASSETS[config.kind];
 
   return (
     <svg
@@ -394,11 +215,14 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
       {config.extras.includes('wings') && <Extras extras={['wings']} tintColor={tint.color} idSuffix={`wings-${idSuffix}`} />}
 
       <g filter={`url(#${figureFilterId})`}>
-        <CreatureFigure
-          kind={config.kind}
-          tintColor={tint.color}
-          tintShade={tint.shade}
-          idSuffix={idSuffix}
+        <image
+          href={creatureAsset}
+          x="11"
+          y="18"
+          width="198"
+          height="204"
+          preserveAspectRatio="xMidYMid meet"
+          role="presentation"
         />
       </g>
 
