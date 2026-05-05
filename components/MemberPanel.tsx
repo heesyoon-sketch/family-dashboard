@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { HeartHandshake, Mail, Store } from 'lucide-react';
+import { HeartHandshake, Mail, Store, Sparkles } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -12,6 +12,9 @@ import { LEVEL_THRESHOLDS } from '@/lib/gamification';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
+import { AvatarStudioModal } from './AvatarStudioModal';
+import { Avatar } from './Avatars';
+import { loadAvatarConfig, subscribeAvatarConfig, DEFAULT_CONFIG } from '@/lib/avatarConfig';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE']);
@@ -71,10 +74,19 @@ export function MemberPanel({ user }: { user: User }) {
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const allUsers       = useFamilyStore(s => s.users);
   const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? []);
+  const familyId       = useFamilyStore(s => s.familyId);
 
   const [storeOpen, setStoreOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
+
+  const isChild = user.role === 'CHILD';
+  const avatarConfig = useSyncExternalStore(
+    useCallback((cb) => isChild ? subscribeAvatarConfig(user.id, cb) : () => {}, [user.id, isChild]),
+    useCallback(() => isChild ? loadAvatarConfig(user.id) : null, [user.id, isChild]),
+    useCallback(() => isChild ? DEFAULT_CONFIG : null, [isChild]),
+  );
   const [activityReadAt, setActivityReadAt] = useState(() => {
     if (typeof window === 'undefined') return 0;
     return Number(localStorage.getItem(`family_activity_read_at_${user.id}`) ?? 0);
@@ -209,6 +221,14 @@ export function MemberPanel({ user }: { user: User }) {
           onClose={() => setActivityOpen(false)}
         />
       )}
+      {studioOpen && familyId && (
+        <AvatarStudioModal
+          user={user}
+          familyId={familyId}
+          balance={spendableBalance}
+          onClose={() => setStudioOpen(false)}
+        />
+      )}
 
       <section
         data-theme={user.theme}
@@ -226,7 +246,17 @@ export function MemberPanel({ user }: { user: User }) {
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
             <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:basis-[calc(100%-42px)]">
               <div className="relative h-9 w-9 shrink-0">
-                {avatarSrc ? (
+                {avatarConfig ? (
+                  <button
+                    type="button"
+                    onClick={() => setStudioOpen(true)}
+                    className="h-9 w-9 overflow-hidden rounded-lg ring-1 ring-white/10 transition hover:scale-105"
+                    title={lang === 'en' ? 'Open avatar studio' : '아바타 꾸미기'}
+                    aria-label={lang === 'en' ? 'Open avatar studio' : '아바타 꾸미기'}
+                  >
+                    <Avatar config={avatarConfig} size={36} />
+                  </button>
+                ) : avatarSrc ? (
                   <Image
                     src={avatarSrc}
                     alt={user.name}
@@ -300,6 +330,18 @@ export function MemberPanel({ user }: { user: User }) {
             </div>
 
             <ProgressRing pct={pct} size={34} />
+
+            {user.role === 'CHILD' && (
+              <button
+                type="button"
+                onClick={() => setStudioOpen(true)}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 max-[380px]:h-7 max-[380px]:w-7"
+                title={lang === 'en' ? 'Avatar Studio' : '아바타 꾸미기'}
+                aria-label={lang === 'en' ? 'Avatar Studio' : '아바타 꾸미기'}
+              >
+                <Sparkles size={15} className="text-violet-300" />
+              </button>
+            )}
 
             <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
               <button

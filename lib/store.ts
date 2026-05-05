@@ -117,6 +117,8 @@ interface FamilyState {
   purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
+  /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
+  applyBalance: (userId: string, newBalance: number) => void;
   dismissCelebration: () => void;
   toggleSound: () => void;
   reset: () => void;
@@ -985,6 +987,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         user.id === userId ? { ...user, avatarUrl } : user
       ),
     }));
+  },
+
+  applyBalance: (userId, newBalance) => {
+    set(state => {
+      const existing = state.levelsByUser[userId];
+      if (!existing) return {};
+      return {
+        levelsByUser: {
+          ...state.levelsByUser,
+          [userId]: { ...existing, spendableBalance: Math.max(0, Math.round(newBalance)) },
+        },
+      };
+    });
   },
 
   dismissCelebration: () => set({ celebration: null }),
