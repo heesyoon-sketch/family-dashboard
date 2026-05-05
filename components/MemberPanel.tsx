@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { HeartHandshake, Mail, Store, Sparkles } from 'lucide-react';
+import { HeartHandshake, Mail, Store } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
 import { useFamilyStore } from '@/lib/store';
 import { LEVEL_THRESHOLDS } from '@/lib/gamification';
+import { loadAvatarConfig, subscribeAvatarConfig } from '@/lib/avatarConfig';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
 import { AvatarStudioModal } from './AvatarStudioModal';
+import { Avatar } from './Avatars';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE']);
@@ -92,6 +94,11 @@ export function MemberPanel({ user }: { user: User }) {
   const listRef        = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const avatarConfig = useSyncExternalStore(
+    useCallback((callback) => subscribeAvatarConfig(user.id, callback), [user.id]),
+    () => loadAvatarConfig(user.id),
+    () => loadAvatarConfig(user.id),
+  );
 
   const spendableBalance = level?.spendableBalance ?? 0;
   const mailboxActivities = activities.filter(activity => MAILBOX_ACTIVITY_TYPES.has(activity.type));
@@ -318,11 +325,11 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={() => setStudioOpen(true)}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 max-[380px]:h-7 max-[380px]:w-7"
+                className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--accent)] bg-[var(--bg)] text-[var(--fg)] shadow-sm transition hover:brightness-105 max-[380px]:h-10 max-[380px]:w-10"
                 title={lang === 'en' ? 'Avatar Studio' : '아바타 꾸미기'}
                 aria-label={lang === 'en' ? 'Avatar Studio' : '아바타 꾸미기'}
               >
-                <Sparkles size={15} className="text-violet-300" />
+                <Avatar config={avatarConfig} size={48} />
               </button>
             )}
 
