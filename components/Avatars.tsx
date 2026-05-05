@@ -81,54 +81,66 @@ function Shadow() {
 
 /* ────────────────────────────── Extras ────────────────────────────────── */
 
-function Extras({ extras, tintColor, idSuffix }: { extras: AvatarExtra[]; tintColor: string; idSuffix: string }) {
+function Extras({
+  extras,
+  tintColor,
+  idSuffix,
+  filterId,
+}: {
+  extras: AvatarExtra[];
+  tintColor: string;
+  idSuffix: string;
+  filterId?: string;
+}) {
   if (extras.length === 0) return null;
   const has = (id: AvatarExtra) => extras.includes(id);
   return (
-    <g id="extras">
+    <g id="extras" filter={filterId ? `url(#${filterId})` : undefined}>
       {has('wings') && (
         <g id="wings" opacity="0.95">
-          <path d="M40 188 Q-4 168 16 132 Q34 162 56 178 Z" fill={COLORS.white} stroke="#D9DEEA" strokeWidth="1.5" strokeLinejoin="round" />
-          <path d="M180 188 Q224 168 204 132 Q186 162 164 178 Z" fill={COLORS.white} stroke="#D9DEEA" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M61 169 C18 151 -1 107 28 70 C42 106 61 128 88 144 C76 151 67 160 61 169 Z" fill={COLORS.white} stroke="#D9DEEA" strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M37 92 C48 121 63 140 83 153" stroke="#C9D2E4" strokeWidth="2.2" strokeLinecap="round" opacity="0.78" fill="none" />
+          <path d="M159 169 C202 151 221 107 192 70 C178 106 159 128 132 144 C144 151 153 160 159 169 Z" fill={COLORS.white} stroke="#D9DEEA" strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M183 92 C172 121 157 140 137 153" stroke="#C9D2E4" strokeWidth="2.2" strokeLinecap="round" opacity="0.78" fill="none" />
         </g>
       )}
       {has('cape') && (
         <g id="cape">
           <path
-            d="M64 184 Q40 226 56 232 L164 232 Q180 226 156 184 Z"
+            d="M58 128 C38 158 31 199 48 232 L172 232 C189 199 182 158 162 128 C143 151 78 151 58 128 Z"
             fill={tintColor}
             stroke={COLORS.outline}
-            strokeWidth="0.8"
-            opacity="0.9"
+            strokeWidth="1.2"
+            opacity="0.82"
           />
-          <path d="M82 200 L92 226" stroke={COLORS.outline} strokeWidth="0.8" opacity="0.4" />
-          <path d="M138 200 L128 226" stroke={COLORS.outline} strokeWidth="0.8" opacity="0.4" />
+          <path d="M77 160 C70 184 72 207 84 229" stroke={COLORS.outline} strokeWidth="1" opacity="0.35" fill="none" />
+          <path d="M143 160 C150 184 148 207 136 229" stroke={COLORS.outline} strokeWidth="1" opacity="0.35" fill="none" />
         </g>
       )}
       {has('halo') && (
         <g id="halo">
-          <ellipse cx="110" cy="26" rx="45" ry="9" fill="none" stroke={COLORS.starYellow} strokeWidth="4" opacity="0.95" />
-          <ellipse cx="110" cy="26" rx="45" ry="9" fill="none" stroke={COLORS.starYellowShade} strokeWidth="1.5" opacity="0.6" />
+          <ellipse cx="110" cy="23" rx="48" ry="10" fill="none" stroke={COLORS.starYellow} strokeWidth="4.8" opacity="0.95" />
+          <ellipse cx="110" cy="23" rx="48" ry="10" fill="none" stroke={COLORS.starYellowShade} strokeWidth="1.7" opacity="0.65" />
         </g>
       )}
       {has('crown') && (
-        <g id="crown">
-          <path d="M72 34 L84 60 L98 42 L110 66 L124 42 L138 60 L150 34 L150 70 L72 70 Z" fill={COLORS.starYellow} stroke={COLORS.starYellowShade} strokeWidth="1.8" strokeLinejoin="round" />
+        <g id="crown" transform="translate(0 -3)">
+          <path d="M68 34 L82 64 L98 43 L110 70 L126 43 L140 64 L154 34 L154 74 L68 74 Z" fill={COLORS.starYellow} stroke={COLORS.starYellowShade} strokeWidth="2" strokeLinejoin="round" />
           <circle cx="86" cy="45" r="3" fill="#E26C8A" />
           <circle cx="110" cy="53" r="3.2" fill="#7DCBEA" />
           <circle cx="134" cy="45" r="3" fill="#A8E6A1" />
         </g>
       )}
       {has('flowers') && (
-        <g id="flowers">
-          <Flower cx={68} cy={56} color="#FF9DB1" />
-          <Flower cx={90} cy={40} color="#FFE066" />
-          <Flower cx={120} cy={38} color="#C8B6FF" />
-          <Flower cx={150} cy={52} color="#A8E6A1" />
+        <g id="flowers" transform="translate(0 -3)">
+          <Flower cx={64} cy={57} color="#FF9DB1" />
+          <Flower cx={88} cy={38} color="#FFE066" />
+          <Flower cx={121} cy={38} color="#C8B6FF" />
+          <Flower cx={154} cy={55} color="#A8E6A1" />
         </g>
       )}
       {has('star_pin') && (
-        <g id="star_pin" transform="translate(154 124) rotate(14)">
+        <g id="star_pin" transform="translate(158 132) rotate(14) scale(1.18)">
           <path
             d="M0 -14 L4 -4 L14 -4 L6 3 L9 13 L0 7 L-9 13 L-6 3 L-14 -4 L-4 -4 Z"
             fill={COLORS.starYellow}
@@ -140,11 +152,11 @@ function Extras({ extras, tintColor, idSuffix }: { extras: AvatarExtra[]; tintCo
         </g>
       )}
       {has('bow_tie') && (
-        <g id="bow_tie">
-          <path d="M88 151 Q72 145 70 160 Q81 168 98 162 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1.2" />
-          <path d="M132 151 Q148 145 150 160 Q139 168 122 162 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1.2" />
-          <circle cx="110" cy="158" r="7" fill={COLORS.bowLavenderShade} />
-          <circle cx="108.2" cy="155.7" r="2.2" fill={COLORS.white} opacity="0.85" />
+        <g id="bow_tie" transform="translate(110 151) scale(1.08 1.08) translate(-110 -158)">
+          <path d="M88 151 Q70 144 68 160 Q81 170 100 162 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1.35" />
+          <path d="M132 151 Q150 144 152 160 Q139 170 120 162 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1.35" />
+          <circle cx="110" cy="158" r="7.8" fill={COLORS.bowLavenderShade} />
+          <circle cx="108.2" cy="155.7" r="2.4" fill={COLORS.white} opacity="0.85" />
         </g>
       )}
       {has('sparkles') && (
@@ -200,6 +212,7 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
   const ariaTitle = title ?? `${config.kind} avatar`;
   const auraId = `aura-${idSuffix}`;
   const figureFilterId = `figure-${idSuffix}`;
+  const accessoryFilterId = `accessory-${idSuffix}`;
   const creatureAsset = CREATURE_ASSETS[config.kind];
   const tintVisual = TINT_VISUALS[config.tint] ?? TINT_VISUALS.mint;
 
@@ -233,6 +246,10 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
           </feComponentTransfer>
           <feDropShadow dx="0" dy="4" stdDeviation="3.2" floodColor="#1F1B2E" floodOpacity="0.24" />
         </filter>
+        <filter id={accessoryFilterId} x="-30%" y="-30%" width="160%" height="170%">
+          <feDropShadow dx="0" dy="3" stdDeviation="2.1" floodColor="#1F1B2E" floodOpacity="0.28" />
+          <feDropShadow dx="0" dy="-0.8" stdDeviation="0.45" floodColor="#FFFFFF" floodOpacity="0.34" />
+        </filter>
       </defs>
 
       {showBg && <Background id={config.bg} gradId={`bg-${idSuffix}`} />}
@@ -240,8 +257,8 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
       <Shadow />
       <ellipse cx="110" cy="126" rx="84" ry="86" fill={`url(#${auraId})`} />
 
-      {config.extras.includes('cape') && <Extras extras={['cape']} tintColor={tint.color} idSuffix={`cape-${idSuffix}`} />}
-      {config.extras.includes('wings') && <Extras extras={['wings']} tintColor={tint.color} idSuffix={`wings-${idSuffix}`} />}
+      {config.extras.includes('cape') && <Extras extras={['cape']} tintColor={tint.color} idSuffix={`cape-${idSuffix}`} filterId={accessoryFilterId} />}
+      {config.extras.includes('wings') && <Extras extras={['wings']} tintColor={tint.color} idSuffix={`wings-${idSuffix}`} filterId={accessoryFilterId} />}
 
       <g filter={`url(#${figureFilterId})`}>
         <image
@@ -259,6 +276,7 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
         extras={config.extras.filter(e => e !== 'cape' && e !== 'wings')}
         tintColor={tint.color}
         idSuffix={`top-${idSuffix}`}
+        filterId={accessoryFilterId}
       />
     </svg>
   );

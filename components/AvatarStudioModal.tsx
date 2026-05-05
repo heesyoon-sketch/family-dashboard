@@ -62,6 +62,8 @@ export function AvatarStudioModal({
     pickBg:       lang === 'en' ? 'Background — free' : '배경 — 무료',
     extras:       lang === 'en' ? 'Cosmetics' : '꾸미기 아이템',
     owned:        lang === 'en' ? 'Owned' : '보유',
+    equipped:     lang === 'en' ? 'Equipped' : '장착중',
+    available:    lang === 'en' ? 'Available' : '구매 가능',
     equip:        lang === 'en' ? 'Equip' : '장착',
     unequip:      lang === 'en' ? 'Unequip' : '벗기',
     buy:          lang === 'en' ? 'Buy' : '구매',
@@ -286,6 +288,10 @@ export function AvatarStudioModal({
                     const owned    = config.owned.includes(e.id);
                     const equipped = config.extras.includes(e.id);
                     const canAfford = localBalance >= e.cost;
+                    const previewConfig: AvatarConfig = {
+                      ...config,
+                      extras: Array.from(new Set([...config.extras, e.id])),
+                    };
                     return (
                       <div
                         key={e.id}
@@ -293,17 +299,31 @@ export function AvatarStudioModal({
                           equipped ? 'border-[var(--accent)] bg-[var(--accent-glow)]' : 'border-transparent bg-[var(--bg-card)]'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-base">{e.emoji}</span>
-                          <span className="truncate text-[12px] font-bold">
-                            {lang === 'en' ? e.en : e.ko}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className={`h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[var(--bg)] ring-1 ring-[var(--border)] ${owned || canAfford ? '' : 'opacity-55 grayscale'}`}>
+                            <Avatar config={previewConfig} size={48} showBg={false} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1">
+                              <span className="text-base">{e.emoji}</span>
+                              <span className="truncate text-[12px] font-bold">
+                                {lang === 'en' ? e.en : e.ko}
+                              </span>
+                            </div>
+                            <div className="text-[10px] font-semibold text-[var(--fg-muted)]">
+                              {owned ? t.owned : `${e.cost}pt`}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] font-semibold text-[var(--fg-muted)]">
-                          {owned ? (
-                            <span className="text-emerald-400">{t.owned}</span>
+                        <div className="flex items-center justify-between gap-1 text-[10px] font-semibold text-[var(--fg-muted)]">
+                          {equipped ? (
+                            <span className="min-w-0 truncate text-[var(--accent)]">{t.equipped}</span>
+                          ) : owned ? (
+                            <span className="min-w-0 truncate text-emerald-400">{t.owned}</span>
+                          ) : canAfford ? (
+                            <span className="min-w-0 truncate">{t.available}</span>
                           ) : (
-                            <span>{e.cost}pt</span>
+                            <span className="min-w-0 truncate text-rose-300">{t.insufficient}</span>
                           )}
                           {owned ? (
                             <button
