@@ -10,6 +10,44 @@ async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupab
   }
 }
 
+// Once-per-session flag so we toast the user about hydrate regressions only
+// the first time, rather than every wake-up.
+let _hydrateRegressionToastShown = false;
+
+interface HydrateErrorEntry {
+  label: string;
+  error: { message?: string; code?: string; details?: string } | null;
+}
+
+async function maybeToastRegression(message: string) {
+  if (_hydrateRegressionToastShown) return;
+  _hydrateRegressionToastShown = true;
+  try {
+    const { toast } = await import('sonner');
+    toast.error(message, { duration: 10000 });
+  } catch {
+    // sonner not loaded — console.error already happened, that's enough.
+  }
+}
+
+function surfaceHydrateErrors(entries: HydrateErrorEntry[], hadPriorData: boolean) {
+  const failed = entries.filter(e => e.error);
+  if (failed.length === 0) return;
+  for (const { label, error } of failed) {
+    console.error(`[hydrate:${label}]`, error);
+  }
+  // If we previously had a successful hydrate and now suddenly all the
+  // important reads fail, that's almost always a schema/migration mismatch
+  // (column missing, RLS policy regression). Tell the user something is
+  // wrong instead of letting the dashboard look mysteriously empty.
+  if (hadPriorData) {
+    const labels = failed.map(f => f.label).join(', ');
+    void maybeToastRegression(
+      `데이터를 불러오지 못했어요 (${labels}). 새로고침해도 비어 있으면 마이그레이션 적용 여부를 확인해주세요.`,
+    );
+  }
+}
+
 export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
   | { type: 'badge';    userId: string; badge: Badge };
@@ -303,6 +341,15 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null),
       supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
     ]);
+    // Surface SELECT errors loudly. Previously these were silently swallowed
+    // by `?? []` fallbacks, which meant a missing column or RLS regression
+    // would render the dashboard as "no data" with no diagnostic — exactly
+    // the symptom that hid the missing migration 060 deployment.
+    surfaceHydrateErrors([
+      { label: 'users',   error: uRes.error },
+      { label: 'tasks',   error: tRes.error },
+      { label: 'rewards', error: rRes.error },
+    ], get().lastHydrateAt > 0);
 
     // Phase 2: load per-user tables filtered by the verified user IDs.
     // levels/streaks have no family_id column; task_completions relies on user_id.
@@ -330,6 +377,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .order('created_at', { ascending: false })
         .limit(200),
     ]);
+    surfaceHydrateErrors([
+      { label: 'levels',           error: lRes.error },
+      { label: 'streaks',          error: sRes.error },
+      { label: 'completions:today', error: cTodayRes.error },
+      { label: 'completions:30d',  error: cHistRes.error },
+      { label: 'family_activities', error: aRes.error },
+    ], get().lastHydrateAt > 0);
 
     const users: User[] = (uRes.data ?? []).map(r => ({
       id: r.id, name: r.name, role: r.role, theme: r.theme,
