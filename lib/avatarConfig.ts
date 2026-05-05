@@ -34,10 +34,10 @@ export interface KindOption {
 }
 
 export const KIND_CATALOG: KindOption[] = [
-  { id: 'dino',     ko: '공룡 탐험가',  en: 'Dino Explorer', emoji: '🦖', hint: 'boy' },
-  { id: 'spaceman', ko: '우주인',       en: 'Spaceman',      emoji: '🚀', hint: 'boy' },
-  { id: 'kitty',    ko: '아기 고양이',  en: 'Kitty',         emoji: '🐱', hint: 'girl' },
-  { id: 'puppy',    ko: '강아지',       en: 'Puppy',         emoji: '🐶', hint: 'girl' },
+  { id: 'dino',     ko: '공룡 버디',    en: 'Dino Buddy',    emoji: '🦖', hint: 'boy' },
+  { id: 'spaceman', ko: '노바 레인저',  en: 'Nova Ranger',   emoji: '🚀', hint: 'boy' },
+  { id: 'kitty',    ko: '고양이 히어로', en: 'Kitty Hero',    emoji: '🐱', hint: 'girl' },
+  { id: 'puppy',    ko: '강아지 챔프',   en: 'Puppy Champ',   emoji: '🐶', hint: 'girl' },
 ];
 
 export interface TintOption {

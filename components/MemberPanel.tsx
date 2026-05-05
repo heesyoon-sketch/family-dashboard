@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { HeartHandshake, Mail, Store, Sparkles } from 'lucide-react';
@@ -13,8 +13,6 @@ import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
 import { AvatarStudioModal } from './AvatarStudioModal';
-import { Avatar } from './Avatars';
-import { loadAvatarConfig, subscribeAvatarConfig, DEFAULT_CONFIG } from '@/lib/avatarConfig';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE']);
@@ -82,11 +80,6 @@ export function MemberPanel({ user }: { user: User }) {
   const [studioOpen, setStudioOpen] = useState(false);
 
   const isChild = user.role === 'CHILD';
-  const avatarConfig = useSyncExternalStore(
-    useCallback((cb) => isChild ? subscribeAvatarConfig(user.id, cb) : () => {}, [user.id, isChild]),
-    useCallback(() => isChild ? loadAvatarConfig(user.id) : null, [user.id, isChild]),
-    useCallback(() => isChild ? DEFAULT_CONFIG : null, [isChild]),
-  );
   const [activityReadAt, setActivityReadAt] = useState(() => {
     if (typeof window === 'undefined') return 0;
     return Number(localStorage.getItem(`family_activity_read_at_${user.id}`) ?? 0);
@@ -246,17 +239,7 @@ export function MemberPanel({ user }: { user: User }) {
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
             <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:basis-[calc(100%-42px)]">
               <div className="relative h-9 w-9 shrink-0">
-                {avatarConfig ? (
-                  <button
-                    type="button"
-                    onClick={() => setStudioOpen(true)}
-                    className="h-9 w-9 overflow-hidden rounded-lg ring-1 ring-white/10 transition hover:scale-105"
-                    title={lang === 'en' ? 'Open avatar studio' : '아바타 꾸미기'}
-                    aria-label={lang === 'en' ? 'Open avatar studio' : '아바타 꾸미기'}
-                  >
-                    <Avatar config={avatarConfig} size={36} />
-                  </button>
-                ) : avatarSrc ? (
+                {avatarSrc ? (
                   <Image
                     src={avatarSrc}
                     alt={user.name}
@@ -331,7 +314,7 @@ export function MemberPanel({ user }: { user: User }) {
 
             <ProgressRing pct={pct} size={34} />
 
-            {user.role === 'CHILD' && (
+            {isChild && (
               <button
                 type="button"
                 onClick={() => setStudioOpen(true)}
