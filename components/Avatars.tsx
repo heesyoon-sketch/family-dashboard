@@ -33,6 +33,17 @@ const COLORS = {
   bowLavenderShade: '#9C84F0',
 };
 
+const TINT_VISUALS: Record<string, { hue: number; saturation: number; lightness: number }> = {
+  mint:     { hue: 0,   saturation: 1.06, lightness: 1.00 },
+  sky:      { hue: 42,  saturation: 1.12, lightness: 1.02 },
+  pink:     { hue: 292, saturation: 1.14, lightness: 1.04 },
+  lavender: { hue: 252, saturation: 1.10, lightness: 1.02 },
+  sun:      { hue: 326, saturation: 1.18, lightness: 1.05 },
+  coral:    { hue: 306, saturation: 1.16, lightness: 1.04 },
+  mauve:    { hue: 274, saturation: 1.08, lightness: 1.02 },
+  sage:     { hue: 12,  saturation: 0.88, lightness: 0.98 },
+};
+
 /* ───────────────────────────── Background ─────────────────────────────── */
 function Background({ id, gradId }: { id: string; gradId: string }) {
   const bg = bgById(id);
@@ -96,28 +107,28 @@ function Extras({ extras, tintColor, idSuffix }: { extras: AvatarExtra[]; tintCo
       )}
       {has('halo') && (
         <g id="halo">
-          <ellipse cx="110" cy="40" rx="42" ry="9" fill="none" stroke={COLORS.starYellow} strokeWidth="4" opacity="0.95" />
-          <ellipse cx="110" cy="40" rx="42" ry="9" fill="none" stroke={COLORS.starYellowShade} strokeWidth="1.5" opacity="0.6" />
+          <ellipse cx="110" cy="26" rx="45" ry="9" fill="none" stroke={COLORS.starYellow} strokeWidth="4" opacity="0.95" />
+          <ellipse cx="110" cy="26" rx="45" ry="9" fill="none" stroke={COLORS.starYellowShade} strokeWidth="1.5" opacity="0.6" />
         </g>
       )}
       {has('crown') && (
         <g id="crown">
-          <path d="M70 64 L82 86 L96 70 L110 90 L124 70 L138 86 L150 64 L150 92 L70 92 Z" fill={COLORS.starYellow} stroke={COLORS.starYellowShade} strokeWidth="1.8" strokeLinejoin="round" />
-          <circle cx="84" cy="72" r="3" fill="#E26C8A" />
-          <circle cx="110" cy="78" r="3.2" fill="#7DCBEA" />
-          <circle cx="136" cy="72" r="3" fill="#A8E6A1" />
+          <path d="M72 34 L84 60 L98 42 L110 66 L124 42 L138 60 L150 34 L150 70 L72 70 Z" fill={COLORS.starYellow} stroke={COLORS.starYellowShade} strokeWidth="1.8" strokeLinejoin="round" />
+          <circle cx="86" cy="45" r="3" fill="#E26C8A" />
+          <circle cx="110" cy="53" r="3.2" fill="#7DCBEA" />
+          <circle cx="134" cy="45" r="3" fill="#A8E6A1" />
         </g>
       )}
       {has('flowers') && (
         <g id="flowers">
-          <Flower cx={70} cy={70} color="#FF9DB1" />
-          <Flower cx={92} cy={56} color="#FFE066" />
-          <Flower cx={120} cy={54} color="#C8B6FF" />
-          <Flower cx={148} cy={66} color="#A8E6A1" />
+          <Flower cx={68} cy={56} color="#FF9DB1" />
+          <Flower cx={90} cy={40} color="#FFE066" />
+          <Flower cx={120} cy={38} color="#C8B6FF" />
+          <Flower cx={150} cy={52} color="#A8E6A1" />
         </g>
       )}
       {has('star_pin') && (
-        <g id="star_pin" transform="translate(60 88) rotate(-18)">
+        <g id="star_pin" transform="translate(154 124) rotate(14)">
           <path
             d="M0 -14 L4 -4 L14 -4 L6 3 L9 13 L0 7 L-9 13 L-6 3 L-14 -4 L-4 -4 Z"
             fill={COLORS.starYellow}
@@ -130,10 +141,10 @@ function Extras({ extras, tintColor, idSuffix }: { extras: AvatarExtra[]; tintCo
       )}
       {has('bow_tie') && (
         <g id="bow_tie">
-          <path d="M88 188 Q76 184 74 196 Q82 202 96 198 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1" />
-          <path d="M132 188 Q144 184 146 196 Q138 202 124 198 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1" />
-          <circle cx="110" cy="194" r="6" fill={COLORS.bowLavenderShade} />
-          <circle cx="108.5" cy="192.5" r="2" fill={COLORS.white} opacity="0.85" />
+          <path d="M88 151 Q72 145 70 160 Q81 168 98 162 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1.2" />
+          <path d="M132 151 Q148 145 150 160 Q139 168 122 162 Z" fill={COLORS.bowLavender} stroke={COLORS.bowLavenderShade} strokeWidth="1.2" />
+          <circle cx="110" cy="158" r="7" fill={COLORS.bowLavenderShade} />
+          <circle cx="108.2" cy="155.7" r="2.2" fill={COLORS.white} opacity="0.85" />
         </g>
       )}
       {has('sparkles') && (
@@ -187,8 +198,10 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
   const uniqueId = useId().replace(/:/g, '');
   const idSuffix = `${uniqueId}-${config.kind}-${config.tint}-${config.bg}`;
   const ariaTitle = title ?? `${config.kind} avatar`;
-  const figureFilterId = `figure-shadow-${idSuffix}`;
+  const auraId = `aura-${idSuffix}`;
+  const figureFilterId = `figure-${idSuffix}`;
   const creatureAsset = CREATURE_ASSETS[config.kind];
+  const tintVisual = TINT_VISUALS[config.tint] ?? TINT_VISUALS.mint;
 
   return (
     <svg
@@ -202,7 +215,22 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
     >
       <title>{ariaTitle}</title>
       <defs>
+        <radialGradient id={auraId} cx="0.5" cy="0.4" r="0.55">
+          <stop offset="0%" stopColor={tint.color} stopOpacity="0.46" />
+          <stop offset="58%" stopColor={tint.color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={tint.color} stopOpacity="0" />
+        </radialGradient>
         <filter id={figureFilterId} x="-20%" y="-18%" width="140%" height="140%">
+          <feColorMatrix type="hueRotate" values={`${tintVisual.hue}`} />
+          <feColorMatrix
+            type="saturate"
+            values={`${tintVisual.saturation}`}
+          />
+          <feComponentTransfer>
+            <feFuncR type="linear" slope={`${tintVisual.lightness}`} />
+            <feFuncG type="linear" slope={`${tintVisual.lightness}`} />
+            <feFuncB type="linear" slope={`${tintVisual.lightness}`} />
+          </feComponentTransfer>
           <feDropShadow dx="0" dy="4" stdDeviation="3.2" floodColor="#1F1B2E" floodOpacity="0.24" />
         </filter>
       </defs>
@@ -210,6 +238,7 @@ export function Avatar({ config, size = 200, className, showBg = true, title }: 
       {showBg && <Background id={config.bg} gradId={`bg-${idSuffix}`} />}
 
       <Shadow />
+      <ellipse cx="110" cy="126" rx="84" ry="86" fill={`url(#${auraId})`} />
 
       {config.extras.includes('cape') && <Extras extras={['cape']} tintColor={tint.color} idSuffix={`cape-${idSuffix}`} />}
       {config.extras.includes('wings') && <Extras extras={['wings']} tintColor={tint.color} idSuffix={`wings-${idSuffix}`} />}

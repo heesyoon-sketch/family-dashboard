@@ -24,8 +24,8 @@ import { Avatar } from './Avatars';
 type Tab = 'character' | 'color' | 'background' | 'extras';
 
 const TABS: { id: Tab; ko: string; en: string; emoji: string }[] = [
-  { id: 'character',  ko: '캐릭터', en: 'Character',  emoji: '🧒' },
-  { id: 'color',      ko: '색깔',  en: 'Color',      emoji: '🎨' },
+  { id: 'character',  ko: '몬스터', en: 'Monster',    emoji: '🐉' },
+  { id: 'color',      ko: '색상',  en: 'Color',      emoji: '🎨' },
   { id: 'background', ko: '배경',  en: 'Background', emoji: '🌈' },
   { id: 'extras',     ko: '꾸미기', en: 'Extras',     emoji: '✨' },
 ];
@@ -46,9 +46,8 @@ export function AvatarStudioModal({
   const [config, setConfig] = useState<AvatarConfig>(() => loadAvatarConfig(user.id));
   const [tab, setTab] = useState<Tab>('character');
   const [busy, setBusy] = useState(false);
-
-  // Use the prop directly; spends propagate via store → parent re-renders.
-  const localBalance = balance;
+  const [balanceOverride, setBalanceOverride] = useState<number | null>(null);
+  const localBalance = balanceOverride ?? balance;
 
   // Persist config whenever it changes — applies the look immediately on the dashboard.
   useEffect(() => {
@@ -58,8 +57,8 @@ export function AvatarStudioModal({
   const t = useMemo(() => ({
     title:        lang === 'en' ? `${user.name}'s Studio` : `${user.name}의 아바타 스튜디오`,
     save:         lang === 'en' ? 'Done' : '완료',
-    pickKind:     lang === 'en' ? 'Pick a character — free' : '캐릭터 선택 — 무료',
-    pickColor:    lang === 'en' ? 'Outfit color — free' : '옷 색깔 — 무료',
+    pickKind:     lang === 'en' ? 'Pick a monster — free' : '몬스터 선택 — 무료',
+    pickColor:    lang === 'en' ? 'Monster color aura — free' : '몬스터 색상 오라 — 무료',
     pickBg:       lang === 'en' ? 'Background — free' : '배경 — 무료',
     extras:       lang === 'en' ? 'Cosmetics' : '꾸미기 아이템',
     owned:        lang === 'en' ? 'Owned' : '보유',
@@ -95,6 +94,7 @@ export function AvatarStudioModal({
     try {
       const label = EXTRA_CATALOG.find(e => e.id === id)?.[lang] ?? id;
       const next = await spendPointsOnCosmetic(user.id, familyId, cost, label);
+      setBalanceOverride(next);
       updateBalance(user.id, next);
       // mark owned + auto-equip
       setConfig(c => ({
