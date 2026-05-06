@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
@@ -96,6 +96,7 @@ export function StoreModal({
   const [jointUserId, setJointUserId] = useState('');
   const [userShare, setUserShare] = useState(0);
   const [partnerShare, setPartnerShare] = useState(0);
+  const redeemingRef = useRef(false);
 
   const refreshRewards = useCallback(async () => {
     setRefreshing(true);
@@ -141,60 +142,68 @@ export function StoreModal({
   };
 
   const handleRedeem = async (reward: Reward) => {
-    if (redeeming) return;
-
-    await refreshRewards().catch(error => {
-      console.warn('Failed to refresh rewards before redeem', error);
-    });
-
-    const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
-    if (latestReward.is_hidden || latestReward.is_sold_out) {
-      toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
-      return;
-    }
-    const cost = discountedCost(latestReward);
-    if (balance < cost) return;
-
+    if (redeemingRef.current) return;
+    redeemingRef.current = true;
     setRedeeming(reward.id);
-    const effectiveReward: Reward = { ...latestReward, cost_points: cost };
+
     try {
+      await refreshRewards().catch(error => {
+        console.warn('Failed to refresh rewards before redeem', error);
+      });
+
+      const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
+      if (latestReward.is_hidden || latestReward.is_sold_out) {
+        toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
+        return;
+      }
+      const cost = discountedCost(latestReward);
+      const latestBalance = useFamilyStore.getState().levelsByUser[user.id]?.spendableBalance ?? balance;
+      if (latestBalance < cost) return;
+
+      const effectiveReward: Reward = { ...latestReward, cost_points: cost };
       await onRedeem(effectiveReward);
       toast.success(`🎉 "${latestReward.title}" ${t('exchange_complete')}`);
       setCheckoutReward(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
     } finally {
+      redeemingRef.current = false;
       setRedeeming(null);
     }
   };
 
   const handleJointRedeem = async (reward: Reward) => {
-    if (redeeming || !jointPartner) return;
-
-    await refreshRewards().catch(error => {
-      console.warn('Failed to refresh rewards before joint redeem', error);
-    });
-
-    const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
-    if (latestReward.is_hidden || latestReward.is_sold_out) {
-      toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
-      return;
-    }
-
-    const cost = discountedCost(latestReward);
-    const share1 = Math.max(0, Math.round(userShare) || 0);
-    const share2 = Math.max(0, Math.round(partnerShare) || 0);
-    if (share1 + share2 !== cost) return;
-    if (balance < share1 || jointPartnerBalance < share2) return;
-
+    if (redeemingRef.current || !jointPartner) return;
+    redeemingRef.current = true;
     setRedeeming(reward.id);
+
     try {
+      await refreshRewards().catch(error => {
+        console.warn('Failed to refresh rewards before joint redeem', error);
+      });
+
+      const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
+      if (latestReward.is_hidden || latestReward.is_sold_out) {
+        toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
+        return;
+      }
+
+      const cost = discountedCost(latestReward);
+      const share1 = Math.max(0, Math.round(userShare) || 0);
+      const share2 = Math.max(0, Math.round(partnerShare) || 0);
+      const latestLevels = useFamilyStore.getState().levelsByUser;
+      const latestUserBalance = latestLevels[user.id]?.spendableBalance ?? balance;
+      const latestPartnerBalance = latestLevels[jointPartner.id]?.spendableBalance ?? jointPartnerBalance;
+      if (share1 + share2 !== cost) return;
+      if (latestUserBalance < share1 || latestPartnerBalance < share2) return;
+
       await purchaseRewardJoint(latestReward.id, user.id, share1, jointPartner.id, share2);
       toast.success(copy.jointSuccess);
       setCheckoutReward(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
     } finally {
+      redeemingRef.current = false;
       setRedeeming(null);
     }
   };
