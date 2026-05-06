@@ -34,11 +34,17 @@ function formatActivity(activity: FamilyActivity, lang: Lang): { icon: string; t
     };
   }
   if (activity.type === 'REWARD_PURCHASED') {
+    const reward = activity.message ?? (lang === 'en' ? 'a reward' : '리워드');
+    const partner = activity.relatedUserName;
     return {
-      icon: '🛍️',
-      text: lang === 'en'
-        ? `Bought ${activity.message ?? 'a reward'}!`
-        : `${activity.message ?? '리워드'}을(를) 구매했어요!`,
+      icon: partner ? '🤝' : '🛍️',
+      text: partner
+        ? (lang === 'en'
+            ? `Bought ${reward} with ${partner}!`
+            : `${partner}님과 같이 ${reward}을(를) 구매했어요!`)
+        : (lang === 'en'
+            ? `Bought ${reward}!`
+            : `${reward}을(를) 구매했어요!`),
       amount: `-${activity.amount}pt`,
     };
   }

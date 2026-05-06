@@ -18,7 +18,7 @@ import { resetAllProgress } from '@/lib/reset';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -264,6 +264,13 @@ interface RewardRedemption {
   refunded_at?: string | null;
   refunded_by?: string | null;
   refund_reason?: string | null;
+  is_joint_purchase: boolean;
+  joint_user1_id?: string | null;
+  joint_user1_name?: string | null;
+  joint_user1_amount: number;
+  joint_user2_id?: string | null;
+  joint_user2_name?: string | null;
+  joint_user2_amount: number;
 }
 
 function normaliseSalePercentage(value: unknown): number {
@@ -304,7 +311,41 @@ function mapRewardRedemption(row: Record<string, unknown>): RewardRedemption {
     refunded_at: (row.refunded_at as string | null) ?? null,
     refunded_by: (row.refunded_by as string | null) ?? null,
     refund_reason: (row.refund_reason as string | null) ?? null,
+    is_joint_purchase: Boolean(row.is_joint_purchase),
+    joint_user1_id: (row.joint_user1_id as string | null) ?? null,
+    joint_user1_name: (row.joint_user1_name as string | null) ?? null,
+    joint_user1_amount: Number(row.joint_user1_amount ?? 0),
+    joint_user2_id: (row.joint_user2_id as string | null) ?? null,
+    joint_user2_name: (row.joint_user2_name as string | null) ?? null,
+    joint_user2_amount: Number(row.joint_user2_amount ?? 0),
   };
+}
+
+function buildRefundPrompt(redemption: RewardRedemption, lang: Lang): string {
+  if (redemption.is_joint_purchase) {
+    const u1 = redemption.joint_user1_name ?? '?';
+    const u2 = redemption.joint_user2_name ?? '?';
+    const a1 = redemption.joint_user1_amount;
+    const a2 = redemption.joint_user2_amount;
+    if (lang === 'en') {
+      return [
+        `Refund the shared purchase of "${redemption.reward_title}"?`,
+        '',
+        `${u1} will be refunded ${a1}pt.`,
+        `${u2} will be refunded ${a2}pt.`,
+      ].join('\n');
+    }
+    return [
+      `"${redemption.reward_title}" 같이 결제 구매를 환불할까요?`,
+      '',
+      `${u1}님에게 ${a1}pt가 다시 지급됩니다.`,
+      `${u2}님에게 ${a2}pt가 다시 지급됩니다.`,
+    ].join('\n');
+  }
+  if (lang === 'en') {
+    return `Refund ${redemption.user_name}'s "${redemption.reward_title}" purchase?\n\n${redemption.cost_charged}pt will be returned.`;
+  }
+  return `${redemption.user_name}의 "${redemption.reward_title}" 구매를 환불할까요?\n\n${redemption.cost_charged}pt가 다시 지급됩니다.`;
 }
 
 function formatShortDateTime(value: string): string {
@@ -469,6 +510,11 @@ export default function AdminPage() {
     refundComplete: lang === 'en' ? 'Refund complete' : '환불 완료',
     processing: lang === 'en' ? 'Processing...' : '처리중…',
     noPurchases: lang === 'en' ? 'No purchases yet' : '아직 구매 내역이 없습니다',
+    sharedPayment: lang === 'en' ? 'Shared payment' : '같이 결제',
+    sharedWith: (a: string, ap: number, b: string, bp: number) =>
+      lang === 'en'
+        ? `${a} ${ap}pt + ${b} ${bp}pt`
+        : `${a} ${ap}pt + ${b} ${bp}pt`,
   };
 
   async function loadRewardRedemptions() {
@@ -1469,9 +1515,7 @@ export default function AdminPage() {
 
   const refundRedemption = async (redemption: RewardRedemption) => {
     if (refundInFlightId || redemption.refunded_at) return;
-    const confirmed = confirm(
-      `${redemption.user_name}의 "${redemption.reward_title}" 구매를 환불할까요?\n\n${redemption.cost_charged}pt가 다시 지급됩니다.`
-    );
+    const confirmed = confirm(buildRefundPrompt(redemption, lang));
     if (!confirmed) return;
 
     setRefundInFlightId(redemption.id);
@@ -2868,6 +2912,12 @@ export default function AdminPage() {
                 <div className="space-y-2.5">
                   {rewardRedemptions.map(redemption => {
                     const refunded = Boolean(redemption.refunded_at);
+                    const isJoint = redemption.is_joint_purchase;
+                    const u1 = redemption.joint_user1_name ?? '';
+                    const u2 = redemption.joint_user2_name ?? '';
+                    const buyerLabel = isJoint && u1 && u2
+                      ? `${u1} · ${u2}`
+                      : redemption.user_name;
                     return (
                       <div
                         key={redemption.id}
@@ -2882,12 +2932,18 @@ export default function AdminPage() {
                               {redemption.reward_title}
                             </div>
                             <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-white/54">
-                              <span>{redemption.user_name}</span>
+                              <span>{buyerLabel}</span>
                               <span className="h-1 w-1 rounded-full bg-white/30" />
                               <span>{formatShortDateTime(redemption.redeemed_at)}</span>
                               <span className="h-1 w-1 rounded-full bg-white/30" />
                               <span className="font-bold text-[#FFB830]">{redemption.cost_charged}pt</span>
                             </div>
+                            {isJoint && (
+                              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#5B8EFF]/14 px-2 py-0.5 text-[10px] font-black text-[#8EAFFF]">
+                                <Icons.Users2 size={11} />
+                                {adminCopy.sharedPayment} · {adminCopy.sharedWith(u1, redemption.joint_user1_amount, u2, redemption.joint_user2_amount)}
+                              </div>
+                            )}
                             {refunded && (
                               <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0]">
                                 <Icons.Undo2 size={11} />
