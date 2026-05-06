@@ -35,7 +35,19 @@ function formatActivity(activity: FamilyActivity, lang: Lang): { icon: string; t
   }
   if (activity.type === 'REWARD_PURCHASED') {
     const reward = activity.message ?? (lang === 'en' ? 'a reward' : '리워드');
-    const partner = activity.relatedUserName;
+    const partyParts = activity.relatedUserName?.split(' · ') ?? [];
+    if (partyParts.length >= 2) {
+      // Observer row: someone else's joint purchase, surfaced in the parent's mailbox.
+      const [a, b] = partyParts;
+      return {
+        icon: '🤝',
+        text: lang === 'en'
+          ? `${a} & ${b} bought ${reward} together!`
+          : `${a}님과 ${b}님이 같이 ${reward}을(를) 구매했어요!`,
+        amount: `${activity.amount}pt`,
+      };
+    }
+    const partner = partyParts[0];
     return {
       icon: partner ? '🤝' : '🛍️',
       text: partner
@@ -123,6 +135,12 @@ export function ActivityFeedModal({
               {visibleActivities.map(activity => {
                 const display = formatActivity(activity, lang);
                 const positive = display.amount.startsWith('+');
+                const negative = display.amount.startsWith('-');
+                const amountTone = positive
+                  ? 'text-emerald-300'
+                  : negative
+                    ? 'text-rose-300'
+                    : 'text-[var(--fg-muted)]';
                 return (
                   <div key={activity.id} className="relative flex gap-3">
                     <div className="z-10 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-base">
@@ -135,10 +153,7 @@ export function ActivityFeedModal({
                       <div className="mt-2 flex items-center justify-between gap-3">
                         <span className="text-[11px] text-[var(--fg-muted)]">{formatTime(activity.createdAt, lang)}</span>
                         {display.amount && (
-                          <span className={[
-                            'text-xs font-bold',
-                            positive ? 'text-emerald-300' : 'text-rose-300',
-                          ].join(' ')}>
+                          <span className={['text-xs font-bold', amountTone].join(' ')}>
                             {display.amount}
                           </span>
                         )}
