@@ -15,21 +15,20 @@ import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
+import { getTimeWindowDisplay, type TimeWindow } from '@/lib/timeWindows';
 
 const iconBtnClass =
   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/56 transition-colors hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0]';
 
 
-function formatDate(d: Date, timeOfDay: 'morning' | 'evening', lang: Lang): string {
+function formatDate(d: Date, timeOfDay: TimeWindow, lang: Lang): string {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
   const dayName = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d);
   const dateStr = lang === 'en'
     ? `${new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(d)}  ·  ${dayName}`
     : `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}  ·  ${dayName}`;
-  const tod = timeOfDay === 'morning'
-    ? (lang === 'en' ? ' · 🌅 Morning' : ' · 🌅 아침')
-    : (lang === 'en' ? ' · 🌙 Evening' : ' · 🌙 저녁');
-  return dateStr + tod;
+  const icon = timeOfDay === 'morning' ? '🌅' : timeOfDay === 'afternoon' ? '☀️' : '🌙';
+  return `${dateStr}  ·  ${icon} ${getTimeWindowDisplay(timeOfDay, lang)}`;
 }
 
 export default function Dashboard() {

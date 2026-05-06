@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
+import { getCompletionWindowStart, getCurrentTimeWindow, type TimeWindow } from './timeWindows';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -52,7 +53,7 @@ export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
   | { type: 'badge';    userId: string; badge: Badge };
 
-export type TimeOfDay = 'morning' | 'evening';
+export type TimeOfDay = TimeWindow;
 
 function addDays(d: Date, n: number): Date {
   const r = new Date(d); r.setDate(r.getDate() + n); return r;
@@ -63,7 +64,7 @@ function startOfDayLocal(d: Date): Date {
 }
 
 export function getCurrentTimeOfDay(): TimeOfDay {
-  return new Date().getHours() < 12 ? 'morning' : 'evening';
+  return getCurrentTimeWindow();
 }
 
 export interface WeeklyRecap {
@@ -328,7 +329,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
     const now = new Date();
     const todayStart = startOfDayLocal(now);
-    const noonToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
     const timeOfDay = getCurrentTimeOfDay();
     // Recap window needs three trailing weeks (current week-in-progress so we can show
     // a daily streak that extends into today, plus the two completed weeks we compare).
@@ -498,12 +498,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       for (const c of userTodayComps) {
         const tw = taskMap.get(c.task_id);
         const completedAt = new Date(c.completed_at);
-        if (tw === 'evening') {
-          // 저녁 task: 오늘 12:00 이후 완료만 유효
-          if (completedAt >= noonToday) completedTaskIds.add(c.task_id);
-        } else {
-          // 아침·종일: 오늘 00:00 이후 완료 유효
-          if (completedAt >= todayStart) completedTaskIds.add(c.task_id);
+        if (completedAt >= getCompletionWindowStart(todayStart, tw)) {
+          completedTaskIds.add(c.task_id);
         }
       }
       todayCompletions[u.id] = Array.from(completedTaskIds);

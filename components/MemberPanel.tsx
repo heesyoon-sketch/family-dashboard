@@ -16,6 +16,12 @@ import { ActivityFeedModal } from './ActivityFeedModal';
 import { AvatarStudioModal } from './AvatarStudioModal';
 import { Avatar } from './Avatars';
 import { useLanguage } from '@/contexts/LanguageContext';
+import {
+  getTimeWindowDisplay,
+  isTaskActiveInTimeWindow,
+  taskWindowSortRank,
+  type TimeWindow,
+} from '@/lib/timeWindows';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE']);
 
@@ -117,17 +123,18 @@ export function MemberPanel({ user }: { user: User }) {
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
   const isTaskCurrent = (task: { timeWindow?: string | null }) => {
-    if (!task.timeWindow) return true;
-    if (task.timeWindow === 'morning') return timeOfDay === 'morning';
-    if (task.timeWindow === 'evening') return timeOfDay === 'evening';
-    return true;
+    return isTaskActiveInTimeWindow(task.timeWindow, timeOfDay);
   };
   const currentTasks = tasks.filter(isTaskCurrent);
   // Incomplete first, completed sink to bottom. Stable within each group (original index order).
-  const sortedTasks = [...currentTasks].sort((a, b) => {
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aInactive = isTaskCurrent(a) ? 0 : 1;
+    const bInactive = isTaskCurrent(b) ? 0 : 1;
+    if (aInactive !== bInactive) return aInactive - bInactive;
     const aDone = completed.includes(a.id) ? 1 : 0;
     const bDone = completed.includes(b.id) ? 1 : 0;
-    return aDone - bDone;
+    if (aDone !== bDone) return aDone - bDone;
+    return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
   });
 
   const updateScrollHint = useCallback(() => {
@@ -413,6 +420,8 @@ export function MemberPanel({ user }: { user: User }) {
                     task={task}
                     completed={completed.includes(task.id)}
                     theme={user.theme}
+                    disabled={!isTaskCurrent(task)}
+                    timeWindowDisplay={getTimeWindowDisplay(task.timeWindow as TimeWindow | undefined, lang)}
                   />
                 </motion.div>
               ))}

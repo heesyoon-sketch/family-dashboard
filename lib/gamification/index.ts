@@ -1,6 +1,7 @@
 import { DOW_INDEX, Level, Badge, startOfDay } from '../db';
 import { assertUuid, createBrowserSupabase } from '../supabase';
 import { evaluateCondition } from './conditions';
+import { getCurrentTimeWindow, type TimeWindow } from '../timeWindows';
 
 export const LEVEL_THRESHOLDS = [
   { level: 1,  min: 0,     max: 599 },
@@ -65,8 +66,8 @@ function dayKey(date: Date): string {
   return DOW_INDEX[date.getDay()];
 }
 
-function currentTimeWindow(date: Date): 'morning' | 'evening' {
-  return date.getHours() < 12 ? 'morning' : 'evening';
+function currentTimeWindow(date: Date): TimeWindow {
+  return getCurrentTimeWindow(date);
 }
 
 export async function processCompletion(

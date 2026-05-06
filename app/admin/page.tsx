@@ -1148,7 +1148,7 @@ export default function AdminPage() {
     await saveDaysOfWeek(task, next);
   };
 
-  const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening' | null) => {
+  const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'afternoon' | 'evening' | null) => {
     const supabase = createBrowserSupabase();
     await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindow ?? '' } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindow ?? undefined } : t));
@@ -2427,11 +2427,12 @@ export default function AdminPage() {
                                 </div>
                               </div>
 
-                              <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
+                              <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1 sm:grid-cols-4">
                                 {([
-                                  { value: null, label: t('all_day'), icon: Icons.Clock3 },
-                                  { value: 'morning', label: t('morning'), icon: Icons.Sun },
-                                  { value: 'evening', label: t('evening'), icon: Icons.Moon },
+                                  { value: null, label: t('all_day'), range: '00:00-23:59', icon: Icons.Clock3 },
+                                  { value: 'morning', label: t('morning'), range: '00:00-11:59', icon: Icons.Sun },
+                                  { value: 'afternoon', label: t('afternoon'), range: '12:00-17:59', icon: Icons.CloudSun },
+                                  { value: 'evening', label: t('evening'), range: '18:00-23:59', icon: Icons.Moon },
                                 ] as const).map(opt => {
                                   const isActive = opt.value === null ? !task.timeWindow : task.timeWindow === opt.value;
                                   const TimeIcon = opt.icon;
@@ -2439,14 +2440,19 @@ export default function AdminPage() {
                                     <button
                                       key={String(opt.value)}
                                       onClick={() => setTimeWindow(task, opt.value)}
-                                      className={`flex min-h-9 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-black transition-colors ${
+                                      className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md px-1.5 text-xs font-black transition-colors ${
                                         isActive
                                           ? 'bg-[#4EEDB0] text-[#07120E]'
                                           : 'text-white/45 hover:bg-white/[0.055] hover:text-white'
                                       }`}
                                     >
-                                      <TimeIcon size={13} />
-                                      <span className="truncate">{opt.label}</span>
+                                      <span className="flex min-w-0 items-center gap-1">
+                                        <TimeIcon size={13} />
+                                        <span className="truncate">{opt.label}</span>
+                                      </span>
+                                      <span className={`mt-0.5 text-[9px] font-bold leading-none ${isActive ? 'text-[#07120E]/70' : 'text-white/32'}`}>
+                                        {opt.range}
+                                      </span>
                                     </button>
                                   );
                                 })}

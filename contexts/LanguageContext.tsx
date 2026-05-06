@@ -144,7 +144,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     weekdays: '주중만',
     weekend: '주말만',
     all_day: '종일',
-    morning: '아침',
+    morning: '오전',
     evening: '저녁',
     afternoon: '오후',
     parent_role: '부모',

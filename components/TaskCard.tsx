@@ -39,8 +39,16 @@ function nextCompletionStreak(task: Task, completed: boolean): number {
   return 1;
 }
 
-export function TaskCard({ task, completed, theme }: { task: Task; completed: boolean; theme: ThemeName }) {
-  const { lang, t } = useLanguage();
+interface TaskCardProps {
+  task: Task;
+  completed: boolean;
+  theme: ThemeName;
+  disabled?: boolean;
+  timeWindowDisplay: string;
+}
+
+export function TaskCard({ task, completed, theme, disabled = false, timeWindowDisplay }: TaskCardProps) {
+  const { lang } = useLanguage();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
@@ -77,7 +85,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   };
 
   const fireComplete = async (clientX?: number, clientY?: number) => {
-    if (busy) return;
+    if (busy || disabled) return;
     setBusy(true);
     if (completed) {
       await undoCompletion(task.userId, task.id);
@@ -91,6 +99,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   const snapBack = () => animate(x, 0, { type: 'spring', stiffness: 300, damping: 24 });
 
   const runSwipeAction = (targetX: number, clientX?: number, clientY?: number) => {
+    if (disabled) return;
     animate(x, targetX, {
       duration: 0.14,
       onComplete: () => {
@@ -102,7 +111,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
   };
 
   const handleDragEnd = (_: unknown, info: { offset: { x: number }; point?: { x: number; y: number } }) => {
-    if (busy) {
+    if (busy || disabled) {
       snapBack();
       return;
     }
@@ -149,7 +158,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
     <div className="relative h-full w-full">
 
       {/* Swipe success bg — absolute, zero layout impact */}
-      {!completed && (
+      {!completed && !disabled && (
         <motion.div
           style={{ opacity: completeBgOpacity }}
           className="absolute inset-0 flex items-center justify-end rounded-2xl bg-[var(--success)] pr-4"
@@ -160,7 +169,7 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           </motion.div>
         </motion.div>
       )}
-      {completed && (
+      {completed && !disabled && (
         <motion.div
           style={{ opacity: undoBgOpacity }}
           className="absolute inset-0 flex items-center justify-start rounded-2xl bg-[var(--accent)] pl-4"
@@ -176,17 +185,18 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
           ring-1 ring-inset paints inside the border-box → zero layout contribution.
           Both states (active/completed) carry a ring, so box-model is always identical. */}
       <motion.div
-        drag="x"
+        drag={disabled ? false : 'x'}
         dragConstraints={completed ? { left: -SWIPE_LIMIT_PX, right: 0 } : { left: 0, right: SWIPE_LIMIT_PX }}
         dragDirectionLock
         dragElastic={0.08}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
         style={{ x, touchAction: 'pan-y', ...glowStyle }}
-        whileTap={{ scale: 0.98 }}
+        whileTap={disabled ? undefined : { scale: 0.98 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
-          'px-3.5 py-2.5 flex items-center gap-3 cursor-grab active:cursor-grabbing md:px-2.5 md:py-2 md:gap-2',
+          'px-3.5 py-2.5 flex items-center gap-3 md:px-2.5 md:py-2 md:gap-2',
+          disabled ? 'cursor-not-allowed opacity-50 saturate-75' : 'cursor-grab active:cursor-grabbing',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
@@ -210,13 +220,18 @@ export function TaskCard({ task, completed, theme }: { task: Task; completed: bo
             {task.title}
           </div>
           <div className={[
-            'text-xs mt-0.5 truncate flex items-center gap-1 md:text-[11px]',
+            'text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px]',
             tier >= 2 && !completed
               ? tier === 3 ? 'text-amber-400' : 'text-orange-400'
               : 'text-[var(--fg-muted)]',
           ].join(' ')}>
             <span>+{displayPts}pt</span>
-            {task.timeWindow && <span>· {t(task.timeWindow as 'morning' | 'afternoon' | 'evening')}</span>}
+            <span className="min-w-0 truncate">· {timeWindowDisplay}</span>
+            {disabled && (
+              <span className="shrink-0 rounded-full bg-[var(--border)]/70 px-1 py-0.5 text-[9px] font-bold leading-none">
+                {lang === 'en' ? 'Locked' : '대기'}
+              </span>
+            )}
             {streak > 0 && !completed && (
               tier === 3
                 ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>🔥 {lang === 'en' ? `${streak}d` : `${streak}일`}</motion.span>
