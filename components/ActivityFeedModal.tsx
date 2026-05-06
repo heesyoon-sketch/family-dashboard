@@ -11,7 +11,59 @@ const MAILBOX_ACTIVITY_TYPES = new Set<FamilyActivity['type']>([
   'SYSTEM_MESSAGE',
 ]);
 
-function formatActivity(activity: FamilyActivity, lang: Lang): { icon: string; text: string; amount: string } {
+type JointPurchaseInfo = {
+  payerName: string;
+  partnerName: string;
+  payerAmount: number;
+  partnerAmount: number;
+  totalAmount: number;
+};
+
+function asNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+}
+
+function parseJointPurchaseInfo(value?: string): JointPurchaseInfo | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const compactMatch = raw.match(/^(.+?)\s+(\d+)pt\s+\+\s+(.+?)\s+(\d+)pt$/);
+  if (compactMatch) {
+    const payerAmount = asNumber(compactMatch[2]);
+    const partnerAmount = asNumber(compactMatch[4]);
+    return {
+      payerName: compactMatch[1],
+      partnerName: compactMatch[3],
+      payerAmount,
+      partnerAmount,
+      totalAmount: payerAmount + partnerAmount,
+    };
+  }
+  if (!raw.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const payerName = typeof parsed.payerName === 'string' ? parsed.payerName : '';
+    const partnerName = typeof parsed.partnerName === 'string' ? parsed.partnerName : '';
+    if (!payerName || !partnerName) return null;
+    const payerAmount = asNumber(parsed.payerAmount);
+    const partnerAmount = asNumber(parsed.partnerAmount);
+    return {
+      payerName,
+      partnerName,
+      payerAmount,
+      partnerAmount,
+      totalAmount: asNumber(parsed.totalAmount) || payerAmount + partnerAmount,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isObserverRewardActivity(activity: FamilyActivity): boolean {
+  return activity.type === 'REWARD_PURCHASED' && Boolean(activity.relatedUserName?.includes(' · '));
+}
+
+function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { icon: string; text: string; amount: string } {
   const family = lang === 'en' ? 'Family' : '가족';
   if (activity.type === 'GIFT_RECEIVED') {
     const name = activity.relatedUserName ?? family;
@@ -35,25 +87,23 @@ function formatActivity(activity: FamilyActivity, lang: Lang): { icon: string; t
   }
   if (activity.type === 'REWARD_PURCHASED') {
     const reward = activity.message ?? (lang === 'en' ? 'a reward' : '리워드');
-    const partyParts = activity.relatedUserName?.split(' · ') ?? [];
-    if (partyParts.length >= 2) {
-      // Observer row: someone else's joint purchase, surfaced in the parent's mailbox.
-      const [a, b] = partyParts;
+    const joint = parseJointPurchaseInfo(activity.relatedUserName);
+    if (joint) {
       return {
         icon: '🤝',
         text: lang === 'en'
-          ? `${a} & ${b} bought ${reward} together!`
-          : `${a}님과 ${b}님이 같이 ${reward}을(를) 구매했어요!`,
-        amount: `${activity.amount}pt`,
+          ? `${reward} with ${joint.partnerName}. ${joint.payerName} ${joint.payerAmount}pt + ${joint.partnerName} ${joint.partnerAmount}pt.`
+          : `${joint.partnerName}님과 같이 ${reward}을(를) 구매했어요. ${joint.payerName} ${joint.payerAmount}pt + ${joint.partnerName} ${joint.partnerAmount}pt.`,
+        amount: `-${joint.payerAmount || activity.amount}pt`,
       };
     }
-    const partner = partyParts[0];
+    const partner = activity.relatedUserName;
     return {
       icon: partner ? '🤝' : '🛍️',
       text: partner
         ? (lang === 'en'
-            ? `Bought ${reward} with ${partner}!`
-            : `${partner}님과 같이 ${reward}을(를) 구매했어요!`)
+            ? `${user.name} bought ${reward} with ${partner}. ${user.name} paid ${activity.amount}pt.`
+            : `${user.name}님이 ${partner}님과 같이 ${reward}을(를) 구매했어요. ${user.name} ${activity.amount}pt.`)
         : (lang === 'en'
             ? `Bought ${reward}!`
             : `${reward}을(를) 구매했어요!`),
@@ -95,7 +145,9 @@ export function ActivityFeedModal({
   onClose: () => void;
 }) {
   const { lang, t } = useLanguage();
-  const visibleActivities = activities.filter(activity => MAILBOX_ACTIVITY_TYPES.has(activity.type));
+  const visibleActivities = activities.filter(activity =>
+    MAILBOX_ACTIVITY_TYPES.has(activity.type) && !isObserverRewardActivity(activity)
+  );
 
   return (
     <div
@@ -133,7 +185,7 @@ export function ActivityFeedModal({
             <div className="relative space-y-3">
               <div className="absolute bottom-3 left-[18px] top-3 w-px bg-[var(--border)]" />
               {visibleActivities.map(activity => {
-                const display = formatActivity(activity, lang);
+                const display = formatActivity(activity, lang, user);
                 const positive = display.amount.startsWith('+');
                 const negative = display.amount.startsWith('-');
                 const amountTone = positive

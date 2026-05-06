@@ -16,18 +16,18 @@ update public.family_activities fa
 set related_user_name = partner.name
 from public.reward_redemptions rr
 left join public.rewards r on r.id = rr.reward_id
-join public.users partner on (
-  (fa.user_id = rr.joint_user1_id and partner.id::uuid = rr.joint_user2_id)
-  or
-  (fa.user_id = rr.joint_user2_id and partner.id::uuid = rr.joint_user1_id)
-)
+join public.users partner on true
 where fa.type = 'REWARD_PURCHASED'
   and fa.related_user_name is null
   and coalesce(rr.is_joint_purchase, false) = true
   and abs(extract(epoch from (fa.created_at - rr.redeemed_at))) < 300
   and (fa.message is null or coalesce(r.title, '(deleted reward)') = fa.message)
   and (
-    (fa.user_id = rr.joint_user1_id and fa.amount = coalesce(rr.joint_user1_amount, 0))
+    (fa.user_id = rr.joint_user1_id
+      and partner.id::uuid = rr.joint_user2_id
+      and fa.amount = coalesce(rr.joint_user1_amount, 0))
     or
-    (fa.user_id = rr.joint_user2_id and fa.amount = coalesce(rr.joint_user2_amount, 0))
+    (fa.user_id = rr.joint_user2_id
+      and partner.id::uuid = rr.joint_user1_id
+      and fa.amount = coalesce(rr.joint_user2_amount, 0))
   );

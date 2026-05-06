@@ -19,6 +19,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE']);
 
+function isObserverRewardActivity(activity: { type: string; relatedUserName?: string }): boolean {
+  return activity.type === 'REWARD_PURCHASED' && Boolean(activity.relatedUserName?.includes(' · '));
+}
+
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
 const pulse = {
@@ -101,7 +105,9 @@ export function MemberPanel({ user }: { user: User }) {
   );
 
   const spendableBalance = level?.spendableBalance ?? 0;
-  const mailboxActivities = activities.filter(activity => MAILBOX_ACTIVITY_TYPES.has(activity.type));
+  const mailboxActivities = activities.filter(activity =>
+    MAILBOX_ACTIVITY_TYPES.has(activity.type) && !isObserverRewardActivity(activity)
+  );
   const hasRecentUnreadActivity = mailboxActivities.some(activity => {
     const created = activity.createdAt.getTime();
     return created >= recentCutoff && created > activityReadAt;
