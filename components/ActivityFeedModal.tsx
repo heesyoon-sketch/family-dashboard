@@ -8,6 +8,7 @@ const MAILBOX_ACTIVITY_TYPES = new Set<FamilyActivity['type']>([
   'GIFT_SENT',
   'GIFT_RECEIVED',
   'REWARD_PURCHASED',
+  'REWARD_REFUNDED',
   'SYSTEM_MESSAGE',
 ]);
 
@@ -108,6 +109,26 @@ function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { ico
             ? `Bought ${reward}!`
             : `${reward}을(를) 구매했어요!`),
       amount: `-${activity.amount}pt`,
+    };
+  }
+  if (activity.type === 'REWARD_REFUNDED') {
+    const reward = activity.message ?? (lang === 'en' ? 'a reward' : '리워드');
+    const joint = parseJointPurchaseInfo(activity.relatedUserName);
+    if (joint) {
+      return {
+        icon: '↩️',
+        text: lang === 'en'
+          ? `Refunded ${reward}. ${joint.payerName} ${joint.payerAmount}pt + ${joint.partnerName} ${joint.partnerAmount}pt.`
+          : `${reward} 환불 완료. ${joint.payerName} ${joint.payerAmount}pt + ${joint.partnerName} ${joint.partnerAmount}pt가 돌아왔어요.`,
+        amount: `+${activity.amount}pt`,
+      };
+    }
+    return {
+      icon: '↩️',
+      text: lang === 'en'
+        ? `Refunded ${reward}. ${activity.amount}pt was returned.`
+        : `${reward} 환불 완료. ${activity.amount}pt가 돌아왔어요.`,
+      amount: `+${activity.amount}pt`,
     };
   }
   if (activity.type === 'SYSTEM_MESSAGE') {

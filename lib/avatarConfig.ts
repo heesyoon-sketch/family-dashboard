@@ -4,10 +4,8 @@
  * Storage strategy:
  *   - Per-user config is persisted in localStorage. Kids share a kiosk
  *     laptop (see CLAUDE.md memory), so device-local is acceptable for v1.
- *   - Point deductions go through `spendPointsOnCosmetic` which writes
- *     directly to the existing `levels.spendable_balance` column with an
- *     optimistic-concurrency check, then logs a SYSTEM_MESSAGE activity.
- *     No migration required.
+ *   - Point deductions go through `spendPointsOnCosmetic`, backed by the
+ *     purchase_avatar_cosmetic RPC so balance checks and debits are atomic.
  */
 
 import { createBrowserSupabase } from './supabase';
@@ -129,12 +127,14 @@ function readFromStorage(userId: string): AvatarConfig {
     const raw = localStorage.getItem(STORAGE_KEY(userId));
     if (!raw) return DEFAULT_CONFIG;
     const parsed = JSON.parse(raw) as Partial<AvatarConfig>;
+    const extras = Array.isArray(parsed.extras) ? parsed.extras as AvatarExtra[] : [];
+    const owned = Array.isArray(parsed.owned) ? parsed.owned as AvatarExtra[] : [];
     return {
       kind:    (parsed.kind ?? DEFAULT_CONFIG.kind) as AvatarKind,
       tint:    parsed.tint ?? DEFAULT_CONFIG.tint,
       bg:      parsed.bg ?? DEFAULT_CONFIG.bg,
-      extras:  Array.isArray(parsed.extras) ? parsed.extras as AvatarExtra[] : [],
-      owned:   Array.isArray(parsed.owned)  ? parsed.owned  as AvatarExtra[] : [],
+      extras,
+      owned:   Array.from(new Set([...owned, ...extras])),
     };
   } catch {
     return DEFAULT_CONFIG;
@@ -177,10 +177,9 @@ export function bgById(id: string): BgOption {
 
 
 /**
- * Atomically deducts `cost` from this user's spendable_balance and logs
- * a SYSTEM_MESSAGE activity describing the cosmetic purchase. Throws if
- * the balance is insufficient or the row was changed by a concurrent
- * write.
+ * Deducts `cost` from this user's spendable_balance and logs a SYSTEM_MESSAGE
+ * activity describing the cosmetic purchase. Throws if the balance is
+ * insufficient.
  *
  * Returns the new balance.
  */
@@ -192,37 +191,19 @@ export async function spendPointsOnCosmetic(
 ): Promise<number> {
   if (cost <= 0) return -1;
   const supabase = createBrowserSupabase();
+  const safeCost = Math.max(1, Math.round(cost));
 
-  const { data: lvlRow, error: readErr } = await supabase
-    .from('levels')
-    .select('spendable_balance')
-    .eq('user_id', userId)
-    .single();
-  if (readErr || !lvlRow) throw new Error('잔액을 확인할 수 없어요');
-
-  const current = Number(lvlRow.spendable_balance ?? 0);
-  if (current < cost) throw new Error('포인트가 부족해요');
-
-  const next = current - cost;
-  const { data: updRows, error: updErr } = await supabase
-    .from('levels')
-    .update({ spendable_balance: next, updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .eq('spendable_balance', current) // optimistic lock
-    .select('spendable_balance');
-  if (updErr) throw new Error(updErr.message);
-  if (!updRows || updRows.length === 0) {
-    throw new Error('잔액이 방금 바뀌었어요. 다시 시도해주세요.');
-  }
-
-  // Best-effort activity log; not fatal if it fails.
-  await supabase.from('family_activities').insert({
-    family_id: familyId,
-    user_id: userId,
-    type: 'SYSTEM_MESSAGE',
-    amount: cost,
-    message: `🎨 ${cosmeticLabel}`,
+  const { data, error } = await supabase.rpc('purchase_avatar_cosmetic', {
+    p_user_id: userId,
+    p_cost: safeCost,
+    p_cosmetic_label: cosmeticLabel,
   });
+  if (error) throw new Error(error.message);
 
-  return next;
+  const result = data as { spendableBalance?: number; spendable_balance?: number } | null;
+  const nextBalance = Number(result?.spendableBalance ?? result?.spendable_balance);
+  if (!Number.isFinite(nextBalance)) throw new Error('잔액을 확인할 수 없어요');
+
+  void familyId;
+  return nextBalance;
 }

@@ -72,7 +72,15 @@ export function AvatarStudioModal({
     failed:       lang === 'en' ? 'Purchase failed' : '구매 실패',
     balance:      lang === 'en' ? 'Your points' : '내 포인트',
     cheapHint:    lang === 'en' ? 'Cosmetics are cheap — try one!' : '꾸미기는 저렴해요. 하나 사볼까요?',
+    equippedItems: lang === 'en' ? 'Equipped' : '장착 아이템',
+    noneEquipped:  lang === 'en' ? 'No cosmetics equipped' : '아직 장착한 꾸미기 아이템이 없어요',
+    tapPreview:    lang === 'en' ? 'Preview updates immediately' : '고르면 바로 미리보기에 반영돼요',
   }), [lang, user.name]);
+
+  const equippedExtras = useMemo(
+    () => EXTRA_CATALOG.filter(item => config.extras.includes(item.id)),
+    [config.extras],
+  );
 
   const setKind     = (kind: AvatarKind) => setConfig(c => ({ ...c, kind }));
   const setTint     = (tint: string)     => setConfig(c => ({ ...c, tint }));
@@ -153,8 +161,35 @@ export function AvatarStudioModal({
 
           {/* preview */}
           <div className="px-4">
-            <div className="relative mx-auto aspect-square w-[210px] overflow-hidden rounded-3xl">
+            <div className="relative mx-auto grid aspect-square w-[220px] place-items-center overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
               <Avatar config={config} size={210} />
+            </div>
+            <div className="mx-auto mt-2 w-full max-w-[360px] rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]/70 px-3 py-2">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wide text-[var(--fg-muted)]">
+                  {t.equippedItems}
+                </span>
+                <span className="text-[10px] font-semibold text-[var(--fg-muted)]">
+                  {t.tapPreview}
+                </span>
+              </div>
+              {equippedExtras.length === 0 ? (
+                <div className="truncate text-[11px] font-semibold text-[var(--fg-muted)]">
+                  {t.noneEquipped}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {equippedExtras.map(item => (
+                    <span
+                      key={item.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-glow)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]"
+                    >
+                      <span>{item.emoji}</span>
+                      {lang === 'en' ? item.en : item.ko}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -300,8 +335,8 @@ export function AvatarStudioModal({
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <div className={`h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[var(--bg)] ring-1 ring-[var(--border)] ${owned || canAfford ? '' : 'opacity-55 grayscale'}`}>
-                            <Avatar config={previewConfig} size={48} showBg={false} />
+                          <div className={`grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[var(--bg)] ring-1 ring-[var(--border)] ${owned || canAfford ? '' : 'opacity-55 grayscale'}`}>
+                            <Avatar config={previewConfig} size={62} />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1">

@@ -69,7 +69,7 @@ export interface Reward {
   is_sold_out?: boolean;
 }
 
-export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';
+export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'REWARD_REFUNDED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';
 
 export interface FamilyActivity {
   id: string;

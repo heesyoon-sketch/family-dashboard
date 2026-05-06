@@ -375,7 +375,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .select('*')
         .eq('family_id', resolvedFamilyId)
         .in('user_id', safeIds)
-        .in('type', ['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE'])
+        .in('type', ['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE'])
         .order('created_at', { ascending: false })
         .limit(200),
     ]);

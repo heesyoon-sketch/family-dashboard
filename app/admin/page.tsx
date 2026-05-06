@@ -517,10 +517,6 @@ export default function AdminPage() {
         : `${a} ${ap}pt + ${b} ${bp}pt`,
     sharedBuyer: (a: string, b: string) =>
       lang === 'en' ? `${a} with ${b}` : `${a} · ${b} 공동 구매`,
-    refundShares: (a: string, ap: number, b: string, bp: number) =>
-      lang === 'en'
-        ? `Refund returns exactly ${ap}pt to ${a} and ${bp}pt to ${b}.`
-        : `환불하면 ${a}님에게 ${ap}pt, ${b}님에게 ${bp}pt가 정확히 돌아갑니다.`,
   };
 
   async function loadRewardRedemptions() {
@@ -2949,14 +2945,9 @@ export default function AdminPage() {
                               )}
                             </div>
                             {isJoint && (
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#5B8EFF]/14 px-2 py-0.5 text-[10px] font-black text-[#8EAFFF]">
-                                  <Icons.Users2 size={11} />
-                                  {adminCopy.sharedPayment} · {adminCopy.sharedWith(u1, redemption.joint_user1_amount, u2, redemption.joint_user2_amount)}
-                                </span>
-                                <span className="inline-flex rounded-full bg-[#4EEDB0]/10 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0]">
-                                  {adminCopy.refundShares(u1, redemption.joint_user1_amount, u2, redemption.joint_user2_amount)}
-                                </span>
+                              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#5B8EFF]/14 px-2 py-0.5 text-[10px] font-black text-[#8EAFFF]">
+                                <Icons.Users2 size={11} />
+                                {adminCopy.sharedPayment} · {adminCopy.sharedWith(u1, redemption.joint_user1_amount, u2, redemption.joint_user2_amount)}
                               </div>
                             )}
                             {refunded && (

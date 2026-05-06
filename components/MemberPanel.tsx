@@ -17,7 +17,7 @@ import { AvatarStudioModal } from './AvatarStudioModal';
 import { Avatar } from './Avatars';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'SYSTEM_MESSAGE']);
+const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE']);
 
 function isObserverRewardActivity(activity: { type: string; relatedUserName?: string }): boolean {
   return activity.type === 'REWARD_PURCHASED' && Boolean(activity.relatedUserName?.includes(' · '));
