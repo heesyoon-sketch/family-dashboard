@@ -264,6 +264,7 @@ export function MemberPanel({ user }: { user: User }) {
                 mood={avatarMood}
                 size="sm"
                 completedToday={completedToday}
+                timeWindow={timeOfDay}
                 label={`${user.name} avatar`}
                 className="h-9 w-9"
                 fallback={avatarSrc ? (
