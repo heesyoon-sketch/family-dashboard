@@ -301,7 +301,7 @@ const landingCopy: Record<LandingLocale, {
         {
           icon: Trophy,
           title: '포인트, XP, 연속 달성',
-          body: '아이들은 꾸준함이 레벨, 보유 포인트, 보너스 배수, 개인 최고 기록으로 바뀌는 과정을 볼 수 있습니다.',
+          body: '아이들은 3일 연속 1.2배, 7일 연속 1.5배 보너스와 함께 꾸준함이 레벨, 보유 포인트, 개인 최고 기록으로 바뀌는 과정을 볼 수 있습니다.',
         },
         {
           icon: Gift,

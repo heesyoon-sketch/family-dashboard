@@ -12,6 +12,7 @@ import { playCompletionSound } from '@/lib/sound';
 import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { applyStreakMultiplier, getStreakBonusTier, getStreakMultiplier } from '@/lib/streakBonus';
 
 const SWIPE_TRIGGER_PX = 54;
 const SWIPE_LIMIT_PX = 88;
@@ -136,9 +137,9 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
   const streak      = nextCompletionStreak(task, completed);
-  const tier        = streak >= 3 ? 3 : streak >= 2 ? 2 : 1;
-  const multiplier  = tier === 3 ? 1.5 : tier === 2 ? 1.2 : 1;
-  const displayPts  = tier > 1 ? Math.round(task.basePoints * multiplier) : task.basePoints;
+  const tier        = getStreakBonusTier(streak);
+  const multiplier  = getStreakMultiplier(streak);
+  const displayPts  = tier > 1 ? applyStreakMultiplier(task.basePoints, streak) : task.basePoints;
   const extraFlames = tier === 3 ? 2 : tier === 2 ? 1 : 0;
   const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
   const ringClass   = completed
