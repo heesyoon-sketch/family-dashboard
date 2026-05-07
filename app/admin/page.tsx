@@ -2430,8 +2430,8 @@ export default function AdminPage() {
 
                               <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
                                 {([
-                                  { value: 'morning', label: t('morning'), range: '00:00-11:59', icon: Icons.Sun },
-                                  { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '12:00-23:59', icon: Icons.Moon },
+                                  { value: 'morning', label: t('morning'), range: '00:00-12:59', icon: Icons.Sun },
+                                  { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '13:00-23:59', icon: Icons.Moon },
                                 ] as const).map(opt => {
                                   const isActive = normalizeTimeWindow(task.timeWindow) === opt.value;
                                   const TimeIcon = opt.icon;

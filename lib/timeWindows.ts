@@ -8,7 +8,7 @@ export const TIME_WINDOW_ORDER: Record<TimeWindow, number> = {
 
 export function getCurrentTimeWindow(date = new Date()): TimeWindow {
   const hour = date.getHours();
-  if (hour < 12) return 'morning';
+  if (hour < 13) return 'morning';
   return 'evening';
 }
 
@@ -30,7 +30,7 @@ export function taskWindowSortRank(taskWindow: string | null | undefined): numbe
 export function getCompletionWindowStart(dayStart: Date, taskWindow: string | null | undefined): Date {
   const start = new Date(dayStart);
   if (normalizeTimeWindow(taskWindow) === 'evening') {
-    start.setHours(12, 0, 0, 0);
+    start.setHours(13, 0, 0, 0);
   }
   return start;
 }
@@ -45,7 +45,7 @@ export function getTimeWindowLabel(
 }
 
 export function getTimeWindowRange(taskWindow: TimeWindow | null | undefined): string {
-  return normalizeTimeWindow(taskWindow) === 'morning' ? '00:00-11:59' : '12:00-23:59';
+  return normalizeTimeWindow(taskWindow) === 'morning' ? '00:00-12:59' : '13:00-23:59';
 }
 
 export function getTimeWindowDisplay(
