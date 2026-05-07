@@ -19,6 +19,7 @@ import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
+import { normalizeTimeWindow } from '@/lib/timeWindows';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -376,7 +377,7 @@ function mapTask(r: Record<string, unknown>): Task {
     basePoints: r.base_points as number,
     recurrence: r.recurrence as string,
     daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence as string),
-    timeWindow: (r.time_window as 'morning' | 'afternoon' | 'evening' | null) ?? undefined,
+    timeWindow: normalizeTimeWindow(r.time_window as string | null | undefined),
     active: r.active as number,
     sortOrder: r.sort_order as number,
     streakCount: (r.streak_count as number | null) ?? 0,
@@ -1148,10 +1149,10 @@ export default function AdminPage() {
     await saveDaysOfWeek(task, next);
   };
 
-  const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'afternoon' | 'evening' | null) => {
+  const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening') => {
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindow ?? '' } });
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindow ?? undefined } : t));
+    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindow } });
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow } : t));
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -2427,14 +2428,12 @@ export default function AdminPage() {
                                 </div>
                               </div>
 
-                              <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1 sm:grid-cols-4">
+                              <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
                                 {([
-                                  { value: null, label: t('all_day'), range: '00:00-23:59', icon: Icons.Clock3 },
                                   { value: 'morning', label: t('morning'), range: '00:00-11:59', icon: Icons.Sun },
-                                  { value: 'afternoon', label: t('afternoon'), range: '12:00-17:59', icon: Icons.CloudSun },
-                                  { value: 'evening', label: t('evening'), range: '18:00-23:59', icon: Icons.Moon },
+                                  { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '12:00-23:59', icon: Icons.Moon },
                                 ] as const).map(opt => {
-                                  const isActive = opt.value === null ? !task.timeWindow : task.timeWindow === opt.value;
+                                  const isActive = normalizeTimeWindow(task.timeWindow) === opt.value;
                                   const TimeIcon = opt.icon;
                                   return (
                                     <button

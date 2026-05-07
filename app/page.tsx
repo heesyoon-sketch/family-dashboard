@@ -27,7 +27,7 @@ function formatDate(d: Date, timeOfDay: TimeWindow, lang: Lang): string {
   const dateStr = lang === 'en'
     ? `${new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(d)}  ·  ${dayName}`
     : `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}  ·  ${dayName}`;
-  const icon = timeOfDay === 'morning' ? '🌅' : timeOfDay === 'afternoon' ? '☀️' : '🌙';
+  const icon = timeOfDay === 'morning' ? '🌅' : '🌙';
   return `${dateStr}  ·  ${icon} ${getTimeWindowDisplay(timeOfDay, lang)}`;
 }
 

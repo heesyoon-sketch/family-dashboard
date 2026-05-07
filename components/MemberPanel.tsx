@@ -127,7 +127,7 @@ export function MemberPanel({ user }: { user: User }) {
   };
   const currentTasks = tasks.filter(isTaskCurrent);
   // Incomplete first, completed sink to bottom. Stable within each group (original index order).
-  const sortedTasks = [...tasks].sort((a, b) => {
+  const sortedTasks = [...currentTasks].sort((a, b) => {
     const aInactive = isTaskCurrent(a) ? 0 : 1;
     const bInactive = isTaskCurrent(b) ? 0 : 1;
     if (aInactive !== bInactive) return aInactive - bInactive;

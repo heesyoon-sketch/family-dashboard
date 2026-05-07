@@ -49,7 +49,7 @@ export interface Task {
   basePoints: number;
   recurrence: string;      // legacy; kept for backward-compat reads
   daysOfWeek: DayOfWeek[]; // authoritative schedule; derived from recurrence if null in DB
-  timeWindow?: 'morning' | 'afternoon' | 'evening';
+  timeWindow?: 'morning' | 'evening';
   active: number; // 0 | 1
   sortOrder: number;
   streakCount: number;

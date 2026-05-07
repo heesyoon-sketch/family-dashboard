@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
-import { getCompletionWindowStart, getCurrentTimeWindow, type TimeWindow } from './timeWindows';
+import { getCompletionWindowStart, getCurrentTimeWindow, normalizeTimeWindow, type TimeWindow } from './timeWindows';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -417,7 +417,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         title: r.title, icon: r.icon, difficulty: r.difficulty,
         basePoints: r.base_points, recurrence: r.recurrence,
         daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence),
-        timeWindow: r.time_window ?? undefined, active: r.active, sortOrder: r.sort_order,
+        timeWindow: normalizeTimeWindow(r.time_window), active: r.active, sortOrder: r.sort_order,
         streakCount: r.streak_count ?? 0,
         lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at) : null,
       };

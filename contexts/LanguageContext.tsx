@@ -42,10 +42,8 @@ export type TranslationKey =
   | 'daily'
   | 'weekdays'
   | 'weekend'
-  | 'all_day'
   | 'morning'
   | 'evening'
-  | 'afternoon'
   | 'parent_role'
   | 'child_role'
   | 'pin_incorrect'
@@ -143,10 +141,8 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     daily: '매일',
     weekdays: '주중만',
     weekend: '주말만',
-    all_day: '종일',
     morning: '오전',
     evening: '저녁',
-    afternoon: '오후',
     parent_role: '부모',
     child_role: '자녀',
     pin_incorrect: 'PIN이 올바르지 않습니다',
@@ -243,10 +239,8 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     daily: 'Daily',
     weekdays: 'Weekdays only',
     weekend: 'Weekends only',
-    all_day: 'All day',
     morning: 'Morning',
     evening: 'Evening',
-    afternoon: 'Afternoon',
     parent_role: 'Parent',
     child_role: 'Child',
     pin_incorrect: 'Incorrect PIN',
