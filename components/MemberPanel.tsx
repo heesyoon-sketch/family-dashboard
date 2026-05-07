@@ -15,6 +15,7 @@ import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
 import { AvatarStudioModal } from './AvatarStudioModal';
 import { Avatar } from './Avatars';
+import { Avatar3DCard } from './Avatar3DCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getTimeWindowDisplay,
@@ -164,6 +165,8 @@ export function MemberPanel({ user }: { user: User }) {
   const totalCount = currentTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
+  const completedToday = completed.length > 0;
+  const avatarMood = allDone ? 'happy' : dailyStreakAtRisk ? 'sleepy' : 'idle';
 
   // Motivational message
   let motiveMsg: string | null = null;
@@ -257,8 +260,13 @@ export function MemberPanel({ user }: { user: User }) {
         <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5 max-[380px]:px-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
             <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:basis-[calc(100%-42px)]">
-              <div className="relative h-9 w-9 shrink-0">
-                {avatarSrc ? (
+              <Avatar3DCard
+                mood={avatarMood}
+                size="sm"
+                completedToday={completedToday}
+                label={`${user.name} avatar`}
+                className="h-9 w-9"
+                fallback={avatarSrc ? (
                   <Image
                     src={avatarSrc}
                     alt={user.name}
@@ -272,7 +280,7 @@ export function MemberPanel({ user }: { user: User }) {
                     {user.name[0]}
                   </div>
                 )}
-              </div>
+              />
 
               <div className="min-w-0 flex-1 overflow-hidden pr-0.5">
                 <div className="flex min-w-0 items-center gap-1.5 max-[380px]:gap-1">
