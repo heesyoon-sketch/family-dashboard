@@ -19,7 +19,7 @@ import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
-import { normalizeTimeWindow } from '@/lib/timeWindows';
+import { normalizeTimeWindow, type TaskTimeWindow, type TimeWindow } from '@/lib/timeWindows';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -1149,10 +1149,34 @@ export default function AdminPage() {
     await saveDaysOfWeek(task, next);
   };
 
-  const setTimeWindow = async (task: Task, timeWindow: 'morning' | 'evening') => {
+  const selectedTimeWindows = (taskWindow: string | null | undefined): TimeWindow[] => {
+    const normalized = normalizeTimeWindow(taskWindow);
+    if (normalized === 'both') return ['morning', 'evening'];
+    return [normalized];
+  };
+
+  const timeWindowsToTaskWindow = (windows: TimeWindow[]): TaskTimeWindow => {
+    return windows.includes('morning') && windows.includes('evening')
+      ? 'both'
+      : windows.includes('morning')
+        ? 'morning'
+        : 'evening';
+  };
+
+  const toggleTimeWindow = async (task: Task, timeWindow: TimeWindow) => {
+    const current = selectedTimeWindows(task.timeWindow);
+    const active = current.includes(timeWindow);
+    if (active && current.length === 1) {
+      toast.error(lang === 'en' ? 'Select at least one time window.' : '시간대를 하나 이상 선택해주세요.');
+      return;
+    }
+    const nextWindows = active
+      ? current.filter(value => value !== timeWindow)
+      : (['morning', 'evening'] as TimeWindow[]).filter(value => current.includes(value) || value === timeWindow);
+    const timeWindowValue = timeWindowsToTaskWindow(nextWindows);
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindow } });
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow } : t));
+    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindowValue } });
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindowValue } : t));
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -2433,12 +2457,12 @@ export default function AdminPage() {
                                   { value: 'morning', label: t('morning'), range: '00:00-12:59', icon: Icons.Sun },
                                   { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '13:00-23:59', icon: Icons.Moon },
                                 ] as const).map(opt => {
-                                  const isActive = normalizeTimeWindow(task.timeWindow) === opt.value;
+                                  const isActive = selectedTimeWindows(task.timeWindow).includes(opt.value);
                                   const TimeIcon = opt.icon;
                                   return (
                                     <button
                                       key={String(opt.value)}
-                                      onClick={() => setTimeWindow(task, opt.value)}
+                                      onClick={() => toggleTimeWindow(task, opt.value)}
                                       className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md px-1.5 text-xs font-black transition-colors ${
                                         isActive
                                           ? 'bg-[#4EEDB0] text-[#07120E]'

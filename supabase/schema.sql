@@ -29,7 +29,7 @@ create table if not exists public.tasks (
   base_points  integer not null default 10,
   recurrence   text not null default 'daily',
   days_of_week text[],  -- ['MON','TUE','WED','THU','FRI','SAT','SUN']; null = use recurrence fallback
-  time_window  text not null default 'evening' check (time_window in ('morning', 'evening')),
+  time_window  text not null default 'evening' check (time_window in ('morning', 'evening', 'both')),
   active       integer not null default 1,
   sort_order   integer not null default 0
 );

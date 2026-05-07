@@ -2,7 +2,14 @@ import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
-import { getCompletionWindowStart, getCurrentTimeWindow, normalizeTimeWindow, type TimeWindow } from './timeWindows';
+import {
+  getCompletionWindowEnd,
+  getCompletionWindowStart,
+  getCurrentTimeWindow,
+  isTaskActiveInTimeWindow,
+  normalizeTimeWindow,
+  type TimeWindow,
+} from './timeWindows';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -491,14 +498,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         };
       }
 
-      // timeWindow별 기준 시각으로 todayCompletions 필터링
+      // 현재 dashboard window의 완료만 반영한다. "both" task는 오전/오후·저녁을 따로 완료할 수 있다.
       const taskMap = new Map(tasksByUser[u.id].map(t => [t.id, t.timeWindow]));
       const userTodayComps = (cTodayRes.data ?? []).filter(c => c.user_id === u.id);
       const completedTaskIds = new Set<string>();
       for (const c of userTodayComps) {
         const tw = taskMap.get(c.task_id);
+        if (!isTaskActiveInTimeWindow(tw, timeOfDay)) continue;
         const completedAt = new Date(c.completed_at);
-        if (completedAt >= getCompletionWindowStart(todayStart, tw)) {
+        const windowStart = getCompletionWindowStart(todayStart, tw, timeOfDay);
+        const windowEnd = getCompletionWindowEnd(todayStart, tw, timeOfDay);
+        if (completedAt >= windowStart && completedAt < windowEnd) {
           completedTaskIds.add(c.task_id);
         }
       }

@@ -169,9 +169,8 @@ export default function Dashboard() {
     setRecapDismissedKey(recapWeekKey);
   }, [recapStorageKey, recapWeekKey]);
 
-  // Desktop 2x2 grid uses an uneven 2:3 row split (top row shorter, bottom row taller),
-  // so we sort parents first to ensure they land in the top (smaller) row and children
-  // in the bottom (larger) row, where their longer task lists fit comfortably.
+  // Desktop 2x2 grid keeps the bottom row slightly taller for longer child task lists,
+  // while giving the top row enough room to show three rows of habit cards.
   const orderedUsers = [...users].sort((a, b) => {
     const roleRank = (r: typeof a.role) => (r === 'PARENT' ? 0 : 1);
     const role = roleRank(a.role) - roleRank(b.role);
@@ -308,7 +307,7 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <main className="hidden flex-1 grid-cols-2 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-4 overflow-hidden bg-[#0D0E1C] p-4 md:grid">
+      <main className="hidden flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:grid">
         {desktopSlots.map((user, index) =>
           user ? (
             <MemberPanel key={user.id} user={user} />

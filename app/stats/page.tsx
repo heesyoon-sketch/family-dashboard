@@ -20,6 +20,7 @@ import { User, Task, startOfDay, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } 
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
+import { normalizeTimeWindow } from '@/lib/timeWindows';
 
 const THEME_ACCENT: Record<string, string> = {
   dark_minimal: '#4f9cff',
@@ -129,7 +130,7 @@ function mapTaskRow(row: Record<string, unknown>): Task {
     basePoints: row.base_points as number,
     recurrence: row.recurrence as string,
     daysOfWeek: rawDays && rawDays.length > 0 ? rawDays : legacyRecurrenceToDays(row.recurrence as string),
-    timeWindow: row.time_window as Task['timeWindow'],
+    timeWindow: normalizeTimeWindow(row.time_window as string | null | undefined),
     active: row.active as number,
     sortOrder: (row.sort_order as number | null) ?? 0,
     streakCount: (row.streak_count as number | null) ?? 0,

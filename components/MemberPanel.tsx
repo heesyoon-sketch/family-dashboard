@@ -20,7 +20,6 @@ import {
   getTimeWindowDisplay,
   isTaskActiveInTimeWindow,
   taskWindowSortRank,
-  type TimeWindow,
 } from '@/lib/timeWindows';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE']);
@@ -402,7 +401,7 @@ export function MemberPanel({ user }: { user: User }) {
             <motion.div
               ref={listRef}
               layout
-              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-108px)/4),76px)]"
+              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-108px)/4),76px)] md:pb-6"
             >
               {sortedTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
@@ -421,7 +420,7 @@ export function MemberPanel({ user }: { user: User }) {
                     completed={completed.includes(task.id)}
                     theme={user.theme}
                     disabled={!isTaskCurrent(task)}
-                    timeWindowDisplay={getTimeWindowDisplay(task.timeWindow as TimeWindow | undefined, lang)}
+                    timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang)}
                   />
                 </motion.div>
               ))}
@@ -433,7 +432,7 @@ export function MemberPanel({ user }: { user: User }) {
             initial={false}
             animate={{ opacity: showMore ? 1 : 0 }}
             transition={{ duration: 0.3 }}
-            className="absolute inset-x-0 bottom-0 h-16 pointer-events-none bg-gradient-to-t from-[var(--bg)] to-transparent"
+            className="absolute inset-x-0 bottom-0 h-16 pointer-events-none bg-gradient-to-t from-[var(--bg)] to-transparent md:h-10"
           />
 
           {/* Bouncing pill badge */}
@@ -448,7 +447,7 @@ export function MemberPanel({ user }: { user: User }) {
                   opacity: { duration: 0.2 },
                   y: { duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: 0.4 },
                 }}
-                className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-card)] ring-1 ring-[var(--border)] text-[11px] font-semibold text-[var(--fg-muted)] whitespace-nowrap"
+                className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-card)] ring-1 ring-[var(--border)] text-[11px] font-semibold text-[var(--fg-muted)] whitespace-nowrap md:bottom-1"
               >
                 {moreCount > 0
                   ? (lang === 'en' ? `↓ ${moreCount} more` : `↓ ${moreCount}개 더 있어요`)
