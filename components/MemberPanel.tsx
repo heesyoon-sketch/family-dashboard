@@ -73,7 +73,6 @@ export function MemberPanel({ user }: { user: User }) {
   const level          = useFamilyStore(s => s.levelsByUser[user.id]);
   const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? []);
   const bestDay        = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
-  const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
   const momentum       = useFamilyStore(s => s.momentumByUser[user.id]) ?? emptyMomentum();
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
@@ -260,29 +259,39 @@ export function MemberPanel({ user }: { user: User }) {
                   )}
                 </div>
 
+                {/* One compact metadata row: Lv • XP • Momentum, with the
+                    insignia strip pinned to the right. Saves a row vs. the
+                    earlier layout that put the strip below. */}
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[9px]">
-                  <span className="shrink-0">Lv.{displayLevel}</span>
+                  <span
+                    className="shrink-0"
+                    title={`Level — long-term identity tier. Unlocks insignia slots, titles, and frames.`}
+                  >
+                    Lv.{displayLevel}
+                  </span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                  <span className="min-w-0 truncate">{totalXp}xp</span>
+                  <span
+                    className="min-w-0 truncate"
+                    title={`XP earned. ${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} to Lv.${displayLevel + 1}`}
+                  >
+                    {totalXp}xp
+                  </span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
                   <MomentumAura momentum={momentum} size={14} showLabel />
-                  {growth !== null && growth > 0 && (
-                    <>
-                      <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                      <span className="shrink-0">📈{growth}%</span>
-                    </>
-                  )}
+                  <span className="ml-auto shrink-0">
+                    <EquippedInsigniaStrip userId={user.id} />
+                  </span>
                 </div>
 
-                <div className="mt-1 flex items-center gap-2">
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--border)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
-                      style={{ width: `${progressPct}%` }}
-                      title={`${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} XP to Lv.${displayLevel + 1}`}
-                    />
-                  </div>
-                  <EquippedInsigniaStrip userId={user.id} />
+                {/* Thin XP-to-next-level bar. Title attribute is the tooltip. */}
+                <div
+                  className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)]"
+                  title={`${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} XP to Lv.${displayLevel + 1}`}
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+                    style={{ width: `${progressPct}%` }}
+                  />
                 </div>
               </div>
             </div>

@@ -464,9 +464,25 @@ export function InsigniaWall() {
               </span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
-              {Array.from({ length: slotCapacity }).map((_, idx) => {
+              {Array.from({ length: 3 }).map((_, idx) => {
+                const isUnlockedSlot = idx < slotCapacity;
                 const slotBadge = loadout.equipped[idx]?.badge;
                 const archetype = loadout.equipped[idx]?.archetype;
+                if (!isUnlockedSlot) {
+                  const unlockAt = idx === 1 ? 5 : 15;
+                  return (
+                    <div
+                      key={`slot-locked-${idx}`}
+                      className="grid aspect-square place-items-center rounded-lg border border-dashed border-white/12 bg-white/[0.02] text-center text-[10px] font-black text-white/45"
+                      title={`This slot unlocks at Lv.${unlockAt}`}
+                    >
+                      <span>
+                        🔒
+                        <span className="mt-0.5 block">Lv.{unlockAt}</span>
+                      </span>
+                    </div>
+                  );
+                }
                 if (!slotBadge) {
                   return (
                     <div
