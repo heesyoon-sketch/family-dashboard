@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Award,
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   Flame,
@@ -680,262 +679,218 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
   const weeklyBonus = Math.max(0, stat.weeklyPoints - stat.weeklyBasePoints);
   const totalAchievements = ACHIEVEMENTS.length;
 
+  const todayPct = pct(stat.todayDone, stat.todayPossible);
+  const deltaArrow =
+    delta === null ? null : delta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />;
+
   return (
-    <section className="min-h-[680px] overflow-hidden bg-[#111318] p-4 md:min-h-0 md:p-5">
-      <div className="flex h-full min-h-0 flex-col rounded-none md:overflow-hidden">
-        <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-2xl font-bold tracking-normal text-white">{stat.user.name}</h2>
-              {stat.rank === 1 && (
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#f8d24a]/15 text-[#f8d24a]">
-                  <Medal size={16} />
-                </span>
-              )}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/45">
-              <span>Lv.{stat.level}</span>
-              <span>•</span>
-              <span>{copy.rank} #{stat.rank}</span>
-              <span>•</span>
-              <span>{stat.activeTasks.length} {copy.habits}</span>
-            </div>
+    <section className="flex flex-col bg-[#111318] md:min-h-0 md:overflow-hidden">
+      {/* Compact header — name, level, rank, weekly points all on one row. */}
+      <header className="shrink-0 border-b border-white/5 px-3 pb-2 pt-2.5 md:px-4 md:py-2.5">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h2 className="truncate text-base font-bold text-white md:text-lg">{stat.user.name}</h2>
+            {stat.rank === 1 && (
+              <Medal size={13} className="shrink-0 text-[#f8d24a]" />
+            )}
+            <span className="shrink-0 text-[11px] text-white/45">Lv.{stat.level}</span>
+            <span className="shrink-0 text-[11px] text-white/30">·</span>
+            <span className="shrink-0 text-[11px] text-white/45">#{stat.rank}</span>
+            <span className="shrink-0 text-[11px] text-white/30">·</span>
+            <span className="shrink-0 text-[11px] text-white/45">{stat.activeTasks.length} {copy.habits}</span>
           </div>
-          <div className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
-            <div className="text-xs text-white/45">{copy.points}</div>
-            <div className="text-lg font-bold" style={{ color: accent }}>{stat.weeklyPoints}pt</div>
+          <div className="shrink-0 text-right">
+            <div className="text-base font-bold leading-none" style={{ color: accent }}>
+              {stat.weeklyPoints}<span className="text-[10px] text-white/45">pt</span>
+            </div>
             {weeklyBonus > 0 && (
-              <div className="text-[10px] font-semibold text-[#3ddc97]">+{weeklyBonus}pt {copy.bonusEarned}</div>
+              <div className="mt-0.5 text-[9px] font-semibold leading-none text-[#3ddc97]">
+                +{weeklyBonus}pt {copy.bonusEarned}
+              </div>
             )}
           </div>
         </div>
+      </header>
 
-        <div className="grid shrink-0 grid-cols-[112px_1fr] gap-4">
-          <ProgressDial value={pct(stat.todayDone, stat.todayPossible)} done={stat.todayDone} total={stat.todayPossible} accent={accent} label={copy.today} />
-          <div className="grid grid-cols-2 gap-2">
-            <MiniMetric icon={<BarChart3 size={15} />} label={copy.week} value={`${stat.weekPct}%`} accent={accent} />
-            <MiniMetric icon={<Flame size={15} />} label={copy.streak} value={stat.maxStreak > 0 ? `${stat.maxStreak}d` : '—'} accent={accent} />
-            <MiniMetric icon={<Award size={15} />} label={copy.perfectDays} value={`${stat.perfectDaysThisWeek}/7`} accent={accent} />
-            <MiniMetric icon={<Sparkles size={15} />} label={copy.activeDays} value={`${stat.activeDays30}/30`} accent={accent} />
-          </div>
+      {/* Scrollable insight grid. Internal overflow-y-auto on desktop so a
+          packed panel never gets clipped by the 2x2 grid cell; on mobile the
+          page scrolls and the panel grows naturally. */}
+      <div className="space-y-2 px-2.5 py-2.5 md:flex-1 md:overflow-y-auto md:px-3 md:py-3">
+        {/* 12 compact stat cards, 3 across (2 across on narrow phones). */}
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          <StatCard
+            label={copy.today}
+            value={stat.todayPossible > 0 ? `${stat.todayDone}/${stat.todayPossible}` : '—'}
+            sub={stat.todayPossible > 0 ? `${todayPct}%` : copy.noTasks}
+            tone="primary"
+            accent={accent}
+            barPct={stat.todayPossible > 0 ? todayPct : null}
+          />
+          <StatCard
+            label={copy.week}
+            value={`${stat.weekPct}%`}
+            sub={
+              delta === null
+                ? copy.noData
+                : `${delta >= 0 ? '+' : ''}${delta}% ${copy.vsLastWeek}`
+            }
+            tone={delta === null ? 'mute' : delta >= 0 ? 'good' : 'bad'}
+            accent={accent}
+            inlineIcon={deltaArrow}
+            barPct={stat.weekPct}
+          />
+          <StatCard
+            label={copy.activeBoost}
+            value={`+${totalBoostPct}%`}
+            sub={`Lo ${stat.loadoutBonusPct}% · M ${momentumPct}% · H ${harmonyPct}%`}
+            tone={totalBoostPct > 0 ? 'good' : 'mute'}
+            accent={accent}
+          />
+          <StatCard
+            label={copy.levelProgress}
+            value={`Lv.${stat.level}`}
+            sub={`${stat.pointsInLevel}/${stat.pointsToNext} XP`}
+            tone="primary"
+            accent={accent}
+            barPct={Math.round(stat.progressToNext * 100)}
+          />
+          <StatCard
+            label={copy.streak}
+            value={stat.maxStreak > 0 ? `${stat.maxStreak}d` : '—'}
+            sub={stat.longestRun30 > 0 ? `${stat.longestRun30}d run · 30d` : copy.noData}
+            tone="primary"
+            accent={accent}
+            inlineIcon={<Flame size={11} />}
+          />
+          <StatCard
+            label={copy.perfectDays}
+            value={`${stat.perfectDaysThisWeek}/7`}
+            sub={stat.bestWindow ? `${copy.bestWindow}: ${stat.bestWindow.pct}%` : copy.noData}
+            tone="primary"
+            accent={accent}
+            inlineIcon={<Award size={11} />}
+          />
+          <StatCard
+            label={copy.activeDays}
+            value={`${stat.activeDays30}/30`}
+            sub={`${stat.monthPct}% ${copy.month}`}
+            tone="primary"
+            accent={accent}
+            inlineIcon={<Sparkles size={11} />}
+          />
+          <StatCard
+            label={copy.insignias}
+            value={`${stat.insigniasUnlocked}/${totalAchievements}`}
+            sub={copy.equipped(stat.equippedInsigniaCount)}
+            tone="primary"
+            accent={accent}
+          />
+          <StatCard
+            label={copy.bestDay}
+            value={
+              stat.bestDayOfWeek
+                ? `${DOW_LABELS[stat.bestDayOfWeek.index]} ${stat.bestDayOfWeek.pct}%`
+                : '—'
+            }
+            sub={
+              stat.bestDayOfWeek
+                ? `${stat.bestDayOfWeek.done}/${stat.bestDayOfWeek.possible}`
+                : copy.noData
+            }
+            tone="good"
+            accent={accent}
+          />
+          <StatCard
+            label={copy.worstDay}
+            value={
+              stat.worstDayOfWeek && stat.worstDayOfWeek !== stat.bestDayOfWeek
+                ? `${DOW_LABELS[stat.worstDayOfWeek.index]} ${stat.worstDayOfWeek.pct}%`
+                : '—'
+            }
+            sub={
+              stat.worstDayOfWeek && stat.worstDayOfWeek !== stat.bestDayOfWeek
+                ? `${stat.worstDayOfWeek.done}/${stat.worstDayOfWeek.possible}`
+                : copy.noData
+            }
+            tone="bad"
+            accent={accent}
+          />
+          <StatCard
+            label={copy.best}
+            value={stat.bestTask?.title ?? '—'}
+            sub={stat.bestTask ? `${stat.bestTask.done}/${stat.bestTask.possible} · ${stat.bestTask.pct}%` : copy.noTasks}
+            tone="good"
+            accent={accent}
+            inlineIcon={<Award size={11} />}
+          />
+          <StatCard
+            label={copy.focus}
+            value={stat.focusTask?.title ?? '—'}
+            sub={stat.focusTask ? `${stat.focusTask.done}/${stat.focusTask.possible} · ${stat.focusTask.pct}%` : copy.noTasks}
+            tone="bad"
+            accent={accent}
+            inlineIcon={<Target size={11} />}
+          />
         </div>
 
-        <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-white/45">{copy.vsLastWeek}</div>
-            <div className={`flex items-center gap-1 text-sm font-bold ${deltaTone}`}>
-              {delta === null ? (
-                copy.noData
-              ) : delta >= 0 ? (
-                <>
-                  <TrendingUp size={15} /> +{delta}%
-                </>
-              ) : (
-                <>
-                  <TrendingDown size={15} /> {delta}%
-                </>
-              )}
-            </div>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, stat.weekPct)}%`, background: accent }} />
-          </div>
-          <div className="mt-2 text-xs text-white/45">
-            {copy.completedThisWeek(stat.weekDone, stat.weekPossible || 0)}
-          </div>
-          {stat.weeklyPoints > 0 && (
-            <div className="mt-1 text-[11px] text-white/55">
-              {copy.weekBaseSplit(stat.weeklyBasePoints, stat.weeklyPoints)}
-            </div>
-          )}
-        </div>
+        {/* Time of day mini-bars (collapsed to one row). */}
+        <CompactTimeOfDay timeOfDay={stat.timeOfDay} accent={accent} copy={copy} />
 
-        <ActiveBoostCard
-          accent={accent}
-          loadoutPct={stat.loadoutBonusPct}
-          momentumPct={momentumPct}
-          momentumState={momentum?.meta.label ?? '—'}
-          harmonyPct={harmonyPct}
-          harmonyState={harmony?.meta.label ?? '—'}
-          totalPct={totalBoostPct}
-          insigniasUnlocked={stat.insigniasUnlocked}
-          insigniasTotal={totalAchievements}
-          equipped={stat.equippedInsigniaCount}
-          copy={copy}
-        />
+        {/* This-week strip with weekday labels under tiny columns. */}
+        <CompactWeekStrip counts={stat.weekCounts} dowLabels={DOW_LABELS} accent={accent} copy={copy} monthPct={stat.monthPct} />
 
-        <LevelProgressCard
-          accent={accent}
-          level={stat.level}
-          pointsInLevel={stat.pointsInLevel}
-          pointsToNext={stat.pointsToNext}
-          progress={stat.progressToNext}
-          totalPoints={stat.totalPoints}
-          spendable={stat.spendableBalance}
-          copy={copy}
-        />
+        {/* 30-day heatmap — denser cells. */}
+        <CompactHeatGrid days={stat.heatmap} accent={accent} />
 
-        <div className="mt-4 shrink-0">
-          <div className="mb-2 flex items-center justify-between text-xs text-white/45">
-            <span>{copy.week}</span>
-            <span>{copy.month} {stat.monthPct}%</span>
-          </div>
-          <WeekStrip counts={stat.weekCounts} labels={DOW_LABELS} accent={accent} />
-        </div>
-
-        <div className="mt-4 shrink-0">
-          <HeatGrid days={stat.heatmap} accent={accent} />
-        </div>
-
-        <div className="mt-4 grid shrink-0 grid-cols-1 gap-2 xl:grid-cols-2">
-          <HabitCallout icon={<Target size={15} />} label={copy.focus} task={stat.focusTask} empty={copy.noTasks} tone="focus" />
-          <HabitCallout icon={<Award size={15} />} label={copy.best} task={stat.bestTask} empty={copy.noData} tone="best" />
-        </div>
-
-        <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white/45">
-            <Sparkles size={14} style={{ color: accent }} />
-            <span>{copy.patterns}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <PatternMetric
-              label={copy.bestDay}
-              value={stat.bestDayOfWeek
-                ? `${DOW_LABELS[stat.bestDayOfWeek.index]} · ${stat.bestDayOfWeek.pct}%`
-                : '—'}
-              tone="good"
-            />
-            <PatternMetric
-              label={copy.worstDay}
-              value={stat.worstDayOfWeek && stat.worstDayOfWeek !== stat.bestDayOfWeek
-                ? `${DOW_LABELS[stat.worstDayOfWeek.index]} · ${stat.worstDayOfWeek.pct}%`
-                : '—'}
-              tone="bad"
-            />
-            <PatternMetric
-              label={copy.bestWindow}
-              value={stat.bestWindow
-                ? `${copy.weekOf(stat.bestWindow.startDate)} · ${stat.bestWindow.pct}%`
-                : '—'}
-              tone="good"
-            />
-            <PatternMetric
-              label={copy.longestRun}
-              value={stat.longestRun30 > 0 ? `${stat.longestRun30}d` : '—'}
-              tone="neutral"
-            />
-          </div>
-          <TimeOfDayBars timeOfDay={stat.timeOfDay} accent={accent} copy={copy} />
-        </div>
-
-        <div className="mt-4 min-h-0 flex-1 overflow-hidden">
-          <TaskBars tasks={stat.taskRates.slice(0, 4)} accent={accent} copy={copy} />
-        </div>
+        {/* Top struggling tasks (sorted ascending, take 5) — small bars. */}
+        <CompactTaskList tasks={stat.taskRates.slice(0, 5)} accent={accent} copy={copy} />
       </div>
     </section>
   );
 }
 
-function ActiveBoostCard({
-  accent,
-  loadoutPct,
-  momentumPct,
-  momentumState,
-  harmonyPct,
-  harmonyState,
-  totalPct,
-  insigniasUnlocked,
-  insigniasTotal,
-  equipped,
-  copy,
-}: {
-  accent: string;
-  loadoutPct: number;
-  momentumPct: number;
-  momentumState: string;
-  harmonyPct: number;
-  harmonyState: string;
-  totalPct: number;
-  insigniasUnlocked: number;
-  insigniasTotal: number;
-  equipped: number;
-  copy: ReturnType<typeof labels>;
-}) {
+interface StatCardProps {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: 'primary' | 'good' | 'bad' | 'mute';
+  accent?: string;
+  inlineIcon?: React.ReactNode;
+  /** When provided, draws a 2px bar under the value (0..100). */
+  barPct?: number | null;
+}
+
+function StatCard({ label, value, sub, tone = 'primary', accent, inlineIcon, barPct }: StatCardProps) {
+  const valueColor =
+    tone === 'good' ? 'text-[#3ddc97]' :
+    tone === 'bad'  ? 'text-[#ff8b9c]' :
+    tone === 'mute' ? 'text-white/55' :
+    'text-white';
   return (
-    <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white/45">
-          <Sparkles size={14} style={{ color: accent }} />
-          <span>{copy.activeBoost}</span>
+    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
+      <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-white/45">
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={`mt-0.5 flex items-center gap-1 truncate text-sm font-bold leading-tight ${valueColor}`}>
+        {inlineIcon && <span className="shrink-0 opacity-90">{inlineIcon}</span>}
+        <span className="truncate">{value}</span>
+      </div>
+      {sub && (
+        <div className="mt-0.5 truncate text-[10px] text-white/45">{sub}</div>
+      )}
+      {typeof barPct === 'number' && (
+        <div className="mt-1 h-[2px] overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${Math.min(100, Math.max(0, barPct))}%`, background: accent }}
+          />
         </div>
-        <div className="text-base font-bold text-[#3ddc97]">+{totalPct}%</div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <BoostCell label={copy.loadout} pct={loadoutPct} sub={`${equipped}/3 ${copy.equipped(equipped).split(' ')[0]}`} />
-        <BoostCell label={copy.momentum} pct={momentumPct} sub={momentumState} />
-        <BoostCell label={copy.harmony} pct={harmonyPct} sub={harmonyState} />
-      </div>
-      <div className="mt-2 text-[11px] text-white/45">
-        {copy.insignias}: {insigniasUnlocked}/{insigniasTotal}
-      </div>
+      )}
     </div>
   );
 }
 
-function BoostCell({ label, pct, sub }: { label: string; pct: number; sub: string }) {
-  const active = pct > 0;
-  return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-white/45">{label}</div>
-      <div className={`text-sm font-bold ${active ? 'text-[#3ddc97]' : 'text-white/55'}`}>
-        +{Math.round(pct * 10) / 10}%
-      </div>
-      <div className="truncate text-[10px] text-white/45">{sub}</div>
-    </div>
-  );
-}
-
-function LevelProgressCard({
-  accent,
-  level,
-  pointsInLevel,
-  pointsToNext,
-  progress,
-  totalPoints,
-  spendable,
-  copy,
-}: {
-  accent: string;
-  level: number;
-  pointsInLevel: number;
-  pointsToNext: number;
-  progress: number;
-  totalPoints: number;
-  spendable: number;
-  copy: ReturnType<typeof labels>;
-}) {
-  const need = Math.max(0, pointsToNext - pointsInLevel);
-  return (
-    <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-[0.08em] text-white/45">{copy.levelProgress}</div>
-        <div className="text-sm font-bold text-white">Lv.{level} → Lv.{level + 1}</div>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${Math.round(progress * 100)}%`, background: accent }}
-        />
-      </div>
-      <div className="mt-1.5 flex items-center justify-between text-[11px] text-white/55">
-        <span>{copy.toNext(need)}</span>
-        <span>{totalPoints} XP · {spendable} {copy.points.toLowerCase()}</span>
-      </div>
-    </div>
-  );
-}
-
-function TimeOfDayBars({
+function CompactTimeOfDay({
   timeOfDay,
   accent,
   copy,
@@ -945,32 +900,34 @@ function TimeOfDayBars({
   copy: ReturnType<typeof labels>;
 }) {
   const total = timeOfDay.morning + timeOfDay.afternoon + timeOfDay.evening;
-  if (total === 0) return null;
-  const max = Math.max(timeOfDay.morning, timeOfDay.afternoon, timeOfDay.evening);
+  const max = Math.max(1, timeOfDay.morning, timeOfDay.afternoon, timeOfDay.evening);
   const cells: Array<[string, number]> = [
     [copy.morning, timeOfDay.morning],
     [copy.afternoon, timeOfDay.afternoon],
     [copy.evening, timeOfDay.evening],
   ];
   return (
-    <div className="mt-3">
-      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/45">{copy.timeOfDay}</div>
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
+      <div className="mb-1 flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-white/45">
+        <span>{copy.timeOfDay}</span>
+        <span className="text-white/35">{total > 0 ? `${total}` : '—'}</span>
+      </div>
       <div className="grid grid-cols-3 gap-1.5">
         {cells.map(([label, count]) => (
           <div key={label} className="min-w-0">
-            <div className="mb-1 flex h-8 items-end rounded-md bg-white/[0.06] px-1">
+            <div className="h-5 overflow-hidden rounded-sm bg-white/[0.06]">
               <div
-                className="w-full rounded-sm transition-all"
+                className="h-full"
                 style={{
-                  height: `${count > 0 ? Math.max(15, (count / max) * 100) : 0}%`,
+                  width: `${count > 0 ? Math.max(8, (count / max) * 100) : 0}%`,
                   background: accent,
                   opacity: count > 0 ? 0.85 : 0,
                 }}
               />
             </div>
-            <div className="flex items-center justify-between text-[10px]">
+            <div className="mt-0.5 flex items-center justify-between text-[9px]">
               <span className="text-white/45">{label}</span>
-              <span className="font-semibold text-white/70">{count}</span>
+              <span className="font-semibold text-white/65">{count}</span>
             </div>
           </div>
         ))}
@@ -979,141 +936,107 @@ function TimeOfDayBars({
   );
 }
 
-function ProgressDial({ value, done, total, accent, label }: { value: number; done: number; total: number; accent: string; label: string }) {
-  return (
-    <div className="flex aspect-square items-center justify-center rounded-xl border border-white/10 bg-white/[0.035]">
-      <div
-        className="grid h-[92px] w-[92px] place-items-center rounded-full"
-        style={{ background: `conic-gradient(${accent} ${value * 3.6}deg, rgba(255,255,255,0.09) 0deg)` }}
-      >
-        <div className="grid h-[72px] w-[72px] place-items-center rounded-full bg-[#111318] text-center">
-          <div>
-            <div className="text-xl font-bold" style={{ color: accent }}>{total > 0 ? `${value}%` : '—'}</div>
-            <div className="text-[11px] text-white/45">{done}/{total} {label}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PatternMetric({ label, value, tone }: { label: string; value: string; tone: 'good' | 'bad' | 'neutral' }) {
-  const valueColor =
-    tone === 'good' ? 'text-[#3ddc97]' :
-    tone === 'bad'  ? 'text-[#ffb1bb]' :
-    'text-white';
-  return (
-    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-2.5">
-      <div className="mb-1 truncate text-[10px] font-semibold uppercase tracking-wider text-white/45">{label}</div>
-      <div className={`truncate text-sm font-bold ${valueColor}`}>{value}</div>
-    </div>
-  );
-}
-
-function MiniMetric({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-xs text-white/45">
-        <span style={{ color: accent }}>{icon}</span>
-        <span className="truncate">{label}</span>
-      </div>
-      <div className="truncate text-lg font-bold text-white">{value}</div>
-    </div>
-  );
-}
-
-function WeekStrip({ counts, labels, accent }: { counts: number[]; labels: string[]; accent: string }) {
+function CompactWeekStrip({
+  counts,
+  dowLabels,
+  accent,
+  copy,
+  monthPct,
+}: {
+  counts: number[];
+  dowLabels: string[];
+  accent: string;
+  copy: ReturnType<typeof labels>;
+  monthPct: number;
+}) {
   const max = Math.max(1, ...counts);
   const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {counts.map((count, index) => (
-        <div key={labels[index]} className="min-w-0">
-          <div className="mb-1 flex h-14 items-end rounded-md bg-white/[0.06] px-1">
-            <div
-              className="w-full rounded-sm"
-              style={{
-                height: `${Math.max(count > 0 ? 12 : 0, (count / max) * 100)}%`,
-                background: index === todayIdx ? '#3ddc97' : accent,
-                opacity: count > 0 ? 1 : 0,
-              }}
-            />
-          </div>
-          <div className={`text-center text-[11px] ${index === todayIdx ? 'font-bold text-white' : 'text-white/40'}`}>{labels[index]}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function HeatGrid({ days, accent }: { days: HeatDay[]; accent: string }) {
-  return (
-    <div className="grid grid-cols-10 gap-1">
-      {days.map(day => {
-        const value = pct(day.done, day.possible);
-        const opacity = value === 0 ? 0.12 : value < 34 ? 0.35 : value < 67 ? 0.62 : 1;
-        return (
-          <div
-            key={day.date.toISOString()}
-            title={`${day.date.getMonth() + 1}/${day.date.getDate()} · ${value}%`}
-            className="aspect-square rounded-[4px] bg-white/10"
-            style={value > 0 ? { background: accent, opacity } : undefined}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function HabitCallout({
-  icon,
-  label,
-  task,
-  empty,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  task: TaskRate | null;
-  empty: string;
-  tone: 'focus' | 'best';
-}) {
-  const color = tone === 'focus' ? '#f59e0b' : '#3ddc97';
-  return (
-    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em]" style={{ color }}>
-        {icon}
-        <span>{label}</span>
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
+      <div className="mb-1 flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-white/45">
+        <span>{copy.week}</span>
+        <span className="text-white/35">{copy.month} {monthPct}%</span>
       </div>
-      {task ? (
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-white">{task.title}</div>
-          <div className="text-xs text-white/45">{task.done}/{task.possible} · {task.pct}%</div>
-        </div>
-      ) : (
-        <div className="text-sm text-white/45">{empty}</div>
-      )}
+      <div className="grid grid-cols-7 gap-1">
+        {counts.map((count, index) => (
+          <div key={dowLabels[index]} className="min-w-0">
+            <div className="flex h-7 items-end overflow-hidden rounded-sm bg-white/[0.06]">
+              <div
+                className="w-full rounded-sm"
+                style={{
+                  height: `${Math.max(count > 0 ? 14 : 0, (count / max) * 100)}%`,
+                  background: index === todayIdx ? '#3ddc97' : accent,
+                  opacity: count > 0 ? 1 : 0,
+                }}
+              />
+            </div>
+            <div className={`mt-0.5 text-center text-[9px] ${index === todayIdx ? 'font-bold text-white/85' : 'text-white/40'}`}>
+              {dowLabels[index]}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function TaskBars({ tasks, accent, copy }: { tasks: TaskRate[]; accent: string; copy: ReturnType<typeof labels> }) {
+function CompactHeatGrid({ days, accent }: { days: HeatDay[]; accent: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
+      <div className="mb-1 text-[9px] font-bold uppercase tracking-wider text-white/45">
+        30d heat
+      </div>
+      <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-[3px]">
+        {days.map(day => {
+          const value = pct(day.done, day.possible);
+          const opacity = value === 0 ? 0.12 : value < 34 ? 0.35 : value < 67 ? 0.62 : 1;
+          return (
+            <div
+              key={day.date.toISOString()}
+              title={`${day.date.getMonth() + 1}/${day.date.getDate()} · ${value}%`}
+              className="aspect-square rounded-[2px] bg-white/10"
+              style={value > 0 ? { background: accent, opacity } : undefined}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CompactTaskList({ tasks, accent, copy }: { tasks: TaskRate[]; accent: string; copy: ReturnType<typeof labels> }) {
   if (tasks.length === 0) {
-    return <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4 text-sm text-white/45">{copy.noTasks}</div>;
+    return (
+      <div className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2 text-[11px] text-white/45">
+        {copy.noTasks}
+      </div>
+    );
   }
   return (
-    <div className="space-y-2">
-      {tasks.map(task => (
-        <div key={task.id}>
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <div className="truncate text-xs text-white/70">{task.title}</div>
-            <div className="shrink-0 text-xs font-semibold text-white/45">{task.pct}%</div>
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
+      <div className="mb-1 text-[9px] font-bold uppercase tracking-wider text-white/45">
+        Habit progress (30d)
+      </div>
+      <div className="space-y-1">
+        {tasks.map(task => (
+          <div key={task.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-[11px] text-white/75">{task.title}</div>
+              <div className="mt-0.5 h-[3px] overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${task.pct}%`, background: accent }}
+                />
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[11px] font-semibold text-white/80">{task.pct}%</div>
+              <div className="text-[9px] text-white/40">{task.done}/{task.possible}</div>
+            </div>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full" style={{ width: `${task.pct}%`, background: accent }} />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
+
