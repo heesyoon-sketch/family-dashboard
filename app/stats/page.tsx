@@ -22,6 +22,14 @@ import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
 import { InsigniaWall } from '@/components/InsigniaWall';
+import { useFamilyStore } from '@/lib/store';
+import {
+  composeBonusPercent,
+  computeLevelProgress,
+  loadoutBonusFromIds,
+} from '@/lib/progression';
+import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
+import { loadAchievementState } from '@/lib/achievements/storage';
 
 const THEME_ACCENT: Record<string, string> = {
   dark_minimal: '#4f9cff',
@@ -61,6 +69,12 @@ interface BestWindow {
   possible: number;
 }
 
+interface TimeOfDayBreakdown {
+  morning: number;
+  afternoon: number;
+  evening: number;
+}
+
 interface UserStats {
   user: User;
   activeTasks: Task[];
@@ -72,10 +86,14 @@ interface UserStats {
   weekPct: number;
   deltaPct: number | null;
   weeklyPoints: number;
+  weeklyBasePoints: number;        // sum of historical base_points contributions for the week
   rank: number;
   level: number;
   totalPoints: number;
   spendableBalance: number;
+  pointsInLevel: number;
+  pointsToNext: number;
+  progressToNext: number;          // 0..1
   maxStreak: number;
   perfectDaysThisWeek: number;
   activeDays30: number;
@@ -91,6 +109,12 @@ interface UserStats {
   worstDayOfWeek: DayOfWeekStat | null;
   bestWindow: BestWindow | null;     // best rolling 7-day window
   longestRun30: number;              // longest run of consecutive days with ≥1 completion
+  // When in the day this member usually completes habits (last 30 days)
+  timeOfDay: TimeOfDayBreakdown;
+  // Insignia loadout snapshot — computed from localStorage achievement state
+  insigniasUnlocked: number;
+  loadoutBonusPct: number;
+  equippedInsigniaCount: number;
 }
 
 function addDays(d: Date, n: number): Date {
@@ -167,6 +191,25 @@ function labels(lang: Lang) {
     worstDay: lang === 'en' ? 'Focus day' : '약한 요일',
     bestWindow: lang === 'en' ? 'Best week' : '최고 주',
     longestRun: lang === 'en' ? 'Longest run' : '최장 연속',
+    activeBoost: lang === 'en' ? 'Active boost' : '현재 보너스',
+    momentum: lang === 'en' ? 'Momentum' : '모멘텀',
+    harmony: lang === 'en' ? 'Harmony' : '하모니',
+    loadout: lang === 'en' ? 'Loadout' : '인시그니아',
+    totalBoost: lang === 'en' ? 'Total' : '합계',
+    bonusEarned: lang === 'en' ? 'Bonus earned' : '보너스 획득',
+    weekBaseSplit: (base: number, total: number) => (
+      lang === 'en'
+        ? `${total}pt total · ${base}pt base + ${Math.max(0, total - base)}pt bonus`
+        : `합계 ${total}pt · 기본 ${base}pt + 보너스 ${Math.max(0, total - base)}pt`
+    ),
+    levelProgress: lang === 'en' ? 'Level progress' : '레벨 진행',
+    toNext: (need: number) => (lang === 'en' ? `${need} XP to next` : `다음까지 ${need} XP`),
+    insignias: lang === 'en' ? 'Insignias' : '인시그니아',
+    equipped: (count: number) => (lang === 'en' ? `${count} equipped` : `${count}개 장착`),
+    timeOfDay: lang === 'en' ? 'Time of day (30d)' : '시간대 (30일)',
+    morning: lang === 'en' ? 'Morning' : '아침',
+    afternoon: lang === 'en' ? 'Afternoon' : '오후',
+    evening: lang === 'en' ? 'Evening' : '저녁',
     weekOf: (d: Date) => (
       lang === 'en'
         ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d)
@@ -244,7 +287,7 @@ function StatsPageInner() {
       const [levelsRes, completionsRes] = await Promise.all([
         supabase.from('levels').select('*').in('user_id', safeIds),
         supabase.from('task_completions')
-          .select('user_id, task_id, completed_at, points_awarded')
+          .select('user_id, task_id, completed_at, points_awarded, partial')
           .in('user_id', safeIds)
           .gte('completed_at', historyStart.toISOString()),
       ]);
@@ -271,6 +314,26 @@ function StatsPageInner() {
 
       const completions = (completionsRes.data ?? []).filter(c => userIdSet.has(c.user_id));
       const levels = levelsRes.data ?? [];
+
+      // Per-task base_points lookup so we can reconstruct what each completion
+      // *would* have been worth at the live base, and surface bonus deltas.
+      const taskBaseById = new Map(tasks.map(task => [task.id, task.basePoints]));
+
+      // Insignia loadout per member — equipped IDs + which are unlocked. Stored
+      // in localStorage; pulled here so we can show the current bonus % and
+      // the unlocked tally on each member panel.
+      const achievementState = loadAchievementState(familyId, users);
+      function loadoutFor(userId: string): { unlocked: number; bonusPct: number; equipped: number } {
+        const child = achievementState.children[userId];
+        if (!child) return { unlocked: 0, bonusPct: 0, equipped: 0 };
+        const unlockedIds = new Set(Object.keys(child.unlockedAtByAchievementId));
+        const equipped = child.equippedInsigniaIds ?? [];
+        return {
+          unlocked: unlockedIds.size,
+          bonusPct: loadoutBonusFromIds(equipped, unlockedIds),
+          equipped: equipped.length,
+        };
+      }
 
       function uniqueDoneForDay(userId: string, date: Date, taskIds: Set<string>): number {
         const from = startOfDay(date).getTime();
@@ -381,6 +444,28 @@ function StatsPageInner() {
           return c.user_id === user.id && tms >= weekStart.getTime() && tms < weekEnd.getTime() && activeTaskIds.has(c.task_id);
         });
         const weeklyPoints = weekComps.reduce((sum, c) => sum + (c.points_awarded ?? 0), 0);
+        // Reconstruct what each completion would have been worth at the live
+        // base — partial completions count for half. The delta versus
+        // weeklyPoints is the bonus actually applied this week, which is the
+        // most concrete "is the bonus working?" signal we can show.
+        const weeklyBasePoints = weekComps.reduce((sum, c) => {
+          const base = taskBaseById.get(c.task_id) ?? 0;
+          const partial = (c as { partial?: boolean }).partial === true;
+          return sum + (partial ? Math.ceil(base * 0.5) : base);
+        }, 0);
+
+        // Time-of-day distribution — 30-day completions for this user, bucketed
+        // by hour. Mornings 5-12, afternoons 12-17, evenings everything else.
+        const timeOfDay: TimeOfDayBreakdown = { morning: 0, afternoon: 0, evening: 0 };
+        for (const c of completions) {
+          if (c.user_id !== user.id) continue;
+          const t = new Date(c.completed_at);
+          if (t.getTime() < monthStart.getTime()) continue;
+          const hour = t.getHours();
+          if (hour >= 5 && hour < 12) timeOfDay.morning += 1;
+          else if (hour >= 12 && hour < 17) timeOfDay.afternoon += 1;
+          else timeOfDay.evening += 1;
+        }
 
         const taskRates: TaskRate[] = activeTasks.map(task => {
           let possible = 0;
@@ -405,6 +490,10 @@ function StatsPageInner() {
         const bestTask = [...taskRates].sort((a, b) => b.pct - a.pct)[0] ?? null;
         const focusTask = taskRates.find(task => task.possible > 0) ?? null;
 
+        const totalPoints = lvl?.total_points ?? 0;
+        const levelProgress = computeLevelProgress(totalPoints);
+        const insignia = loadoutFor(user.id);
+
         return {
           user,
           activeTasks,
@@ -416,10 +505,14 @@ function StatsPageInner() {
           lastWeekPct,
           deltaPct: lastWeekPct === null ? null : weekPct - lastWeekPct,
           weeklyPoints,
+          weeklyBasePoints,
           rank: 0,
-          level: lvl?.current_level ?? 1,
-          totalPoints: lvl?.total_points ?? 0,
+          level: levelProgress.level,
+          totalPoints,
           spendableBalance: lvl?.spendable_balance ?? 0,
+          pointsInLevel: levelProgress.pointsInLevel,
+          pointsToNext: levelProgress.pointsToNext,
+          progressToNext: levelProgress.progressToNext,
           maxStreak: activeTasks.reduce((max, task) => Math.max(max, task.streakCount), 0),
           perfectDaysThisWeek: thisWeek.perfectDays,
           activeDays30: month.activeDays,
@@ -434,6 +527,10 @@ function StatsPageInner() {
           worstDayOfWeek,
           bestWindow,
           longestRun30,
+          timeOfDay,
+          insigniasUnlocked: insignia.unlocked,
+          loadoutBonusPct: insignia.bonusPct,
+          equippedInsigniaCount: insignia.equipped,
         };
       });
 
@@ -567,6 +664,22 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
   const deltaTone = delta === null ? 'text-white/45' : delta >= 0 ? 'text-[#3ddc97]' : 'text-[#ff6b6b]';
   const DOW_LABELS = lang === 'en' ? DOW_LABELS_EN : DOW_LABELS_KO;
 
+  // Live bonus state — momentum is per-user, harmony is family-wide. The
+  // store hydrate kicked off in StatsPageInner; until it lands these are
+  // 0 and the card still reads correctly (just shows "no boost yet").
+  const momentum = useFamilyStore(s => s.momentumByUser[stat.user.id]);
+  const harmony = useFamilyStore(s => s.harmony);
+  const momentumPct = momentum?.bonusPercent ?? 0;
+  const harmonyPct = harmony?.bonusPercent ?? 0;
+  const totalBoostPct = composeBonusPercent({
+    momentumPercent: momentumPct,
+    harmonyPercent: harmonyPct,
+    loadoutPercent: stat.loadoutBonusPct,
+  }).totalPercent;
+
+  const weeklyBonus = Math.max(0, stat.weeklyPoints - stat.weeklyBasePoints);
+  const totalAchievements = ACHIEVEMENTS.length;
+
   return (
     <section className="min-h-[680px] overflow-hidden bg-[#111318] p-4 md:min-h-0 md:p-5">
       <div className="flex h-full min-h-0 flex-col rounded-none md:overflow-hidden">
@@ -591,6 +704,9 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
           <div className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
             <div className="text-xs text-white/45">{copy.points}</div>
             <div className="text-lg font-bold" style={{ color: accent }}>{stat.weeklyPoints}pt</div>
+            {weeklyBonus > 0 && (
+              <div className="text-[10px] font-semibold text-[#3ddc97]">+{weeklyBonus}pt {copy.bonusEarned}</div>
+            )}
           </div>
         </div>
 
@@ -627,7 +743,37 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
           <div className="mt-2 text-xs text-white/45">
             {copy.completedThisWeek(stat.weekDone, stat.weekPossible || 0)}
           </div>
+          {stat.weeklyPoints > 0 && (
+            <div className="mt-1 text-[11px] text-white/55">
+              {copy.weekBaseSplit(stat.weeklyBasePoints, stat.weeklyPoints)}
+            </div>
+          )}
         </div>
+
+        <ActiveBoostCard
+          accent={accent}
+          loadoutPct={stat.loadoutBonusPct}
+          momentumPct={momentumPct}
+          momentumState={momentum?.meta.label ?? '—'}
+          harmonyPct={harmonyPct}
+          harmonyState={harmony?.meta.label ?? '—'}
+          totalPct={totalBoostPct}
+          insigniasUnlocked={stat.insigniasUnlocked}
+          insigniasTotal={totalAchievements}
+          equipped={stat.equippedInsigniaCount}
+          copy={copy}
+        />
+
+        <LevelProgressCard
+          accent={accent}
+          level={stat.level}
+          pointsInLevel={stat.pointsInLevel}
+          pointsToNext={stat.pointsToNext}
+          progress={stat.progressToNext}
+          totalPoints={stat.totalPoints}
+          spendable={stat.spendableBalance}
+          copy={copy}
+        />
 
         <div className="mt-4 shrink-0">
           <div className="mb-2 flex items-center justify-between text-xs text-white/45">
@@ -679,6 +825,7 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
               tone="neutral"
             />
           </div>
+          <TimeOfDayBars timeOfDay={stat.timeOfDay} accent={accent} copy={copy} />
         </div>
 
         <div className="mt-4 min-h-0 flex-1 overflow-hidden">
@@ -686,6 +833,149 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
         </div>
       </div>
     </section>
+  );
+}
+
+function ActiveBoostCard({
+  accent,
+  loadoutPct,
+  momentumPct,
+  momentumState,
+  harmonyPct,
+  harmonyState,
+  totalPct,
+  insigniasUnlocked,
+  insigniasTotal,
+  equipped,
+  copy,
+}: {
+  accent: string;
+  loadoutPct: number;
+  momentumPct: number;
+  momentumState: string;
+  harmonyPct: number;
+  harmonyState: string;
+  totalPct: number;
+  insigniasUnlocked: number;
+  insigniasTotal: number;
+  equipped: number;
+  copy: ReturnType<typeof labels>;
+}) {
+  return (
+    <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white/45">
+          <Sparkles size={14} style={{ color: accent }} />
+          <span>{copy.activeBoost}</span>
+        </div>
+        <div className="text-base font-bold text-[#3ddc97]">+{totalPct}%</div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <BoostCell label={copy.loadout} pct={loadoutPct} sub={`${equipped}/3 ${copy.equipped(equipped).split(' ')[0]}`} />
+        <BoostCell label={copy.momentum} pct={momentumPct} sub={momentumState} />
+        <BoostCell label={copy.harmony} pct={harmonyPct} sub={harmonyState} />
+      </div>
+      <div className="mt-2 text-[11px] text-white/45">
+        {copy.insignias}: {insigniasUnlocked}/{insigniasTotal}
+      </div>
+    </div>
+  );
+}
+
+function BoostCell({ label, pct, sub }: { label: string; pct: number; sub: string }) {
+  const active = pct > 0;
+  return (
+    <div className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-2">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-white/45">{label}</div>
+      <div className={`text-sm font-bold ${active ? 'text-[#3ddc97]' : 'text-white/55'}`}>
+        +{Math.round(pct * 10) / 10}%
+      </div>
+      <div className="truncate text-[10px] text-white/45">{sub}</div>
+    </div>
+  );
+}
+
+function LevelProgressCard({
+  accent,
+  level,
+  pointsInLevel,
+  pointsToNext,
+  progress,
+  totalPoints,
+  spendable,
+  copy,
+}: {
+  accent: string;
+  level: number;
+  pointsInLevel: number;
+  pointsToNext: number;
+  progress: number;
+  totalPoints: number;
+  spendable: number;
+  copy: ReturnType<typeof labels>;
+}) {
+  const need = Math.max(0, pointsToNext - pointsInLevel);
+  return (
+    <div className="mt-4 shrink-0 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-[0.08em] text-white/45">{copy.levelProgress}</div>
+        <div className="text-sm font-bold text-white">Lv.{level} → Lv.{level + 1}</div>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${Math.round(progress * 100)}%`, background: accent }}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between text-[11px] text-white/55">
+        <span>{copy.toNext(need)}</span>
+        <span>{totalPoints} XP · {spendable} {copy.points.toLowerCase()}</span>
+      </div>
+    </div>
+  );
+}
+
+function TimeOfDayBars({
+  timeOfDay,
+  accent,
+  copy,
+}: {
+  timeOfDay: TimeOfDayBreakdown;
+  accent: string;
+  copy: ReturnType<typeof labels>;
+}) {
+  const total = timeOfDay.morning + timeOfDay.afternoon + timeOfDay.evening;
+  if (total === 0) return null;
+  const max = Math.max(timeOfDay.morning, timeOfDay.afternoon, timeOfDay.evening);
+  const cells: Array<[string, number]> = [
+    [copy.morning, timeOfDay.morning],
+    [copy.afternoon, timeOfDay.afternoon],
+    [copy.evening, timeOfDay.evening],
+  ];
+  return (
+    <div className="mt-3">
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/45">{copy.timeOfDay}</div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {cells.map(([label, count]) => (
+          <div key={label} className="min-w-0">
+            <div className="mb-1 flex h-8 items-end rounded-md bg-white/[0.06] px-1">
+              <div
+                className="w-full rounded-sm transition-all"
+                style={{
+                  height: `${count > 0 ? Math.max(15, (count / max) * 100) : 0}%`,
+                  background: accent,
+                  opacity: count > 0 ? 0.85 : 0,
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-white/45">{label}</span>
+              <span className="font-semibold text-white/70">{count}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
