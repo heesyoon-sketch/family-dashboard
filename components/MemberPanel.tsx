@@ -259,9 +259,9 @@ export function MemberPanel({ user }: { user: User }) {
                   )}
                 </div>
 
-                {/* One compact metadata row: Lv • XP • Momentum, with the
-                    insignia strip pinned to the right. Saves a row vs. the
-                    earlier layout that put the strip below. */}
+                {/* Metadata row — Lv • XP • Momentum. The insignia strip
+                    moved out to the action button group so it can be the
+                    same size as Store/Mail without growing the header. */}
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[9px]">
                   <span
                     className="shrink-0"
@@ -278,9 +278,6 @@ export function MemberPanel({ user }: { user: User }) {
                   </span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
                   <MomentumAura momentum={momentum} size={14} showLabel />
-                  <span className="ml-auto shrink-0">
-                    <EquippedInsigniaStrip userId={user.id} />
-                  </span>
                 </div>
 
                 {/* Thin XP-to-next-level bar. Title attribute is the tooltip. */}
@@ -299,6 +296,8 @@ export function MemberPanel({ user }: { user: User }) {
             <ProgressRing pct={pct} size={34} />
 
             <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
+              <EquippedInsigniaStrip userId={user.id} />
+              <span className="mx-1 h-6 w-px bg-[var(--border)]" aria-hidden />
               <button
                 type="button"
                 onClick={() => setGiftOpen(true)}

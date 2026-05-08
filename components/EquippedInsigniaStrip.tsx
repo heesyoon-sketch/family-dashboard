@@ -9,7 +9,9 @@ import { syncAchievements, loadAchievementState, type ChildAchievementState } fr
 import type { AchievementProgress } from '@/lib/achievements/engine';
 import { MAX_INSIGNIA_SLOTS, insigniaSlotsForLevel } from '@/lib/progression';
 
-const SLOT_PX = 18;
+// Match the dashboard header action buttons (h-8 = 32px) so the loadout
+// reads as a peer of the store/mail buttons rather than a tiny accessory.
+const SLOT_PX = 32;
 
 /** Compact 3-slot strip in a member's panel header. Always shows three
  *  slots so the loadout shape is always visible — slots beyond the
@@ -66,10 +68,13 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
             <span
               key={`locked-${idx}`}
               title={`Slot unlocks at Lv.${unlockAt}`}
-              className="grid place-items-center rounded-full border border-dashed border-[var(--border)] text-[var(--fg-muted)]/55"
+              className="relative grid place-items-center rounded-full border border-dashed border-[var(--border)] text-[var(--fg-muted)]/60"
               style={{ width: SLOT_PX, height: SLOT_PX }}
             >
-              <Lock size={9} strokeWidth={2.5} />
+              <Lock size={13} strokeWidth={2.5} />
+              <span className="absolute -bottom-0.5 right-0 rounded-full bg-[var(--bg-card)] px-1 text-[8px] font-black leading-none text-[var(--fg-muted)]">
+                {unlockAt}
+              </span>
             </span>
           );
         }
@@ -91,7 +96,7 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
             className="grid place-items-center rounded-full border border-dashed border-[var(--border)]/80 text-[var(--fg-muted)]/55"
             style={{ width: SLOT_PX, height: SLOT_PX }}
           >
-            <Plus size={9} strokeWidth={2.5} />
+            <Plus size={14} strokeWidth={2.5} />
           </span>
         );
       })}
