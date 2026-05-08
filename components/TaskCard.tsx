@@ -130,9 +130,12 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
   // of bleeding optimization pressure into individual habits.
   const displayPts = task.basePoints;
   const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
+  // Completed state: muted background, dimmed ring, washed-out colour, and
+  // a strikethrough on the title — clearly readable as "done" at a glance.
   const ringClass = completed
-    ? 'ring-[var(--accent)] opacity-55'
+    ? 'ring-[var(--accent)]/40'
     : 'ring-[var(--task-card-border)]';
+  const completedClass = completed ? 'opacity-60 saturate-50 grayscale-[0.35]' : '';
   const glowStyle: React.CSSProperties = {};
 
   return (
@@ -179,9 +182,10 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
           'px-3.5 py-2.5 flex items-center gap-3 md:px-2.5 md:py-2 md:gap-2',
           disabled ? 'cursor-not-allowed opacity-50 saturate-75' : 'cursor-grab active:cursor-grabbing',
-          'ring-1 ring-inset shadow-[var(--task-card-shadow)]',
+          'ring-1 ring-inset shadow-[var(--task-card-shadow)] transition-[opacity,filter] duration-200',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
+          completedClass,
         ].join(' ')}
       >
         {/* Icon — 40px, readable and comfortable on touch screens */}
@@ -191,7 +195,7 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <div className="flex-1 min-w-0">
-          <div className={`text-base font-semibold leading-tight line-clamp-2 md:text-sm ${completed ? 'line-through' : ''}`}>
+          <div className={`text-base font-semibold leading-tight line-clamp-2 md:text-sm ${completed ? 'line-through decoration-2 text-[var(--fg-muted)]' : ''}`}>
             {task.title}
           </div>
           <div className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">

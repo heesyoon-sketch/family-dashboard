@@ -82,7 +82,12 @@ export async function processCompletion(
   const dayStart = startOfDay(now);
   const timeWindow = currentTimeWindow(now);
 
-  const { data, error } = await supabase.rpc('process_task_completion_atomic', {
+  // Compose the named-arg payload. We only attach p_bonus_percent when
+  // there's an actual bonus to apply — that way clients running against a
+  // database that hasn't received migration 079/080 yet still resolve to
+  // the original 7-arg function instead of failing with "no matching
+  // function" and reverting the optimistic completion.
+  const params: Record<string, unknown> = {
     p_user_id: userId,
     p_task_id: taskId,
     p_partial: partial,
@@ -90,8 +95,9 @@ export async function processCompletion(
     p_day_key: dayKey(now),
     p_time_window: timeWindow,
     p_now: now.toISOString(),
-    p_bonus_percent: bonusPercent,
-  });
+  };
+  if (bonusPercent > 0) params.p_bonus_percent = bonusPercent;
+  const { data, error } = await supabase.rpc('process_task_completion_atomic', params);
   if (error) throw new Error(error.message);
 
   const raw = data as {

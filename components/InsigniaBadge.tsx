@@ -3,7 +3,80 @@
 import { useId } from 'react';
 import type { AchievementRarity } from '@/lib/achievements/definitions';
 
-export type InsigniaShape = 'circle' | 'shield';
+// Shape catalog. The list is intentionally ranked from simplest (circle)
+// to most intricate (shield-radiant) so a member's rarity reads at a
+// glance from the silhouette alone — no need to memorize colours.
+export type InsigniaShape =
+  | 'circle'
+  | 'squircle'
+  | 'hex-pointy'
+  | 'octagon'
+  | 'shield-heater'
+  | 'shield-kite'
+  | 'shield-fluted'
+  | 'shield-crowned'
+  | 'shield-winged'
+  | 'shield-radiant';
+
+const SHAPES: Record<InsigniaShape, string> = {
+  // 1) plain circle — the absolute simplest, reserved for common
+  'circle':
+    'M 50 4 A 46 46 0 1 1 50 96 A 46 46 0 1 1 50 4 Z',
+  // 2) squircle / rounded square — gentle step up for uncommon
+  'squircle':
+    'M 28 4 H 72 Q 96 4 96 28 V 72 Q 96 96 72 96 H 28 Q 4 96 4 72 V 28 Q 4 4 28 4 Z',
+  // 3) point-top hexagon — geometric, mid-tier
+  'hex-pointy':
+    'M 50 4 L 90 27 V 73 L 50 96 L 10 73 V 27 Z',
+  // 4) octagon — chunky, slightly more elaborate than hex
+  'octagon':
+    'M 35 4 H 65 L 96 35 V 65 L 65 96 H 35 L 4 65 V 35 Z',
+  // 5) heater shield — classic flat-top shield, where the "shield era" begins
+  'shield-heater':
+    'M 10 14 H 90 V 48 Q 90 78 50 96 Q 10 78 10 48 Z',
+  // 6) kite shield — pointed top + bottom for a more knightly silhouette
+  'shield-kite':
+    'M 50 4 L 90 22 V 60 Q 80 88 50 96 Q 20 88 10 60 V 22 Z',
+  // 7) fluted shield — scalloped sides; ornate
+  'shield-fluted':
+    'M 50 4 C 70 4 84 10 92 20 Q 86 30 94 40 Q 86 52 94 62 C 90 84 72 94 50 96 C 28 94 10 84 6 62 Q 14 52 6 40 Q 14 30 8 20 C 16 10 30 4 50 4 Z',
+  // 8) crowned shield — castellated battlements on top, regal
+  'shield-crowned':
+    'M 16 16 V 6 H 28 V 16 H 40 V 4 H 60 V 16 H 72 V 6 H 84 V 16 Q 92 18 92 28 V 60 Q 92 86 50 96 Q 8 86 8 60 V 28 Q 8 18 16 16 Z',
+  // 9) winged shield — outer flares like furled wings
+  'shield-winged':
+    'M 50 8 Q 76 8 80 22 Q 96 24 92 38 Q 80 38 80 48 V 60 Q 76 88 50 96 Q 24 88 20 60 V 48 Q 20 38 8 38 Q 4 24 20 22 Q 24 8 50 8 Z',
+  // 10) radiant — twelve-point star burst, reserved for mythic
+  'shield-radiant':
+    'M 50 4 L 56 18 L 70 12 L 72 28 L 88 32 L 80 46 L 96 50 L 80 54 L 88 68 L 72 72 L 70 88 L 56 82 L 50 96 L 44 82 L 30 88 L 28 72 L 12 68 L 20 54 L 4 50 L 20 46 L 12 32 L 28 28 L 30 12 L 44 18 Z',
+};
+
+// Each rarity gets one or more shapes. Within a rarity the choice is
+// deterministic from the achievement id, so each badge always wears the
+// same silhouette — but two rare badges may sport different shapes,
+// adding the variety the dashboard needed.
+const SHAPES_BY_RARITY: Record<AchievementRarity, readonly InsigniaShape[]> = {
+  common:    ['circle'],
+  uncommon:  ['circle', 'squircle'],
+  rare:      ['hex-pointy', 'octagon', 'squircle'],
+  epic:      ['shield-heater', 'shield-kite', 'octagon'],
+  legendary: ['shield-fluted', 'shield-crowned', 'shield-winged'],
+  mythic:    ['shield-winged', 'shield-radiant', 'shield-crowned'],
+};
+
+function hashString(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function pickShape(rarity: AchievementRarity, seed: string): InsigniaShape {
+  const options = SHAPES_BY_RARITY[rarity];
+  return options[hashString(seed) % options.length];
+}
 
 interface TierPalette {
   edgeOuter: string;
@@ -19,7 +92,6 @@ interface TierPalette {
 }
 
 const TIERS: Record<AchievementRarity, TierPalette> = {
-  // Bronze — warm copper, soft and approachable
   common: {
     edgeOuter: '#7c4a25',
     edgeMid: '#c98553',
@@ -32,7 +104,6 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     glow: 'rgba(214, 138, 81, 0.38)',
     highlight: 'rgba(255, 232, 200, 0.85)',
   },
-  // Silver — cool platinum with a blue whisper
   uncommon: {
     edgeOuter: '#5e6a7a',
     edgeMid: '#cfd6e0',
@@ -45,7 +116,6 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     glow: 'rgba(190, 206, 225, 0.42)',
     highlight: 'rgba(255, 255, 255, 0.92)',
   },
-  // Gold — bright amber, the classic prize
   rare: {
     edgeOuter: '#7d4f0c',
     edgeMid: '#f5c542',
@@ -58,7 +128,6 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     glow: 'rgba(245, 197, 66, 0.5)',
     highlight: 'rgba(255, 244, 180, 0.95)',
   },
-  // Platinum/violet — epic
   epic: {
     edgeOuter: '#3f2868',
     edgeMid: '#a98bff',
@@ -71,7 +140,6 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     glow: 'rgba(169, 139, 255, 0.5)',
     highlight: 'rgba(245, 235, 255, 0.95)',
   },
-  // Legendary — radiant orange-gold with a sunset rim
   legendary: {
     edgeOuter: '#8a4308',
     edgeMid: '#ffb04a',
@@ -84,7 +152,6 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     glow: 'rgba(255, 162, 60, 0.6)',
     highlight: 'rgba(255, 240, 200, 0.98)',
   },
-  // Mythic — aurora prismatic
   mythic: {
     edgeOuter: '#1f4f8a',
     edgeMid: '#7adff2',
@@ -101,44 +168,16 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
 
 const STAR_PATH = 'M0,-5 L1.4,-1.6 L5,-1.4 L2.2,1 L3,5 L0,2.7 L-3,5 L-2.2,1 L-5,-1.4 L-1.4,-1.6 Z';
 
-function shapeFor(rarity: AchievementRarity, override?: InsigniaShape): InsigniaShape {
-  if (override) return override;
-  if (rarity === 'legendary' || rarity === 'mythic') return 'shield';
-  return 'circle';
-}
-
-function clipPath(shape: InsigniaShape, idPrefix: string) {
-  return shape === 'shield' ? (
-    <clipPath id={`${idPrefix}-clip`}>
-      <path d="M50 6 C 70 6, 86 12, 92 22 V 56 C 92 78, 74 92, 50 96 C 26 92, 8 78, 8 56 V 22 C 14 12, 30 6, 50 6 Z" />
-    </clipPath>
-  ) : (
-    <clipPath id={`${idPrefix}-clip`}>
-      <circle cx="50" cy="50" r="46" />
-    </clipPath>
-  );
-}
-
-function shapeOutline(shape: InsigniaShape, fill: string, stroke?: string, strokeWidth = 0) {
-  return shape === 'shield' ? (
-    <path
-      d="M50 6 C 70 6, 86 12, 92 22 V 56 C 92 78, 74 92, 50 96 C 26 92, 8 78, 8 56 V 22 C 14 12, 30 6, 50 6 Z"
-      fill={fill}
-      stroke={stroke}
-      strokeWidth={strokeWidth}
-    />
-  ) : (
-    <circle cx="50" cy="50" r="46" fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
-  );
-}
-
 export interface InsigniaBadgeProps {
   rarity: AchievementRarity;
   icon: string;
+  /** Stable seed so a badge always shows the same shape. Pass the
+   *  achievementId; falls back to icon + rarity when not provided. */
+  seed?: string;
   locked?: boolean;
   size?: number;
+  /** Manual override; otherwise picked deterministically from rarity+seed. */
   shape?: InsigniaShape;
-  /** Show extra sparkle decorations. Off by default for small badges. */
   showSparkles?: boolean;
   className?: string;
   ariaLabel?: string;
@@ -147,6 +186,7 @@ export interface InsigniaBadgeProps {
 export function InsigniaBadge({
   rarity,
   icon,
+  seed,
   locked = false,
   size = 56,
   shape,
@@ -156,10 +196,11 @@ export function InsigniaBadge({
 }: InsigniaBadgeProps) {
   const uid = useId().replace(/[:]/g, '');
   const palette = TIERS[rarity];
-  const resolvedShape = shapeFor(rarity, shape);
+  const resolvedShape = shape ?? pickShape(rarity, seed ?? `${rarity}-${icon}`);
+  const shapePath = SHAPES[resolvedShape];
   const sparkles = showSparkles ?? (size >= 72 || rarity === 'legendary' || rarity === 'mythic');
+  const isStarShape = resolvedShape === 'shield-radiant';
 
-  // Icon font scales with badge size; emoji fits inside the medallion face.
   const iconFontPx = Math.round(size * 0.46);
 
   return (
@@ -175,25 +216,24 @@ export function InsigniaBadge({
     >
       <svg viewBox="0 0 100 100" width={size} height={size}>
         <defs>
-          {clipPath(resolvedShape, uid)}
-          {/* Outer ring metal — diagonal gradient for a beveled feel */}
+          {/* Clip the inner content to the badge silhouette. */}
+          <clipPath id={`${uid}-clip`}>
+            <path d={shapePath} />
+          </clipPath>
           <linearGradient id={`${uid}-edge`} x1="20%" y1="0%" x2="80%" y2="100%">
             <stop offset="0%" stopColor={palette.edgeMid} />
             <stop offset="48%" stopColor={palette.edgeOuter} />
             <stop offset="100%" stopColor={palette.edgeInner} />
           </linearGradient>
-          {/* Medallion face — radial light from upper-left */}
           <radialGradient id={`${uid}-face`} cx="36%" cy="32%" r="78%">
             <stop offset="0%" stopColor={palette.faceLight} />
             <stop offset="55%" stopColor={palette.faceMid} />
             <stop offset="100%" stopColor={palette.faceDeep} />
           </radialGradient>
-          {/* Top gloss */}
           <radialGradient id={`${uid}-gloss`} cx="50%" cy="0%" r="70%">
             <stop offset="0%" stopColor={palette.highlight} stopOpacity="0.85" />
             <stop offset="55%" stopColor={palette.highlight} stopOpacity="0" />
           </radialGradient>
-          {/* Mythic sweep — only used at mythic for an aurora wash */}
           {rarity === 'mythic' && (
             <linearGradient id={`${uid}-aurora`} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#7adff2" stopOpacity="0.55" />
@@ -202,7 +242,6 @@ export function InsigniaBadge({
               <stop offset="100%" stopColor="#fff7a8" stopOpacity="0.4" />
             </linearGradient>
           )}
-          {/* Soft outer glow */}
           <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="55%">
             <stop offset="55%" stopColor={palette.glow} stopOpacity="0" />
             <stop offset="80%" stopColor={palette.glow} stopOpacity="0.55" />
@@ -210,67 +249,49 @@ export function InsigniaBadge({
           </radialGradient>
         </defs>
 
-        {/* Outer halo for legendary/mythic */}
+        {/* Outer halo for higher tiers — radiant shape gets its own bigger halo */}
         {!locked && (rarity === 'legendary' || rarity === 'mythic') && (
-          <circle cx="50" cy="50" r="49" fill={`url(#${uid}-glow)`} />
+          <circle cx="50" cy="50" r={isStarShape ? 52 : 49} fill={`url(#${uid}-glow)`} />
         )}
 
-        {/* Outer rim */}
-        {shapeOutline(resolvedShape, `url(#${uid}-edge)`)}
+        {/* Outer rim — the silhouette */}
+        <path d={shapePath} fill={`url(#${uid}-edge)`} />
 
-        {/* Inner medallion */}
+        {/* Inner content — same shape, scaled to ~80% so the rim shows. */}
         <g clipPath={`url(#${uid}-clip)`}>
-          {resolvedShape === 'shield' ? (
-            <path
-              d="M50 12 C 66 12, 80 18, 86 26 V 54 C 86 72, 70 84, 50 88 C 30 84, 14 72, 14 54 V 26 C 20 18, 34 12, 50 12 Z"
-              fill={`url(#${uid}-face)`}
-            />
-          ) : (
-            <circle cx="50" cy="50" r="38" fill={`url(#${uid}-face)`} />
-          )}
+          <g transform="translate(50 50) scale(0.82) translate(-50 -50)">
+            <path d={shapePath} fill={`url(#${uid}-face)`} />
+          </g>
 
           {/* Mythic aurora wash on the face */}
           {rarity === 'mythic' && !locked && (
-            <circle cx="50" cy="50" r="38" fill={`url(#${uid}-aurora)`} opacity="0.85" />
+            <g transform="translate(50 50) scale(0.82) translate(-50 -50)">
+              <path d={shapePath} fill={`url(#${uid}-aurora)`} opacity="0.85" />
+            </g>
           )}
 
-          {/* Inner accent ring */}
-          {resolvedShape === 'shield' ? (
+          {/* Inner accent ring — slightly smaller, stroke only */}
+          <g transform="translate(50 50) scale(0.74) translate(-50 -50)">
             <path
-              d="M50 16 C 64 16, 78 22, 84 28 V 52 C 84 70, 68 82, 50 86 C 32 82, 16 70, 16 52 V 28 C 22 22, 36 16, 50 16 Z"
+              d={shapePath}
               fill="none"
               stroke={palette.rimAccent}
               strokeOpacity="0.55"
-              strokeWidth="1.4"
+              strokeWidth="1.9"
+              vectorEffect="non-scaling-stroke"
             />
-          ) : (
-            <circle
-              cx="50"
-              cy="50"
-              r="34"
-              fill="none"
-              stroke={palette.rimAccent}
-              strokeOpacity="0.55"
-              strokeWidth="1.4"
-            />
-          )}
+          </g>
 
-          {/* Top gloss highlight */}
+          {/* Top gloss highlight — generic top-light, works for every shape */}
           {!locked && (
-            resolvedShape === 'shield' ? (
-              <path
-                d="M50 12 C 66 12, 80 18, 86 26 V 50 C 76 44, 62 40, 50 40 C 38 40, 24 44, 14 50 V 26 C 20 18, 34 12, 50 12 Z"
-                fill={`url(#${uid}-gloss)`}
-                opacity="0.7"
-              />
-            ) : (
-              <ellipse cx="50" cy="32" rx="30" ry="14" fill={`url(#${uid}-gloss)`} opacity="0.85" />
-            )
+            <ellipse cx="50" cy="30" rx="32" ry="14" fill={`url(#${uid}-gloss)`} opacity="0.85" />
           )}
         </g>
 
-        {/* Decorative stars around the rim for higher tiers */}
-        {sparkles && !locked && (
+        {/* Decorative stars around the rim for higher tiers. The star
+            shape already has 12 spikes of its own, so we skip stars on
+            mythic-radiant to avoid visual clutter. */}
+        {sparkles && !locked && !isStarShape && (
           <g fill={palette.starColor} opacity={rarity === 'mythic' ? 0.95 : 0.78}>
             <g transform="translate(50 8)">
               <path d={STAR_PATH} transform="scale(0.7)" />
@@ -287,13 +308,11 @@ export function InsigniaBadge({
           </g>
         )}
 
-        {/* Locked dot */}
         {locked && (
           <circle cx="50" cy="50" r="4.5" fill="rgba(20,20,30,0.6)" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
         )}
       </svg>
 
-      {/* Icon overlay (emoji) — positioned absolutely on top of the medallion */}
       {!locked && (
         <span
           aria-hidden
@@ -306,8 +325,6 @@ export function InsigniaBadge({
             lineHeight: `${size}px`,
             fontSize: iconFontPx,
             textAlign: 'center',
-            // The emoji sits on a light-on-dark medallion; a soft drop-shadow
-            // keeps it readable across all tiers without recoloring.
             textShadow:
               '0 1px 2px rgba(40,20,0,0.35), 0 0 8px rgba(255,255,255,0.18)',
             userSelect: 'none',

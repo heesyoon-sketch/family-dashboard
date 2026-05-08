@@ -128,6 +128,7 @@ function BadgeCard({
         <InsigniaBadge
           rarity={badge.rarity}
           icon={badge.icon}
+          seed={badge.achievementId}
           locked={locked}
           size={56}
           ariaLabel={secretLocked ? 'Secret insignia' : badge.title}
@@ -232,6 +233,7 @@ function BadgeDetail({
           <InsigniaBadge
             rarity={badge.rarity}
             icon={badge.icon}
+            seed={badge.achievementId}
             locked={!badge.isUnlocked}
             size={104}
             showSparkles
@@ -505,6 +507,7 @@ export function InsigniaWall() {
                     <InsigniaBadge
                       rarity={slotBadge.rarity}
                       icon={slotBadge.icon}
+                      seed={slotBadge.achievementId}
                       size={42}
                       ariaLabel={slotBadge.title}
                     />
@@ -550,6 +553,7 @@ export function InsigniaWall() {
                   <InsigniaBadge
                     rarity={badge.rarity}
                     icon={badge.icon}
+                    seed={badge.achievementId}
                     locked={!badge.isUnlocked}
                     size={48}
                     ariaLabel={badge.title}
@@ -672,6 +676,7 @@ function Panel({ title, items, onOpen }: { title: string; items: AchievementProg
               <InsigniaBadge
                 rarity={item.rarity}
                 icon={item.icon}
+                seed={item.achievementId}
                 locked={!item.isUnlocked}
                 size={36}
                 ariaLabel={secretLocked ? 'Secret insignia' : item.title}

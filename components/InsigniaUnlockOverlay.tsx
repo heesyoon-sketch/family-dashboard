@@ -153,6 +153,7 @@ export function InsigniaUnlockOverlay() {
                 <InsigniaBadge
                   rarity={current.rarity}
                   icon={current.icon}
+                  seed={current.achievementId}
                   size={168}
                   showSparkles
                   ariaLabel={current.title}

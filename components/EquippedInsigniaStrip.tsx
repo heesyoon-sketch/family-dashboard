@@ -84,6 +84,7 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
               key={badge.achievementId}
               rarity={badge.rarity}
               icon={badge.icon}
+              seed={badge.achievementId}
               size={SLOT_PX}
               ariaLabel={badge.title}
             />
