@@ -8,6 +8,7 @@ import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { InsigniaUnlockOverlay } from '@/components/InsigniaUnlockOverlay';
+import { HarmonyChip } from '@/components/HarmonyChip';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
@@ -232,6 +233,8 @@ export default function Dashboard() {
             <span className="hidden rounded-full bg-[#4EEDB0]/12 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0] md:inline">
               LIVE
             </span>
+            <div className="hidden h-4 w-px bg-white/10 md:block" />
+            <HarmonyChip className="hidden md:inline-flex" />
           </div>
         </div>
 

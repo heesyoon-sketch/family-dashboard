@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -176,6 +176,14 @@ function labels(lang: Lang) {
 }
 
 export default function StatsPage() {
+  return (
+    <Suspense fallback={<main className="grid min-h-screen place-items-center bg-[#0b0d12] text-[#8a8f99]">…</main>}>
+      <StatsPageInner />
+    </Suspense>
+  );
+}
+
+function StatsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { lang, t } = useLanguage();

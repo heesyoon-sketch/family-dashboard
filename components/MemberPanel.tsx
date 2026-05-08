@@ -7,8 +7,10 @@ import { HeartHandshake, Mail, Store } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
+import { MomentumAura } from './MomentumAura';
+import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
 import { useFamilyStore } from '@/lib/store';
-import { LEVEL_THRESHOLDS } from '@/lib/gamification';
+import { computeLevelProgress, emptyMomentum } from '@/lib/progression';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
@@ -70,12 +72,9 @@ export function MemberPanel({ user }: { user: User }) {
   const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? []);
   const level          = useFamilyStore(s => s.levelsByUser[user.id]);
   const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? []);
-  const maxStreak      = useFamilyStore(s => s.maxStreakByUser[user.id] ?? 0);
-  const longestStreak  = useFamilyStore(s => s.longestStreakByUser[user.id] ?? 0);
   const bestDay        = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
   const growth         = useFamilyStore(s => s.growthByUser[user.id] ?? null);
-  const dailyStreak    = useFamilyStore(s => s.dailyStreakByUser[user.id] ?? 0);
-  const dailyStreakAtRisk = useFamilyStore(s => s.dailyStreakAtRiskByUser[user.id] ?? false);
+  const momentum       = useFamilyStore(s => s.momentumByUser[user.id]) ?? emptyMomentum();
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const allUsers       = useFamilyStore(s => s.users);
@@ -154,15 +153,11 @@ export function MemberPanel({ user }: { user: User }) {
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
 
-  // Motivational message
+  // Soft, no-pressure encouragement. We surface "best day so far" only and
+  // skip streak language entirely — the momentum aura already communicates
+  // rhythm without making any one missed day feel like a loss.
   let motiveMsg: string | null = null;
-  if (longestStreak > 0 && maxStreak >= longestStreak - 1) {
-    motiveMsg = maxStreak >= longestStreak
-      ? `🔥 ${t('new_record')}`
-      : lang === 'en'
-        ? `🔥 ${maxStreak}-day streak`
-        : `🔥 ${maxStreak}일 도전중`;
-  } else if (bestDay > 0 && doneCount >= bestDay - 1) {
+  if (bestDay > 0 && doneCount >= bestDay - 1) {
     const gap = bestDay - doneCount;
     motiveMsg = gap <= 0
       ? `🏆 ${t('best_day')}`
@@ -171,9 +166,10 @@ export function MemberPanel({ user }: { user: User }) {
         : `🏆 ${gap}개 남았어`;
   }
 
-  const lvlInfo       = LEVEL_THRESHOLDS.find(l => l.level === (level?.currentLevel ?? 1))!;
-  const pointsInLevel = (level?.totalPoints ?? 0) - lvlInfo.min;
-  const pointsNeeded  = lvlInfo.max - lvlInfo.min;
+  const totalXp        = level?.totalPoints ?? 0;
+  const levelProgress  = computeLevelProgress(totalXp);
+  const displayLevel   = level?.currentLevel ?? levelProgress.level;
+  const progressPct    = Math.round(levelProgress.progressToNext * 100);
   const avatarSrc = user.avatarUrl
     ? `${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
     : null;
@@ -265,35 +261,11 @@ export function MemberPanel({ user }: { user: User }) {
                 </div>
 
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[9px]">
-                  <span className="shrink-0">Lv.{level?.currentLevel ?? 1}</span>
+                  <span className="shrink-0">Lv.{displayLevel}</span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                  <span className="min-w-0 truncate">{level?.totalPoints ?? 0}pt</span>
-                  {dailyStreak > 0 && (
-                    <>
-                      <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                      <motion.span
-                        className={`shrink-0 ${dailyStreakAtRisk ? 'text-rose-300' : 'text-[var(--accent)]'}`}
-                        animate={dailyStreakAtRisk ? { opacity: [1, 0.45, 1] } : { opacity: 1 }}
-                        transition={dailyStreakAtRisk ? { duration: 1.4, repeat: Infinity, ease: 'easeInOut' } : { duration: 0 }}
-                        title={dailyStreakAtRisk
-                          ? (lang === 'en' ? 'Finish a task today to keep your streak!' : '오늘 한 개라도 완료해서 연속 기록을 지켜요!')
-                          : (lang === 'en' ? `${dailyStreak}-day streak` : `${dailyStreak}일 연속`)}
-                      >
-                        🔥{dailyStreak}d
-                      </motion.span>
-                    </>
-                  )}
-                  {maxStreak > 0 && (
-                    <>
-                      <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                      <span
-                        className="shrink-0"
-                        title={lang === 'en' ? 'Best per-task streak' : '습관 최고 연속'}
-                      >
-                        ⭐{maxStreak}
-                      </span>
-                    </>
-                  )}
+                  <span className="min-w-0 truncate">{totalXp}xp</span>
+                  <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
+                  <MomentumAura momentum={momentum} size={14} showLabel />
                   {growth !== null && growth > 0 && (
                     <>
                       <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
@@ -302,11 +274,15 @@ export function MemberPanel({ user }: { user: User }) {
                   )}
                 </div>
 
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
-                    style={{ width: `${Math.min(100, (pointsInLevel / pointsNeeded) * 100)}%` }}
-                  />
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--border)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+                      style={{ width: `${progressPct}%` }}
+                      title={`${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} XP to Lv.${displayLevel + 1}`}
+                    />
+                  </div>
+                  <EquippedInsigniaStrip userId={user.id} />
                 </div>
               </div>
             </div>

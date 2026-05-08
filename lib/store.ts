@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import type { AchievementProgress } from './achievements/engine';
+import { calculateMomentum, calculateHarmony, type MomentumResult, type HarmonyResult } from './progression';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
 import {
@@ -108,6 +109,10 @@ interface FamilyState {
   dailyStreakByUser: Record<string, number>;
   dailyStreakAtRiskByUser: Record<string, boolean>;
   weeklyRecapByUser: Record<string, WeeklyRecap>;
+  /** Per-member emotional rhythm — replaces the old streak-multiplier system. */
+  momentumByUser: Record<string, MomentumResult>;
+  /** Family-wide cooperation/resonance score. */
+  harmony: HarmonyResult | null;
   celebration: Celebration | null;
   /** Insignias unlocked but not yet shown to the user. Surfaces a celebration
    *  pop-up that nudges them to check out the Insignia Wall. */
@@ -247,6 +252,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   dailyStreakByUser: {},
   dailyStreakAtRiskByUser: {},
   weeklyRecapByUser: {},
+  momentumByUser: {},
+  harmony: null,
   celebration: null,
   insigniaQueue: [],
   hydrated: false,
@@ -448,6 +455,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const dailyStreakByUser: Record<string, number> = {};
     const dailyStreakAtRiskByUser: Record<string, boolean> = {};
     const weeklyRecapByUser: Record<string, WeeklyRecap> = {};
+    const momentumByUser: Record<string, MomentumResult> = {};
+    const completionDatesByUser: Record<string, Date[]> = {};
 
     // Recap focuses on the most recently *completed* ISO week (Mon–Sun).
     // weekMonday matches stats/page.tsx behaviour.
@@ -530,11 +539,16 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
       const userHistComps = (cHistRes.data ?? []).filter(c => c.user_id === u.id);
       const dayMap = new Map<string, Set<string>>();
+      const completionDates: Date[] = [];
       for (const c of userHistComps) {
-        const key = startOfDayLocal(new Date(c.completed_at)).toISOString();
+        const completedAt = new Date(c.completed_at);
+        const key = startOfDayLocal(completedAt).toISOString();
         if (!dayMap.has(key)) dayMap.set(key, new Set());
         dayMap.get(key)!.add(c.task_id);
+        completionDates.push(completedAt);
       }
+      completionDatesByUser[u.id] = completionDates;
+      momentumByUser[u.id] = calculateMomentum({ completions: completionDates, now });
       bestDayByUser[u.id] = dayMap.size > 0
         ? Math.max(...[...dayMap.values()].map(s => s.size))
         : 0;
@@ -637,6 +651,15 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       };
     }
 
+    // Family-level cooperation score derived from the same trailing window
+    // used for momentum. Cheap (O(members * window)) so it's safe to recompute
+    // every hydrate.
+    const harmony = calculateHarmony({
+      completionsByMember: completionDatesByUser,
+      memberIds: users.map(u => u.id),
+      now,
+    });
+
     set({
       familyId: resolvedFamilyId,
       familyName,
@@ -655,6 +678,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakByUser,
       dailyStreakAtRiskByUser,
       weeklyRecapByUser,
+      momentumByUser,
+      harmony,
       hydrated: true,
       timeOfDay,
       lastHydrateAt: Date.now(),
@@ -1093,6 +1118,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakByUser: {},
       dailyStreakAtRiskByUser: {},
       weeklyRecapByUser: {},
+      momentumByUser: {},
+      harmony: null,
       celebration: null,
       insigniaQueue: [],
       hydrated: false,

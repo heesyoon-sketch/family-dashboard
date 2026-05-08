@@ -12,32 +12,12 @@ import { playCompletionSound } from '@/lib/sound';
 import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { applyStreakMultiplier, getStreakBonusTier, getStreakMultiplier } from '@/lib/streakBonus';
 
 const SWIPE_TRIGGER_PX = 54;
 const SWIPE_LIMIT_PX = 88;
 
 function pascalCase(kebab: string): string {
   return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
-}
-
-function startOfDayLocal(date: Date): Date {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function nextCompletionStreak(task: Task, completed: boolean): number {
-  const current = task.streakCount ?? 0;
-  if (completed) return current;
-  if (!task.lastCompletedAt) return 1;
-
-  const today = startOfDayLocal(new Date()).getTime();
-  const yesterday = today - 86_400_000;
-  const last = startOfDayLocal(task.lastCompletedAt).getTime();
-  if (last >= today) return current;
-  if (last >= yesterday) return current + 1;
-  return 1;
 }
 
 interface TaskCardProps {
@@ -136,24 +116,15 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
     CUSTOM_ICON_MAP[task.icon] ??
     (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
 
-  const streak      = nextCompletionStreak(task, completed);
-  const tier        = getStreakBonusTier(streak);
-  const multiplier  = getStreakMultiplier(streak);
-  const displayPts  = tier > 1 ? applyStreakMultiplier(task.basePoints, streak) : task.basePoints;
-  const extraFlames = tier === 3 ? 2 : tier === 2 ? 1 : 0;
+  // Points are now the simple base reward — no streak multipliers, no
+  // tier glow. Momentum/harmony bonuses live on the dashboard HUD instead
+  // of bleeding optimization pressure into individual habits.
+  const displayPts = task.basePoints;
   const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
-  const ringClass   = completed
+  const ringClass = completed
     ? 'ring-[var(--accent)] opacity-55'
-    : tier === 3
-      ? 'ring-amber-400'
-      : tier === 2
-        ? 'ring-orange-400'
-        : 'ring-[var(--task-card-border)]';
-  const glowStyle: React.CSSProperties = !completed && tier === 3
-    ? { boxShadow: '0 0 16px rgba(251, 191, 36, 0.45)' }
-    : !completed && tier === 2
-      ? { boxShadow: '0 0 10px rgba(251, 146, 60, 0.30)' }
-      : {};
+    : 'ring-[var(--task-card-border)]';
+  const glowStyle: React.CSSProperties = {};
 
   return (
     <div className="relative h-full w-full">
@@ -206,13 +177,6 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         {/* Icon — 40px, readable and comfortable on touch screens */}
         <div className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
           <LucideIcon size={19} className="text-[var(--accent)]" />
-          {extraFlames > 0 && !completed && (
-            <div className="absolute -right-1 -top-1 flex gap-0.5" aria-hidden="true">
-              {Array.from({ length: extraFlames }).map((_, i) => (
-                <span key={i} className="text-[10px] leading-none drop-shadow-sm">🔥</span>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
@@ -220,27 +184,12 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
           <div className={`text-base font-semibold leading-tight line-clamp-2 md:text-sm ${completed ? 'line-through' : ''}`}>
             {task.title}
           </div>
-          <div className={[
-            'text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px]',
-            tier >= 2 && !completed
-              ? tier === 3 ? 'text-amber-400' : 'text-orange-400'
-              : 'text-[var(--fg-muted)]',
-          ].join(' ')}>
+          <div className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
             <span>+{displayPts}pt</span>
             <span className="min-w-0 truncate">· {timeWindowDisplay}</span>
             {disabled && (
               <span className="shrink-0 rounded-full bg-[var(--border)]/70 px-1 py-0.5 text-[9px] font-bold leading-none">
                 {lang === 'en' ? 'Locked' : '대기'}
-              </span>
-            )}
-            {streak > 0 && !completed && (
-              tier === 3
-                ? <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}>🔥 {lang === 'en' ? `${streak}d` : `${streak}일`}</motion.span>
-                : <span>🔥 {lang === 'en' ? `${streak}d` : `${streak}일`}</span>
-            )}
-            {tier > 1 && !completed && (
-              <span className={`flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${isLightTheme ? 'bg-amber-100/80 text-amber-700' : 'bg-amber-500/20 text-amber-400'}`}>
-                ✨ {multiplier}x
               </span>
             )}
           </div>

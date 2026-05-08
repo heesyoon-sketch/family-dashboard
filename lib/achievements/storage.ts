@@ -13,6 +13,9 @@ export interface ChildAchievementState {
   equippedTitleId?: string;
   unlockedVisualStyleIds: string[];
   pinnedAchievementIds: string[];
+  /** Insignias the member has actively equipped, in slot order. Length
+   *  is bounded by the member's level (MAX_LOADOUT_SLOTS at level 15+). */
+  equippedInsigniaIds: string[];
   questClaims: Record<string, string>;
   /** ISO timestamp marking the start of this member's insignia journey.
    *  Achievement metrics ignore completions before this point, so a fresh
@@ -46,6 +49,7 @@ function emptyChildState(childId: string, baselineAt?: string): ChildAchievement
     unlockedTitleIds: [],
     unlockedVisualStyleIds: [],
     pinnedAchievementIds: [],
+    equippedInsigniaIds: [],
     questClaims: {},
     unlockBaselineAt: baselineAt ?? new Date().toISOString(),
   };
@@ -100,6 +104,54 @@ export function togglePinnedAchievement(familyId: string, children: User[], chil
     ? child.pinnedAchievementIds.filter(id => id !== achievementId)
     : [...child.pinnedAchievementIds, achievementId].slice(-5);
   state.children[childId] = { ...child, pinnedAchievementIds: current };
+  saveAchievementState(state);
+  return state;
+}
+
+/** Equip or unequip an insignia, capped to `maxSlots` (typically derived
+ *  from the member's level). Equipping a 4th insignia when only 3 slots
+ *  are available evicts the oldest. */
+export function setEquippedInsignia(
+  familyId: string,
+  children: User[],
+  childId: string,
+  achievementId: string,
+  equipped: boolean,
+  maxSlots: number,
+): FamilyAchievementState {
+  const state = loadAchievementState(familyId, children);
+  const child = state.children[childId] ?? emptyChildState(childId);
+  const current = new Set(child.equippedInsigniaIds);
+  if (equipped) {
+    current.add(achievementId);
+  } else {
+    current.delete(achievementId);
+  }
+  // Preserve original equip order; trim from the head if over capacity.
+  const ordered = [
+    ...child.equippedInsigniaIds.filter(id => current.has(id)),
+    ...Array.from(current).filter(id => !child.equippedInsigniaIds.includes(id)),
+  ];
+  const trimmed = ordered.slice(Math.max(0, ordered.length - Math.max(0, maxSlots)));
+  state.children[childId] = { ...child, equippedInsigniaIds: trimmed };
+  saveAchievementState(state);
+  return state;
+}
+
+/** Trim equipped insignias if a member's level decreased or slot rules changed. */
+export function clampEquippedToSlots(
+  familyId: string,
+  children: User[],
+  childId: string,
+  maxSlots: number,
+): FamilyAchievementState {
+  const state = loadAchievementState(familyId, children);
+  const child = state.children[childId] ?? emptyChildState(childId);
+  if (child.equippedInsigniaIds.length <= maxSlots) return state;
+  state.children[childId] = {
+    ...child,
+    equippedInsigniaIds: child.equippedInsigniaIds.slice(0, maxSlots),
+  };
   saveAchievementState(state);
   return state;
 }
