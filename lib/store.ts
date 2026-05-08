@@ -976,6 +976,35 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           ),
         },
       }));
+
+      // Walk back any insignia the now-undone completion put over the line.
+      // Revokes the badge, refunds the achievement bonus points, and
+      // unequips it (and any title/visual style it solely unlocked) so the
+      // wall stays consistent with the underlying activity.
+      try {
+        const familyId = get().familyId;
+        if (familyId) {
+          const { revokeUnmetAchievements } = await import('./achievements/storage');
+          const revokeResult = await revokeUnmetAchievements({
+            familyId,
+            children: get().users,
+            tasksByUser: get().tasksByUser,
+          });
+          if (Object.keys(revokeResult.refundedLevelsByUser).length > 0) {
+            set(state => ({
+              levelsByUser: {
+                ...state.levelsByUser,
+                ...revokeResult.refundedLevelsByUser,
+              },
+            }));
+          }
+          if (revokeResult.revoked.length > 0) {
+            console.log('[undo] revoked insignias', revokeResult.revoked.map(r => r.achievementId));
+          }
+        }
+      } catch (error) {
+        console.warn('[undo] revoke evaluation failed', error);
+      }
     } finally {
       _taskMutationsInFlight.delete(mutationKey);
     }

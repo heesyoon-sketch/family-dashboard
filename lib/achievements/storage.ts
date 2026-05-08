@@ -299,6 +299,129 @@ export async function syncAchievements(params: {
   return { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
 }
 
+/** Re-evaluate a child's achievements against fresh completion data and
+ *  revoke anything that no longer meets its requirement. Used after an undo
+ *  so the badge wall stays honest with the underlying activity.
+ *
+ *  For each revoked achievement we:
+ *    - drop it from `unlockedAtByAchievementId` and `awardedAchievementIds`
+ *    - unequip it if it was in the loadout
+ *    - drop any titles/visual styles that were unlocked *only* by this
+ *      achievement (and unequip the title if it was active)
+ *    - call `revoke_achievement_bonus` on the server to refund the points
+ *      this achievement originally granted
+ */
+export async function revokeUnmetAchievements(params: {
+  familyId: string;
+  children: User[];
+  tasksByUser: Record<string, Task[]>;
+}): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
+  const members = params.children;
+  const state = loadAchievementState(params.familyId, members);
+  const completionsByChild = await fetchCompletions(members.map(member => member.id));
+  const allTasksByUser = await fetchTasks(members.map(member => member.id), params.tasksByUser);
+
+  const revoked: AchievementProgress[] = [];
+  const refundedLevelsByUser: Record<string, Level> = {};
+  const supabase = createBrowserSupabase();
+
+  for (const child of members) {
+    const childState = state.children[child.id];
+    if (!childState) continue;
+
+    // Evaluate as if nothing was unlocked yet — gives us the truth of which
+    // achievements *currently* meet their requirement based on live data.
+    const result = evaluateAchievementsForChild({
+      child,
+      tasks: allTasksByUser[child.id] ?? [],
+      completions: completionsByChild[child.id] ?? [],
+      allCompletionsByChild: completionsByChild,
+      unlockedAtByAchievementId: {},
+      since: childState.unlockBaselineAt ? new Date(childState.unlockBaselineAt) : undefined,
+    });
+    const stillUnlocked = new Set(
+      result.achievements.filter(a => a.isUnlocked).map(a => a.achievementId),
+    );
+
+    const previouslyUnlocked = Object.keys(childState.unlockedAtByAchievementId);
+    for (const id of previouslyUnlocked) {
+      if (stillUnlocked.has(id)) continue;
+      const def = ACHIEVEMENTS.find(a => a.achievementId === id);
+      if (!def) continue;
+
+      // Drop the unlock + the awarded marker so a future re-earn re-awards.
+      delete childState.unlockedAtByAchievementId[id];
+      childState.awardedAchievementIds = childState.awardedAchievementIds.filter(x => x !== id);
+      childState.equippedInsigniaIds = childState.equippedInsigniaIds.filter(eid => eid !== id);
+
+      // Titles and visual styles can be unlocked by more than one badge, so
+      // only revoke them when no other still-unlocked badge grants them.
+      if (def.unlocksTitleIds) {
+        for (const titleId of def.unlocksTitleIds) {
+          const otherSource = ACHIEVEMENTS.some(a =>
+            a.achievementId !== id
+            && a.unlocksTitleIds?.includes(titleId)
+            && Boolean(childState.unlockedAtByAchievementId[a.achievementId]),
+          );
+          if (!otherSource) {
+            childState.unlockedTitleIds = childState.unlockedTitleIds.filter(t => t !== titleId);
+            if (childState.equippedTitleId === titleId) {
+              childState.equippedTitleId = childState.unlockedTitleIds[0];
+            }
+          }
+        }
+      }
+      if (def.unlocksVisualStyleIds) {
+        for (const styleId of def.unlocksVisualStyleIds) {
+          const otherSource = ACHIEVEMENTS.some(a =>
+            a.achievementId !== id
+            && a.unlocksVisualStyleIds?.includes(styleId)
+            && Boolean(childState.unlockedAtByAchievementId[a.achievementId]),
+          );
+          if (!otherSource) {
+            childState.unlockedVisualStyleIds = childState.unlockedVisualStyleIds.filter(v => v !== styleId);
+          }
+        }
+      }
+
+      // Refund the bonus points this badge originally granted.
+      try {
+        const { data, error } = await supabase.rpc('revoke_achievement_bonus', {
+          p_user_id: child.id,
+          p_achievement_id: id,
+        });
+        if (!error && data) {
+          const raw = data as {
+            userId: string;
+            currentLevel: number;
+            totalPoints: number;
+            spendableBalance: number;
+            updatedAt: string;
+            refunded: number;
+          };
+          refundedLevelsByUser[child.id] = {
+            userId: raw.userId,
+            currentLevel: raw.currentLevel,
+            totalPoints: raw.totalPoints,
+            spendableBalance: raw.spendableBalance,
+            updatedAt: new Date(raw.updatedAt),
+          };
+        }
+      } catch (error) {
+        console.warn('[revoke] failed to refund', id, error);
+      }
+
+      const fullDef = result.achievements.find(a => a.achievementId === id);
+      if (fullDef) revoked.push(fullDef);
+    }
+
+    state.children[child.id] = childState;
+  }
+
+  saveAchievementState(state);
+  return { revoked, refundedLevelsByUser };
+}
+
 export function getUnlockedTitleLabels(childState?: ChildAchievementState) {
   const ids = new Set(childState?.unlockedTitleIds ?? []);
   return TITLE_DEFINITIONS.filter(title => ids.has(title.titleId));
