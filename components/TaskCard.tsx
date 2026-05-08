@@ -8,7 +8,7 @@ import type { ThemeName } from '@/lib/db';
 import { useFamilyStore } from '@/lib/store';
 import { Particles, buildParticles } from './Particles';
 import type { ParticleData } from './Particles';
-import { playCompletionSound } from '@/lib/sound';
+import { playCompletionSound, playUndoSound } from '@/lib/sound';
 import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -46,6 +46,7 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
 
   const [busy, setBusy]           = useState(false);
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
+  const [rippleKey, setRippleKey] = useState(0);
   const particleTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerEffects = (clientX?: number, clientY?: number) => {
@@ -69,11 +70,24 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
     });
   };
 
+  // Undo: a soft "rewind" feel — quiet descending tone, single haptic
+  // pulse, and an expanding ripple ring that reads as "okay, reset".
+  // No confetti or particles; we don't want the gesture to feel
+  // celebratory the way completion does.
+  const triggerUndoEffects = () => {
+    if (soundEnabled) playUndoSound();
+    if (navigator.vibrate) navigator.vibrate(20);
+    // Bumping the key remounts the ripple element so it replays even
+    // when the user undoes several cards in quick succession.
+    setRippleKey(k => k + 1);
+  };
+
   const fireComplete = async (clientX?: number, clientY?: number) => {
     if (busy || disabled) return;
     setBusy(true);
     try {
       if (completed) {
+        triggerUndoEffects();
         await undoCompletion(task.userId, task.id);
       } else {
         triggerEffects(clientX, clientY);
@@ -219,6 +233,20 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
 
       {/* Particles render outside card overflow, free to animate anywhere */}
       <Particles particles={particles} theme={theme} />
+
+      {/* Undo ripple — expanding ring centered on the card. The keyed
+          remount makes it replay on every undo without needing to
+          juggle a "playing" flag. */}
+      {rippleKey > 0 && (
+        <motion.span
+          key={rippleKey}
+          aria-hidden
+          initial={{ scale: 0.2, opacity: 0.55 }}
+          animate={{ scale: 1.55, opacity: 0 }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+          className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-[var(--accent)]"
+        />
+      )}
     </div>
   );
 }

@@ -104,3 +104,19 @@ export function playCompletionSound(taskKey: string) {
     // silently ignore (e.g. Safari private mode)
   }
 }
+
+/** Soft "rewind" tone for undoing a completion. Deliberately understated
+ *  — a quiet descending pair so the gesture feels reversible, not
+ *  celebratory. Same shape regardless of task. */
+export function playUndoSound() {
+  if (typeof window === 'undefined') return;
+  try {
+    const ac = getCtx();
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime;
+    tone(ac, 660, t,        0.10, 0.12, 'triangle');
+    tone(ac, 440, t + 0.07, 0.18, 0.11, 'triangle');
+  } catch {
+    // silently ignore
+  }
+}
