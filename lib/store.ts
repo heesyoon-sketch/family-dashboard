@@ -819,6 +819,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       try {
         const { processCompletion } = await import('./gamification');
         result = await processCompletion(userId, taskId, false, new Date(), bonusPercent);
+        console.log('[completion] bonus%', bonusPercent, '→ awarded', result.pointsAwarded, 'pts');
       } catch (error) {
         await enqueueTaskAction('complete', userId, taskId);
         console.warn('Queued completion for offline sync', error);

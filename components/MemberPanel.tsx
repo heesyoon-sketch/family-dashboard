@@ -112,14 +112,10 @@ export function MemberPanel({ user }: { user: User }) {
     return isTaskActiveInTimeWindow(task.timeWindow, timeOfDay);
   };
   const currentTasks = tasks.filter(isTaskCurrent);
-  // Incomplete first, completed sink to bottom. Stable within each group (original index order).
+  // Tasks stay in their original position when completed — checking off a
+  // habit shouldn't re-shuffle the layout. Only sort by time window so the
+  // morning/afternoon/evening grouping stays stable.
   const sortedTasks = [...currentTasks].sort((a, b) => {
-    const aInactive = isTaskCurrent(a) ? 0 : 1;
-    const bInactive = isTaskCurrent(b) ? 0 : 1;
-    if (aInactive !== bInactive) return aInactive - bInactive;
-    const aDone = completed.includes(a.id) ? 1 : 0;
-    const bDone = completed.includes(b.id) ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
     return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
   });
 

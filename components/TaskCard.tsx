@@ -39,13 +39,17 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
   const completeHintOpacity  = useTransform(x, [0, SWIPE_TRIGGER_PX * 0.55, SWIPE_TRIGGER_PX], [0, 0, 1]);
   const undoBgOpacity        = useTransform(x, [-SWIPE_TRIGGER_PX, 0], [1, 0]);
   const undoHintOpacity      = useTransform(x, [-SWIPE_TRIGGER_PX, -SWIPE_TRIGGER_PX * 0.55, 0], [1, 0, 0]);
+  // Subtle tilt while dragging — the card feels like a physical object
+  // pivoting under the finger rather than sliding flat.
+  const cardRotate           = useTransform(x, [-SWIPE_LIMIT_PX, 0, SWIPE_LIMIT_PX], [-1.6, 0, 1.6]);
+  const cardScale            = useTransform(x, [-SWIPE_LIMIT_PX, 0, SWIPE_LIMIT_PX], [0.985, 1, 0.985]);
 
   const [busy, setBusy]           = useState(false);
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
   const particleTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerEffects = (clientX?: number, clientY?: number) => {
-    if (soundEnabled) playCompletionSound(theme);
+    if (soundEnabled) playCompletionSound(task.id);
     if (particleTimer.current) clearTimeout(particleTimer.current);
     setParticles(buildParticles(theme));
     particleTimer.current = setTimeout(() => setParticles(null), 1000);
@@ -68,26 +72,31 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
   const fireComplete = async (clientX?: number, clientY?: number) => {
     if (busy || disabled) return;
     setBusy(true);
-    if (completed) {
-      await undoCompletion(task.userId, task.id);
-    } else {
-      triggerEffects(clientX, clientY);
-      await markCompleted(task.userId, task.id);
+    try {
+      if (completed) {
+        await undoCompletion(task.userId, task.id);
+      } else {
+        triggerEffects(clientX, clientY);
+        await markCompleted(task.userId, task.id);
+      }
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
-  const snapBack = () => animate(x, 0, { type: 'spring', stiffness: 300, damping: 24 });
+  // Soft, bouncy spring — feels alive without overshooting awkwardly.
+  const snapBack = () => animate(x, 0, { type: 'spring', stiffness: 380, damping: 26, restDelta: 0.5 });
 
+  // Confirm-and-release: a brief overshoot to acknowledge the swipe, then
+  // we spring straight home. The network call fires in parallel — the UI
+  // is never blocked on the RPC, so the card feels instantly responsive.
   const runSwipeAction = (targetX: number, clientX?: number, clientY?: number) => {
     if (disabled) return;
+    void fireComplete(clientX, clientY);
     animate(x, targetX, {
-      duration: 0.14,
-      onComplete: () => {
-        void fireComplete(clientX, clientY).finally(() => {
-          snapBack();
-        });
-      },
+      duration: 0.09,
+      ease: 'easeOut',
+      onComplete: () => snapBack(),
     });
   };
 
@@ -160,11 +169,12 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         drag={disabled ? false : 'x'}
         dragConstraints={completed ? { left: -SWIPE_LIMIT_PX, right: 0 } : { left: 0, right: SWIPE_LIMIT_PX }}
         dragDirectionLock
-        dragElastic={0.08}
+        dragElastic={0.18}
         dragMomentum={false}
+        dragTransition={{ bounceStiffness: 380, bounceDamping: 26 }}
         onDragEnd={handleDragEnd}
-        style={{ x, touchAction: 'pan-y', ...glowStyle }}
-        whileTap={disabled ? undefined : { scale: 0.98 }}
+        style={{ x, rotate: cardRotate, scale: cardScale, touchAction: 'pan-y', ...glowStyle }}
+        whileTap={disabled ? undefined : { scale: 0.97 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
           'px-3.5 py-2.5 flex items-center gap-3 md:px-2.5 md:py-2 md:gap-2',
