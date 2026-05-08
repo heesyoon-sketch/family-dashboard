@@ -21,6 +21,7 @@ import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
+import { InsigniaWall } from '@/components/InsigniaWall';
 
 const THEME_ACCENT: Record<string, string> = {
   dark_minimal: '#4f9cff',
@@ -181,6 +182,7 @@ export default function StatsPage() {
   const [allStats, setAllStats] = useState<UserStats[]>([]);
   const [familyName, setFamilyName] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(0);
+  const [view, setView] = useState<'stats' | 'insignia'>('stats');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -469,7 +471,23 @@ export default function StatsPage() {
           </div>
           <div className="truncate text-xs text-white/45">{copy.pageSub}</div>
         </div>
-        {pageCount > 1 && (
+        <div className="flex shrink-0 rounded-lg border border-white/10 bg-white/[0.04] p-1">
+          <button
+            type="button"
+            onClick={() => setView('stats')}
+            className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'stats' ? 'bg-white text-slate-950' : 'text-white/58 hover:text-white'}`}
+          >
+            Stats
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('insignia')}
+            className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'insignia' ? 'bg-[#FFD166] text-slate-950' : 'text-white/58 hover:text-white'}`}
+          >
+            Insignia Wall
+          </button>
+        </div>
+        {view === 'stats' && pageCount > 1 && (
           <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1 md:flex">
             <button
               type="button"
@@ -507,19 +525,27 @@ export default function StatsPage() {
         )}
       </header>
 
-      <main className="grid flex-1 grid-cols-1 gap-0.5 overflow-auto bg-black md:hidden">
-        {allStats.map(stat => <MemberStatsPanel key={stat.user.id} stat={stat} lang={lang} copy={copy} />)}
-      </main>
+      {view === 'insignia' ? (
+        <main className="flex-1 overflow-auto bg-[#0b0d12]">
+          <InsigniaWall />
+        </main>
+      ) : (
+        <>
+          <main className="grid flex-1 grid-cols-1 gap-0.5 overflow-auto bg-black md:hidden">
+            {allStats.map(stat => <MemberStatsPanel key={stat.user.id} stat={stat} lang={lang} copy={copy} />)}
+          </main>
 
-      <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden bg-black md:grid">
-        {Array.from({ length: 4 }, (_, index) => visibleStats[index] ?? null).map((stat, index) =>
-          stat ? (
-            <MemberStatsPanel key={stat.user.id} stat={stat} lang={lang} copy={copy} />
-          ) : (
-            <div key={`empty-${clampedActivePage}-${index}`} className="min-h-0 bg-[#171717]" />
-          ),
-        )}
-      </main>
+          <main className="hidden flex-1 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden bg-black md:grid">
+            {Array.from({ length: 4 }, (_, index) => visibleStats[index] ?? null).map((stat, index) =>
+              stat ? (
+                <MemberStatsPanel key={stat.user.id} stat={stat} lang={lang} copy={copy} />
+              ) : (
+                <div key={`empty-${clampedActivePage}-${index}`} className="min-h-0 bg-[#171717]" />
+              ),
+            )}
+          </main>
+        </>
+      )}
     </div>
   );
 }

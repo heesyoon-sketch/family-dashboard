@@ -791,6 +791,38 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           ),
         },
       }));
+
+      try {
+        const familyId = get().familyId;
+        if (!familyId) return;
+        const { syncAchievements } = await import('./achievements/storage');
+        const achievementResult = await syncAchievements({
+          familyId,
+          children: get().users,
+          tasksByUser: get().tasksByUser,
+          levelsByUser: get().levelsByUser,
+          awardNew: true,
+        });
+        if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
+          set(state => ({
+            levelsByUser: {
+              ...state.levelsByUser,
+              ...achievementResult.awardedLevelsByUser,
+            },
+          }));
+        }
+        if (achievementResult.newlyUnlocked.some(a => a.childId === userId)) {
+          const unlocked = achievementResult.newlyUnlocked.find(a => a.childId === userId);
+          if (unlocked) {
+            const { toast } = await import('sonner');
+            toast.success(`Insignia unlocked: ${unlocked.title}`, {
+              description: `+${unlocked.rewardPoints ?? 0} bonus points`,
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('[achievements] sync after completion failed', error);
+      }
     } finally {
       _taskMutationsInFlight.delete(mutationKey);
     }

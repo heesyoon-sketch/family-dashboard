@@ -1,0 +1,250 @@
+'use client';
+
+import { legacyRecurrenceToDays, type Level, type Task, type User } from '@/lib/db';
+import { createBrowserSupabase } from '@/lib/supabase';
+import { ACHIEVEMENTS, TITLE_DEFINITIONS, VISUAL_STYLE_DEFINITIONS } from './definitions';
+import { evaluateAchievementsForChild, type AchievementCompletion, type AchievementProgress } from './engine';
+
+export interface ChildAchievementState {
+  childId: string;
+  unlockedAtByAchievementId: Record<string, string>;
+  awardedAchievementIds: string[];
+  unlockedTitleIds: string[];
+  equippedTitleId?: string;
+  unlockedVisualStyleIds: string[];
+  pinnedAchievementIds: string[];
+  questClaims: Record<string, string>;
+}
+
+export interface FamilyAchievementState {
+  familyId: string;
+  children: Record<string, ChildAchievementState>;
+  updatedAt: string;
+}
+
+export interface AchievementSyncResult {
+  state: FamilyAchievementState;
+  achievementsByChild: Record<string, AchievementProgress[]>;
+  newlyUnlocked: AchievementProgress[];
+}
+
+function storageKey(familyId: string): string {
+  return `fambit_insignia_wall_${familyId}`;
+}
+
+function emptyChildState(childId: string): ChildAchievementState {
+  return {
+    childId,
+    unlockedAtByAchievementId: {},
+    awardedAchievementIds: [],
+    unlockedTitleIds: [],
+    unlockedVisualStyleIds: [],
+    pinnedAchievementIds: [],
+    questClaims: {},
+  };
+}
+
+export function loadAchievementState(familyId: string, children: User[]): FamilyAchievementState {
+  if (typeof window === 'undefined') {
+    return {
+      familyId,
+      children: Object.fromEntries(children.map(child => [child.id, emptyChildState(child.id)])),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  const raw = localStorage.getItem(storageKey(familyId));
+  const parsed = raw ? JSON.parse(raw) as Partial<FamilyAchievementState> : {};
+  const childStates: Record<string, ChildAchievementState> = {};
+  for (const child of children) {
+    childStates[child.id] = {
+      ...emptyChildState(child.id),
+      ...(parsed.children?.[child.id] ?? {}),
+      childId: child.id,
+    };
+  }
+  return {
+    familyId,
+    children: childStates,
+    updatedAt: parsed.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+export function saveAchievementState(state: FamilyAchievementState): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(storageKey(state.familyId), JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
+}
+
+export function setEquippedTitle(familyId: string, children: User[], childId: string, titleId: string): FamilyAchievementState {
+  const state = loadAchievementState(familyId, children);
+  const child = state.children[childId] ?? emptyChildState(childId);
+  if (!child.unlockedTitleIds.includes(titleId)) return state;
+  state.children[childId] = { ...child, equippedTitleId: titleId };
+  saveAchievementState(state);
+  return state;
+}
+
+export function togglePinnedAchievement(familyId: string, children: User[], childId: string, achievementId: string): FamilyAchievementState {
+  const state = loadAchievementState(familyId, children);
+  const child = state.children[childId] ?? emptyChildState(childId);
+  const current = child.pinnedAchievementIds.includes(achievementId)
+    ? child.pinnedAchievementIds.filter(id => id !== achievementId)
+    : [...child.pinnedAchievementIds, achievementId].slice(-5);
+  state.children[childId] = { ...child, pinnedAchievementIds: current };
+  saveAchievementState(state);
+  return state;
+}
+
+async function fetchCompletions(userIds: string[]): Promise<Record<string, AchievementCompletion[]>> {
+  const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
+  const since = new Date();
+  since.setDate(since.getDate() - 370);
+  const supabase = createBrowserSupabase();
+  const { data, error } = await supabase
+    .from('task_completions')
+    .select('id, user_id, task_id, completed_at, points_awarded')
+    .in('user_id', safeIds)
+    .gte('completed_at', since.toISOString());
+  if (error) throw new Error(error.message);
+
+  const byChild: Record<string, AchievementCompletion[]> = Object.fromEntries(userIds.map(id => [id, []]));
+  for (const row of data ?? []) {
+    const childId = row.user_id as string;
+    byChild[childId] = [
+      ...(byChild[childId] ?? []),
+      {
+        id: row.id as string,
+        childId,
+        taskId: row.task_id as string,
+        completedAt: new Date(row.completed_at as string),
+        pointsAwarded: Number(row.points_awarded ?? 0),
+      },
+    ];
+  }
+  return byChild;
+}
+
+async function fetchTasks(userIds: string[], fallback: Record<string, Task[]>): Promise<Record<string, Task[]>> {
+  const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
+  const supabase = createBrowserSupabase();
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id, user_id, code, title, icon, difficulty, base_points, recurrence, days_of_week, time_window, active, sort_order, streak_count, last_completed_at')
+    .in('user_id', safeIds)
+    .is('deleted_at', null);
+  if (error) return fallback;
+  const byUser: Record<string, Task[]> = Object.fromEntries(userIds.map(id => [id, fallback[id] ?? []]));
+  for (const row of data ?? []) {
+    const task: Task = {
+      id: row.id as string,
+      userId: row.user_id as string,
+      code: (row.code as string | null) ?? undefined,
+      title: row.title as string,
+      icon: row.icon as string,
+      difficulty: row.difficulty as Task['difficulty'],
+      basePoints: Number(row.base_points ?? 0),
+      recurrence: row.recurrence as string,
+      daysOfWeek: ((row.days_of_week as Task['daysOfWeek'] | null) ?? legacyRecurrenceToDays(row.recurrence as string)),
+      timeWindow: row.time_window as Task['timeWindow'],
+      active: Number(row.active ?? 1),
+      sortOrder: Number(row.sort_order ?? 0),
+      streakCount: Number(row.streak_count ?? 0),
+      lastCompletedAt: row.last_completed_at ? new Date(row.last_completed_at as string) : null,
+    };
+    byUser[task.userId] = [...(byUser[task.userId] ?? []), task];
+  }
+  return byUser;
+}
+
+async function awardBonusPoints(childId: string, achievement: AchievementProgress): Promise<Level | null> {
+  const points = Math.max(0, Math.round(achievement.rewardPoints ?? 0));
+  if (points <= 0) return null;
+  const supabase = createBrowserSupabase();
+  const { data, error } = await supabase.rpc('award_achievement_bonus', {
+    p_user_id: childId,
+    p_achievement_id: achievement.achievementId,
+    p_points: points,
+    p_message: `Insignia unlocked: ${achievement.title}`,
+  });
+  if (error || !data) return null;
+  const raw = data as { userId: string; currentLevel: number; totalPoints: number; spendableBalance: number; updatedAt: string };
+  return {
+    userId: raw.userId,
+    currentLevel: raw.currentLevel,
+    totalPoints: raw.totalPoints,
+    spendableBalance: raw.spendableBalance,
+    updatedAt: new Date(raw.updatedAt),
+  };
+}
+
+export async function syncAchievements(params: {
+  familyId: string;
+  children: User[];
+  tasksByUser: Record<string, Task[]>;
+  levelsByUser?: Record<string, Level>;
+  awardNew?: boolean;
+}): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
+  const children = params.children.filter(child => child.role === 'CHILD');
+  const state = loadAchievementState(params.familyId, children);
+  const completionsByChild = await fetchCompletions(children.map(child => child.id));
+  const allTasksByUser = await fetchTasks(children.map(child => child.id), params.tasksByUser);
+  const achievementsByChild: Record<string, AchievementProgress[]> = {};
+  const newlyUnlocked: AchievementProgress[] = [];
+  const awardedLevelsByUser: Record<string, Level> = {};
+
+  for (const child of children) {
+    const childState = state.children[child.id] ?? emptyChildState(child.id);
+    const result = evaluateAchievementsForChild({
+      child,
+      tasks: allTasksByUser[child.id] ?? [],
+      completions: completionsByChild[child.id] ?? [],
+      allCompletionsByChild: completionsByChild,
+      unlockedAtByAchievementId: childState.unlockedAtByAchievementId,
+    });
+    for (const achievement of result.newlyUnlocked) {
+      childState.unlockedAtByAchievementId[achievement.achievementId] = achievement.unlockedAt ?? new Date().toISOString();
+      childState.unlockedTitleIds = Array.from(new Set([
+        ...childState.unlockedTitleIds,
+        ...(achievement.unlocksTitleIds ?? []),
+      ]));
+      childState.unlockedVisualStyleIds = Array.from(new Set([
+        ...childState.unlockedVisualStyleIds,
+        ...(achievement.unlocksVisualStyleIds ?? []),
+      ]));
+      newlyUnlocked.push(achievement);
+
+      if (params.awardNew && !childState.awardedAchievementIds.includes(achievement.achievementId)) {
+        const awarded = await awardBonusPoints(child.id, achievement);
+        if (awarded) {
+          awardedLevelsByUser[child.id] = awarded;
+          childState.awardedAchievementIds.push(achievement.achievementId);
+        }
+      }
+    }
+    if (!childState.equippedTitleId && childState.unlockedTitleIds.length > 0) {
+      childState.equippedTitleId = childState.unlockedTitleIds[0];
+    }
+    state.children[child.id] = childState;
+    achievementsByChild[child.id] = result.achievements.map(achievement => ({
+      ...achievement,
+      isUnlocked: Boolean(childState.unlockedAtByAchievementId[achievement.achievementId]) || achievement.isUnlocked,
+      unlockedAt: childState.unlockedAtByAchievementId[achievement.achievementId] ?? achievement.unlockedAt,
+    }));
+  }
+
+  saveAchievementState(state);
+  return { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
+}
+
+export function getUnlockedTitleLabels(childState?: ChildAchievementState) {
+  const ids = new Set(childState?.unlockedTitleIds ?? []);
+  return TITLE_DEFINITIONS.filter(title => ids.has(title.titleId));
+}
+
+export function getUnlockedVisualStyles(childState?: ChildAchievementState) {
+  const ids = new Set(childState?.unlockedVisualStyleIds ?? []);
+  return VISUAL_STYLE_DEFINITIONS.filter(style => ids.has(style.visualStyleId));
+}
+
+export function achievementCount(): number {
+  return ACHIEVEMENTS.length;
+}
