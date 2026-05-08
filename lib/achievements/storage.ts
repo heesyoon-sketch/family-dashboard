@@ -14,6 +14,10 @@ export interface ChildAchievementState {
   unlockedVisualStyleIds: string[];
   pinnedAchievementIds: string[];
   questClaims: Record<string, string>;
+  /** ISO timestamp marking the start of this member's insignia journey.
+   *  Achievement metrics ignore completions before this point, so a fresh
+   *  family begins with empty progress and unlocks badges as they go. */
+  unlockBaselineAt: string;
 }
 
 export interface FamilyAchievementState {
@@ -28,11 +32,13 @@ export interface AchievementSyncResult {
   newlyUnlocked: AchievementProgress[];
 }
 
+// v2: reset progress for the new design + adult participation. Existing v1
+// localStorage entries are ignored so every family starts clean.
 function storageKey(familyId: string): string {
-  return `fambit_insignia_wall_${familyId}`;
+  return `fambit_insignia_wall_v2_${familyId}`;
 }
 
-function emptyChildState(childId: string): ChildAchievementState {
+function emptyChildState(childId: string, baselineAt?: string): ChildAchievementState {
   return {
     childId,
     unlockedAtByAchievementId: {},
@@ -41,6 +47,7 @@ function emptyChildState(childId: string): ChildAchievementState {
     unlockedVisualStyleIds: [],
     pinnedAchievementIds: [],
     questClaims: {},
+    unlockBaselineAt: baselineAt ?? new Date().toISOString(),
   };
 }
 
@@ -56,10 +63,13 @@ export function loadAchievementState(familyId: string, children: User[]): Family
   const parsed = raw ? JSON.parse(raw) as Partial<FamilyAchievementState> : {};
   const childStates: Record<string, ChildAchievementState> = {};
   for (const child of children) {
+    const stored = parsed.children?.[child.id];
+    const base = emptyChildState(child.id, stored?.unlockBaselineAt);
     childStates[child.id] = {
-      ...emptyChildState(child.id),
-      ...(parsed.children?.[child.id] ?? {}),
+      ...base,
+      ...(stored ?? {}),
       childId: child.id,
+      unlockBaselineAt: stored?.unlockBaselineAt ?? base.unlockBaselineAt,
     };
   }
   return {
@@ -183,15 +193,16 @@ export async function syncAchievements(params: {
   levelsByUser?: Record<string, Level>;
   awardNew?: boolean;
 }): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
-  const children = params.children.filter(child => child.role === 'CHILD');
-  const state = loadAchievementState(params.familyId, children);
-  const completionsByChild = await fetchCompletions(children.map(child => child.id));
-  const allTasksByUser = await fetchTasks(children.map(child => child.id), params.tasksByUser);
+  // Insignia Wall is open to everyone in the family — kids and parents alike.
+  const members = params.children;
+  const state = loadAchievementState(params.familyId, members);
+  const completionsByChild = await fetchCompletions(members.map(member => member.id));
+  const allTasksByUser = await fetchTasks(members.map(member => member.id), params.tasksByUser);
   const achievementsByChild: Record<string, AchievementProgress[]> = {};
   const newlyUnlocked: AchievementProgress[] = [];
   const awardedLevelsByUser: Record<string, Level> = {};
 
-  for (const child of children) {
+  for (const child of members) {
     const childState = state.children[child.id] ?? emptyChildState(child.id);
     const result = evaluateAchievementsForChild({
       child,
@@ -199,6 +210,7 @@ export async function syncAchievements(params: {
       completions: completionsByChild[child.id] ?? [],
       allCompletionsByChild: completionsByChild,
       unlockedAtByAchievementId: childState.unlockedAtByAchievementId,
+      since: childState.unlockBaselineAt ? new Date(childState.unlockBaselineAt) : undefined,
     });
     for (const achievement of result.newlyUnlocked) {
       childState.unlockedAtByAchievementId[achievement.achievementId] = achievement.unlockedAt ?? new Date().toISOString();

@@ -339,12 +339,28 @@ export function evaluateAchievementsForChild(params: {
   allCompletionsByChild: Record<string, AchievementCompletion[]>;
   unlockedAtByAchievementId?: Record<string, string>;
   now?: Date;
+  /** Only count completions on/after this timestamp. Lets a fresh family
+   *  begin unlocking insignias from a chosen reset point rather than
+   *  retroactively crediting historical activity. */
+  since?: Date;
 }): { metrics: AchievementMetrics; achievements: AchievementProgress[]; newlyUnlocked: AchievementProgress[] } {
+  const sinceTime = params.since ? params.since.getTime() : 0;
+  const filteredCompletions = sinceTime > 0
+    ? params.completions.filter(c => c.completedAt.getTime() >= sinceTime)
+    : params.completions;
+  const filteredAllByChild = sinceTime > 0
+    ? Object.fromEntries(
+        Object.entries(params.allCompletionsByChild).map(([id, comps]) => [
+          id,
+          comps.filter(c => c.completedAt.getTime() >= sinceTime),
+        ]),
+      )
+    : params.allCompletionsByChild;
   const metrics = calculateAchievementMetrics(
     params.child.id,
     params.tasks,
-    params.completions,
-    params.allCompletionsByChild,
+    filteredCompletions,
+    filteredAllByChild,
     params.now,
   );
   const unlocked = params.unlockedAtByAchievementId ?? {};

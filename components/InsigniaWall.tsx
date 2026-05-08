@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Award, Check, Flame, Medal, Pin, Search, Sparkles, Trophy } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
+import { InsigniaBadge } from '@/components/InsigniaBadge';
 import {
   ACHIEVEMENTS,
   TITLE_DEFINITIONS,
@@ -34,13 +35,15 @@ const categoryFilters: Array<AchievementCategory | 'All'> = [
   'Secret Badges',
 ];
 
-const rarityClass: Record<AchievementRarity, string> = {
-  common: 'border-[#b7794c]/45 from-[#8a5a35]/28 to-[#d99a5b]/12 text-[#ffd6a6]',
-  uncommon: 'border-[#d5dbe7]/45 from-[#b7c0ce]/22 to-[#f2f5fb]/10 text-[#edf3ff]',
-  rare: 'border-[#ffd166]/58 from-[#ffd166]/28 to-[#c28a19]/12 text-[#ffe7a1]',
-  epic: 'border-[#c7a6ff]/55 from-[#a78bfa]/24 to-[#f0abfc]/12 text-[#eee0ff]',
-  legendary: 'border-[#ffe082]/75 from-[#ffd166]/34 to-[#ff9f1c]/16 text-[#fff1b8]',
-  mythic: 'border-pink-200/75 from-pink-200/30 via-fuchsia-400/18 to-cyan-300/16 text-pink-50 shadow-[0_0_26px_rgba(244,114,182,0.24)]',
+// Card accent colors — pulled from the badge rim palette so the chrome
+// stays visually consistent with the SVG insignia inside it.
+const rarityAccent: Record<AchievementRarity, { ring: string; glow: string; track: string }> = {
+  common:    { ring: 'rgba(201,133,83,0.6)',   glow: 'rgba(201,133,83,0.18)',  track: '#f6c393' },
+  uncommon:  { ring: 'rgba(207,214,224,0.55)', glow: 'rgba(207,214,224,0.16)', track: '#eaf1fb' },
+  rare:      { ring: 'rgba(245,197,66,0.7)',   glow: 'rgba(245,197,66,0.24)',  track: '#ffe28a' },
+  epic:      { ring: 'rgba(169,139,255,0.7)',  glow: 'rgba(169,139,255,0.24)', track: '#d6c5ff' },
+  legendary: { ring: 'rgba(255,176,74,0.85)',  glow: 'rgba(255,176,74,0.28)',  track: '#ffd28a' },
+  mythic:    { ring: 'rgba(170,130,255,0.85)', glow: 'rgba(170,130,255,0.32)', track: '#f4d0ff' },
 };
 
 const metalLabel: Record<AchievementRarity, string> = {
@@ -80,35 +83,53 @@ function BadgeCard({
 }) {
   const locked = !badge.isUnlocked;
   const secretLocked = Boolean(locked && badge.isSecret);
+  const accent = rarityAccent[badge.rarity];
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={[
-        'group relative min-h-[148px] overflow-hidden rounded-lg border bg-gradient-to-br p-3 text-left shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:brightness-110',
-        rarityClass[badge.rarity],
-        locked ? 'opacity-58 grayscale-[0.45]' : '',
-      ].join(' ')}
+      className="group relative min-h-[152px] overflow-hidden rounded-xl border p-3 text-left transition hover:-translate-y-0.5"
+      style={{
+        borderColor: accent.ring,
+        background: `linear-gradient(140deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012) 60%), #14172a`,
+        boxShadow: locked
+          ? '0 10px 24px rgba(0,0,0,0.28)'
+          : `0 12px 30px rgba(0,0,0,0.32), 0 0 0 1px ${accent.glow} inset, 0 0 24px ${accent.glow}`,
+      }}
     >
-      <div className="absolute right-2 top-2 rounded-full bg-black/22 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white/72">
+      <div className="absolute right-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white/75">
         {secretLocked ? 'secret' : metalLabel[badge.rarity]}
       </div>
       <div className="flex items-start gap-3">
-        <InsigniaMark badge={badge} secretLocked={secretLocked} size="md" />
-        <div className="min-w-0 flex-1">
+        <InsigniaBadge
+          rarity={badge.rarity}
+          icon={badge.icon}
+          locked={locked}
+          size={56}
+          ariaLabel={secretLocked ? 'Secret insignia' : badge.title}
+        />
+        <div className="min-w-0 flex-1 pt-0.5">
           <div className="pr-12 text-sm font-black leading-tight text-white">
             {secretLocked ? 'Secret Insignia' : badge.title}
           </div>
-          <div className="mt-1 line-clamp-2 text-[11px] font-semibold leading-snug text-white/62">
+          <div className="mt-1 line-clamp-2 text-[11px] font-semibold leading-snug text-white/55">
             {secretLocked ? 'Keep showing up to reveal this surprise.' : badge.description}
           </div>
         </div>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/25">
-        <div className="h-full rounded-full bg-white/75 transition-[width]" style={{ width: `${badge.progressPercent}%` }} />
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/6">
+        <div
+          className="h-full rounded-full transition-[width]"
+          style={{
+            width: `${badge.progressPercent}%`,
+            background: badge.isUnlocked
+              ? `linear-gradient(90deg, ${accent.track}, #ffffff)`
+              : accent.track,
+          }}
+        />
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] font-black text-white/72">
+      <div className="mt-2 flex items-center justify-between text-[11px] font-black text-white/65">
         <span>{badge.progressCurrent}/{badge.progressTarget}</span>
         <span>{badge.isUnlocked ? 'Unlocked' : `${badge.progressPercent}%`}</span>
       </div>
@@ -125,7 +146,7 @@ function BadgeCard({
             event.stopPropagation();
             onPin();
           }}
-          className={`absolute bottom-2 left-2 grid h-6 w-6 place-items-center rounded-full ${pinned ? 'bg-amber-300 text-slate-950' : 'bg-black/22 text-white/62'}`}
+          className={`absolute bottom-2 left-2 grid h-6 w-6 place-items-center rounded-full ${pinned ? 'bg-amber-300 text-slate-950' : 'bg-black/40 text-white/65'}`}
           title={pinned ? 'Pinned' : 'Pin badge'}
         >
           <Pin size={13} />
@@ -137,41 +158,59 @@ function BadgeCard({
 
 function BadgeDetail({ badge, onClose }: { badge: AchievementProgress; onClose: () => void }) {
   const secretLocked = Boolean(!badge.isUnlocked && badge.isSecret);
+  const accent = rarityAccent[badge.rarity];
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/72 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`w-full max-w-md rounded-xl border bg-gradient-to-br p-5 shadow-2xl ${rarityClass[badge.rarity]}`}
+        className="w-full max-w-md overflow-hidden rounded-2xl border p-6 shadow-2xl"
+        style={{
+          borderColor: accent.ring,
+          background: 'linear-gradient(160deg, #1a1d33 0%, #0f1120 100%)',
+          boxShadow: `0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px ${accent.glow} inset, 0 0 32px ${accent.glow}`,
+        }}
         onClick={event => event.stopPropagation()}
       >
         <div className="flex items-center gap-4">
-          <InsigniaMark badge={badge} secretLocked={secretLocked} size="lg" />
-          <div>
-            <div className="text-xs font-black uppercase tracking-widest text-white/55">{secretLocked ? 'Secret' : metalLabel[badge.rarity]}</div>
-            <h2 className="text-2xl font-black text-white">{secretLocked ? 'Secret Insignia' : badge.title}</h2>
-            <div className="text-sm font-bold text-white/62">{badge.category} · {badge.tier}</div>
+          <InsigniaBadge
+            rarity={badge.rarity}
+            icon={badge.icon}
+            locked={!badge.isUnlocked}
+            size={104}
+            showSparkles
+            ariaLabel={secretLocked ? 'Secret insignia' : badge.title}
+          />
+          <div className="min-w-0">
+            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-white/55">
+              {secretLocked ? 'Secret' : metalLabel[badge.rarity]}
+            </div>
+            <h2 className="mt-0.5 text-2xl font-black text-white">{secretLocked ? 'Secret Insignia' : badge.title}</h2>
+            <div className="text-sm font-bold text-white/55">{badge.category} · {badge.tier}</div>
           </div>
         </div>
-        <p className="mt-4 text-sm font-semibold leading-relaxed text-white/76">
+        <p className="mt-4 text-sm font-semibold leading-relaxed text-white/72">
           {secretLocked ? 'This insignia stays hidden until it is earned.' : badge.description}
         </p>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-black/25">
-          <div className="h-full rounded-full bg-white/80" style={{ width: `${badge.progressPercent}%` }} />
+        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/8">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${badge.progressPercent}%`, background: `linear-gradient(90deg, ${accent.track}, #ffffff)` }}
+          />
         </div>
         <div className="mt-2 flex justify-between text-sm font-black text-white/70">
           <span>{badge.progressCurrent}/{badge.progressTarget}</span>
           <span>+{badge.rewardPoints ?? 0}pt</span>
         </div>
         {badge.unlocksTitleIds?.length ? (
-          <div className="mt-4 rounded-lg border border-white/14 bg-black/18 p-3 text-sm font-bold text-white/75">
+          <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-3 text-sm font-bold text-white/75">
             Title unlock: {badge.unlocksTitleIds.map(id => TITLE_DEFINITIONS.find(t => t.titleId === id)?.title ?? id).join(', ')}
           </div>
         ) : null}
         {badge.unlocksVisualStyleIds?.length ? (
-          <div className="mt-2 rounded-lg border border-white/14 bg-black/18 p-3 text-sm font-bold text-white/75">
+          <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-3 text-sm font-bold text-white/75">
             Visual unlock: {badge.unlocksVisualStyleIds.map(id => VISUAL_STYLE_DEFINITIONS.find(v => v.visualStyleId === id)?.name ?? id).join(', ')}
           </div>
         ) : null}
-        <button type="button" onClick={onClose} className="mt-5 w-full rounded-lg bg-white px-4 py-2 text-sm font-black text-slate-950">
+        <button type="button" onClick={onClose} className="mt-5 w-full rounded-lg bg-white px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-white/90">
           Close
         </button>
       </div>
@@ -186,7 +225,14 @@ export function InsigniaWall() {
   const levelsByUser = useFamilyStore(s => s.levelsByUser);
   const hydrate = useFamilyStore(s => s.hydrate);
   const hydrated = useFamilyStore(s => s.hydrated);
-  const children = useMemo(() => users.filter(user => user.role === 'CHILD'), [users]);
+  // Everyone in the family — kids and parents — can earn insignias and
+  // appears in the member picker.
+  const members = useMemo(() => {
+    return users.slice().sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'CHILD' ? -1 : 1;
+      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+    });
+  }, [users]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [state, setState] = useState<ReturnType<typeof loadAchievementState> | null>(null);
   const [achievementsByChild, setAchievementsByChild] = useState<Record<string, AchievementProgress[]>>({});
@@ -200,16 +246,16 @@ export function InsigniaWall() {
   }, [hydrate]);
 
   useEffect(() => {
-    if (!familyId || children.length === 0) return;
-    syncAchievements({ familyId, children, tasksByUser, levelsByUser, awardNew: false })
+    if (!familyId || members.length === 0) return;
+    syncAchievements({ familyId, children: members, tasksByUser, levelsByUser, awardNew: false })
       .then(result => {
         setState(result.state);
         setAchievementsByChild(result.achievementsByChild);
       })
       .catch(console.error);
-  }, [familyId, children, tasksByUser, levelsByUser]);
+  }, [familyId, members, tasksByUser, levelsByUser]);
 
-  const selectedChild = children.find(child => child.id === selectedChildId) ?? children[0];
+  const selectedChild = members.find(member => member.id === selectedChildId) ?? members[0];
   const childState = selectedChild ? childStateFor(state, selectedChild.id) : undefined;
   const allBadges = selectedChild ? (achievementsByChild[selectedChild.id] ?? []) : [];
   const filtered = allBadges
@@ -230,12 +276,12 @@ export function InsigniaWall() {
 
   const applyTitle = (titleId: string) => {
     if (!familyId || !selectedChild) return;
-    setState(setEquippedTitle(familyId, children, selectedChild.id, titleId));
+    setState(setEquippedTitle(familyId, members, selectedChild.id, titleId));
   };
 
   const pinBadge = (achievementId: string) => {
     if (!familyId || !selectedChild) return;
-    setState(togglePinnedAchievement(familyId, children, selectedChild.id, achievementId));
+    setState(togglePinnedAchievement(familyId, members, selectedChild.id, achievementId));
   };
 
   if (!hydrated || !familyId) {
@@ -268,14 +314,17 @@ export function InsigniaWall() {
         <aside className="space-y-3">
           <section className="rounded-lg border border-white/10 bg-[#111224] p-3">
             <div className="grid grid-cols-2 gap-2">
-              {children.map(child => (
+              {members.map(member => (
                 <button
-                  key={child.id}
+                  key={member.id}
                   type="button"
-                  onClick={() => setSelectedChildId(child.id)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm font-black ${child.id === selectedChild?.id ? 'border-[#4EEDB0]/60 bg-[#4EEDB0]/14' : 'border-white/10 bg-white/[0.04]'}`}
+                  onClick={() => setSelectedChildId(member.id)}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm font-black ${member.id === selectedChild?.id ? 'border-[#4EEDB0]/60 bg-[#4EEDB0]/14' : 'border-white/10 bg-white/[0.04]'}`}
                 >
-                  {child.name}
+                  <div className="truncate">{member.name}</div>
+                  <div className="mt-0.5 text-[10px] font-black uppercase tracking-wider text-white/45">
+                    {member.role === 'PARENT' ? 'Parent' : 'Kid'}
+                  </div>
                 </button>
               ))}
             </div>
@@ -308,10 +357,26 @@ export function InsigniaWall() {
             <h2 className="text-sm font-black">Top Insignias</h2>
             <div className="mt-3 grid grid-cols-5 gap-2">
               {topBadges.map(badge => (
-                <button key={badge.achievementId} type="button" onClick={() => setDetail(badge)} className="grid aspect-square place-items-center">
-                  <InsigniaMark badge={badge} secretLocked={false} />
+                <button
+                  key={badge.achievementId}
+                  type="button"
+                  onClick={() => setDetail(badge)}
+                  className="grid aspect-square place-items-center rounded-lg p-1 transition hover:bg-white/[0.04]"
+                >
+                  <InsigniaBadge
+                    rarity={badge.rarity}
+                    icon={badge.icon}
+                    locked={!badge.isUnlocked}
+                    size={48}
+                    ariaLabel={badge.title}
+                  />
                 </button>
               ))}
+              {topBadges.length === 0 && (
+                <div className="col-span-5 rounded-lg border border-dashed border-white/10 p-3 text-center text-[11px] font-bold text-white/45">
+                  Earn your first insignia to see it here.
+                </div>
+              )}
             </div>
           </section>
         </aside>
@@ -387,40 +452,30 @@ function Panel({ title, items, onOpen }: { title: string; items: AchievementProg
       <h2 className="text-sm font-black">{title}</h2>
       <div className="mt-3 space-y-2">
         {items.length === 0 && <div className="rounded-lg bg-white/[0.04] p-3 text-xs font-bold text-white/42">Keep going. Progress will appear here.</div>}
-        {items.slice(0, 4).map(item => (
-          <button key={item.achievementId} type="button" onClick={() => onOpen(item)} className="flex w-full items-center gap-2 rounded-lg bg-white/[0.04] p-2 text-left hover:bg-white/[0.08]">
-            <InsigniaMark badge={item} secretLocked={Boolean(item.isSecret && !item.isUnlocked)} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-black">{item.isSecret && !item.isUnlocked ? 'Secret Insignia' : item.title}</span>
-            <span className="block text-[10px] font-bold text-white/45">{item.progressPercent}% · {metalLabel[item.rarity]}</span>
-          </span>
-        </button>
-      ))}
+        {items.slice(0, 4).map(item => {
+          const secretLocked = Boolean(item.isSecret && !item.isUnlocked);
+          return (
+            <button
+              key={item.achievementId}
+              type="button"
+              onClick={() => onOpen(item)}
+              className="flex w-full items-center gap-3 rounded-lg bg-white/[0.04] p-2 text-left transition hover:bg-white/[0.08]"
+            >
+              <InsigniaBadge
+                rarity={item.rarity}
+                icon={item.icon}
+                locked={!item.isUnlocked}
+                size={36}
+                ariaLabel={secretLocked ? 'Secret insignia' : item.title}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-black">{secretLocked ? 'Secret Insignia' : item.title}</span>
+                <span className="block text-[10px] font-bold text-white/45">{item.progressPercent}% · {metalLabel[item.rarity]}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
-  );
-}
-
-function InsigniaMark({
-  badge,
-  secretLocked,
-  size = 'sm',
-}: {
-  badge: AchievementProgress;
-  secretLocked: boolean;
-  size?: 'sm' | 'md' | 'lg';
-}) {
-  const sizeClass = size === 'lg' ? 'h-20 w-20 text-4xl' : size === 'md' ? 'h-14 w-14 text-2xl' : 'h-8 w-8 text-base';
-  const shapeClass = badge.category === 'Year Journey' || badge.rarity === 'legendary'
-    ? 'rounded-[18px]'
-    : badge.category === 'Comebacks'
-      ? 'rounded-full'
-      : 'rounded-[30%]';
-  return (
-    <span className={`relative grid shrink-0 place-items-center overflow-hidden border bg-gradient-to-br shadow-inner ${sizeClass} ${shapeClass} ${rarityClass[badge.rarity]}`}>
-      <span className="absolute inset-x-2 top-1 h-1/3 rounded-full bg-white/28 blur-[1px]" />
-      <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.32),transparent_36%,rgba(0,0,0,0.18)_78%)]" />
-      <span className="relative z-10 font-black drop-shadow-sm">{secretLocked ? '?' : badge.icon}</span>
-    </span>
   );
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
+import type { AchievementProgress } from './achievements/engine';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
 import {
@@ -108,6 +109,9 @@ interface FamilyState {
   dailyStreakAtRiskByUser: Record<string, boolean>;
   weeklyRecapByUser: Record<string, WeeklyRecap>;
   celebration: Celebration | null;
+  /** Insignias unlocked but not yet shown to the user. Surfaces a celebration
+   *  pop-up that nudges them to check out the Insignia Wall. */
+  insigniaQueue: AchievementProgress[];
   hydrated: boolean;
   soundEnabled: boolean;
   timeOfDay: TimeOfDay;
@@ -128,6 +132,8 @@ interface FamilyState {
   /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
   applyBalance: (userId: string, newBalance: number) => void;
   dismissCelebration: () => void;
+  enqueueInsigniaUnlocks: (items: AchievementProgress[]) => void;
+  dismissInsigniaUnlock: () => void;
   toggleSound: () => void;
   reset: () => void;
 }
@@ -242,6 +248,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   dailyStreakAtRiskByUser: {},
   weeklyRecapByUser: {},
   celebration: null,
+  insigniaQueue: [],
   hydrated: false,
   soundEnabled: loadSoundPref(),
   timeOfDay: getCurrentTimeOfDay(),
@@ -811,14 +818,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             },
           }));
         }
-        if (achievementResult.newlyUnlocked.some(a => a.childId === userId)) {
-          const unlocked = achievementResult.newlyUnlocked.find(a => a.childId === userId);
-          if (unlocked) {
-            const { toast } = await import('sonner');
-            toast.success(`Insignia unlocked: ${unlocked.title}`, {
-              description: `+${unlocked.rewardPoints ?? 0} bonus points`,
-            });
-          }
+        // Surface a celebratory pop-up for everything that unlocked from this
+        // completion (could be the kid's own badge plus a team badge that fired
+        // on the sibling). The overlay queues them and walks through one by one.
+        if (achievementResult.newlyUnlocked.length > 0) {
+          get().enqueueInsigniaUnlocks(achievementResult.newlyUnlocked);
         }
       } catch (error) {
         console.warn('[achievements] sync after completion failed', error);
@@ -1042,6 +1046,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
   dismissCelebration: () => set({ celebration: null }),
 
+  enqueueInsigniaUnlocks: (items) => {
+    if (!items.length) return;
+    set(state => {
+      const seen = new Set(state.insigniaQueue.map(a => `${a.childId}:${a.achievementId}`));
+      const additions = items.filter(a => !seen.has(`${a.childId}:${a.achievementId}`));
+      if (additions.length === 0) return {};
+      return { insigniaQueue: [...state.insigniaQueue, ...additions] };
+    });
+  },
+
+  dismissInsigniaUnlock: () => set(state => ({ insigniaQueue: state.insigniaQueue.slice(1) })),
+
   toggleSound: () => {
     const next = !get().soundEnabled;
     localStorage.setItem('sound_enabled', next ? '1' : '0');
@@ -1078,6 +1094,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakAtRiskByUser: {},
       weeklyRecapByUser: {},
       celebration: null,
+      insigniaQueue: [],
       hydrated: false,
       timeOfDay: getCurrentTimeOfDay(),
       lastHydrateAt: 0,

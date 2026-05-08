@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Award,
@@ -177,12 +177,15 @@ function labels(lang: Lang) {
 
 export default function StatsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { lang, t } = useLanguage();
   const copy = labels(lang);
   const [allStats, setAllStats] = useState<UserStats[]>([]);
   const [familyName, setFamilyName] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(0);
-  const [view, setView] = useState<'stats' | 'insignia'>('stats');
+  // Deep links from the unlock celebration land here with ?view=insignia.
+  const initialView = searchParams.get('view') === 'insignia' ? 'insignia' : 'stats';
+  const [view, setView] = useState<'stats' | 'insignia'>(initialView);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
