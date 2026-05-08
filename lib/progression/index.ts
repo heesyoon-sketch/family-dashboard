@@ -31,7 +31,7 @@ export {
   calculateHarmony,
   emptyHarmony,
 } from './harmony';
-export type { HarmonyInput, HarmonyResult, HarmonyState, HarmonyStateMeta } from './harmony';
+export type { HarmonyInput, HarmonyMemberDaily, HarmonyResult, HarmonyState, HarmonyStateMeta } from './harmony';
 
 export {
   LOADOUT_BONUS_CAP,

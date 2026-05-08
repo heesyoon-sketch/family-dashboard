@@ -457,6 +457,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const weeklyRecapByUser: Record<string, WeeklyRecap> = {};
     const momentumByUser: Record<string, MomentumResult> = {};
     const completionDatesByUser: Record<string, Date[]> = {};
+    // Per-member daily done/due arrays for the trailing 14 days. Momentum
+    // uses all 14; harmony slices the first 7. Storing 14 once keeps the
+    // hydrate cost flat regardless of which window each module wants.
+    const dailyByUser: Record<string, { done: number[]; due: number[] }> = {};
+    const PROGRESSION_WINDOW = 14;
 
     // Recap focuses on the most recently *completed* ISO week (Mon–Sun).
     // weekMonday matches stats/page.tsx behaviour.
@@ -548,7 +553,35 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         completionDates.push(completedAt);
       }
       completionDatesByUser[u.id] = completionDates;
-      momentumByUser[u.id] = calculateMomentum({ completions: completionDates, now });
+
+      // Build per-day done/due arrays for the trailing 14 days. Momentum and
+      // harmony are %-based so each member is judged against their own due
+      // load — fairer than counting raw completions when habits and counts
+      // differ across the family. Days where nothing is scheduled don't
+      // pull the score down (skipped from numerator and denominator).
+      const userActiveTasks = allTasks.filter(t => t.userId === u.id && t.active === 1);
+      const dailyDone = new Array<number>(PROGRESSION_WINDOW).fill(0);
+      const dailyDue = new Array<number>(PROGRESSION_WINDOW).fill(0);
+      for (let ago = 0; ago < PROGRESSION_WINDOW; ago++) {
+        const dayStart = startOfDayLocal(addDays(todayStart, -ago));
+        const dayEndMs = addDays(dayStart, 1).getTime();
+        const dayStartMs = dayStart.getTime();
+        const dowKey = DOW_INDEX[dayStart.getDay()];
+        const dueTasks = userActiveTasks.filter(t => t.daysOfWeek.includes(dowKey));
+        dailyDue[ago] = dueTasks.length;
+        if (dueTasks.length === 0) continue;
+        const dueIds = new Set(dueTasks.map(t => t.id));
+        const doneIds = new Set<string>();
+        for (const c of userHistComps) {
+          const tms = new Date(c.completed_at).getTime();
+          if (tms >= dayStartMs && tms < dayEndMs && dueIds.has(c.task_id)) {
+            doneIds.add(c.task_id);
+          }
+        }
+        dailyDone[ago] = doneIds.size;
+      }
+      dailyByUser[u.id] = { done: dailyDone, due: dailyDue };
+      momentumByUser[u.id] = calculateMomentum({ dailyDone, dailyDue });
       bestDayByUser[u.id] = dayMap.size > 0
         ? Math.max(...[...dayMap.values()].map(s => s.size))
         : 0;
@@ -655,9 +688,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // used for momentum. Cheap (O(members * window)) so it's safe to recompute
     // every hydrate.
     const harmony = calculateHarmony({
-      completionsByMember: completionDatesByUser,
+      dailyByMember: dailyByUser,
       memberIds: users.map(u => u.id),
-      now,
     });
 
     set({

@@ -6,12 +6,13 @@
 // catastrophic reset. There is no "you broke your streak" message — only
 // "your spark is fading, come back when you can".
 //
-// Momentum is computed deterministically from the trailing 14 days of
-// completion timestamps. Recent activity weighs more than older activity.
-// The output is a single 0..100 score binned into five named states.
+// The score is the recency-weighted average of *daily completion rate*
+// (done / due) over the trailing 14 days. Going %-based instead of
+// counting raw completions keeps it fair across members: a kid with two
+// habits doing both is at 100% just like a kid with eight habits doing
+// all eight. Days with no habits scheduled don't pull the score down.
 
 const WINDOW_DAYS = 14;
-const DAY_MS = 86_400_000;
 
 export type MomentumState = 'spark' | 'warm' | 'bright' | 'blazing' | 'overflowing';
 
@@ -41,18 +42,12 @@ export interface MomentumResult {
   score: number;
   state: MomentumState;
   meta: MomentumStateMeta;
-  /** Days touched in the trailing window. */
+  /** Days touched in the trailing window (≥1 completion). */
   activeDays: number;
   /** Window length used for computation. */
   windowDays: number;
   /** Bonus applied per completion as a percent of base points. */
   bonusPercent: number;
-}
-
-function startOfDay(date: Date): number {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
 }
 
 /** Decay weight for a day `n` ago. Linear — recent days count fully, older
@@ -68,40 +63,30 @@ function recencyWeight(daysAgo: number): number {
 }
 
 export interface MomentumInput {
-  /** All completion timestamps in any order. Only those within the trailing
-   *  window contribute. */
-  completions: Date[];
-  /** Optional reference time (defaults to now). */
-  now?: Date;
+  /** Per-day count of tasks completed, index 0 = today, length ≥ 14. */
+  dailyDone: readonly number[];
+  /** Per-day count of tasks scheduled, index 0 = today, length ≥ 14.
+   *  Days where due === 0 are excluded from the score (no nothing to do
+   *  shouldn't pull a member down). */
+  dailyDue: readonly number[];
 }
 
 export function calculateMomentum(input: MomentumInput): MomentumResult {
-  const now = input.now ?? new Date();
-  const today = startOfDay(now);
-
-  // Bucket completion COUNT per day in the trailing window.
-  const perDay = new Array<number>(WINDOW_DAYS).fill(0);
-  for (const completedAt of input.completions) {
-    const ms = startOfDay(completedAt);
-    const ago = Math.floor((today - ms) / DAY_MS);
-    if (ago < 0 || ago >= WINDOW_DAYS) continue;
-    perDay[ago] += 1;
-  }
-
-  // Score: weighted touched-days. Each day is normalized — having 1 task is
-  // ~80% of the way; piling on more gives diminishing returns. This keeps
-  // momentum about *consistency*, not *volume*.
   let weighted = 0;
   let weightTotal = 0;
   let activeDays = 0;
+
   for (let ago = 0; ago < WINDOW_DAYS; ago++) {
+    const due = Math.max(0, input.dailyDue[ago] ?? 0);
+    if (due === 0) continue;
+    const done = Math.max(0, input.dailyDone[ago] ?? 0);
+    const dayPct = Math.min(1, done / due);
     const w = recencyWeight(ago);
     weightTotal += w;
-    if (perDay[ago] === 0) continue;
-    activeDays += 1;
-    const dayContribution = Math.min(1, 0.8 + 0.2 * Math.tanh(perDay[ago] / 3));
-    weighted += w * dayContribution;
+    weighted += w * dayPct;
+    if (done > 0) activeDays += 1;
   }
+
   const normalized = weightTotal > 0 ? (weighted / weightTotal) * 100 : 0;
   const score = Math.round(Math.min(100, Math.max(0, normalized)));
   const meta = momentumMetaForScore(score);

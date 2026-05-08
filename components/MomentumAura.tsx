@@ -127,9 +127,10 @@ function MomentumStatesDialog({
           The flame you carry day to day
         </h2>
         <p className="mt-1 text-sm leading-snug text-white/65">
-          Momentum reflects the rhythm of your last two weeks. It rises when you show up,
-          drifts down when you disappear — never punishes a missed day. The brighter the
-          flame, the larger the per-completion bonus.
+          Momentum reflects the rhythm of your last two weeks, based on the share of your
+          scheduled habits you finish each day. A 1-of-1 day counts the same as a 4-of-4
+          day, and rest days where nothing's scheduled don't pull the score down. The
+          brighter the flame, the larger the per-completion bonus.
         </p>
 
         <ul className="mt-4 space-y-2">

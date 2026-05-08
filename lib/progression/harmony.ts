@@ -4,15 +4,16 @@
 // *together* — not in lockstep, but in shared rhythm. It discourages no
 // behaviour: an inactive sibling never reduces another's harmony.
 //
-// Score is derived from the trailing 7 days of completions across all
-// members. We measure:
-//   1. side-by-side days  — days where ≥2 members completed at least one habit
-//   2. participation       — share of members who touched a habit today
-//   3. catch-up moments    — a member coming back after a quiet day while a
-//                            sibling was already active
+// Score over the trailing 7 days mixes two ingredients:
+//   1. side-by-side days  — days where ≥2 members had any completion (60%)
+//   2. participation       — average member completion rate, %-based (40%)
+//
+// Going %-based for participation keeps it fair across members with
+// different numbers of habits: a member who finishes 4 of 4 habits
+// contributes 100% to the day, the same as a member who finishes 1 of 1.
+// A member who does 1 of 5 contributes 20%, not the same.
 
 const WINDOW_DAYS = 7;
-const DAY_MS = 86_400_000;
 
 export type HarmonyState = 'quiet' | 'echoing' | 'resonant' | 'radiant';
 
@@ -33,13 +34,19 @@ export const HARMONY_STATES: HarmonyStateMeta[] = [
   { state: 'radiant',   label: 'Radiant',   description: 'Side by side, almost every day. The house glows.',         minScore: 88, bonusPercent: 3, glow: '#ffd166' },
 ];
 
+export interface HarmonyMemberDaily {
+  /** Per-day count of tasks completed, index 0 = today, length ≥ 7. */
+  done: readonly number[];
+  /** Per-day count of tasks scheduled, index 0 = today, length ≥ 7. */
+  due: readonly number[];
+}
+
 export interface HarmonyInput {
-  /** Completion timestamps grouped by member id. */
-  completionsByMember: Record<string, Date[]>;
+  /** Per-member daily done/due counts. */
+  dailyByMember: Record<string, HarmonyMemberDaily>;
   /** Members considered for the harmony score. Pass the whole family
    *  (kids + parents) so cooperation across the whole household counts. */
   memberIds: string[];
-  now?: Date;
 }
 
 export interface HarmonyResult {
@@ -56,39 +63,47 @@ export interface HarmonyResult {
   bonusPercent: number;
 }
 
-function startOfDay(date: Date): number {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 export function calculateHarmony(input: HarmonyInput): HarmonyResult {
-  const now = input.now ?? new Date();
-  const today = startOfDay(now);
   const totalMembers = Math.max(1, input.memberIds.length);
-
-  // For each day in the window, which members were active.
-  const perDay: Set<string>[] = Array.from({ length: WINDOW_DAYS }, () => new Set<string>());
-  for (const memberId of input.memberIds) {
-    const dates = input.completionsByMember[memberId] ?? [];
-    for (const date of dates) {
-      const ms = startOfDay(date);
-      const ago = Math.floor((today - ms) / DAY_MS);
-      if (ago < 0 || ago >= WINDOW_DAYS) continue;
-      perDay[ago].add(memberId);
-    }
-  }
 
   let sideBySideDays = 0;
   let participationSum = 0;
-  for (const dayMembers of perDay) {
-    if (dayMembers.size >= 2) sideBySideDays += 1;
-    participationSum += dayMembers.size / totalMembers;
+  let participationDays = 0;
+  let activeTodayCount = 0;
+  const activeTodayMemberIds: string[] = [];
+
+  for (let ago = 0; ago < WINDOW_DAYS; ago++) {
+    let activeMembers = 0;
+    let dayPctSum = 0;
+    let dayPctCount = 0;
+
+    for (const id of input.memberIds) {
+      const stats = input.dailyByMember[id];
+      const due = Math.max(0, stats?.due[ago] ?? 0);
+      const done = Math.max(0, stats?.done[ago] ?? 0);
+      if (due === 0) continue;
+      const pct = Math.min(1, done / due);
+      dayPctSum += pct;
+      dayPctCount += 1;
+      if (done > 0) {
+        activeMembers += 1;
+        if (ago === 0) activeTodayMemberIds.push(id);
+      }
+    }
+
+    if (activeMembers >= 2) sideBySideDays += 1;
+    if (dayPctCount > 0) {
+      participationSum += dayPctSum / dayPctCount;
+      participationDays += 1;
+    }
+    if (ago === 0) activeTodayCount = activeMembers;
   }
 
-  // Score recipe: 60% from side-by-side share, 40% from average participation.
+  // Score recipe: 60% side-by-side share, 40% participation %.
   const sideByPct = (sideBySideDays / WINDOW_DAYS) * 100;
-  const participationPct = (participationSum / WINDOW_DAYS) * 100;
+  const participationPct = participationDays > 0
+    ? (participationSum / participationDays) * 100
+    : 0;
   const rawScore = sideByPct * 0.6 + participationPct * 0.4;
   const score = Math.round(Math.max(0, Math.min(100, rawScore)));
   const meta = harmonyMetaForScore(score);
@@ -98,8 +113,8 @@ export function calculateHarmony(input: HarmonyInput): HarmonyResult {
     state: meta.state,
     meta,
     sideBySideDays,
-    activeTodayMemberIds: Array.from(perDay[0]),
-    activeTodayCount: perDay[0].size,
+    activeTodayMemberIds,
+    activeTodayCount,
     totalMembers,
     bonusPercent: meta.bonusPercent,
   };

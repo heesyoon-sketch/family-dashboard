@@ -112,10 +112,11 @@ function HarmonyStatesDialog({
           The rhythm you keep together
         </h2>
         <p className="mt-1 text-sm leading-snug text-white/65">
-          Harmony measures how many of you show up on the same days, over the last week.
-          A quiet sibling never lowers anyone else's score — it only goes up when more
-          members join the rhythm. The brighter the chip, the larger the family-wide
-          per-completion bonus.
+          Harmony measures how the family moves together over the last week. It mixes
+          how many of you show up on the same days with how much of each member's own
+          schedule they finished — fair across members with different numbers of habits.
+          A quiet sibling never lowers anyone else's score; it only goes up when more
+          members join the rhythm.
         </p>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
