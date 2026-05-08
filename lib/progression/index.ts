@@ -43,5 +43,6 @@ export {
   archetypeLabel,
   buildLoadoutSummary,
   composeBonusPercent,
+  loadoutBonusFromIds,
 } from './loadout';
 export type { BonusBreakdown, EquippedInsignia, LoadoutArchetype, LoadoutSummary } from './loadout';

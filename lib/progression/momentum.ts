@@ -29,11 +29,11 @@ export interface MomentumStateMeta {
 }
 
 export const MOMENTUM_STATES: MomentumStateMeta[] = [
-  { state: 'spark',        label: 'Spark',       description: 'A quiet beginning. Show up and the flame grows.',           minScore: 0,  bonusPercent: 0,  intensity: 0.20 },
-  { state: 'warm',         label: 'Warm',        description: 'Rhythm is forming. The flame holds steady.',                 minScore: 30, bonusPercent: 2,  intensity: 0.40 },
-  { state: 'bright',       label: 'Bright',      description: 'Lit and lively — most days are touched by progress.',       minScore: 55, bonusPercent: 5,  intensity: 0.62 },
-  { state: 'blazing',      label: 'Blazing',     description: 'Strong, warm momentum carrying you forward.',                minScore: 75, bonusPercent: 8,  intensity: 0.82 },
-  { state: 'overflowing',  label: 'Overflowing', description: 'Radiant. The whole house feels the rhythm.',                 minScore: 92, bonusPercent: 12, intensity: 1.00 },
+  { state: 'spark',        label: 'Spark',       description: 'A quiet beginning. Show up and the flame grows.',           minScore: 0,  bonusPercent: 0, intensity: 0.20 },
+  { state: 'warm',         label: 'Warm',        description: 'Rhythm is forming. The flame holds steady.',                 minScore: 30, bonusPercent: 1, intensity: 0.40 },
+  { state: 'bright',       label: 'Bright',      description: 'Lit and lively — most days are touched by progress.',       minScore: 55, bonusPercent: 2, intensity: 0.62 },
+  { state: 'blazing',      label: 'Blazing',     description: 'Strong, warm momentum carrying you forward.',                minScore: 75, bonusPercent: 4, intensity: 0.82 },
+  { state: 'overflowing',  label: 'Overflowing', description: 'Radiant. The whole house feels the rhythm.',                 minScore: 92, bonusPercent: 6, intensity: 1.00 },
 ];
 
 export interface MomentumResult {

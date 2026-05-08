@@ -224,7 +224,7 @@ const perfectBadges = [
   ['clean-sweep', 'Clean Sweep', 'Complete all habits in one category in a day.', 1, 'rare', 'Silver', '🧹'],
   ['weekend-win', 'Weekend Win', 'Complete all active weekend habits on one weekend day.', 1, 'rare', 'Silver', '🎉'],
   ['perfect-pair', 'Perfect Pair', 'Complete two perfect days.', 2, 'epic', 'Gold', '✌️'],
-  ['perfect-week', 'Perfect Week', 'Complete every active habit for a full week.', 7, 'legendary', 'Legendary', '🏆'],
+  ['perfect-week', 'Perfect Week', 'Complete every active habit for a full week.', 7, 'epic', 'Gold', '🏆'],
   ['bright-sweep', 'Bright Sweep', 'Complete five perfect days.', 5, 'epic', 'Gold', '✨'],
   ['rare-perfect-run', 'Rare Perfect Run', 'Complete ten perfect days.', 10, 'legendary', 'Legendary', '💫'],
   ['perfect-season-spark', 'Perfect Season Spark', 'Complete twenty perfect days.', 20, 'mythic', 'Mythic', '🌈'],
@@ -243,15 +243,15 @@ const teamBadges = [
   ['sibling-power', 'Sibling Power', 'Both kids complete 5+ habits on the same day.', 1, 'rare', 'Silver', '⚡'],
   ['team-comeback', 'Team Comeback', 'Both kids show up after a low-completion day.', 1, 'rare', 'Silver', '🔥'],
   ['family-rhythm', 'Family Rhythm', 'Both kids complete habits on 5 days in the same week.', 5, 'epic', 'Gold', '🎶'],
-  ['double-level-up', 'Double Level Up', 'Both kids beat yesterday on the same day.', 1, 'epic', 'Gold', '⬆️'],
+  ['double-level-up', 'Double Level Up', 'Both kids beat yesterday on the same day.', 1, 'rare', 'Silver', '⬆️'],
 ] as const;
 
 const secretBadges = [
-  ['early-bird', 'Early Bird', 'Complete all morning habits before 9am.', 1, 'epic', 'Gold', '🐣'],
+  ['early-bird', 'Early Bird', 'Complete all morning habits before 9am.', 1, 'rare', 'Silver', '🐣'],
   ['quiet-champion', 'Quiet Champion', 'Complete reading or reflection before any reward is claimed.', 1, 'rare', 'Silver', '🤫'],
   ['surprise-comeback', 'Surprise Comeback', 'Return to a habit after 14+ days away.', 1, 'epic', 'Gold', '🎁'],
   ['hidden-helper', 'Hidden Helper', 'Complete cleanup 3 days in a row.', 3, 'rare', 'Silver', '🧼'],
-  ['rainbow-day', 'Rainbow Day', 'Complete habits from 5 categories in one day.', 1, 'mythic', 'Mythic', '🌈'],
+  ['rainbow-day', 'Rainbow Day', 'Complete habits from 5 categories in one day.', 1, 'epic', 'Gold', '🌈'],
 ] as const;
 
 function baseDefinitions(): AchievementDefinition[] {

@@ -15,6 +15,7 @@
 
 import type { AchievementProgress } from '@/lib/achievements/engine';
 import type { AchievementCategory, AchievementRarity } from '@/lib/achievements/definitions';
+import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
 
 export type LoadoutArchetype =
   | 'cooperation'   // family/team focused
@@ -23,8 +24,11 @@ export type LoadoutArchetype =
   | 'challenge'     // hard / rare goals
   | 'consistency';  // gentle long-term presence
 
-export const LOADOUT_BONUS_CAP = 30;     // sum from insignias alone
-export const TOTAL_BONUS_CAP = 40;       // momentum + harmony + insignias
+// Best-three insignias should top out at +50% (1.5× the base reward).
+// Total bonus is also clamped to 50% so momentum + harmony can't push the
+// final multiplier past 1.5× under any combination.
+export const LOADOUT_BONUS_CAP = 50;     // sum from insignias alone
+export const TOTAL_BONUS_CAP = 50;       // momentum + harmony + insignias
 export const MAX_LOADOUT_SLOTS = 3;
 
 const ARCHETYPE_BY_CATEGORY: Record<AchievementCategory, LoadoutArchetype> = {
@@ -51,14 +55,17 @@ const ARCHETYPE_BY_CATEGORY: Record<AchievementCategory, LoadoutArchetype> = {
   'Secret Badges':              'challenge',
 };
 
-// Per-rarity bonus contribution. Caps mean loadout never breaks the economy.
+// Per-rarity bonus contribution. Bronze/silver are nearly cosmetic so casual
+// progress feels rewarding without inflating points; gold and above scale up
+// because they're meant to be hard-earned. Three best-of-the-best insignias
+// (3× mythic) sums to 54 and is then clamped to LOADOUT_BONUS_CAP (50%).
 const RARITY_BONUS: Record<AchievementRarity, number> = {
-  common: 4,
-  uncommon: 7,
-  rare: 10,
-  epic: 14,
-  legendary: 18,
-  mythic: 22,
+  common: 1,
+  uncommon: 2,
+  rare: 4,
+  epic: 8,
+  legendary: 13,
+  mythic: 18,
 };
 
 const ARCHETYPE_LABEL: Record<LoadoutArchetype, string> = {
@@ -166,6 +173,25 @@ export interface BonusBreakdown {
   loadoutPercent: number;
   /** Final percent applied per completion. */
   totalPercent: number;
+}
+
+/** Lightweight loadout bonus calc keyed off achievement IDs only — used at
+ *  completion time, where we have the equipped IDs and the set of unlocked
+ *  IDs but don't want to rebuild the full AchievementProgress[] just to
+ *  read each badge's rarity. Returns the same capped percent as
+ *  buildLoadoutSummary().loadoutBonusPercent. */
+export function loadoutBonusFromIds(
+  equippedIds: readonly string[],
+  unlockedIds: ReadonlySet<string>,
+): number {
+  let raw = 0;
+  for (const id of equippedIds) {
+    if (!unlockedIds.has(id)) continue;
+    const def = ACHIEVEMENTS.find(a => a.achievementId === id);
+    if (!def) continue;
+    raw += RARITY_BONUS[def.rarity];
+  }
+  return Math.min(LOADOUT_BONUS_CAP, raw);
 }
 
 /** Compose the final passive bonus a member gets per completion. Always

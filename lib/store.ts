@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import type { AchievementProgress } from './achievements/engine';
-import { calculateMomentum, calculateHarmony, type MomentumResult, type HarmonyResult } from './progression';
+import { calculateMomentum, calculateHarmony, composeBonusPercent, loadoutBonusFromIds, type MomentumResult, type HarmonyResult } from './progression';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
 import {
@@ -790,10 +790,35 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         return;
       }
 
+      // Compose the loadout + momentum + harmony bonus on the client and
+      // hand it to the RPC. The server clamps to 50% so a stale or tampered
+      // client can never inflate points beyond the design ceiling (1.5×).
+      let bonusPercent = 0;
+      try {
+        const familyId = get().familyId;
+        if (familyId) {
+          const { loadAchievementState } = await import('./achievements/storage');
+          const ach = loadAchievementState(familyId, get().users);
+          const child = ach.children[userId];
+          const equipped = child?.equippedInsigniaIds ?? [];
+          const unlocked = new Set(Object.keys(child?.unlockedAtByAchievementId ?? {}));
+          const loadoutPct = loadoutBonusFromIds(equipped, unlocked);
+          const momentumPct = get().momentumByUser[userId]?.bonusPercent ?? 0;
+          const harmonyPct = get().harmony?.bonusPercent ?? 0;
+          bonusPercent = composeBonusPercent({
+            momentumPercent: momentumPct,
+            harmonyPercent: harmonyPct,
+            loadoutPercent: loadoutPct,
+          }).totalPercent;
+        }
+      } catch (error) {
+        console.warn('[bonus] failed to compose, sending 0%', error);
+      }
+
       let result;
       try {
         const { processCompletion } = await import('./gamification');
-        result = await processCompletion(userId, taskId);
+        result = await processCompletion(userId, taskId, false, new Date(), bonusPercent);
       } catch (error) {
         await enqueueTaskAction('complete', userId, taskId);
         console.warn('Queued completion for offline sync', error);

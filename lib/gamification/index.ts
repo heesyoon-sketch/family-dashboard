@@ -75,6 +75,7 @@ export async function processCompletion(
   taskId: string,
   partial = false,
   completedAt = new Date(),
+  bonusPercent = 0,
 ): Promise<CompletionResult> {
   const supabase = createBrowserSupabase();
   const now      = completedAt;
@@ -89,6 +90,7 @@ export async function processCompletion(
     p_day_key: dayKey(now),
     p_time_window: timeWindow,
     p_now: now.toISOString(),
+    p_bonus_percent: bonusPercent,
   });
   if (error) throw new Error(error.message);
 

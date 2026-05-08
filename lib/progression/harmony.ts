@@ -28,9 +28,9 @@ export interface HarmonyStateMeta {
 
 export const HARMONY_STATES: HarmonyStateMeta[] = [
   { state: 'quiet',     label: 'Quiet',     description: 'Each member is finding their own rhythm.',                 minScore: 0,  bonusPercent: 0, glow: '#5b6678' },
-  { state: 'echoing',   label: 'Echoing',   description: 'Days are starting to overlap — the family hears itself.', minScore: 35, bonusPercent: 2, glow: '#7adff2' },
-  { state: 'resonant',  label: 'Resonant',  description: 'A shared rhythm is forming across most days.',             minScore: 65, bonusPercent: 4, glow: '#a98bff' },
-  { state: 'radiant',   label: 'Radiant',   description: 'Side by side, almost every day. The house glows.',         minScore: 88, bonusPercent: 5, glow: '#ffd166' },
+  { state: 'echoing',   label: 'Echoing',   description: 'Days are starting to overlap — the family hears itself.', minScore: 35, bonusPercent: 1, glow: '#7adff2' },
+  { state: 'resonant',  label: 'Resonant',  description: 'A shared rhythm is forming across most days.',             minScore: 65, bonusPercent: 2, glow: '#a98bff' },
+  { state: 'radiant',   label: 'Radiant',   description: 'Side by side, almost every day. The house glows.',         minScore: 88, bonusPercent: 3, glow: '#ffd166' },
 ];
 
 export interface HarmonyInput {
