@@ -203,7 +203,7 @@ function labels(lang: Lang) {
     ),
     levelProgress: lang === 'en' ? 'Level progress' : '레벨 진행',
     toNext: (need: number) => (lang === 'en' ? `${need} XP to next` : `다음까지 ${need} XP`),
-    insignias: lang === 'en' ? 'Insignias' : '인시그니아',
+    insignias: lang === 'en' ? 'Shields' : '쉴드',
     equipped: (count: number) => (lang === 'en' ? `${count} equipped` : `${count}개 장착`),
     timeOfDay: lang === 'en' ? 'Time of day (30d)' : '시간대 (30일)',
     morning: lang === 'en' ? 'Morning' : '아침',
@@ -591,7 +591,7 @@ function StatsPageInner() {
             onClick={() => setView('insignia')}
             className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'insignia' ? 'bg-[#FFD166] text-slate-950' : 'text-white/58 hover:text-white'}`}
           >
-            Insignia Wall
+            Shield Wall
           </button>
         </div>
         {view === 'stats' && pageCount > 1 && (

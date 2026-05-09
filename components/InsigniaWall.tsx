@@ -8,7 +8,6 @@ import { useFamilyStore } from '@/lib/store';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import {
   ACHIEVEMENTS,
-  TITLE_DEFINITIONS,
   VISUAL_STYLE_DEFINITIONS,
   type AchievementCategory,
   type AchievementRarity,
@@ -16,7 +15,6 @@ import {
 import {
   loadAchievementState,
   setEquippedInsignia,
-  setEquippedTitle,
   syncAchievements,
   togglePinnedAchievement,
   type ChildAchievementState,
@@ -34,15 +32,12 @@ import {
 const rarityOrder: AchievementRarity[] = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 const categoryFilters: Array<AchievementCategory | 'All'> = [
   'All',
-  'Comebacks',
-  'Improvement',
-  'Consistency',
-  'Habit Mastery',
   'Weekly Quests',
   'Monthly Quests',
   'Year Journey',
-  'Team Badges',
-  'Secret Badges',
+  'Combo Shields',
+  'Team Shields',
+  'Secret Shields',
 ];
 
 // Card accent colors — pulled from the badge rim palette so the chrome
@@ -132,11 +127,11 @@ function BadgeCard({
           seed={badge.achievementId}
           locked={locked}
           size={56}
-          ariaLabel={secretLocked ? 'Secret insignia' : badge.title}
+          ariaLabel={secretLocked ? 'Secret shield' : badge.title}
         />
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="pr-12 text-sm font-black leading-tight text-white">
-            {secretLocked ? 'Secret Insignia' : badge.title}
+            {secretLocked ? 'Secret Shield' : badge.title}
           </div>
           <div className="mt-1 line-clamp-2 text-[11px] font-semibold leading-snug text-white/55">
             {secretLocked ? 'Keep showing up to reveal this surprise.' : badge.description}
@@ -172,7 +167,7 @@ function BadgeCard({
             onPin();
           }}
           className={`absolute bottom-2 left-2 grid h-6 w-6 place-items-center rounded-full ${pinned ? 'bg-amber-300 text-slate-950' : 'bg-black/40 text-white/65'}`}
-          title={pinned ? 'Pinned' : 'Pin badge'}
+          title={pinned ? 'Pinned' : 'Pin shield'}
         >
           <Pin size={13} />
         </span>
@@ -238,13 +233,13 @@ function BadgeDetail({
             locked={!badge.isUnlocked}
             size={104}
             showSparkles
-            ariaLabel={secretLocked ? 'Secret insignia' : badge.title}
+            ariaLabel={secretLocked ? 'Secret shield' : badge.title}
           />
           <div className="min-w-0">
             <div className="text-[11px] font-black uppercase tracking-[0.2em] text-white/55">
               {secretLocked ? 'Secret' : rarityLabel[badge.rarity]}
             </div>
-            <h2 className="mt-0.5 text-2xl font-black text-white">{secretLocked ? 'Secret Insignia' : badge.title}</h2>
+            <h2 className="mt-0.5 text-2xl font-black text-white">{secretLocked ? 'Secret Shield' : badge.title}</h2>
             <div className="text-sm font-bold text-white/55">{badge.category}</div>
           </div>
         </div>
@@ -268,11 +263,6 @@ function BadgeDetail({
           <div className="text-[10px] font-black uppercase tracking-wider text-white/55">Playstyle archetype</div>
           <div className="mt-0.5 text-base font-black text-white">{archetypeLabel(archetype)}</div>
         </div>
-        {badge.unlocksTitleIds?.length ? (
-          <div className="mt-3 rounded-lg border border-white/10 bg-black/30 p-3 text-sm font-bold text-white/75">
-            Title unlock: {badge.unlocksTitleIds.map(id => TITLE_DEFINITIONS.find(t => t.titleId === id)?.title ?? id).join(', ')}
-          </div>
-        ) : null}
         {badge.unlocksVisualStyleIds?.length ? (
           <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-3 text-sm font-bold text-white/75">
             Visual unlock: {badge.unlocksVisualStyleIds.map(id => VISUAL_STYLE_DEFINITIONS.find(v => v.visualStyleId === id)?.name ?? id).join(', ')}
@@ -354,13 +344,11 @@ export function InsigniaWall() {
     .sort(sortBadges);
   const unlocked = allBadges.filter(badge => badge.isUnlocked);
   const almostThere = allBadges.filter(badge => !badge.isUnlocked && badge.progressPercent >= 70).sort((a, b) => b.progressPercent - a.progressPercent).slice(0, 6);
-  const comebackCorner = allBadges.filter(badge => ['Comebacks', 'Improvement'].includes(badge.category)).sort(sortBadges).slice(0, 8);
   const recent = unlocked.slice().sort((a, b) => (b.unlockedAt ?? '').localeCompare(a.unlockedAt ?? '')).slice(0, 6);
   const pinned = childState?.pinnedAchievementIds ?? [];
   const topBadges = pinned.length > 0
     ? pinned.map(id => allBadges.find(badge => badge.achievementId === id)).filter((badge): badge is AchievementProgress => Boolean(badge))
     : unlocked.slice().sort((a, b) => rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity)).slice(0, 5);
-  const equippedTitle = TITLE_DEFINITIONS.find(title => title.titleId === childState?.equippedTitleId);
   const activeDays = allBadges.find(badge => badge.achievementId === 'year-active-days-365')?.progressCurrent ?? 0;
   const memberLevel = selectedChild ? (levelsByUser[selectedChild.id]?.currentLevel ?? 1) : 1;
   const slotCapacity = insigniaSlotsForLevel(memberLevel);
@@ -375,11 +363,6 @@ export function InsigniaWall() {
       + (memberMomentum?.bonusPercent ?? 0)
       + (harmony?.bonusPercent ?? 0),
   );
-
-  const applyTitle = (titleId: string) => {
-    if (!familyId || !selectedChild) return;
-    setState(setEquippedTitle(familyId, members, selectedChild.id, titleId));
-  };
 
   const pinBadge = (achievementId: string) => {
     if (!familyId || !selectedChild) return;
@@ -410,11 +393,11 @@ export function InsigniaWall() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#FFD166]">
-                <Medal size={14} /> Insignia Wall
+                <Medal size={14} /> Shield Wall
               </div>
-              <h1 className="mt-1 truncate text-2xl font-black">Year-long growth, comeback wins, and rare insignias</h1>
+              <h1 className="mt-1 truncate text-2xl font-black">Year-long growth and rare shields</h1>
               <p className="mt-1 max-w-3xl text-sm font-semibold leading-relaxed text-white/58">
-                Built for resilience: showing up again, improving over time, helping each other, and collecting premium badge rewards without chasing perfect days.
+                Built for resilience: showing up day after day, helping each other, and collecting premium shield rewards without chasing perfect days.
               </p>
             </div>
             <div className="hidden rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right sm:block">
@@ -442,20 +425,6 @@ export function InsigniaWall() {
                   </div>
                 </button>
               ))}
-            </div>
-            <div className="mt-3 rounded-lg border border-white/10 bg-black/18 p-3">
-              <div className="text-xs font-black uppercase text-white/42">Equipped Title</div>
-              <div className="mt-1 text-lg font-black text-[#FFD166]">{equippedTitle?.title ?? 'No title yet'}</div>
-              <select
-                value={childState?.equippedTitleId ?? ''}
-                onChange={event => applyTitle(event.target.value)}
-                className="mt-3 w-full rounded-lg border border-white/10 bg-[#0D0E1C] px-2 py-2 text-sm font-bold"
-              >
-                <option value="">Choose title</option>
-                {TITLE_DEFINITIONS.filter(title => childState?.unlockedTitleIds.includes(title.titleId)).map(title => (
-                  <option key={title.titleId} value={title.titleId}>{title.title}</option>
-                ))}
-              </select>
             </div>
           </section>
 
@@ -536,13 +505,13 @@ export function InsigniaWall() {
             <div className="grid grid-cols-2 gap-2">
               <Metric icon={<Trophy size={16} />} label="Unlocked" value={`${unlocked.length}/${ACHIEVEMENTS.length}`} />
               <Metric icon={<Sparkles size={16} />} label="Complete" value={`${pct(unlocked.length, ACHIEVEMENTS.length)}%`} />
-              <Metric icon={<Flame size={16} />} label="Comebacks" value={`${allBadges.filter(b => b.category === 'Comebacks' && b.isUnlocked).length}`} />
+              <Metric icon={<Flame size={16} />} label="Perfect Days" value={`${allBadges.filter(b => b.category === 'Perfect Days' && b.isUnlocked).length}`} />
               <Metric icon={<Award size={16} />} label="Year Days" value={`${activeDays}/365`} />
             </div>
           </section>
 
           <section className="rounded-lg border border-white/10 bg-[#111224] p-3">
-            <h2 className="text-sm font-black">Top Insignias</h2>
+            <h2 className="text-sm font-black">Top Shields</h2>
             <div className="mt-3 grid grid-cols-5 gap-2">
               {topBadges.map(badge => (
                 <button
@@ -563,7 +532,7 @@ export function InsigniaWall() {
               ))}
               {topBadges.length === 0 && (
                 <div className="col-span-5 rounded-lg border border-dashed border-white/10 p-3 text-center text-[11px] font-bold text-white/45">
-                  Earn your first insignia to see it here.
+                  Earn your first shield to see it here.
                 </div>
               )}
             </div>
@@ -571,10 +540,9 @@ export function InsigniaWall() {
         </aside>
 
         <section className="min-w-0 space-y-4">
-          <div className="grid gap-3 xl:grid-cols-3">
+          <div className="grid gap-3 xl:grid-cols-2">
             <Panel title="Recently Unlocked" items={recent} onOpen={setDetail} />
             <Panel title="Almost There" items={almostThere} onOpen={setDetail} />
-            <Panel title="Comeback Corner" items={comebackCorner} onOpen={setDetail} />
           </div>
 
           <div className="rounded-lg border border-white/10 bg-[#111224] p-3">
@@ -584,7 +552,7 @@ export function InsigniaWall() {
                 <input
                   value={query}
                   onChange={event => setQuery(event.target.value)}
-                  placeholder="Search badges"
+                  placeholder="Search shields"
                   className="w-full rounded-lg border border-white/10 bg-black/18 py-2 pl-9 pr-3 text-sm font-bold outline-none focus:border-[#4EEDB0]/60"
                 />
               </div>
@@ -680,10 +648,10 @@ function Panel({ title, items, onOpen }: { title: string; items: AchievementProg
                 seed={item.achievementId}
                 locked={!item.isUnlocked}
                 size={36}
-                ariaLabel={secretLocked ? 'Secret insignia' : item.title}
+                ariaLabel={secretLocked ? 'Secret shield' : item.title}
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-black">{secretLocked ? 'Secret Insignia' : item.title}</span>
+                <span className="block truncate text-xs font-black">{secretLocked ? 'Secret Shield' : item.title}</span>
                 <span className="block text-[10px] font-bold text-white/45">{item.progressPercent}% · {rarityLabel[item.rarity]}</span>
               </span>
             </button>

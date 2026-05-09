@@ -191,7 +191,7 @@ function MomentumStatesDialog({
         </ul>
 
         <p className="mt-4 text-[11px] leading-snug text-white/45">
-          Bonuses stack with Harmony and your equipped insignia loadout, capped at +50%
+          Bonuses stack with Harmony and your equipped shield loadout, capped at +50%
           total.
         </p>
       </motion.div>

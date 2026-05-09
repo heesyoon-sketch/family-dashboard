@@ -42,7 +42,6 @@ export interface AchievementProgress {
   isUnlocked: boolean;
   unlockedAt?: string;
   rewardPoints?: number;
-  unlocksTitleIds?: string[];
   unlocksVisualStyleIds?: string[];
 }
 
@@ -401,7 +400,6 @@ export function evaluateAchievementsForChild(params: {
       isUnlocked,
       unlockedAt: unlocked[definition.achievementId],
       rewardPoints: definition.rewardPoints,
-      unlocksTitleIds: definition.unlocksTitleIds,
       unlocksVisualStyleIds: definition.unlocksVisualStyleIds,
     };
   });

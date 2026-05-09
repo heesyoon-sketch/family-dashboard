@@ -11,8 +11,6 @@ import { MomentumAura } from './MomentumAura';
 import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
 import { useFamilyStore } from '@/lib/store';
 import { computeLevelProgress, emptyMomentum } from '@/lib/progression';
-import { loadAchievementState } from '@/lib/achievements/storage';
-import { TITLE_DEFINITIONS } from '@/lib/achievements/definitions';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
@@ -97,37 +95,6 @@ export function MemberPanel({ user }: { user: User }) {
   const listRef        = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
-
-  const familyId = useFamilyStore(s => s.familyId);
-  // Equipped title — read from the local Insignia Wall ledger. Refreshed on
-  // mount and when the storage event fires (e.g. Wall changes the title in
-  // another tab, or revokeUnmetAchievements drops it after an undo).
-  const [equippedTitleLabel, setEquippedTitleLabel] = useState<string | null>(null);
-  useEffect(() => {
-    if (!familyId) return;
-    const tick = () => {
-      try {
-        const state = loadAchievementState(familyId, [user]);
-        const childState = state.children[user.id];
-        const id = childState?.equippedTitleId;
-        const def = id ? TITLE_DEFINITIONS.find(title => title.titleId === id) : null;
-        setEquippedTitleLabel(def?.title ?? null);
-      } catch {
-        setEquippedTitleLabel(null);
-      }
-    };
-    tick();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key?.includes('fambit_insignia_wall')) tick();
-    };
-    const onFocus = () => tick();
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('focus', onFocus);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [familyId, user]);
 
   const spendableBalance = level?.spendableBalance ?? 0;
   const mailboxActivities = activities.filter(activity =>
@@ -287,23 +254,13 @@ export function MemberPanel({ user }: { user: User }) {
                     </span>
                   )}
                 </div>
-                {/* Equipped title — picked from the Insignia Wall and worn day to day. */}
-                {equippedTitleLabel && (
-                  <div
-                    className="mt-0.5 min-w-0 truncate text-[10px] font-black uppercase tracking-[0.14em] text-[#FFD166]/85"
-                    title={`Equipped title: ${equippedTitleLabel}`}
-                  >
-                    ✦ {equippedTitleLabel}
-                  </div>
-                )}
-
-                {/* Metadata row — Lv • XP • Momentum. The insignia strip
+                {/* Metadata row — Lv • XP • Momentum. The shield strip
                     moved out to the action button group so it can be the
                     same size as Store/Mail without growing the header. */}
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[9px]">
                   <span
                     className="shrink-0"
-                    title={`Level — long-term identity tier. Unlocks insignia slots, titles, and frames.`}
+                    title={`Level — long-term identity tier. Unlocks shield slots and profile frames.`}
                   >
                     Lv.{displayLevel}
                   </span>

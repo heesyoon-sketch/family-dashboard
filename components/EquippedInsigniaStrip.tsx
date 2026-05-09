@@ -16,7 +16,7 @@ const SLOT_PX = 32;
 /** Compact 3-slot strip in a member's panel header. Always shows three
  *  slots so the loadout shape is always visible — slots beyond the
  *  member's level appear locked with the level needed to unlock them.
- *  Tapping any slot deep-links to the Insignia Wall. */
+ *  Tapping any slot deep-links to the Shield Wall. */
 export function EquippedInsigniaStrip({ userId }: { userId: string }) {
   const familyId = useFamilyStore(s => s.familyId);
   const users = useFamilyStore(s => s.users);
@@ -56,8 +56,8 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
     <Link
       href={`/stats?view=insignia&member=${userId}`}
       className="inline-flex items-center gap-1 transition hover:opacity-80"
-      title="Insignia loadout — tap to manage on the Insignia Wall"
-      aria-label="Equipped insignias"
+      title="Shield loadout — tap to manage on the Shield Wall"
+      aria-label="Equipped shields"
     >
       {Array.from({ length: MAX_INSIGNIA_SLOTS }).map((_, idx) => {
         const isUnlockedSlot = idx < unlockedSlots;
@@ -93,7 +93,7 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
         return (
           <span
             key={`empty-${idx}`}
-            aria-label="Empty insignia slot"
+            aria-label="Empty shield slot"
             className="grid place-items-center rounded-full border border-dashed border-[var(--border)]/80 text-[var(--fg-muted)]/55"
             style={{ width: SLOT_PX, height: SLOT_PX }}
           >

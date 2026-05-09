@@ -2,11 +2,6 @@ import type { Task } from '@/lib/db';
 
 export type AchievementCategory =
   | 'First Steps'
-  | 'Comebacks'
-  | 'Improvement'
-  | 'Consistency'
-  | 'Habit Mastery'
-  | 'Gentle Streaks'
   | 'Perfect Days'
   | 'Weekly Quests'
   | 'Monthly Quests'
@@ -19,9 +14,9 @@ export type AchievementCategory =
   | 'Faith & Reflection'
   | 'Responsibility & Cleanup'
   | 'Exercise'
-  | 'Combo Badges'
-  | 'Team Badges'
-  | 'Secret Badges';
+  | 'Combo Shields'
+  | 'Team Shields'
+  | 'Secret Shields';
 
 export type AchievementTier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | 'Legendary' | 'Mythic';
 export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
@@ -62,19 +57,11 @@ export interface AchievementDefinition {
   displayOrder: number;
   isSecret?: boolean;
   rewardPoints?: number;
-  unlocksTitleIds?: string[];
   unlocksVisualStyleIds?: string[];
   relatedHabitIds?: string[];
   requirementCategory?: HabitCategory;
   habitKeyword?: string;
   comboCategories?: HabitCategory[];
-}
-
-export interface TitleDefinition {
-  titleId: string;
-  title: string;
-  description: string;
-  unlockedByAchievementId: string;
 }
 
 export interface BadgeVisualStyleDefinition {
@@ -152,52 +139,6 @@ const firstSteps = [
   ['i-tried-today', 'I Tried Today', 'Complete at least one habit on any day.', 1, 'common', 'Bronze', '💛'],
 ] as const;
 
-const comebackBadges = [
-  ['comeback-kid', 'Comeback Kid', 'Complete a habit again after missing 3+ days.', 1, 'common', 'Bronze', '🔥'],
-  ['back-on-track', 'Back on Track', 'Complete any habit after a zero-habit day.', 1, 'common', 'Bronze', '🛤️'],
-  ['bounce-back', 'Bounce Back', 'Complete 3 habits the day after missing all habits.', 1, 'rare', 'Silver', '🏀'],
-  ['reset-hero', 'Reset Hero', 'Restart a habit streak after it broke.', 3, 'rare', 'Silver', '🔁'],
-  ['never-out', 'Never Out', 'Return after 7+ days away from a habit.', 1, 'rare', 'Silver', '🌄'],
-  ['fresh-start', 'Fresh Start', 'Complete at least one habit after a difficult week.', 1, 'rare', 'Silver', '🌿'],
-  ['again-and-again', 'Again and Again', 'Make 10 separate comebacks across habits.', 10, 'epic', 'Gold', '🔄'],
-  ['brave-restart', 'Brave Restart', 'Complete a hard habit again after many misses.', 3, 'epic', 'Gold', '🛡️'],
-  ['second-wind', 'Second Wind', 'Complete an evening habit after missing the morning.', 1, 'common', 'Bronze', '🌙'],
-  ['new-week-new-me', 'New Week, New Me', 'Complete a habit on Monday after a weak week.', 1, 'rare', 'Silver', '📅'],
-  ['small-return', 'Small Return', 'Come back with one small habit.', 5, 'common', 'Bronze', '🌤️'],
-  ['steady-returner', 'Steady Returner', 'Make 20 comeback completions.', 20, 'epic', 'Gold', '🧭'],
-  ['hard-day-helper', 'Hard Day Helper', 'Show up after two low-completion days.', 3, 'rare', 'Silver', '🤝'],
-  ['restart-spark', 'Restart Spark', 'Restart three different habits.', 3, 'rare', 'Silver', '⚡'],
-  ['comeback-flame', 'Comeback Flame', 'Make 30 comeback completions.', 30, 'legendary', 'Legendary', '🔥'],
-  ['quiet-return', 'Quiet Return', 'Return without needing a perfect day.', 7, 'rare', 'Silver', '🕯️'],
-  ['try-again-star', 'Try Again Star', 'Try again 14 times after misses.', 14, 'epic', 'Gold', '⭐'],
-  ['resilience-riser', 'Resilience Riser', 'Make 50 comeback completions.', 50, 'legendary', 'Legendary', '🌅'],
-  ['weekend-comeback', 'Weekend Comeback', 'Complete a habit after a quiet weekday stretch.', 2, 'rare', 'Silver', '🏁'],
-  ['brave-restarter', 'Brave Restarter', 'Return to the wall many times.', 75, 'mythic', 'Mythic', '🏆'],
-] as const;
-
-const improvementBadges = [
-  ['better-than-yesterday', 'Better Than Yesterday', 'Complete more habits than the previous day.', 1, 'common', 'Bronze', '📈'],
-  ['level-up-day', 'Level Up Day', 'Beat your own daily completion record.', 1, 'common', 'Bronze', '⬆️'],
-  ['stronger-week', 'Stronger Week', 'Complete more habits this week than last week.', 1, 'common', 'Bronze', '💪'],
-  ['best-week-yet', 'Best Week Yet', 'Set a new weekly habit completion record.', 1, 'rare', 'Silver', '🏅'],
-  ['tiny-progress', 'Tiny Progress', 'Improve by at least one completion compared with yesterday.', 3, 'common', 'Bronze', '🌱'],
-  ['climbing-up', 'Climbing Up', 'Improve weekly total for 2 weeks in a row.', 2, 'rare', 'Silver', '🧗'],
-  ['momentum-builder', 'Momentum Builder', 'Complete more in the second half of a week.', 1, 'rare', 'Silver', '🌀'],
-  ['personal-best', 'Personal Best', 'Reach a new all-time daily record.', 2, 'rare', 'Silver', '🥇'],
-  ['my-new-record', 'My New Record', 'Set a new category record.', 1, 'rare', 'Silver', '📌'],
-  ['growing-strong', 'Growing Strong', 'Improve monthly total compared with last month.', 1, 'epic', 'Gold', '🌳'],
-  ['record-rider', 'Record Rider', 'Set 5 new daily records.', 5, 'epic', 'Gold', '🏄'],
-  ['week-builder', 'Week Builder', 'Beat a weekly total 3 times.', 3, 'rare', 'Silver', '🧱'],
-  ['best-week-builder', 'Best Week Builder', 'Set 4 new weekly records.', 4, 'epic', 'Gold', '🏗️'],
-  ['month-mover', 'Month Mover', 'Improve monthly total twice.', 2, 'epic', 'Gold', '📆'],
-  ['tiny-progress-pro', 'Tiny Progress Pro', 'Make 20 improvement days.', 20, 'epic', 'Gold', '🔆'],
-  ['steady-climber', 'Steady Climber', 'Make 30 improvement days.', 30, 'legendary', 'Legendary', '⛰️'],
-  ['brighter-week', 'Brighter Week', 'Beat last week by 5 or more completions.', 1, 'rare', 'Silver', '🌞'],
-  ['halfway-surge', 'Halfway Surge', 'Finish a week stronger than it started 5 times.', 5, 'epic', 'Gold', '🚲'],
-  ['new-record-maker', 'New Record Maker', 'Set 10 new personal records.', 10, 'legendary', 'Legendary', '🏆'],
-  ['growth-legend', 'Growth Legend', 'Make 60 improvement days.', 60, 'mythic', 'Mythic', '🌈'],
-] as const;
-
 const habitGroups: Array<{
   category: AchievementCategory;
   habitCategory: HabitCategory;
@@ -215,24 +156,6 @@ const habitGroups: Array<{
   { category: 'School Routine', habitCategory: 'school', keyword: 'school', icon: '🎒', names: ['School Ready', 'Backpack Boss', 'Routine Pro'], thresholds: [30, 100, 200] },
   { category: 'Faith & Reflection', habitCategory: 'faith', keyword: 'bible', icon: '🕊️', names: ['Quiet Heart', 'Faithful Light', 'Reflection Guide'], thresholds: [7, 50, 150] },
   { category: 'Learning & Reading', habitCategory: 'learning', keyword: 'diary', icon: '✏️', names: ['Diary Starter', 'Page Builder', 'Writing Wizard'], thresholds: [7, 50, 150] },
-] as const;
-
-const consistencyBadges = [
-  ['no-zero-day', 'No Zero Day', 'Complete at least one habit every day for 7 days.', 7, 'common', 'Bronze', '0️⃣'],
-  ['still-showing-up', 'Still Showing Up', 'Complete at least one habit every day for 14 days.', 14, 'rare', 'Silver', '🧡'],
-  ['steady-star', 'Steady Star', 'Complete at least one habit every day for 30 days.', 30, 'epic', 'Gold', '⭐'],
-  ['little-by-little', 'Little by Little', 'Complete at least 3 habits per day for 7 days.', 7, 'rare', 'Silver', '🐾'],
-  ['gentle-streak', 'Gentle Streak', 'Complete scheduled habits 5 times within 7 days.', 5, 'common', 'Bronze', '🌊'],
-  ['keep-going', 'Keep Going', 'Complete at least 20 habits in a week.', 20, 'rare', 'Silver', '➡️'],
-  ['consistency-beats-perfect', 'Consistency Beats Perfect', 'Complete habits on 20 days in a month.', 20, 'epic', 'Gold', '💎'],
-  ['almost-every-day', 'Almost Every Day', 'Complete at least one habit on 25 days in a month.', 25, 'epic', 'Gold', '📍'],
-  ['weekly-root', 'Weekly Root', 'Complete habits on 5 days in a week.', 5, 'common', 'Bronze', '🌿'],
-  ['soft-rhythm', 'Soft Rhythm', 'Complete habits on 10 different days.', 10, 'common', 'Bronze', '🎵'],
-  ['monthly-rhythm', 'Monthly Rhythm', 'Complete habits on 15 days in a month.', 15, 'rare', 'Silver', '🗓️'],
-  ['steady-season', 'Steady Season', 'Complete habits on 60 active days.', 60, 'epic', 'Gold', '🍃'],
-  ['brave-pace', 'Brave Pace', 'Complete habits on 90 active days.', 90, 'legendary', 'Legendary', '🧭'],
-  ['no-zero-day-star', 'No Zero Day Star', 'Build a 50-day active-day path.', 50, 'legendary', 'Legendary', '🌟'],
-  ['365-legend', '365 Legend', 'Reach 365 active days of growth.', 365, 'mythic', 'Mythic', '👑'],
 ] as const;
 
 const perfectBadges = [
@@ -292,41 +215,6 @@ function baseDefinitions(): AchievementDefinition[] {
     }));
   }
 
-  for (const [id, title, description, value, rarity, tier, icon] of comebackBadges) {
-    defs.push(makeAchievement({
-      achievementId: id,
-      title,
-      description,
-      category: 'Comebacks',
-      tier,
-      icon,
-      requirementType: id.includes('back-on-track') ? 'zeroDayRecoveries' : 'comebackCount',
-      requirementValue: value,
-      timeframe: 'lifetime',
-      rarity,
-      displayOrder: order++,
-      unlocksTitleIds: id === 'comeback-kid' ? ['comeback-kid'] : id === 'brave-restarter' ? ['brave-restarter'] : undefined,
-      unlocksVisualStyleIds: id === 'comeback-flame' ? ['comeback-flame'] : undefined,
-    }));
-  }
-
-  for (const [id, title, description, value, rarity, tier, icon] of improvementBadges) {
-    defs.push(makeAchievement({
-      achievementId: id,
-      title,
-      description,
-      category: 'Improvement',
-      tier,
-      icon,
-      requirementType: id.includes('week') ? 'weeklyImprovement' : id.includes('month') || id.includes('growing') ? 'monthlyImprovement' : 'improvementDays',
-      requirementValue: value,
-      timeframe: id.includes('month') ? 'monthly' : id.includes('week') ? 'weekly' : 'lifetime',
-      rarity,
-      displayOrder: order++,
-      unlocksTitleIds: id === 'tiny-progress-pro' ? ['tiny-progress-pro'] : id === 'best-week-builder' ? ['best-week-builder'] : undefined,
-    }));
-  }
-
   for (const group of habitGroups) {
     group.names.forEach((name, index) => {
       const rarity = rarityByIndex[Math.min(index + 1, rarityByIndex.length - 1)];
@@ -344,28 +232,9 @@ function baseDefinitions(): AchievementDefinition[] {
         timeframe: 'lifetime',
         rarity,
         displayOrder: order++,
-        unlocksTitleIds: name === 'Reading Legend' ? ['reading-wizard'] : name === 'Energy Champion' ? ['exercise-champion'] : name === 'Cleanup Captain' ? ['cleanup-captain'] : name === 'Toothbrush Master' ? ['toothbrush-master'] : name === 'Morning Hero' ? ['morning-hero'] : undefined,
         unlocksVisualStyleIds: index === 2 ? ['gold-shine'] : undefined,
       }));
     });
-  }
-
-  for (const [id, title, description, value, rarity, tier, icon] of consistencyBadges) {
-    defs.push(makeAchievement({
-      achievementId: id,
-      title,
-      description,
-      category: id.includes('gentle') ? 'Gentle Streaks' : 'Consistency',
-      tier,
-      icon,
-      requirementType: id.includes('zero') || id.includes('showing') || id.includes('steady-star') ? 'dailyStreak' : id.includes('gentle') ? 'gentleFrequency' : 'activeDays',
-      requirementValue: value,
-      timeframe: 'lifetime',
-      rarity,
-      displayOrder: order++,
-      unlocksTitleIds: id === 'steady-star' ? ['steady-star'] : id === 'no-zero-day-star' ? ['no-zero-day-star'] : id === '365-legend' ? ['365-legend'] : undefined,
-      unlocksVisualStyleIds: id === '365-legend' ? ['mythic-aurora'] : undefined,
-    }));
   }
 
   for (const [id, title, description, value, rarity, tier, icon] of perfectBadges) {
@@ -390,7 +259,7 @@ function baseDefinitions(): AchievementDefinition[] {
       achievementId: id,
       title,
       description,
-      category: 'Combo Badges',
+      category: 'Combo Shields',
       tier,
       icon,
       requirementType: 'comboDays',
@@ -399,7 +268,6 @@ function baseDefinitions(): AchievementDefinition[] {
       timeframe: 'daily',
       rarity,
       displayOrder: order++,
-      unlocksTitleIds: id === 'balanced-day' ? ['balanced-day-builder'] : undefined,
       unlocksVisualStyleIds: id === 'big-three' ? ['starburst'] : undefined,
     }));
   }
@@ -409,7 +277,7 @@ function baseDefinitions(): AchievementDefinition[] {
       achievementId: id,
       title,
       description,
-      category: 'Team Badges',
+      category: 'Team Shields',
       tier,
       icon,
       requirementType: 'teamSameDay',
@@ -417,7 +285,6 @@ function baseDefinitions(): AchievementDefinition[] {
       timeframe: 'weekly',
       rarity,
       displayOrder: order++,
-      unlocksTitleIds: id === 'family-rhythm' ? ['family-rhythm-maker'] : undefined,
       unlocksVisualStyleIds: id === 'family-rhythm' ? ['firework-ring'] : undefined,
     }));
   }
@@ -427,7 +294,7 @@ function baseDefinitions(): AchievementDefinition[] {
       achievementId: id,
       title,
       description,
-      category: 'Secret Badges',
+      category: 'Secret Shields',
       tier,
       icon,
       requirementType: id === 'rainbow-day' ? 'comboDays' : id === 'surprise-comeback' ? 'comebackCount' : id === 'hidden-helper' ? 'gentleFrequency' : 'comboDays',
@@ -515,30 +382,8 @@ function baseDefinitions(): AchievementDefinition[] {
 
 export const ACHIEVEMENTS: AchievementDefinition[] = baseDefinitions();
 
-export const TITLE_DEFINITIONS: TitleDefinition[] = [
-  ['morning-hero', 'Morning Hero', 'Starts the day with courage.'],
-  ['reading-wizard', 'Reading Wizard', 'Builds power through books.'],
-  ['exercise-champion', 'Exercise Champion', 'Keeps moving with energy.'],
-  ['cleanup-captain', 'Cleanup Captain', 'Makes spaces feel calmer.'],
-  ['toothbrush-master', 'Toothbrush Master', 'Owns the hygiene routine.'],
-  ['comeback-kid', 'Comeback Kid', 'Shows up again after misses.'],
-  ['steady-star', 'Steady Star', 'Keeps a gentle rhythm.'],
-  ['brave-restarter', 'Brave Restarter', 'Restarts without shame.'],
-  ['tiny-progress-pro', 'Tiny Progress Pro', 'Finds wins in small steps.'],
-  ['balanced-day-builder', 'Balanced Day Builder', 'Builds whole-person days.'],
-  ['365-legend', '365 Legend', 'A full year of growth.'],
-  ['best-week-builder', 'Best Week Builder', 'Makes stronger weeks.'],
-  ['no-zero-day-star', 'No Zero Day Star', 'Keeps showing up.'],
-  ['family-rhythm-maker', 'Family Rhythm Maker', 'Helps the family move together.'],
-].map(([titleId, title, description]) => ({
-  titleId,
-  title,
-  description,
-  unlockedByAchievementId: ACHIEVEMENTS.find(a => a.unlocksTitleIds?.includes(titleId))?.achievementId ?? 'first-spark',
-}));
-
 export const VISUAL_STYLE_DEFINITIONS: BadgeVisualStyleDefinition[] = [
-  ['gold-shine', 'Gold Shine', 'A warm gold shine for special insignias.', 'rare', 'gold-shine'],
+  ['gold-shine', 'Gold Shine', 'A warm gold shine for special shields.', 'rare', 'gold-shine'],
   ['rainbow-glow', 'Rainbow Glow', 'A bright rainbow glow for surprise days.', 'mythic', 'rainbow-glow'],
   ['crystal-edge', 'Crystal Edge', 'A crisp crystal border.', 'epic', 'crystal-edge'],
   ['starburst', 'Starburst', 'A starry medal burst.', 'rare', 'starburst'],
@@ -547,7 +392,6 @@ export const VISUAL_STYLE_DEFINITIONS: BadgeVisualStyleDefinition[] = [
   ['diamond-spark', 'Diamond Spark', 'A long-journey diamond sparkle.', 'legendary', 'diamond-spark'],
   ['legendary-ribbon', 'Legendary Ribbon', 'A rare ribbon for huge milestones.', 'legendary', 'legendary-ribbon'],
   ['mythic-aurora', 'Mythic Aurora', 'A mythic aurora for year-long growth.', 'mythic', 'mythic-aurora'],
-  ['comeback-flame', 'Comeback Flame', 'A flame for resilient returns.', 'legendary', 'comeback-flame'],
 ].map(([visualStyleId, name, description, rarity, styleToken]) => ({
   visualStyleId,
   name,

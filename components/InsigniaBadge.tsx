@@ -200,7 +200,7 @@ export function InsigniaBadge({
   return (
     <span
       role="img"
-      aria-label={ariaLabel ?? `${rarity} insignia${locked ? ' (locked)' : ''}`}
+      aria-label={ariaLabel ?? `${rarity} shield${locked ? ' (locked)' : ''}`}
       className={[
         'inline-block shrink-0 align-middle',
         locked ? 'opacity-60 saturate-[0.35]' : '',

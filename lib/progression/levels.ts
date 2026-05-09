@@ -83,21 +83,15 @@ export interface LevelUnlock {
 
 /** Every named unlock in level order. Drives the "Levels matter" reveal UI. */
 export const LEVEL_UNLOCKS: LevelUnlock[] = [
-  { level: 1,  kind: 'slot',   id: 'slot-1',           label: '1st insignia slot',  description: 'Equip your first insignia to shape your playstyle.' },
-  { level: 2,  kind: 'title',  id: 'morning-explorer', label: 'Morning Explorer',   description: 'A title earned through showing up early.' },
-  { level: 3,  kind: 'effect', id: 'aura-soft',        label: 'Soft profile aura',  description: 'A gentle glow appears around your member panel.' },
-  { level: 5,  kind: 'slot',   id: 'slot-2',           label: '2nd insignia slot',  description: 'Combine two insignias for richer playstyles.' },
-  { level: 6,  kind: 'title',  id: 'quiet-helper',     label: 'Quiet Helper',       description: 'For the steady support of others.' },
-  { level: 8,  kind: 'frame',  id: 'frame-bronze',     label: 'Bronze profile frame', description: 'A small chrome upgrade to your avatar.' },
-  { level: 10, kind: 'slot',   id: 'slot-3',           label: '3rd insignia slot',  description: 'Full loadout: balance cooperation, recovery, and growth.' },
-  { level: 12, kind: 'title',  id: 'family-guardian',  label: 'Family Guardian',    description: 'For protecting the family rhythm over time.' },
-  { level: 14, kind: 'effect', id: 'aura-warm',        label: 'Warm aura',          description: 'A warmer glow as your routine matures.' },
-  { level: 18, kind: 'title',  id: 'resilient-soul',   label: 'Resilient Soul',     description: 'For recovering again and again.' },
-  { level: 22, kind: 'frame',  id: 'frame-silver',     label: 'Silver profile frame', description: 'A polished frame for long journeys.' },
-  { level: 25, kind: 'title',  id: 'harmony-keeper',   label: 'Harmony Keeper',     description: 'For families that move together.' },
-  { level: 30, kind: 'effect', id: 'aura-radiant',     label: 'Radiant aura',       description: 'A standout shimmer for veteran members.' },
-  { level: 40, kind: 'frame',  id: 'frame-gold',       label: 'Gold profile frame', description: 'Premium frame reserved for sustained growth.' },
-  { level: 50, kind: 'title',  id: 'lantern-bearer',   label: 'Lantern Bearer',     description: 'A milestone for half a hundred levels.' },
+  { level: 1,  kind: 'slot',   id: 'slot-1',       label: '1st shield slot',     description: 'Equip your first shield to shape your playstyle.' },
+  { level: 3,  kind: 'effect', id: 'aura-soft',    label: 'Soft profile aura',   description: 'A gentle glow appears around your member panel.' },
+  { level: 5,  kind: 'slot',   id: 'slot-2',       label: '2nd shield slot',     description: 'Combine two shields for richer playstyles.' },
+  { level: 8,  kind: 'frame',  id: 'frame-bronze', label: 'Bronze profile frame', description: 'A small chrome upgrade to your avatar.' },
+  { level: 10, kind: 'slot',   id: 'slot-3',       label: '3rd shield slot',     description: 'Full loadout: balance cooperation, recovery, and growth.' },
+  { level: 14, kind: 'effect', id: 'aura-warm',    label: 'Warm aura',           description: 'A warmer glow as your routine matures.' },
+  { level: 22, kind: 'frame',  id: 'frame-silver', label: 'Silver profile frame', description: 'A polished frame for long journeys.' },
+  { level: 30, kind: 'effect', id: 'aura-radiant', label: 'Radiant aura',        description: 'A standout shimmer for veteran members.' },
+  { level: 40, kind: 'frame',  id: 'frame-gold',   label: 'Gold profile frame',  description: 'Premium frame reserved for sustained growth.' },
 ];
 
 export function unlocksUpToLevel(level: number): LevelUnlock[] {

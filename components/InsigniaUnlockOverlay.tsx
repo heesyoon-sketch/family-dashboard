@@ -138,7 +138,7 @@ export function InsigniaUnlockOverlay() {
             <div className="relative">
               <div className="flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-[0.28em] text-white/65">
                 <Sparkles size={14} />
-                <span>Insignia Unlocked</span>
+                <span>Shield Unlocked</span>
                 <Sparkles size={14} />
               </div>
 
@@ -192,7 +192,7 @@ export function InsigniaUnlockOverlay() {
                   onClick={goToWall}
                   className="group flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-white/90"
                 >
-                  See it on the Insignia Wall
+                  See it on the Shield Wall
                   <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
                 </button>
                 <button
@@ -206,7 +206,7 @@ export function InsigniaUnlockOverlay() {
 
               {queue.length > 1 && (
                 <div className="mt-3 text-[11px] font-black uppercase tracking-wider text-white/45">
-                  +{queue.length - 1} more insignia{queue.length - 1 === 1 ? '' : 's'} waiting
+                  +{queue.length - 1} more shield{queue.length - 1 === 1 ? '' : 's'} waiting
                 </div>
               )}
             </div>

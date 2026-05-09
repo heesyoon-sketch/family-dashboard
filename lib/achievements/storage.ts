@@ -2,24 +2,22 @@
 
 import { legacyRecurrenceToDays, type Level, type Task, type User } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
-import { ACHIEVEMENTS, TITLE_DEFINITIONS, VISUAL_STYLE_DEFINITIONS } from './definitions';
+import { ACHIEVEMENTS, VISUAL_STYLE_DEFINITIONS } from './definitions';
 import { evaluateAchievementsForChild, type AchievementCompletion, type AchievementProgress } from './engine';
 
 export interface ChildAchievementState {
   childId: string;
   unlockedAtByAchievementId: Record<string, string>;
   awardedAchievementIds: string[];
-  unlockedTitleIds: string[];
-  equippedTitleId?: string;
   unlockedVisualStyleIds: string[];
   pinnedAchievementIds: string[];
-  /** Insignias the member has actively equipped, in slot order. Length
-   *  is bounded by the member's level (MAX_LOADOUT_SLOTS at level 15+). */
+  /** Shields the member has actively equipped, in slot order. Length
+   *  is bounded by the member's level (full set unlocks at Lv.10). */
   equippedInsigniaIds: string[];
   questClaims: Record<string, string>;
-  /** ISO timestamp marking the start of this member's insignia journey.
+  /** ISO timestamp marking the start of this member's shield journey.
    *  Achievement metrics ignore completions before this point, so a fresh
-   *  family begins with empty progress and unlocks badges as they go. */
+   *  family begins with empty progress and unlocks shields as they go. */
   unlockBaselineAt: string;
 }
 
@@ -48,7 +46,6 @@ function emptyChildState(childId: string, baselineAt?: string): ChildAchievement
     childId,
     unlockedAtByAchievementId: {},
     awardedAchievementIds: [],
-    unlockedTitleIds: [],
     unlockedVisualStyleIds: [],
     pinnedAchievementIds: [],
     equippedInsigniaIds: [],
@@ -88,15 +85,6 @@ export function loadAchievementState(familyId: string, children: User[]): Family
 export function saveAchievementState(state: FamilyAchievementState): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(storageKey(state.familyId), JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
-}
-
-export function setEquippedTitle(familyId: string, children: User[], childId: string, titleId: string): FamilyAchievementState {
-  const state = loadAchievementState(familyId, children);
-  const child = state.children[childId] ?? emptyChildState(childId);
-  if (!child.unlockedTitleIds.includes(titleId)) return state;
-  state.children[childId] = { ...child, equippedTitleId: titleId };
-  saveAchievementState(state);
-  return state;
 }
 
 export function togglePinnedAchievement(familyId: string, children: User[], childId: string, achievementId: string): FamilyAchievementState {
@@ -227,7 +215,7 @@ async function awardBonusPoints(childId: string, achievement: AchievementProgres
     p_user_id: childId,
     p_achievement_id: achievement.achievementId,
     p_points: points,
-    p_message: `Insignia unlocked: ${achievement.title}`,
+    p_message: `Shield unlocked: ${achievement.title}`,
   });
   if (error || !data) return null;
   const raw = data as { userId: string; currentLevel: number; totalPoints: number; spendableBalance: number; updatedAt: string };
@@ -268,10 +256,6 @@ export async function syncAchievements(params: {
     });
     for (const achievement of result.newlyUnlocked) {
       childState.unlockedAtByAchievementId[achievement.achievementId] = achievement.unlockedAt ?? new Date().toISOString();
-      childState.unlockedTitleIds = Array.from(new Set([
-        ...childState.unlockedTitleIds,
-        ...(achievement.unlocksTitleIds ?? []),
-      ]));
       childState.unlockedVisualStyleIds = Array.from(new Set([
         ...childState.unlockedVisualStyleIds,
         ...(achievement.unlocksVisualStyleIds ?? []),
@@ -285,9 +269,6 @@ export async function syncAchievements(params: {
           childState.awardedAchievementIds.push(achievement.achievementId);
         }
       }
-    }
-    if (!childState.equippedTitleId && childState.unlockedTitleIds.length > 0) {
-      childState.equippedTitleId = childState.unlockedTitleIds[0];
     }
     state.children[child.id] = childState;
     achievementsByChild[child.id] = result.achievements.map(achievement => ({
@@ -303,13 +284,12 @@ export async function syncAchievements(params: {
 
 /** Re-evaluate a child's achievements against fresh completion data and
  *  revoke anything that no longer meets its requirement. Used after an undo
- *  so the badge wall stays honest with the underlying activity.
+ *  so the shield wall stays honest with the underlying activity.
  *
  *  For each revoked achievement we:
  *    - drop it from `unlockedAtByAchievementId` and `awardedAchievementIds`
  *    - unequip it if it was in the loadout
- *    - drop any titles/visual styles that were unlocked *only* by this
- *      achievement (and unequip the title if it was active)
+ *    - drop any visual styles that were unlocked *only* by this achievement
  *    - call `revoke_achievement_bonus` on the server to refund the points
  *      this achievement originally granted
  */
@@ -356,23 +336,8 @@ export async function revokeUnmetAchievements(params: {
       childState.awardedAchievementIds = childState.awardedAchievementIds.filter(x => x !== id);
       childState.equippedInsigniaIds = childState.equippedInsigniaIds.filter(eid => eid !== id);
 
-      // Titles and visual styles can be unlocked by more than one badge, so
-      // only revoke them when no other still-unlocked badge grants them.
-      if (def.unlocksTitleIds) {
-        for (const titleId of def.unlocksTitleIds) {
-          const otherSource = ACHIEVEMENTS.some(a =>
-            a.achievementId !== id
-            && a.unlocksTitleIds?.includes(titleId)
-            && Boolean(childState.unlockedAtByAchievementId[a.achievementId]),
-          );
-          if (!otherSource) {
-            childState.unlockedTitleIds = childState.unlockedTitleIds.filter(t => t !== titleId);
-            if (childState.equippedTitleId === titleId) {
-              childState.equippedTitleId = childState.unlockedTitleIds[0];
-            }
-          }
-        }
-      }
+      // Visual styles can be unlocked by more than one shield, so only
+      // revoke a style when no other still-unlocked shield grants it.
       if (def.unlocksVisualStyleIds) {
         for (const styleId of def.unlocksVisualStyleIds) {
           const otherSource = ACHIEVEMENTS.some(a =>
@@ -422,11 +387,6 @@ export async function revokeUnmetAchievements(params: {
 
   saveAchievementState(state);
   return { revoked, refundedLevelsByUser };
-}
-
-export function getUnlockedTitleLabels(childState?: ChildAchievementState) {
-  const ids = new Set(childState?.unlockedTitleIds ?? []);
-  return TITLE_DEFINITIONS.filter(title => ids.has(title.titleId));
 }
 
 export function getUnlockedVisualStyles(childState?: ChildAchievementState) {

@@ -33,11 +33,6 @@ export const MAX_LOADOUT_SLOTS = 3;
 
 const ARCHETYPE_BY_CATEGORY: Record<AchievementCategory, LoadoutArchetype> = {
   'First Steps':                'consistency',
-  'Comebacks':                  'recovery',
-  'Improvement':                'consistency',
-  'Consistency':                'consistency',
-  'Habit Mastery':              'consistency',
-  'Gentle Streaks':             'consistency',
   'Perfect Days':               'challenge',
   'Weekly Quests':              'consistency',
   'Monthly Quests':             'challenge',
@@ -50,9 +45,9 @@ const ARCHETYPE_BY_CATEGORY: Record<AchievementCategory, LoadoutArchetype> = {
   'Faith & Reflection':         'consistency',
   'Responsibility & Cleanup':   'variety',
   'Exercise':                   'variety',
-  'Combo Badges':               'variety',
-  'Team Badges':                'cooperation',
-  'Secret Badges':              'challenge',
+  'Combo Shields':              'variety',
+  'Team Shields':               'cooperation',
+  'Secret Shields':             'challenge',
 };
 
 // Per-rarity bonus contribution. Common is nearly cosmetic so casual

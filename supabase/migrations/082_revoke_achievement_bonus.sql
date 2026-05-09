@@ -85,7 +85,7 @@ begin
     p_user_id,
     'SYSTEM_MESSAGE',
     -v_award.points_awarded,
-    'Insignia revoked: requirement no longer met',
+    'Shield revoked: requirement no longer met',
     now()
   );
 
