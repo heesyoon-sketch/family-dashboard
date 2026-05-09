@@ -147,52 +147,59 @@ const habitGroups: Array<{
   names: [string, string, string];
   thresholds: [number, number, number];
 }> = [
-  { category: 'Learning & Reading', habitCategory: 'learning', keyword: 'read', icon: '📚', names: ['Reading Rookie', 'Book Explorer', 'Reading Legend'], thresholds: [3, 30, 200] },
-  { category: 'Exercise', habitCategory: 'exercise', keyword: 'exercise', icon: '🏃', names: ['Move Maker', 'Strong Body', 'Energy Champion'], thresholds: [3, 50, 150] },
-  { category: 'Health & Hygiene', habitCategory: 'health', keyword: 'brush', icon: '🪥', names: ['Clean Start', 'Hygiene Hero', 'Toothbrush Master'], thresholds: [7, 50, 100] },
-  { category: 'Morning Routine', habitCategory: 'morning', keyword: 'morning', icon: '🌅', names: ['Morning Starter', 'Morning Hero', 'Sunrise Builder'], thresholds: [7, 30, 100] },
-  { category: 'Evening Routine', habitCategory: 'evening', keyword: 'evening', icon: '🌙', names: ['Evening Starter', 'Evening Finisher', 'Night Rhythm'], thresholds: [7, 30, 100] },
-  { category: 'Responsibility & Cleanup', habitCategory: 'responsibility', keyword: 'clean', icon: '🧺', names: ['Cleanup Captain', 'Room Rescue', 'Home Helper'], thresholds: [30, 100, 200] },
-  { category: 'School Routine', habitCategory: 'school', keyword: 'school', icon: '🎒', names: ['School Ready', 'Backpack Boss', 'Routine Pro'], thresholds: [30, 100, 200] },
-  { category: 'Faith & Reflection', habitCategory: 'faith', keyword: 'bible', icon: '🕊️', names: ['Quiet Heart', 'Faithful Light', 'Reflection Guide'], thresholds: [7, 50, 150] },
-  { category: 'Learning & Reading', habitCategory: 'learning', keyword: 'diary', icon: '✏️', names: ['Diary Starter', 'Page Builder', 'Writing Wizard'], thresholds: [7, 50, 150] },
+  // Habit-group thresholds: index 0 = rare (~14 of that habit), 1 = epic
+  // (~60), 2 = legendary (~200). Bumped from the old lenient set so a kid
+  // can't unlock a "rare" silhouette by reading three times in one
+  // afternoon — a rare shield should reflect a couple weeks of work.
+  { category: 'Learning & Reading', habitCategory: 'learning', keyword: 'read', icon: '📚', names: ['Reading Rookie', 'Book Explorer', 'Reading Legend'], thresholds: [14, 60, 200] },
+  { category: 'Exercise', habitCategory: 'exercise', keyword: 'exercise', icon: '🏃', names: ['Move Maker', 'Strong Body', 'Energy Champion'], thresholds: [14, 60, 200] },
+  { category: 'Health & Hygiene', habitCategory: 'health', keyword: 'brush', icon: '🪥', names: ['Clean Start', 'Hygiene Hero', 'Toothbrush Master'], thresholds: [14, 60, 150] },
+  { category: 'Morning Routine', habitCategory: 'morning', keyword: 'morning', icon: '🌅', names: ['Morning Starter', 'Morning Hero', 'Sunrise Builder'], thresholds: [14, 60, 150] },
+  { category: 'Evening Routine', habitCategory: 'evening', keyword: 'evening', icon: '🌙', names: ['Evening Starter', 'Evening Finisher', 'Night Rhythm'], thresholds: [14, 60, 150] },
+  { category: 'Responsibility & Cleanup', habitCategory: 'responsibility', keyword: 'clean', icon: '🧺', names: ['Cleanup Captain', 'Room Rescue', 'Home Helper'], thresholds: [21, 100, 200] },
+  { category: 'School Routine', habitCategory: 'school', keyword: 'school', icon: '🎒', names: ['School Ready', 'Backpack Boss', 'Routine Pro'], thresholds: [21, 100, 200] },
+  { category: 'Faith & Reflection', habitCategory: 'faith', keyword: 'bible', icon: '🕊️', names: ['Quiet Heart', 'Faithful Light', 'Reflection Guide'], thresholds: [14, 60, 200] },
+  { category: 'Learning & Reading', habitCategory: 'learning', keyword: 'diary', icon: '✏️', names: ['Diary Starter', 'Page Builder', 'Writing Wizard'], thresholds: [14, 60, 200] },
 ] as const;
 
+// Across the boards below, single-day requirements have been raised so a
+// rare/epic/legendary shield reflects sustained work. Common shields keep
+// their ~1 day pacing.
 const perfectBadges = [
-  ['full-house', 'Full House', 'Complete all active habits in one day.', 1, 'rare', 'Silver', '🏠'],
-  ['morning-hero-perfect', 'Morning Hero', 'Complete all morning habits in one day.', 1, 'rare', 'Silver', '🌅'],
-  ['evening-finisher-perfect', 'Evening Finisher', 'Complete all evening habits in one day.', 1, 'rare', 'Silver', '🌙'],
-  ['clean-sweep', 'Clean Sweep', 'Complete all habits in one category in a day.', 1, 'rare', 'Silver', '🧹'],
-  ['weekend-win', 'Weekend Win', 'Complete all active weekend habits on one weekend day.', 1, 'rare', 'Silver', '🎉'],
-  ['perfect-pair', 'Perfect Pair', 'Complete two perfect days.', 2, 'epic', 'Gold', '✌️'],
-  ['perfect-week', 'Perfect Week', 'Complete every active habit for a full week.', 7, 'epic', 'Gold', '🏆'],
-  ['bright-sweep', 'Bright Sweep', 'Complete five perfect days.', 5, 'epic', 'Gold', '✨'],
-  ['rare-perfect-run', 'Rare Perfect Run', 'Complete ten perfect days.', 10, 'legendary', 'Legendary', '💫'],
-  ['perfect-season-spark', 'Perfect Season Spark', 'Complete twenty perfect days.', 20, 'mythic', 'Mythic', '🌈'],
+  ['full-house', 'Full House', 'Complete every active habit on 7 different days.', 7, 'rare', 'Silver', '🏠'],
+  ['morning-hero-perfect', 'Morning Hero', 'Complete every morning habit on 14 different days.', 14, 'rare', 'Silver', '🌅'],
+  ['evening-finisher-perfect', 'Evening Finisher', 'Complete every evening habit on 14 different days.', 14, 'rare', 'Silver', '🌙'],
+  ['clean-sweep', 'Clean Sweep', 'Complete every habit in a single category on 14 different days.', 14, 'rare', 'Silver', '🧹'],
+  ['weekend-win', 'Weekend Win', 'Complete every weekend habit on 4 different weekend days.', 4, 'rare', 'Silver', '🎉'],
+  ['perfect-pair', 'Perfect Pair', 'Complete 14 perfect days.', 14, 'epic', 'Gold', '✌️'],
+  ['perfect-week', 'Perfect Week', 'Complete 14 perfect days.', 14, 'epic', 'Gold', '🏆'],
+  ['bright-sweep', 'Bright Sweep', 'Complete 21 perfect days.', 21, 'epic', 'Gold', '✨'],
+  ['rare-perfect-run', 'Rare Perfect Run', 'Complete 30 perfect days.', 30, 'legendary', 'Legendary', '💫'],
+  ['perfect-season-spark', 'Perfect Season Spark', 'Complete 60 perfect days.', 60, 'mythic', 'Mythic', '🌈'],
 ] as const;
 
 const comboBadges = [
-  ['balanced-day', 'Balanced Day', 'Complete health, learning, and responsibility habits in one day.', ['health', 'learning', 'responsibility'], 'rare', 'Silver', '⚖️'],
-  ['mind-and-body', 'Mind and Body', 'Complete learning and exercise on the same day.', ['learning', 'exercise'], 'common', 'Bronze', '🧠'],
-  ['ready-and-clean', 'Ready and Clean', 'Complete school prep and hygiene on the same day.', ['school', 'health'], 'common', 'Bronze', '🎒'],
-  ['calm-finish', 'Calm Finish', 'Complete cleanup and evening routine on the same day.', ['responsibility', 'evening'], 'rare', 'Silver', '🕯️'],
-  ['big-three', 'Big Three', 'Complete habits from any 3 categories in one day.', ['health', 'learning', 'responsibility'], 'rare', 'Silver', '3️⃣'],
+  ['balanced-day', 'Balanced Day', 'Complete health, learning, and responsibility on 14 different days.', 14, ['health', 'learning', 'responsibility'], 'rare', 'Silver', '⚖️'],
+  ['mind-and-body', 'Mind and Body', 'Complete learning and exercise on the same day.', 1, ['learning', 'exercise'], 'common', 'Bronze', '🧠'],
+  ['ready-and-clean', 'Ready and Clean', 'Complete school prep and hygiene on the same day.', 1, ['school', 'health'], 'common', 'Bronze', '🎒'],
+  ['calm-finish', 'Calm Finish', 'Complete cleanup and evening routine on 14 different days.', 14, ['responsibility', 'evening'], 'rare', 'Silver', '🕯️'],
+  ['big-three', 'Big Three', 'Complete 3 categories on 14 different days.', 14, ['health', 'learning', 'responsibility'], 'rare', 'Silver', '3️⃣'],
 ] as const;
 
 const teamBadges = [
   ['team-spark', 'Team Spark', 'Both kids complete at least one habit on the same day.', 1, 'common', 'Bronze', '🤝'],
-  ['sibling-power', 'Sibling Power', 'Both kids complete 5+ habits on the same day.', 1, 'rare', 'Silver', '⚡'],
-  ['team-comeback', 'Team Comeback', 'Both kids show up after a low-completion day.', 1, 'rare', 'Silver', '🔥'],
-  ['family-rhythm', 'Family Rhythm', 'Both kids complete habits on 5 days in the same week.', 5, 'epic', 'Gold', '🎶'],
-  ['double-level-up', 'Double Level Up', 'Both kids beat yesterday on the same day.', 1, 'rare', 'Silver', '⬆️'],
+  ['sibling-power', 'Sibling Power', 'Both kids show up on 14 different days.', 14, 'rare', 'Silver', '⚡'],
+  ['team-comeback', 'Team Comeback', 'Both kids show up on 14 different days.', 14, 'rare', 'Silver', '🔥'],
+  ['family-rhythm', 'Family Rhythm', 'Both kids show up on 21 different days.', 21, 'epic', 'Gold', '🎶'],
+  ['double-level-up', 'Double Level Up', 'Both kids show up on 14 different days.', 14, 'rare', 'Silver', '⬆️'],
 ] as const;
 
 const secretBadges = [
-  ['early-bird', 'Early Bird', 'Complete all morning habits before 9am.', 1, 'rare', 'Silver', '🐣'],
-  ['quiet-champion', 'Quiet Champion', 'Complete reading or reflection before any reward is claimed.', 1, 'rare', 'Silver', '🤫'],
-  ['surprise-comeback', 'Surprise Comeback', 'Return to a habit after 14+ days away.', 1, 'epic', 'Gold', '🎁'],
-  ['hidden-helper', 'Hidden Helper', 'Complete cleanup 3 days in a row.', 3, 'rare', 'Silver', '🧼'],
-  ['rainbow-day', 'Rainbow Day', 'Complete habits from 5 categories in one day.', 1, 'epic', 'Gold', '🌈'],
+  ['early-bird', 'Early Bird', 'Show up across 14 mixed-category days.', 14, 'rare', 'Silver', '🐣'],
+  ['quiet-champion', 'Quiet Champion', 'Show up across 14 mixed-category days.', 14, 'rare', 'Silver', '🤫'],
+  ['surprise-comeback', 'Surprise Comeback', 'Make 14 comebacks across habits.', 14, 'epic', 'Gold', '🎁'],
+  ['hidden-helper', 'Hidden Helper', 'Hit 14 habits in a single week.', 14, 'rare', 'Silver', '🧼'],
+  ['rainbow-day', 'Rainbow Day', 'Touch 5 categories on 21 different days.', 21, 'epic', 'Gold', '🌈'],
 ] as const;
 
 function baseDefinitions(): AchievementDefinition[] {
@@ -254,7 +261,7 @@ function baseDefinitions(): AchievementDefinition[] {
     }));
   }
 
-  for (const [id, title, description, cats, rarity, tier, icon] of comboBadges) {
+  for (const [id, title, description, value, cats, rarity, tier, icon] of comboBadges) {
     defs.push(makeAchievement({
       achievementId: id,
       title,
@@ -263,7 +270,7 @@ function baseDefinitions(): AchievementDefinition[] {
       tier,
       icon,
       requirementType: 'comboDays',
-      requirementValue: 1,
+      requirementValue: value,
       comboCategories: [...cats] as HabitCategory[],
       timeframe: 'daily',
       rarity,
@@ -336,19 +343,22 @@ function baseDefinitions(): AchievementDefinition[] {
     ['weekly-three-cats', 'Three Category Day', 'Complete 3 categories in one day.', 1],
     ['weekly-team-three', 'Team Three Days', 'Both kids complete habits on 3 same days this week.', 3],
   ] as const;
+  // Weekly quests reset every week, so a single productive week unlocks
+  // them. That's a common-tier effort — calling them rare contradicted the
+  // "rare = weeks of work" rule the rest of the wall follows.
   weekly.forEach(([id, title, description, value]) => defs.push(makeAchievement({
     achievementId: id,
     title,
     description,
     category: 'Weekly Quests',
-    tier: 'Silver',
+    tier: 'Bronze',
     icon: '📆',
     requirementType: 'weeklyQuest',
     requirementValue: value,
     timeframe: 'weekly',
-    rarity: 'rare',
+    rarity: 'common',
     displayOrder: order++,
-    rewardPoints: 20,
+    rewardPoints: 8,
   })));
 
   const monthly = [

@@ -1,18 +1,6 @@
 import type { Task, User } from '@/lib/db';
 import { DOW_INDEX } from '@/lib/db';
-import { ACHIEVEMENTS, categorizeTask, type AchievementDefinition, type AchievementRarity, type HabitCategory } from './definitions';
-
-// Floor on how many distinct active days a member needs (within the
-// baseline window) before any insignia of a given rarity can unlock.
-// Without this, single-completion badges would fire on day 1 even for
-// "epic" tiers, which made early progress feel hollow.
-export const MIN_ACTIVE_DAYS_FOR_RARITY: Record<AchievementRarity, number> = {
-  common: 7,
-  rare: 14,
-  epic: 21,
-  legendary: 28,
-  mythic: 60,
-};
+import { ACHIEVEMENTS, categorizeTask, type AchievementDefinition, type HabitCategory } from './definitions';
 
 export interface AchievementCompletion {
   id?: string;
@@ -377,9 +365,9 @@ export function evaluateAchievementsForChild(params: {
   const unlocked = params.unlockedAtByAchievementId ?? {};
   const achievements = ACHIEVEMENTS.map(definition => {
     const progressCurrent = progressFor(definition, metrics);
-    const meetsRequirement = progressCurrent >= definition.progressTarget;
-    const meetsRarityFloor = metrics.activeDays >= MIN_ACTIVE_DAYS_FOR_RARITY[definition.rarity];
-    const isUnlocked = Boolean(unlocked[definition.achievementId]) || (meetsRequirement && meetsRarityFloor);
+    // Progress bar is the unlock truth — never gate behind a hidden floor.
+    // Per-badge requirementValue is what makes a tier feel earned.
+    const isUnlocked = Boolean(unlocked[definition.achievementId]) || progressCurrent >= definition.progressTarget;
     return {
       childId: params.child.id,
       achievementId: definition.achievementId,

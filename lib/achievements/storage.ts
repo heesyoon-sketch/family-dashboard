@@ -33,12 +33,14 @@ export interface AchievementSyncResult {
   newlyUnlocked: AchievementProgress[];
 }
 
-// v3: reset progress on 2026-05-09. Rarity ladder collapsed to five
-// (common/rare/epic/legendary/mythic), per-rarity active-day floor
-// introduced, and unlock baseline must restart at "today" so kids
-// don't carry over the day-1 platinum/gold unlocks they got under v2.
+// v4: reset on 2026-05-09 again. The hidden active-day floor that v3
+// introduced was confusing — progress bars showed 100% on shields that
+// stayed locked. v4 removes that floor and instead bakes difficulty into
+// each shield's requirementValue (common stays ~1 day, rare/epic/legendary/
+// mythic now require sustained work). The old v3 unlock map would carry
+// over shields earned under the old low thresholds, so wipe and restart.
 function storageKey(familyId: string): string {
-  return `fambit_insignia_wall_v3_${familyId}`;
+  return `fambit_shield_wall_v4_${familyId}`;
 }
 
 function emptyChildState(childId: string, baselineAt?: string): ChildAchievementState {
