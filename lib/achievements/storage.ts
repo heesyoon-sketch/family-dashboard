@@ -235,11 +235,15 @@ export async function syncAchievements(params: {
   levelsByUser?: Record<string, Level>;
   awardNew?: boolean;
 }): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
-  // Insignia Wall is open to everyone in the family — kids and parents alike.
+  // Shield Wall is open to everyone in the family — kids and parents alike.
   const members = params.children;
   const state = loadAchievementState(params.familyId, members);
-  const completionsByChild = await fetchCompletions(members.map(member => member.id));
-  const allTasksByUser = await fetchTasks(members.map(member => member.id), params.tasksByUser);
+  // Fetches are independent — issue them in parallel rather than serially.
+  const memberIds = members.map(member => member.id);
+  const [completionsByChild, allTasksByUser] = await Promise.all([
+    fetchCompletions(memberIds),
+    fetchTasks(memberIds, params.tasksByUser),
+  ]);
   const achievementsByChild: Record<string, AchievementProgress[]> = {};
   const newlyUnlocked: AchievementProgress[] = [];
   const awardedLevelsByUser: Record<string, Level> = {};
