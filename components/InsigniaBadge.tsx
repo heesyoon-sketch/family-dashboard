@@ -22,7 +22,7 @@ const SHAPES: Record<InsigniaShape, string> = {
   // 1) plain circle — the absolute simplest, reserved for common
   'circle':
     'M 50 4 A 46 46 0 1 1 50 96 A 46 46 0 1 1 50 4 Z',
-  // 2) squircle / rounded square — gentle step up for uncommon
+  // 2) squircle / rounded square — soft variant of the common silhouette
   'squircle':
     'M 28 4 H 72 Q 96 4 96 28 V 72 Q 96 96 72 96 H 28 Q 4 96 4 72 V 28 Q 4 4 28 4 Z',
   // 3) point-top hexagon — geometric, mid-tier
@@ -56,12 +56,11 @@ const SHAPES: Record<InsigniaShape, string> = {
 // same silhouette — but two rare badges may sport different shapes,
 // adding the variety the dashboard needed.
 const SHAPES_BY_RARITY: Record<AchievementRarity, readonly InsigniaShape[]> = {
-  common:    ['circle'],
-  uncommon:  ['circle', 'squircle'],
-  rare:      ['hex-pointy', 'octagon', 'squircle'],
-  epic:      ['shield-heater', 'shield-kite', 'octagon'],
-  legendary: ['shield-fluted', 'shield-crowned', 'shield-winged'],
-  mythic:    ['shield-winged', 'shield-radiant', 'shield-crowned'],
+  common:    ['circle', 'squircle'],
+  rare:      ['hex-pointy', 'octagon'],
+  epic:      ['shield-heater', 'shield-kite'],
+  legendary: ['shield-fluted', 'shield-crowned'],
+  mythic:    ['shield-winged', 'shield-radiant'],
 };
 
 function hashString(s: string): number {
@@ -91,6 +90,13 @@ interface TierPalette {
   highlight: string;
 }
 
+// Each rarity has a clearly distinct hue family so a glance is enough to
+// read the tier:
+//   common    → warm brown
+//   rare      → cool sapphire blue
+//   epic      → royal purple
+//   legendary → bright gold
+//   mythic    → deep burnt orange
 const TIERS: Record<AchievementRarity, TierPalette> = {
   common: {
     edgeOuter: '#7c4a25',
@@ -104,29 +110,17 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     glow: 'rgba(214, 138, 81, 0.38)',
     highlight: 'rgba(255, 232, 200, 0.85)',
   },
-  uncommon: {
-    edgeOuter: '#5e6a7a',
-    edgeMid: '#cfd6e0',
-    edgeInner: '#3e4754',
-    faceLight: '#f3f7ff',
-    faceMid: '#bcc6d4',
-    faceDeep: '#6b7686',
-    rimAccent: '#eaf1fb',
-    starColor: '#f5faff',
-    glow: 'rgba(190, 206, 225, 0.42)',
-    highlight: 'rgba(255, 255, 255, 0.92)',
-  },
   rare: {
-    edgeOuter: '#7d4f0c',
-    edgeMid: '#f5c542',
-    edgeInner: '#5b3a05',
-    faceLight: '#fff1a8',
-    faceMid: '#f5c542',
-    faceDeep: '#9a6d10',
-    rimAccent: '#fff3a8',
-    starColor: '#fff6c8',
-    glow: 'rgba(245, 197, 66, 0.5)',
-    highlight: 'rgba(255, 244, 180, 0.95)',
+    edgeOuter: '#1a3a78',
+    edgeMid: '#5b8def',
+    edgeInner: '#0d224f',
+    faceLight: '#cfe1ff',
+    faceMid: '#5b8def',
+    faceDeep: '#1f4391',
+    rimAccent: '#dceaff',
+    starColor: '#eff5ff',
+    glow: 'rgba(91, 141, 239, 0.5)',
+    highlight: 'rgba(220, 238, 255, 0.95)',
   },
   epic: {
     edgeOuter: '#3f2868',
@@ -141,28 +135,28 @@ const TIERS: Record<AchievementRarity, TierPalette> = {
     highlight: 'rgba(245, 235, 255, 0.95)',
   },
   legendary: {
-    edgeOuter: '#8a4308',
-    edgeMid: '#ffb04a',
-    edgeInner: '#5a2a02',
-    faceLight: '#ffe8b3',
-    faceMid: '#ffb04a',
-    faceDeep: '#a85a08',
-    rimAccent: '#ffe9b8',
-    starColor: '#fff2c8',
-    glow: 'rgba(255, 162, 60, 0.6)',
-    highlight: 'rgba(255, 240, 200, 0.98)',
+    edgeOuter: '#7d4f0c',
+    edgeMid: '#f5c542',
+    edgeInner: '#5b3a05',
+    faceLight: '#fff1a8',
+    faceMid: '#f5c542',
+    faceDeep: '#9a6d10',
+    rimAccent: '#fff3a8',
+    starColor: '#fff6c8',
+    glow: 'rgba(245, 197, 66, 0.6)',
+    highlight: 'rgba(255, 244, 180, 0.98)',
   },
   mythic: {
-    edgeOuter: '#1f4f8a',
-    edgeMid: '#7adff2',
-    edgeInner: '#3b1f5a',
-    faceLight: '#ffe0f3',
-    faceMid: '#a3a8ff',
-    faceDeep: '#3b2a7a',
-    rimAccent: '#ffd6f5',
-    starColor: '#ffffff',
-    glow: 'rgba(170, 130, 255, 0.62)',
-    highlight: 'rgba(255, 230, 250, 1)',
+    edgeOuter: '#7a2e0c',
+    edgeMid: '#e85a1c',
+    edgeInner: '#3f1804',
+    faceLight: '#ffd2a8',
+    faceMid: '#e85a1c',
+    faceDeep: '#a83a08',
+    rimAccent: '#ffdcb8',
+    starColor: '#fff0d4',
+    glow: 'rgba(232, 90, 28, 0.65)',
+    highlight: 'rgba(255, 220, 184, 1)',
   },
 };
 
@@ -236,10 +230,10 @@ export function InsigniaBadge({
           </radialGradient>
           {rarity === 'mythic' && (
             <linearGradient id={`${uid}-aurora`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#7adff2" stopOpacity="0.55" />
-              <stop offset="40%" stopColor="#a98bff" stopOpacity="0.45" />
-              <stop offset="75%" stopColor="#ffafe0" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#fff7a8" stopOpacity="0.4" />
+              <stop offset="0%" stopColor="#ffb060" stopOpacity="0.55" />
+              <stop offset="45%" stopColor="#ff7a2a" stopOpacity="0.5" />
+              <stop offset="80%" stopColor="#c63808" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="#7a2e0c" stopOpacity="0.45" />
             </linearGradient>
           )}
           <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="55%">

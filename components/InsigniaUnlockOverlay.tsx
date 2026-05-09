@@ -9,21 +9,19 @@ import type { AchievementProgress } from '@/lib/achievements/engine';
 import { useFamilyStore } from '@/lib/store';
 
 const RARITY_LABEL: Record<AchievementProgress['rarity'], string> = {
-  common: 'Bronze',
-  uncommon: 'Silver',
-  rare: 'Gold',
-  epic: 'Platinum',
+  common: 'Common',
+  rare: 'Rare',
+  epic: 'Epic',
   legendary: 'Legendary',
   mythic: 'Mythic',
 };
 
 const RARITY_GLOW: Record<AchievementProgress['rarity'], string> = {
   common: 'rgba(214,138,81,0.55)',
-  uncommon: 'rgba(207,214,224,0.55)',
-  rare: 'rgba(245,197,66,0.65)',
+  rare: 'rgba(91,141,239,0.65)',
   epic: 'rgba(169,139,255,0.65)',
-  legendary: 'rgba(255,176,74,0.75)',
-  mythic: 'rgba(170,130,255,0.78)',
+  legendary: 'rgba(245,197,66,0.78)',
+  mythic: 'rgba(232,90,28,0.78)',
 };
 
 interface ConfettiBit {

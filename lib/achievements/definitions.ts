@@ -24,7 +24,7 @@ export type AchievementCategory =
   | 'Secret Badges';
 
 export type AchievementTier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | 'Legendary' | 'Mythic';
-export type AchievementRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 export type AchievementTimeframe = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'lifetime';
 export type RequirementType =
   | 'totalCompletions'
@@ -97,13 +97,31 @@ export type HabitCategory =
   | 'evening';
 
 const tierByIndex: AchievementTier[] = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Legendary', 'Mythic'];
-const rarityByIndex: AchievementRarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'mythic'];
-const milestoneValues = [1, 3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 250, 300, 365];
+const rarityByIndex: AchievementRarity[] = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+const milestoneValues = [7, 14, 21, 30, 50, 75, 100, 150, 200, 250, 300, 365];
+
+// Year-journey tier/rarity ladder. The earliest milestone now requires a
+// full week of activity — there is no insignia in the first 7 days. Curve
+// stays gentle through the early ranks and gets steeper past 100 days so
+// the finale (365) genuinely represents a year of growth.
+const milestoneRarities: AchievementRarity[] = [
+  'common',                                           // 7 days
+  'common',                                           // 14 days
+  'rare',                                             // 21 days
+  'rare',                                             // 30 days
+  'epic',                                             // 50 days
+  'epic',                                             // 75 days
+  'legendary',                                        // 100 days
+  'legendary',                                        // 150 days
+  'legendary',                                        // 200 days
+  'mythic',                                           // 250 days
+  'mythic',                                           // 300 days
+  'mythic',                                           // 365 days
+];
 
 function rewardFor(rarity: AchievementRarity): number {
   return {
     common: 5,
-    uncommon: 10,
     rare: 15,
     epic: 25,
     legendary: 40,
@@ -135,17 +153,17 @@ const firstSteps = [
 ] as const;
 
 const comebackBadges = [
-  ['comeback-kid', 'Comeback Kid', 'Complete a habit again after missing 3+ days.', 1, 'uncommon', 'Bronze', '🔥'],
-  ['back-on-track', 'Back on Track', 'Complete any habit after a zero-habit day.', 1, 'uncommon', 'Bronze', '🛤️'],
+  ['comeback-kid', 'Comeback Kid', 'Complete a habit again after missing 3+ days.', 1, 'common', 'Bronze', '🔥'],
+  ['back-on-track', 'Back on Track', 'Complete any habit after a zero-habit day.', 1, 'common', 'Bronze', '🛤️'],
   ['bounce-back', 'Bounce Back', 'Complete 3 habits the day after missing all habits.', 1, 'rare', 'Silver', '🏀'],
   ['reset-hero', 'Reset Hero', 'Restart a habit streak after it broke.', 3, 'rare', 'Silver', '🔁'],
   ['never-out', 'Never Out', 'Return after 7+ days away from a habit.', 1, 'rare', 'Silver', '🌄'],
   ['fresh-start', 'Fresh Start', 'Complete at least one habit after a difficult week.', 1, 'rare', 'Silver', '🌿'],
   ['again-and-again', 'Again and Again', 'Make 10 separate comebacks across habits.', 10, 'epic', 'Gold', '🔄'],
   ['brave-restart', 'Brave Restart', 'Complete a hard habit again after many misses.', 3, 'epic', 'Gold', '🛡️'],
-  ['second-wind', 'Second Wind', 'Complete an evening habit after missing the morning.', 1, 'uncommon', 'Bronze', '🌙'],
+  ['second-wind', 'Second Wind', 'Complete an evening habit after missing the morning.', 1, 'common', 'Bronze', '🌙'],
   ['new-week-new-me', 'New Week, New Me', 'Complete a habit on Monday after a weak week.', 1, 'rare', 'Silver', '📅'],
-  ['small-return', 'Small Return', 'Come back with one small habit.', 5, 'uncommon', 'Bronze', '🌤️'],
+  ['small-return', 'Small Return', 'Come back with one small habit.', 5, 'common', 'Bronze', '🌤️'],
   ['steady-returner', 'Steady Returner', 'Make 20 comeback completions.', 20, 'epic', 'Gold', '🧭'],
   ['hard-day-helper', 'Hard Day Helper', 'Show up after two low-completion days.', 3, 'rare', 'Silver', '🤝'],
   ['restart-spark', 'Restart Spark', 'Restart three different habits.', 3, 'rare', 'Silver', '⚡'],
@@ -159,8 +177,8 @@ const comebackBadges = [
 
 const improvementBadges = [
   ['better-than-yesterday', 'Better Than Yesterday', 'Complete more habits than the previous day.', 1, 'common', 'Bronze', '📈'],
-  ['level-up-day', 'Level Up Day', 'Beat your own daily completion record.', 1, 'uncommon', 'Bronze', '⬆️'],
-  ['stronger-week', 'Stronger Week', 'Complete more habits this week than last week.', 1, 'uncommon', 'Bronze', '💪'],
+  ['level-up-day', 'Level Up Day', 'Beat your own daily completion record.', 1, 'common', 'Bronze', '⬆️'],
+  ['stronger-week', 'Stronger Week', 'Complete more habits this week than last week.', 1, 'common', 'Bronze', '💪'],
   ['best-week-yet', 'Best Week Yet', 'Set a new weekly habit completion record.', 1, 'rare', 'Silver', '🏅'],
   ['tiny-progress', 'Tiny Progress', 'Improve by at least one completion compared with yesterday.', 3, 'common', 'Bronze', '🌱'],
   ['climbing-up', 'Climbing Up', 'Improve weekly total for 2 weeks in a row.', 2, 'rare', 'Silver', '🧗'],
@@ -200,15 +218,15 @@ const habitGroups: Array<{
 ] as const;
 
 const consistencyBadges = [
-  ['no-zero-day', 'No Zero Day', 'Complete at least one habit every day for 7 days.', 7, 'uncommon', 'Bronze', '0️⃣'],
+  ['no-zero-day', 'No Zero Day', 'Complete at least one habit every day for 7 days.', 7, 'common', 'Bronze', '0️⃣'],
   ['still-showing-up', 'Still Showing Up', 'Complete at least one habit every day for 14 days.', 14, 'rare', 'Silver', '🧡'],
   ['steady-star', 'Steady Star', 'Complete at least one habit every day for 30 days.', 30, 'epic', 'Gold', '⭐'],
   ['little-by-little', 'Little by Little', 'Complete at least 3 habits per day for 7 days.', 7, 'rare', 'Silver', '🐾'],
-  ['gentle-streak', 'Gentle Streak', 'Complete scheduled habits 5 times within 7 days.', 5, 'uncommon', 'Bronze', '🌊'],
+  ['gentle-streak', 'Gentle Streak', 'Complete scheduled habits 5 times within 7 days.', 5, 'common', 'Bronze', '🌊'],
   ['keep-going', 'Keep Going', 'Complete at least 20 habits in a week.', 20, 'rare', 'Silver', '➡️'],
   ['consistency-beats-perfect', 'Consistency Beats Perfect', 'Complete habits on 20 days in a month.', 20, 'epic', 'Gold', '💎'],
   ['almost-every-day', 'Almost Every Day', 'Complete at least one habit on 25 days in a month.', 25, 'epic', 'Gold', '📍'],
-  ['weekly-root', 'Weekly Root', 'Complete habits on 5 days in a week.', 5, 'uncommon', 'Bronze', '🌿'],
+  ['weekly-root', 'Weekly Root', 'Complete habits on 5 days in a week.', 5, 'common', 'Bronze', '🌿'],
   ['soft-rhythm', 'Soft Rhythm', 'Complete habits on 10 different days.', 10, 'common', 'Bronze', '🎵'],
   ['monthly-rhythm', 'Monthly Rhythm', 'Complete habits on 15 days in a month.', 15, 'rare', 'Silver', '🗓️'],
   ['steady-season', 'Steady Season', 'Complete habits on 60 active days.', 60, 'epic', 'Gold', '🍃'],
@@ -232,14 +250,14 @@ const perfectBadges = [
 
 const comboBadges = [
   ['balanced-day', 'Balanced Day', 'Complete health, learning, and responsibility habits in one day.', ['health', 'learning', 'responsibility'], 'rare', 'Silver', '⚖️'],
-  ['mind-and-body', 'Mind and Body', 'Complete learning and exercise on the same day.', ['learning', 'exercise'], 'uncommon', 'Bronze', '🧠'],
-  ['ready-and-clean', 'Ready and Clean', 'Complete school prep and hygiene on the same day.', ['school', 'health'], 'uncommon', 'Bronze', '🎒'],
+  ['mind-and-body', 'Mind and Body', 'Complete learning and exercise on the same day.', ['learning', 'exercise'], 'common', 'Bronze', '🧠'],
+  ['ready-and-clean', 'Ready and Clean', 'Complete school prep and hygiene on the same day.', ['school', 'health'], 'common', 'Bronze', '🎒'],
   ['calm-finish', 'Calm Finish', 'Complete cleanup and evening routine on the same day.', ['responsibility', 'evening'], 'rare', 'Silver', '🕯️'],
   ['big-three', 'Big Three', 'Complete habits from any 3 categories in one day.', ['health', 'learning', 'responsibility'], 'rare', 'Silver', '3️⃣'],
 ] as const;
 
 const teamBadges = [
-  ['team-spark', 'Team Spark', 'Both kids complete at least one habit on the same day.', 1, 'uncommon', 'Bronze', '🤝'],
+  ['team-spark', 'Team Spark', 'Both kids complete at least one habit on the same day.', 1, 'common', 'Bronze', '🤝'],
   ['sibling-power', 'Sibling Power', 'Both kids complete 5+ habits on the same day.', 1, 'rare', 'Silver', '⚡'],
   ['team-comeback', 'Team Comeback', 'Both kids show up after a low-completion day.', 1, 'rare', 'Silver', '🔥'],
   ['family-rhythm', 'Family Rhythm', 'Both kids complete habits on 5 days in the same week.', 5, 'epic', 'Gold', '🎶'],
@@ -424,6 +442,7 @@ function baseDefinitions(): AchievementDefinition[] {
   }
 
   milestoneValues.forEach((value, index) => {
+    const rarity = milestoneRarities[index] ?? 'mythic';
     defs.push(makeAchievement({
       achievementId: `year-active-days-${value}`,
       title: value === 365 ? '365 Legend' : `${value} Day Builder`,
@@ -434,7 +453,7 @@ function baseDefinitions(): AchievementDefinition[] {
       requirementType: 'activeDays',
       requirementValue: value,
       timeframe: 'yearly',
-      rarity: rarityByIndex[Math.min(Math.floor(index / 2), rarityByIndex.length - 1)],
+      rarity,
       displayOrder: order++,
       unlocksVisualStyleIds: value === 300 ? ['diamond-spark'] : value === 365 ? ['mythic-aurora'] : undefined,
     }));

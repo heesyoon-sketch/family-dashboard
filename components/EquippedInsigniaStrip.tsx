@@ -63,7 +63,7 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
         const isUnlockedSlot = idx < unlockedSlots;
         const badge = filled[idx];
         if (!isUnlockedSlot) {
-          const unlockAt = idx === 1 ? 5 : 15;
+          const unlockAt = idx === 1 ? 5 : 10;
           return (
             <span
               key={`locked-${idx}`}

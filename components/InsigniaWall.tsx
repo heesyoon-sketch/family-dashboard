@@ -31,7 +31,7 @@ import {
   TOTAL_BONUS_CAP,
 } from '@/lib/progression';
 
-const rarityOrder: AchievementRarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+const rarityOrder: AchievementRarity[] = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 const categoryFilters: Array<AchievementCategory | 'All'> = [
   'All',
   'Comebacks',
@@ -49,18 +49,19 @@ const categoryFilters: Array<AchievementCategory | 'All'> = [
 // stays visually consistent with the SVG insignia inside it.
 const rarityAccent: Record<AchievementRarity, { ring: string; glow: string; track: string }> = {
   common:    { ring: 'rgba(201,133,83,0.6)',   glow: 'rgba(201,133,83,0.18)',  track: '#f6c393' },
-  uncommon:  { ring: 'rgba(207,214,224,0.55)', glow: 'rgba(207,214,224,0.16)', track: '#eaf1fb' },
-  rare:      { ring: 'rgba(245,197,66,0.7)',   glow: 'rgba(245,197,66,0.24)',  track: '#ffe28a' },
+  rare:      { ring: 'rgba(91,141,239,0.7)',   glow: 'rgba(91,141,239,0.24)',  track: '#9ec1ff' },
   epic:      { ring: 'rgba(169,139,255,0.7)',  glow: 'rgba(169,139,255,0.24)', track: '#d6c5ff' },
-  legendary: { ring: 'rgba(255,176,74,0.85)',  glow: 'rgba(255,176,74,0.28)',  track: '#ffd28a' },
-  mythic:    { ring: 'rgba(170,130,255,0.85)', glow: 'rgba(170,130,255,0.32)', track: '#f4d0ff' },
+  legendary: { ring: 'rgba(245,197,66,0.85)',  glow: 'rgba(245,197,66,0.28)',  track: '#ffe28a' },
+  mythic:    { ring: 'rgba(232,90,28,0.85)',   glow: 'rgba(232,90,28,0.32)',   track: '#ff9a5a' },
 };
 
-const metalLabel: Record<AchievementRarity, string> = {
-  common: 'Bronze',
-  uncommon: 'Silver',
-  rare: 'Gold',
-  epic: 'Platinum',
+// Single source of truth for rarity display. The chips on the filter row,
+// the badge cards, the detail dialog, and the unlock overlay all read this
+// — so the label and the ring color always agree.
+const rarityLabel: Record<AchievementRarity, string> = {
+  common: 'Common',
+  rare: 'Rare',
+  epic: 'Epic',
   legendary: 'Legendary',
   mythic: 'Mythic',
 };
@@ -121,7 +122,7 @@ function BadgeCard({
           </span>
         )}
         <span className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white/75">
-          {secretLocked ? 'secret' : metalLabel[badge.rarity]}
+          {secretLocked ? 'secret' : rarityLabel[badge.rarity]}
         </span>
       </div>
       <div className="flex items-start gap-3">
@@ -241,10 +242,10 @@ function BadgeDetail({
           />
           <div className="min-w-0">
             <div className="text-[11px] font-black uppercase tracking-[0.2em] text-white/55">
-              {secretLocked ? 'Secret' : metalLabel[badge.rarity]}
+              {secretLocked ? 'Secret' : rarityLabel[badge.rarity]}
             </div>
             <h2 className="mt-0.5 text-2xl font-black text-white">{secretLocked ? 'Secret Insignia' : badge.title}</h2>
-            <div className="text-sm font-bold text-white/55">{badge.category} · {badge.tier}</div>
+            <div className="text-sm font-bold text-white/55">{badge.category}</div>
           </div>
         </div>
         <p className="mt-4 text-sm font-semibold leading-relaxed text-white/72">
@@ -471,7 +472,7 @@ export function InsigniaWall() {
                 const slotBadge = loadout.equipped[idx]?.badge;
                 const archetype = loadout.equipped[idx]?.archetype;
                 if (!isUnlockedSlot) {
-                  const unlockAt = idx === 1 ? 5 : 15;
+                  const unlockAt = idx === 1 ? 5 : 10;
                   return (
                     <div
                       key={`slot-locked-${idx}`}
@@ -517,7 +518,7 @@ export function InsigniaWall() {
             </div>
             {slotCapacity < 3 && (
               <p className="mt-3 text-[11px] font-bold leading-snug text-white/45">
-                Reach Lv.{slotCapacity === 1 ? 5 : 15} to unlock the next slot.
+                Reach Lv.{slotCapacity === 1 ? 5 : 10} to unlock the next slot.
               </p>
             )}
             <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg border border-white/10 bg-black/24 p-2 text-center">
@@ -589,7 +590,7 @@ export function InsigniaWall() {
               </div>
               <select value={rarity} onChange={event => setRarity(event.target.value as AchievementRarity | 'all')} className="rounded-lg border border-white/10 bg-black/18 px-3 py-2 text-sm font-bold">
                 <option value="all">All rarities</option>
-                {rarityOrder.map(r => <option key={r} value={r}>{r}</option>)}
+                {rarityOrder.map(r => <option key={r} value={r}>{rarityLabel[r]}</option>)}
               </select>
             </div>
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -683,7 +684,7 @@ function Panel({ title, items, onOpen }: { title: string; items: AchievementProg
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-black">{secretLocked ? 'Secret Insignia' : item.title}</span>
-                <span className="block text-[10px] font-bold text-white/45">{item.progressPercent}% · {metalLabel[item.rarity]}</span>
+                <span className="block text-[10px] font-bold text-white/45">{item.progressPercent}% · {rarityLabel[item.rarity]}</span>
               </span>
             </button>
           );

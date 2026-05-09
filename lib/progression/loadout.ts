@@ -55,16 +55,15 @@ const ARCHETYPE_BY_CATEGORY: Record<AchievementCategory, LoadoutArchetype> = {
   'Secret Badges':              'challenge',
 };
 
-// Per-rarity bonus contribution. Bronze/silver are nearly cosmetic so casual
-// progress feels rewarding without inflating points; gold and above scale up
-// because they're meant to be hard-earned. Three best-of-the-best insignias
-// (3× mythic) sums to 54 and is then clamped to LOADOUT_BONUS_CAP (50%).
+// Per-rarity bonus contribution. Common is nearly cosmetic so casual
+// progress feels rewarding without inflating points; epic and above scale
+// up because they're meant to be hard-earned. Three best-of-the-best
+// insignias (3× mythic) sums to 54 and is clamped to LOADOUT_BONUS_CAP.
 const RARITY_BONUS: Record<AchievementRarity, number> = {
-  common: 1,
-  uncommon: 2,
-  rare: 4,
-  epic: 8,
-  legendary: 13,
+  common: 2,
+  rare: 5,
+  epic: 9,
+  legendary: 14,
   mythic: 18,
 };
 

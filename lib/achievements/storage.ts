@@ -35,10 +35,12 @@ export interface AchievementSyncResult {
   newlyUnlocked: AchievementProgress[];
 }
 
-// v2: reset progress for the new design + adult participation. Existing v1
-// localStorage entries are ignored so every family starts clean.
+// v3: reset progress on 2026-05-09. Rarity ladder collapsed to five
+// (common/rare/epic/legendary/mythic), per-rarity active-day floor
+// introduced, and unlock baseline must restart at "today" so kids
+// don't carry over the day-1 platinum/gold unlocks they got under v2.
 function storageKey(familyId: string): string {
-  return `fambit_insignia_wall_v2_${familyId}`;
+  return `fambit_insignia_wall_v3_${familyId}`;
 }
 
 function emptyChildState(childId: string, baselineAt?: string): ChildAchievementState {
