@@ -33,14 +33,14 @@ export interface AchievementSyncResult {
   newlyUnlocked: AchievementProgress[];
 }
 
-// v4: reset on 2026-05-09 again. The hidden active-day floor that v3
-// introduced was confusing — progress bars showed 100% on shields that
-// stayed locked. v4 removes that floor and instead bakes difficulty into
-// each shield's requirementValue (common stays ~1 day, rare/epic/legendary/
-// mythic now require sustained work). The old v3 unlock map would carry
-// over shields earned under the old low thresholds, so wipe and restart.
+// v5: reset on 2026-05-09 (third pass). The Monthly Quests block had
+// targets of 1 on Better Month, Best Month Spark, etc. Combined with the
+// over-broad monthlyQuest metric (max of monthActiveDays, monthTotal,
+// monthlyImprovement, comebackCount) those epic shields unlocked on a
+// single task. Every Monthly Quest target now sits at 21+, and we wipe
+// the v4 unlock map so kids can't carry over the over-easy unlocks.
 function storageKey(familyId: string): string {
-  return `fambit_shield_wall_v4_${familyId}`;
+  return `fambit_shield_wall_v5_${familyId}`;
 }
 
 function emptyChildState(childId: string, baselineAt?: string): ChildAchievementState {

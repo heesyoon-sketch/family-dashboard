@@ -361,16 +361,22 @@ function baseDefinitions(): AchievementDefinition[] {
     rewardPoints: 8,
   })));
 
+  // Monthly Quests are epic-tier — they should require a month of real
+  // commitment, not a single task. The underlying `monthlyQuest` metric
+  // returns max(monthActiveDays, monthTotal, monthlyImprovement,
+  // comebackCount), so target=1 unlocked on the first task of the month.
+  // Targets below all sit at 21+ so the easiest path through the metric
+  // (monthTotal) still demands ~3 weeks of consistent activity.
   const monthly = [
     ['monthly-days-20', 'Twenty Day Month', 'Complete habits on 20 different days this month.', 20],
     ['monthly-total-80', 'Eighty Habit Month', 'Complete 80 total habits this month.', 80],
-    ['monthly-improve', 'Better Month', 'Improve compared with last month.', 1],
+    ['monthly-improve', 'Better Month', 'Beat last month’s totals across 21 days.', 21],
     ['monthly-learning-20', 'Learning Month', 'Complete 20 learning habits.', 20],
     ['monthly-health-20', 'Health Month', 'Complete 20 health habits.', 20],
-    ['monthly-responsibility-15', 'Helper Month', 'Complete 15 responsibility habits.', 15],
-    ['monthly-comeback-3', 'Comeback Month', 'Make 3 comeback completions.', 3],
-    ['monthly-best', 'Best Month Spark', 'Set one new personal best.', 1],
-    ['monthly-every-week', 'Every Week Spark', 'Complete at least one habit in every full week.', 4],
+    ['monthly-responsibility-15', 'Helper Month', 'Complete 21 responsibility habits.', 21],
+    ['monthly-comeback-3', 'Comeback Month', 'Show up consistently across 21 days.', 21],
+    ['monthly-best', 'Best Month Spark', 'Hit personal-best pace across 21 days.', 21],
+    ['monthly-every-week', 'Every Week Spark', 'Stay active across 21 days of the month.', 21],
   ] as const;
   monthly.forEach(([id, title, description, value]) => defs.push(makeAchievement({
     achievementId: id,
