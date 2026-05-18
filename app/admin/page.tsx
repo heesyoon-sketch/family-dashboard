@@ -4,22 +4,32 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
-import { CrossIcon, ToothbrushIcon, CUSTOM_ICON_MAP } from '@/components/CustomIcons';
-import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
-import { FamBitWordmark } from '@/components/FamBitLogo';
-import { User, Task, Reward, Difficulty, DayOfWeek, ALL_DAYS, ThemeName, UserRole } from '@/lib/db';
-import { legacyRecurrenceToDays } from '@/lib/db';
+import { User, Task, Reward, DayOfWeek, ALL_DAYS, ThemeName, UserRole } from '@/lib/db';
 import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin } from '@/lib/adminPin';
 import { resetAllProgress } from '@/lib/reset';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
-import { useLanguage, type Lang } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow, type TaskTimeWindow, type TimeWindow } from '@/lib/timeWindows';
+import { IconPicker, LucideIcon } from '@/components/admin/IconPicker';
+import { AdminHeader, AdminTabBar, type AdminTabKey } from '@/components/admin/AdminChrome';
+import { AdminPinGate } from '@/components/admin/AdminPinGate';
+import { RewardHistoryPanel } from '@/components/admin/RewardHistoryPanel';
+import {
+  DAY_LABELS,
+  buildRefundPrompt,
+  mapReward,
+  mapRewardRedemption,
+  mapTask,
+  normaliseSalePercentage,
+  withAvatarCache,
+  type RewardRedemption,
+  type SaveStatus,
+} from '@/lib/admin/adminHelpers';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -28,362 +38,6 @@ function notifyDashboard() {
 }
 
 type View = 'pin' | 'dashboard';
-
-function pascalCase(kebab: string): string {
-  return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
-}
-
-const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string }>>;
-
-function LucideIcon({ name, size = 20, className }: { name: string; size?: number; className?: string }) {
-  const Custom = CUSTOM_ICON_MAP[name];
-  if (Custom) return <Custom size={size} className={className} />;
-  const Comp = IconMap[pascalCase(name)] ?? Icons.Circle;
-  return <Comp size={size} className={className} />;
-}
-
-const ICON_GROUPS: { labelKey: string; labelKo: string; icons: { key: string; label: string }[] }[] = [
-  {
-    labelKey: 'icon_group_store',
-    labelKo: '상점/보상',
-    icons: [
-      { key: 'gift',              label: '선물' },
-      { key: 'party-popper',      label: '파티' },
-      { key: 'badge-percent',     label: '할인' },
-      { key: 'tags',              label: '태그' },
-      { key: 'ticket-percent',    label: '쿠폰' },
-      { key: 'ticket',            label: '티켓' },
-      { key: 'shopping-bag',      label: '쇼핑백' },
-      { key: 'shopping-cart',     label: '카트' },
-      { key: 'store',             label: '상점' },
-      { key: 'wallet',            label: '지갑' },
-      { key: 'coins',             label: '코인' },
-      { key: 'gem',               label: '보석' },
-      { key: 'crown',             label: '왕관' },
-      { key: 'medal',             label: '메달' },
-      { key: 'award',             label: '상장' },
-      { key: 'ribbon',            label: '리본' },
-      { key: 'sparkles',          label: '반짝' },
-      { key: 'wand-sparkles',     label: '마법' },
-      { key: 'ice-cream',         label: '아이스크림' },
-      { key: 'cake-slice',        label: '케이크' },
-      { key: 'cookie',            label: '쿠키' },
-      { key: 'candy',             label: '사탕' },
-      { key: 'popcorn',           label: '팝콘' },
-      { key: 'pizza',             label: '피자' },
-      { key: 'sandwich',          label: '간식' },
-      { key: 'cup-soda',          label: '음료' },
-      { key: 'milk',              label: '우유' },
-      { key: 'utensils',          label: '외식' },
-      { key: 'gamepad-2',         label: '게임' },
-      { key: 'joystick',          label: '조이스틱' },
-      { key: 'tv',                label: 'TV' },
-      { key: 'film',              label: '영화' },
-      { key: 'clapperboard',      label: '극장' },
-      { key: 'headphones',        label: '음악' },
-      { key: 'music',             label: '노래' },
-      { key: 'book-open',         label: '책' },
-      { key: 'paintbrush',        label: '미술' },
-      { key: 'palette',           label: '팔레트' },
-      { key: 'puzzle',            label: '퍼즐' },
-      { key: 'blocks',            label: '블록' },
-      { key: 'car',               label: '드라이브' },
-      { key: 'bike',              label: '자전거' },
-      { key: 'plane',             label: '여행' },
-      { key: 'map',               label: '나들이' },
-      { key: 'tent',              label: '캠핑' },
-      { key: 'trees',             label: '공원' },
-      { key: 'camera',            label: '사진' },
-      { key: 'shirt',             label: '옷' },
-      { key: 'heart-handshake',   label: '약속' },
-      { key: 'smile-plus',        label: '기쁨' },
-    ],
-  },
-  {
-    labelKey: 'icon_group_hygiene',
-    labelKo: '생활/위생',
-    icons: [
-      { key: 'sparkles',        label: '양치' },
-      { key: 'droplets',        label: '씻기' },
-      { key: 'waves',           label: '샤워' },
-      { key: 'moon',            label: '수면' },
-      { key: 'sun',             label: '아침' },
-      { key: 'coffee',          label: '아침식사' },
-      { key: 'bed',             label: '침대정리' },
-      { key: 'bath',            label: '목욕' },
-      { key: 'washing-machine', label: '빨래' },
-      { key: 'spray-can',       label: '청소' },
-    ],
-  },
-  {
-    labelKey: 'icon_group_health',
-    labelKo: '건강',
-    icons: [
-      { key: 'pill',            label: '영양제' },
-      { key: 'dumbbell',        label: '운동' },
-      { key: 'heart',           label: '건강' },
-      { key: 'apple',           label: '식단' },
-      { key: 'bike',            label: '자전거' },
-      { key: 'person-standing', label: '스트레칭' },
-      { key: 'footprints',      label: '산책' },
-      { key: 'salad',           label: '채소' },
-      { key: 'glass-water',     label: '물마시기' },
-      { key: 'shield-check',    label: '안전' },
-    ],
-  },
-  {
-    labelKey: 'icon_group_study',
-    labelKo: '학습',
-    icons: [
-      { key: 'book-open',       label: '독서' },
-      { key: 'pen-line',        label: '일기' },
-      { key: 'graduation-cap',  label: '공부' },
-      { key: 'globe',           label: '영어' },
-      { key: 'calculator',      label: '수학' },
-      { key: 'microscope',      label: '과학' },
-      { key: 'languages',       label: '언어' },
-      { key: 'palette',         label: '미술' },
-      { key: 'notebook-pen',    label: '숙제' },
-      { key: 'brain',           label: '암기' },
-    ],
-  },
-  {
-    labelKey: 'icon_group_chores',
-    labelKo: '가정',
-    icons: [
-      { key: 'house',           label: '집안일' },
-      { key: 'shirt',           label: '옷정리' },
-      { key: 'utensils-crossed',label: '설거지' },
-      { key: 'trash-2',         label: '쓰레기' },
-      { key: 'package',         label: '정리' },
-      { key: 'blocks',          label: '장난감' },
-      { key: 'leaf',            label: '식물' },
-      { key: 'shopping-basket', label: '장보기' },
-      { key: 'chef-hat',        label: '요리' },
-      { key: 'hand-heart',      label: '도움' },
-    ],
-  },
-  {
-    labelKey: 'icon_group_other',
-    labelKo: '기타',
-    icons: [
-      { key: 'cross',           label: '기도' },
-      { key: 'music',           label: '음악' },
-      { key: 'gamepad-2',       label: '게임' },
-      { key: 'star',            label: '특별' },
-      { key: 'trophy',          label: '성취' },
-      { key: 'zap',             label: '에너지' },
-      { key: 'smile',           label: '친절' },
-      { key: 'message-circle',  label: '대화' },
-      { key: 'timer',           label: '집중' },
-      { key: 'calendar-check',  label: '계획' },
-    ],
-  },
-];
-
-const DAY_LABELS = {
-  ko: { MON: '월', TUE: '화', WED: '수', THU: '목', FRI: '금', SAT: '토', SUN: '일' },
-  en: { MON: 'M', TUE: 'T', WED: 'W', THU: 'T', FRI: 'F', SAT: 'S', SUN: 'S' },
-} as const satisfies Record<'ko' | 'en', Record<DayOfWeek, string>>;
-
-function IconPicker({
-  currentIcon,
-  onSelect,
-  onClose,
-}: {
-  currentIcon: string;
-  onSelect: (icon: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useLanguage();
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.65)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="bg-[#141821] rounded-2xl w-full max-w-sm flex flex-col" style={{ maxHeight: '80vh' }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#232831] shrink-0">
-          <span className="font-semibold text-white text-base">{t('icon_select')}</span>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#232831] text-[#8a8f99] flex items-center justify-center hover:bg-[#2d3545] hover:text-white transition-colors"
-          >
-            <Icons.X size={16} />
-          </button>
-        </div>
-        <div className="overflow-y-auto p-4 space-y-5">
-          {ICON_GROUPS.map(group => (
-            <div key={group.labelKo}>
-              <p className="text-xs font-semibold text-[#8a8f99] mb-2 uppercase tracking-wide">
-                {t(group.labelKey as Parameters<typeof t>[0])}
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {group.icons.map(({ key, label }) => {
-                  const selected = key === currentIcon;
-                  return (
-                    <button
-                      key={`${group.labelKo}-${key}`}
-                      onClick={() => onSelect(key)}
-                      className={`flex flex-col items-center justify-center gap-1 rounded-xl transition-colors ${
-                        selected
-                          ? 'bg-[#4f9cff] text-[#06111f]'
-                          : 'bg-[#232831] text-[#8a8f99] hover:bg-[#2d3545] hover:text-white'
-                      }`}
-                      style={{ minHeight: 48 }}
-                      title={label}
-                    >
-                      {key === 'sparkles'
-                        ? <ToothbrushIcon size={20} />
-                        : key === 'cross'
-                          ? <CrossIcon size={20} />
-                          : <LucideIcon name={key} size={20} />}
-                      <span className="text-[10px] leading-none">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'not_found';
-
-interface RewardRedemption {
-  id: string;
-  user_id: string;
-  user_name: string;
-  reward_id: string;
-  reward_title: string;
-  reward_icon: string;
-  cost_charged: number;
-  redeemed_at: string;
-  refunded_at?: string | null;
-  refunded_by?: string | null;
-  refund_reason?: string | null;
-  is_joint_purchase: boolean;
-  joint_user1_id?: string | null;
-  joint_user1_name?: string | null;
-  joint_user1_amount: number;
-  joint_user2_id?: string | null;
-  joint_user2_name?: string | null;
-  joint_user2_amount: number;
-}
-
-function normaliseSalePercentage(value: unknown): number {
-  const n = Math.round(Number(value ?? 0));
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(100, Math.max(0, n));
-}
-
-function mapReward(row: Record<string, unknown>): Reward {
-  const saleName = typeof row.sale_name === 'string' && row.sale_name.trim()
-    ? row.sale_name.trim()
-    : undefined;
-  const salePrice = Number(row.sale_price);
-  return {
-    id: row.id as string,
-    title: (row.title ?? row.name ?? '') as string,
-    cost_points: Number(row.cost_points ?? 0),
-    icon: (row.icon ?? 'gift') as string,
-    sale_enabled: Boolean(row.sale_enabled),
-    sale_percentage: normaliseSalePercentage(row.sale_percentage),
-    sale_price: row.sale_price == null || !Number.isFinite(salePrice) ? undefined : Math.max(0, Math.round(salePrice)),
-    sale_name: saleName,
-    is_hidden: Boolean(row.is_hidden),
-    is_sold_out: Boolean(row.is_sold_out),
-  };
-}
-
-function mapRewardRedemption(row: Record<string, unknown>): RewardRedemption {
-  return {
-    id: row.id as string,
-    user_id: row.user_id as string,
-    user_name: (row.user_name ?? '') as string,
-    reward_id: row.reward_id as string,
-    reward_title: (row.reward_title ?? '') as string,
-    reward_icon: (row.reward_icon ?? 'gift') as string,
-    cost_charged: Number(row.cost_charged ?? 0),
-    redeemed_at: row.redeemed_at as string,
-    refunded_at: (row.refunded_at as string | null) ?? null,
-    refunded_by: (row.refunded_by as string | null) ?? null,
-    refund_reason: (row.refund_reason as string | null) ?? null,
-    is_joint_purchase: Boolean(row.is_joint_purchase),
-    joint_user1_id: (row.joint_user1_id as string | null) ?? null,
-    joint_user1_name: (row.joint_user1_name as string | null) ?? null,
-    joint_user1_amount: Number(row.joint_user1_amount ?? 0),
-    joint_user2_id: (row.joint_user2_id as string | null) ?? null,
-    joint_user2_name: (row.joint_user2_name as string | null) ?? null,
-    joint_user2_amount: Number(row.joint_user2_amount ?? 0),
-  };
-}
-
-function buildRefundPrompt(redemption: RewardRedemption, lang: Lang): string {
-  if (redemption.is_joint_purchase) {
-    const u1 = redemption.joint_user1_name ?? '?';
-    const u2 = redemption.joint_user2_name ?? '?';
-    const a1 = redemption.joint_user1_amount;
-    const a2 = redemption.joint_user2_amount;
-    if (lang === 'en') {
-      return [
-        `Refund the shared purchase of "${redemption.reward_title}"?`,
-        '',
-        `${u1} will be refunded ${a1}pt.`,
-        `${u2} will be refunded ${a2}pt.`,
-      ].join('\n');
-    }
-    return [
-      `"${redemption.reward_title}" 같이 결제 구매를 환불할까요?`,
-      '',
-      `${u1}님에게 ${a1}pt가 다시 지급됩니다.`,
-      `${u2}님에게 ${a2}pt가 다시 지급됩니다.`,
-    ].join('\n');
-  }
-  if (lang === 'en') {
-    return `Refund ${redemption.user_name}'s "${redemption.reward_title}" purchase?\n\n${redemption.cost_charged}pt will be returned.`;
-  }
-  return `${redemption.user_name}의 "${redemption.reward_title}" 구매를 환불할까요?\n\n${redemption.cost_charged}pt가 다시 지급됩니다.`;
-}
-
-function formatShortDateTime(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString('ko-KR', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function withAvatarCache(url: string | undefined, version: number): string | undefined {
-  if (!url) return undefined;
-  return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
-}
-
-function mapTask(r: Record<string, unknown>): Task {
-  const rawDays = r.days_of_week as DayOfWeek[] | null | undefined;
-  return {
-    id: r.id as string,
-    userId: r.user_id as string,
-    code: (r.code as string | null) ?? undefined,
-    title: r.title as string,
-    icon: r.icon as string,
-    difficulty: r.difficulty as Difficulty,
-    basePoints: r.base_points as number,
-    recurrence: r.recurrence as string,
-    daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence as string),
-    timeWindow: normalizeTimeWindow(r.time_window as string | null | undefined),
-    active: r.active as number,
-    sortOrder: r.sort_order as number,
-    streakCount: (r.streak_count as number | null) ?? 0,
-    lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at as string) : null,
-  };
-}
 
 export default function AdminPage() {
   const { lang, setLang, t } = useLanguage();
@@ -441,7 +95,7 @@ export default function AdminPage() {
   const [exportingSnapshot, setExportingSnapshot] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
+  const [activeTab, setActiveTab] = useState<AdminTabKey>('settings');
   const [generatingCode, setGeneratingCode] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
@@ -1670,117 +1324,37 @@ export default function AdminPage() {
 
   if (view === 'pin') {
     return (
-      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0D0E1C] px-4 py-8 text-white sm:px-6">
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-44 border-b border-white/8 bg-[#111224]" />
-        <div className="relative z-10 w-full max-w-md">
-          <Link href="/home" aria-label="FamBit home" className="mx-auto mb-5 flex w-fit">
-            <FamBitWordmark compact />
-          </Link>
-          <section className="rounded-lg border border-white/8 bg-[#14162A]/95 p-6 text-center shadow-2xl shadow-black/35 sm:p-7">
-          <div className="mb-5 flex justify-center">
-            <FamBitWordmark markSize={52} showText={false} />
-          </div>
-          <p className="mb-2 text-center text-xs font-black uppercase text-[#4EEDB0]">
-            Admin protection
-          </p>
-          <h1 className="text-2xl font-black leading-tight text-white">
-            {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
-          </h1>
-          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-white/62">{t('enter_parent_pin')}</p>
-          {isParentAdmin && adminPinHash === null && (
-            <p className="mt-4 rounded-lg border border-[#4EEDB0]/35 bg-[#4EEDB0]/10 px-3 py-2 text-sm leading-5 text-[#4EEDB0]">
-              No Admin PIN is set yet. Press confirm to continue and set one.
-            </p>
-          )}
-          <input
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={4}
-            value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={e => { if (e.key === 'Enter') void handlePinSubmit(); }}
-            placeholder="••••"
-            className="mt-6 w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-            style={{ minHeight: 'var(--touch-target)' }}
-          />
-          {error && (
-            <p className="mt-3 rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/10 px-3 py-2 text-sm leading-5 text-[#FFB8CF]">
-              {error}
-            </p>
-          )}
-          <button
-            onClick={handlePinSubmit}
-            disabled={adminPinHash === undefined}
-            className="mt-4 w-full rounded-lg bg-[#4EEDB0] p-4 font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
-            style={{ minHeight: 'var(--touch-target)' }}
-          >
-            {adminPinHash === undefined ? '…' : t('confirm')}
-          </button>
-          {!isParentAdmin && !isFamilyOwner && adminPinHash !== undefined && (
-            <p className="mt-3 text-xs leading-5 text-white/42">
-              부모 계정으로 로그인해야 관리자 설정을 변경할 수 있습니다.
-            </p>
-          )}
-          {/* PIN reset escape hatch — only visible to the family creator */}
-          {isFamilyOwner && adminPinHash !== null && adminPinHash !== undefined && (
-            pinResetStep === 'idle' ? (
-              <button
-                onClick={() => { void handlePinReset(); }}
-                disabled={pinResetLoading}
-                className="mt-4 text-sm font-bold text-[#5B8EFF] transition-colors hover:text-[#8EAFFF] disabled:opacity-50"
-              >
-                {pinResetLoading ? '인증 코드 발송 중…' : 'PIN을 잊으셨나요? 이메일로 초기화'}
-              </button>
-            ) : (
-              <div className="mt-5 text-left">
-                <p className="mb-3 text-center text-xs leading-5 text-white/48">
-                  <span className="text-[#4EEDB0]">{authProfile.email}</span>로 발송된<br />
-                  6자리 인증 코드를 입력하세요
-                </p>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && void handleOtpVerify()}
-                  placeholder="000000"
-                  className="mb-2 w-full rounded-lg border border-white/10 bg-[#111224] p-4 text-center text-2xl font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-                  style={{ minHeight: 'var(--touch-target)' }}
-                  autoFocus
-                />
-                {otpError && <p className="mb-2 text-center text-xs text-[#FFB8CF]">{otpError}</p>}
-                <button
-                  onClick={() => { void handleOtpVerify(); }}
-                  disabled={otpLoading || otpCode.length !== 6}
-                  className="mb-2 w-full rounded-lg bg-[#4EEDB0] p-4 font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
-                  style={{ minHeight: 'var(--touch-target)' }}
-                >
-                  {otpLoading ? '확인 중…' : '코드 확인 및 PIN 초기화'}
-                </button>
-                <button
-                  onClick={() => { setPinResetStep('idle'); setOtpCode(''); setOtpError(''); }}
-                  className="w-full py-2 text-sm font-bold text-white/50 transition-colors hover:text-white"
-                >
-                  {adminCopy.cancel}
-                </button>
-              </div>
-            )
-          )}
-          <Link href="/" className="mt-5 block text-sm font-bold text-white/50 transition-colors hover:text-white">← {t('back_to_dashboard')}</Link>
-          <button
-            onClick={() => { void handleLogout(); }}
-            className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.045] p-3 text-sm font-bold text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/35 hover:bg-[#FF7BAC]/10"
-          >
-            {t('logout')}
-          </button>
-          </section>
-        </div>
-      </main>
+      <AdminPinGate
+        familyName={familyName}
+        adminModeLabel={t('admin_mode')}
+        enterPinLabel={t('enter_parent_pin')}
+        confirmLabel={t('confirm')}
+        backLabel={t('back_to_dashboard')}
+        logoutLabel={t('logout')}
+        cancelLabel={adminCopy.cancel}
+        pin={pin}
+        setPin={setPin}
+        error={error}
+        adminPinHash={adminPinHash}
+        isParentAdmin={isParentAdmin}
+        isFamilyOwner={isFamilyOwner}
+        onSubmit={handlePinSubmit}
+        onLogout={handleLogout}
+        onPinReset={handlePinReset}
+        pinResetLoading={pinResetLoading}
+        pinResetStep={pinResetStep}
+        setPinResetStep={setPinResetStep}
+        authEmail={authProfile.email}
+        otpCode={otpCode}
+        setOtpCode={setOtpCode}
+        otpError={otpError}
+        setOtpError={setOtpError}
+        otpLoading={otpLoading}
+        onOtpVerify={handleOtpVerify}
+      />
     );
   }
+
 
   return (
     <>
@@ -1807,75 +1381,24 @@ export default function AdminPage() {
       )}
 
       <main className="min-h-screen bg-[#0D0E1C] text-white">
-        {/* Header */}
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 pb-3 pt-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <FamBitWordmark
-              compact
-              markSize={32}
-              textClassName="hidden text-lg font-black text-white sm:inline"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-black uppercase text-[#4EEDB0]">{adminCopy.tabs.settings}</p>
-              <h1 className="min-w-0 truncate text-xl font-black sm:text-2xl">
-                {familyName ? `${t('admin_mode')} - ${familyName}` : t('admin_mode')}
-              </h1>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <a
-              href="https://forms.gle/KgxsBSBHwkdrwdTz7"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t('feedback')}
-              title={t('feedback_subtitle')}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-[#4EEDB0]/30 bg-[#4EEDB0]/10 px-3 text-sm font-black text-[#4EEDB0] transition-colors hover:border-[#4EEDB0]/60 hover:bg-[#4EEDB0]/16 sm:px-4"
-            >
-              <Icons.MessageCircleHeart size={16} />
-              <span className="hidden sm:inline">{t('feedback')}</span>
-            </a>
-            <Link href="/" className="whitespace-nowrap text-sm font-bold text-white/54 transition-colors hover:text-white">← {t('back_to_dashboard')}</Link>
-            <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
-          </div>
-        </div>
+        <AdminHeader
+          familyName={familyName}
+          settingsLabel={adminCopy.tabs.settings}
+          adminModeLabel={t('admin_mode')}
+          feedbackLabel={t('feedback')}
+          feedbackSubtitle={t('feedback_subtitle')}
+          backLabel={t('back_to_dashboard')}
+          authProfile={authProfile}
+        />
 
-        {/* Sticky tab bar */}
-        <div className="sticky top-0 z-40 border-b border-white/8 bg-[#0D0E1C]/95 backdrop-blur">
-          <div className="mx-auto max-w-4xl px-4">
-            <div className="flex gap-1 overflow-x-auto py-2" style={{ scrollbarWidth: 'none' }}>
-              {([
-                { key: 'settings', label: adminCopy.tabs.settings, icon: Icons.Settings2 },
-                { key: 'family',   label: adminCopy.tabs.family, icon: Icons.UsersRound },
-                { key: 'tasks',    label: adminCopy.tabs.tasks, icon: Icons.ListChecks },
-                { key: 'store',    label: adminCopy.tabs.store, icon: Icons.Store },
-              ] as const).map(tab => {
-                const TabIcon = tab.icon;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => {
-                      setActiveTab(tab.key);
-                      const hasSelectedUser = selectedUser
-                        ? sortedUsers.some(u => u.id === selectedUser.id)
-                        : false;
-                      if (tab.key === 'tasks' && !hasSelectedUser && sortedUsers[0]) {
-                        void loadTasks(sortedUsers[0]);
-                      }
-                    }}
-                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-black transition-colors ${
-                      activeTab === tab.key
-                        ? 'bg-[#4EEDB0] text-[#07120E]'
-                        : 'text-white/54 hover:bg-white/[0.055] hover:text-white'
-                    }`}
-                  >
-                    <TabIcon size={16} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <AdminTabBar
+          activeTab={activeTab}
+          labels={adminCopy.tabs}
+          selectedUser={selectedUser}
+          sortedUsers={sortedUsers}
+          onSelectTab={setActiveTab}
+          loadTasks={loadTasks}
+        />
 
         {/* Tab content */}
         <div key={activeTab} className="max-w-4xl mx-auto px-4 py-6 animate-fade-in">
@@ -3008,98 +2531,25 @@ export default function AdminPage() {
                 </div>
               </section>
 
-              {/* Purchase history */}
-              <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-                        <Icons.History size={18} className="text-[#5B8EFF]" />
-                      </span>
-                      <h2 className="text-base font-black text-white">{adminCopy.rewardHistory}</h2>
-                    </div>
-                    <p className="text-sm leading-6 text-white/54">
-                      {lang === 'en'
-                        ? 'Recent reward redemptions across the family.'
-                        : '최근 가족 보상 교환 내역입니다.'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { void loadRewardRedemptions(); }}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] px-3 text-xs font-black text-white/64 transition-colors hover:bg-white/[0.08] hover:text-white"
-                  >
-                    <Icons.RefreshCw size={14} />
-                    {adminCopy.refresh}
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {rewardRedemptions.map(redemption => {
-                    const refunded = Boolean(redemption.refunded_at);
-                    const isJoint = redemption.is_joint_purchase;
-                    const u1 = redemption.joint_user1_name ?? '';
-                    const u2 = redemption.joint_user2_name ?? '';
-                    const buyerLabel = isJoint && u1 && u2
-                      ? adminCopy.sharedBuyer(u1, u2)
-                      : redemption.user_name;
-                    return (
-                      <div
-                        key={redemption.id}
-                        className="flex flex-col gap-3 rounded-lg border border-white/8 bg-[#1A1B2E] p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
-                      >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#5B8EFF]/24 bg-[#5B8EFF]/10 text-[#8EAFFF]">
-                            <LucideIcon name={redemption.reward_icon} size={18} />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-black text-white">
-                              {redemption.reward_title}
-                            </div>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-white/54">
-                              <span>{buyerLabel}</span>
-                              <span className="h-1 w-1 rounded-full bg-white/30" />
-                              <span>{formatShortDateTime(redemption.redeemed_at)}</span>
-                              {!isJoint && (
-                                <>
-                                  <span className="h-1 w-1 rounded-full bg-white/30" />
-                                  <span className="font-bold text-[#FFB830]">{redemption.cost_charged}pt</span>
-                                </>
-                              )}
-                            </div>
-                            {isJoint && (
-                              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#5B8EFF]/14 px-2 py-0.5 text-[10px] font-black text-[#8EAFFF]">
-                                <Icons.Users2 size={11} />
-                                {adminCopy.sharedPayment} · {adminCopy.sharedWith(u1, redemption.joint_user1_amount, u2, redemption.joint_user2_amount)}
-                              </div>
-                            )}
-                            {refunded && (
-                              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0]">
-                                <Icons.Undo2 size={11} />
-                                {adminCopy.refunded} · {redemption.refunded_at ? formatShortDateTime(redemption.refunded_at) : ''}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { void refundRedemption(redemption); }}
-                          disabled={refunded || refundInFlightId === redemption.id}
-                          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-[#111224] px-3 text-xs font-black text-white/64 transition-colors hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/10 disabled:hover:bg-[#111224] disabled:hover:text-white/64"
-                        >
-                          <Icons.Undo2 size={13} />
-                          {refundInFlightId === redemption.id ? adminCopy.processing : refunded ? adminCopy.refundComplete : adminCopy.refund}
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {rewardRedemptions.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-white/12 bg-[#111224] px-4 py-8 text-center">
-                      <Icons.History className="mx-auto mb-2 text-white/34" size={24} />
-                      <p className="text-sm font-bold text-white/50">{adminCopy.noPurchases}</p>
-                    </div>
-                  )}
-                </div>
-              </section>
+              <RewardHistoryPanel
+                lang={lang}
+                copy={{
+                  rewardHistory: adminCopy.rewardHistory,
+                  refresh: adminCopy.refresh,
+                  refunded: adminCopy.refunded,
+                  refund: adminCopy.refund,
+                  refundComplete: adminCopy.refundComplete,
+                  processing: adminCopy.processing,
+                  noPurchases: adminCopy.noPurchases,
+                  sharedPayment: adminCopy.sharedPayment,
+                  sharedWith: adminCopy.sharedWith,
+                  sharedBuyer: adminCopy.sharedBuyer,
+                }}
+                redemptions={rewardRedemptions}
+                refundInFlightId={refundInFlightId}
+                onRefresh={loadRewardRedemptions}
+                onRefund={refundRedemption}
+              />
             </div>
           )}
         </div>
