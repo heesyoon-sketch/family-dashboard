@@ -15,7 +15,7 @@ import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { FamBitWordmark } from '@/components/FamBitLogo';
 import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
 import { FamilyOnboardingChecklist } from '@/components/FamilyOnboardingChecklist';
-import { FamilyQuestCard } from '@/components/FamilyQuestCard';
+import { FamilyQuestCard, FamilyQuestChip } from '@/components/FamilyQuestCard';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
@@ -235,6 +235,7 @@ export default function Dashboard() {
             ) : (
               <span className="text-[12px] font-black text-white/52">Family Dashboard</span>
             )}
+            <FamilyQuestChip className="max-w-[170px]" />
             <ConnectionStatusChip className="hidden md:inline-flex" />
             <div className="hidden h-4 w-px bg-white/10 md:block" />
             <HarmonyChip className="hidden md:inline-flex" />
@@ -317,10 +318,7 @@ export default function Dashboard() {
       </main>
 
       <main className="hidden flex-1 min-h-0 flex-col gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:flex">
-        <div className="grid grid-cols-2 gap-3">
-          <FamilyOnboardingChecklist />
-          <FamilyQuestCard />
-        </div>
+        <FamilyOnboardingChecklist />
         <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden">
           {desktopSlots.map((user, index) =>
             user ? (

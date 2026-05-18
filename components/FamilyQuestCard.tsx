@@ -23,15 +23,11 @@ function ritualLead(lang: 'en' | 'ko'): string {
 
 export function FamilyQuestCard() {
   const { lang } = useLanguage();
-  const users = useFamilyStore(s => s.users);
-  const tasksByUser = useFamilyStore(s => s.tasksByUser);
-  const todayCompletions = useFamilyStore(s => s.todayCompletions);
+  const quest = useFamilyQuest();
 
-  const activeMembers = users.filter(user => (tasksByUser[user.id] ?? []).length > 0);
-  if (activeMembers.length < 2) return null;
+  if (!quest) return null;
 
-  const joined = activeMembers.filter(user => (todayCompletions[user.id] ?? []).length > 0);
-  const complete = joined.length === activeMembers.length;
+  const { activeMembers, joined, complete } = quest;
 
   return (
     <section className="rounded-2xl border border-[#4EEDB0]/20 bg-[#111224] px-3 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] sm:px-4">
@@ -66,4 +62,53 @@ export function FamilyQuestCard() {
       </div>
     </section>
   );
+}
+
+export function FamilyQuestChip({ className }: { className?: string }) {
+  const { lang } = useLanguage();
+  const quest = useFamilyQuest();
+
+  if (!quest) return null;
+
+  const { activeMembers, joined, complete } = quest;
+  const title = complete
+    ? (lang === 'en' ? 'Everyone touched the day.' : '오늘은 모두가 리듬에 참여했어요.')
+    : (lang === 'en'
+        ? 'Get one completion from every active member.'
+        : '활성 멤버 모두가 습관 하나씩 완료해보세요.');
+
+  return (
+    <div
+      title={title}
+      className={[
+        'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border px-2 text-[10px] font-black',
+        complete
+          ? 'border-[#4EEDB0]/34 bg-[#4EEDB0]/14 text-[#4EEDB0]'
+          : 'border-white/10 bg-white/[0.045] text-white/70',
+        className ?? '',
+      ].join(' ')}
+    >
+      {complete ? <Sparkles size={12} /> : <HeartHandshake size={12} />}
+      <span className="truncate">
+        {lang === 'en' ? 'Family quest' : '오늘의 가족 퀘스트'}
+      </span>
+      <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[9px] tabular-nums text-white/80">
+        {joined.length}/{activeMembers.length}
+      </span>
+    </div>
+  );
+}
+
+function useFamilyQuest() {
+  const users = useFamilyStore(s => s.users);
+  const tasksByUser = useFamilyStore(s => s.tasksByUser);
+  const todayCompletions = useFamilyStore(s => s.todayCompletions);
+
+  const activeMembers = users.filter(user => (tasksByUser[user.id] ?? []).length > 0);
+  if (activeMembers.length < 2) return null;
+
+  const joined = activeMembers.filter(user => (todayCompletions[user.id] ?? []).length > 0);
+  const complete = joined.length === activeMembers.length;
+
+  return { activeMembers, joined, complete };
 }
