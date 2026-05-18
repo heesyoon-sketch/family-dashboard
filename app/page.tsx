@@ -18,6 +18,7 @@ import { FamilyOnboardingChecklist } from '@/components/FamilyOnboardingChecklis
 import { FamilyQuestCard, FamilyQuestChip } from '@/components/FamilyQuestCard';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 import { getTimeWindowDisplay, type TimeWindow } from '@/lib/timeWindows';
@@ -114,9 +115,7 @@ export default function Dashboard() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
-    if (typeof window !== 'undefined') {
-      localStorage.clear();
-    }
+    clearFamilySessionStorage();
     useFamilyStore.setState({
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       activeTaskCount: 0,

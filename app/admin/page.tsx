@@ -4,32 +4,33 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { User, Task, Reward, DayOfWeek, ALL_DAYS, ThemeName, UserRole } from '@/lib/db';
 import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin } from '@/lib/adminPin';
-import { resetAllProgress } from '@/lib/reset';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow, type TaskTimeWindow, type TimeWindow } from '@/lib/timeWindows';
-import { IconPicker, LucideIcon } from '@/components/admin/IconPicker';
+import { IconPicker } from '@/components/admin/IconPicker';
 import { AdminHeader, AdminTabBar, type AdminTabKey } from '@/components/admin/AdminChrome';
 import { AdminPinGate } from '@/components/admin/AdminPinGate';
-import { RewardHistoryPanel } from '@/components/admin/RewardHistoryPanel';
+import { AdminSettingsPanel } from '@/components/admin/AdminSettingsPanel';
+import { AdminFamilyPanel } from '@/components/admin/AdminFamilyPanel';
+import { AdminTasksPanel } from '@/components/admin/AdminTasksPanel';
+import { AdminStorePanel } from '@/components/admin/AdminStorePanel';
 import {
-  DAY_LABELS,
   buildRefundPrompt,
   mapReward,
   mapRewardRedemption,
   mapTask,
   normaliseSalePercentage,
-  withAvatarCache,
   type RewardRedemption,
   type SaveStatus,
 } from '@/lib/admin/adminHelpers';
+import { buildAdminCopy } from '@/lib/admin/adminCopy';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -40,7 +41,7 @@ function notifyDashboard() {
 type View = 'pin' | 'dashboard';
 
 export default function AdminPage() {
-  const { lang, setLang, t } = useLanguage();
+  const { lang, t } = useLanguage();
   const [view, setView] = useState<View>('pin');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -81,6 +82,7 @@ export default function AdminPage() {
   const [rewardSaleNameDrafts, setRewardSaleNameDrafts] = useState<Record<string, string>>({});
   const [rewardRedemptions, setRewardRedemptions] = useState<RewardRedemption[]>([]);
   const [refundInFlightId, setRefundInFlightId] = useState<string | null>(null);
+  const [rewardProcessInFlightId, setRewardProcessInFlightId] = useState<string | null>(null);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [familyInviteCode, setFamilyInviteCode] = useState<string | null>(null);
   // Admin PIN management
@@ -117,74 +119,7 @@ export default function AdminPage() {
     }));
   };
   const router = useRouter();
-  const adminCopy = {
-    tabs: {
-      settings: lang === 'en' ? 'Settings' : '설정',
-      family:   lang === 'en' ? 'Family' : '가족',
-      tasks:    lang === 'en' ? 'Tasks' : '습관',
-      store:    lang === 'en' ? 'Store' : '상점',
-    },
-    familyInvitation: lang === 'en' ? 'Family Invitation' : '가족 초대',
-    familyInvitationHelp: lang === 'en'
-      ? 'Share this code with a family member after they sign in with Google.'
-      : '가족 구성원이 Google로 로그인한 뒤 이 코드를 입력하면 합류할 수 있습니다.',
-    copyInviteCode: lang === 'en' ? 'Copy invitation code' : '초대 코드 복사',
-    regenerateCode: lang === 'en' ? 'Regenerate code' : '초대 코드 다시 만들기',
-    generateCode: lang === 'en' ? 'Generate code' : '초대 코드 만들기',
-    noInviteCode: lang === 'en'
-      ? 'No invitation code yet. Use refresh to generate one.'
-      : '초대 코드가 없습니다. 새로고침 버튼으로 생성하세요.',
-    language: lang === 'en' ? 'Language' : '언어 설정',
-    korean: lang === 'en' ? 'Korean' : '한국어',
-    english: lang === 'en' ? 'English' : '영어',
-    leaveFamily: lang === 'en' ? 'Leave Family' : '가족 공간에서 나가기',
-    leavingFamily: lang === 'en' ? 'Leaving...' : '나가는 중...',
-    addMember: lang === 'en' ? 'Add member' : '멤버 추가',
-    addMemberHelp: lang === 'en'
-      ? 'Add a new profile. You can link a Google account to it later.'
-      : '새 프로필을 추가합니다. 나중에 이 프로필에 Google 계정을 연결할 수 있습니다.',
-    memberNamePlaceholder: lang === 'en' ? 'Name, e.g. Alex' : '이름 (예: 아람, 주원)',
-    adding: lang === 'en' ? 'Adding...' : '추가 중...',
-    add: lang === 'en' ? 'Add' : '추가하기',
-    cancel: lang === 'en' ? 'Cancel' : '취소',
-    uploadAvatar: lang === 'en' ? 'Upload profile photo' : '프로필 사진 업로드',
-    moveUp: lang === 'en' ? 'Move up' : '위로 이동',
-    moveDown: lang === 'en' ? 'Move down' : '아래로 이동',
-    deleteProfile: lang === 'en' ? 'Delete profile' : '프로필 삭제',
-    linked: lang === 'en' ? 'Account linked' : '계정 연결됨',
-    notLinked: lang === 'en' ? 'No account' : '계정 없음',
-    saleOff: lang === 'en' ? 'Sale off' : '세일 꺼짐',
-    hidden: lang === 'en' ? 'Hidden' : '숨김',
-    visible: lang === 'en' ? 'Visible' : '공개',
-    soldOut: lang === 'en' ? 'Sold out' : '품절',
-    inStock: lang === 'en' ? 'In stock' : '재고',
-    saleLabel: lang === 'en' ? 'Sale label' : '세일 이유 또는 명칭',
-    rewardHistory: lang === 'en' ? 'Purchase history' : '구매 내역',
-    refresh: lang === 'en' ? 'Refresh' : '새로고침',
-    refunded: lang === 'en' ? 'Refunded' : '환불됨',
-    refund: lang === 'en' ? 'Refund' : '환불',
-    refundComplete: lang === 'en' ? 'Refund complete' : '환불 완료',
-    processing: lang === 'en' ? 'Processing...' : '처리중…',
-    noPurchases: lang === 'en' ? 'No purchases yet' : '아직 구매 내역이 없습니다',
-    sharedPayment: lang === 'en' ? 'Shared payment' : '같이 결제',
-    sharedWith: (a: string, ap: number, b: string, bp: number) =>
-      lang === 'en'
-        ? `${a} ${ap}pt + ${b} ${bp}pt`
-        : `${a} ${ap}pt + ${b} ${bp}pt`,
-    sharedBuyer: (a: string, b: string) =>
-      lang === 'en' ? `${a} with ${b}` : `${a} · ${b} 공동 구매`,
-    parentOnlyAdmin: lang === 'en'
-      ? 'Admin controls are parent-only. Invite codes let someone join the family; they do not grant admin access.'
-      : '관리자 기능은 부모 전용입니다. 초대 코드는 가족 참여만 허용하며 관리자 권한은 주지 않습니다.',
-    dataTrust: lang === 'en' ? 'Data & Trust' : '데이터와 신뢰',
-    dataTrustBody: lang === 'en'
-      ? 'Export a snapshot before major changes, then act with confidence. Deletion stays permanent; exports stay on your device.'
-      : '큰 변경 전에 스냅샷을 내려받아 더 안심하고 작업하세요. 삭제는 영구적이고, 내보낸 파일은 기기에만 저장됩니다.',
-    exportSnapshot: lang === 'en' ? 'Export family snapshot' : '가족 스냅샷 내보내기',
-    exportingSnapshot: lang === 'en' ? 'Exporting…' : '내보내는 중…',
-    exportSnapshotDone: lang === 'en' ? 'Family snapshot downloaded' : '가족 스냅샷을 내려받았습니다',
-    exportSnapshotFailed: lang === 'en' ? 'Could not export family snapshot' : '가족 스냅샷을 내보낼 수 없습니다',
-  };
+  const adminCopy = buildAdminCopy(lang);
 
   async function loadRewardRedemptions() {
     const supabase = createBrowserSupabase();
@@ -263,7 +198,7 @@ export default function AdminPage() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
-    localStorage.clear();
+    clearFamilySessionStorage();
     window.location.href = '/login';
   };
 
@@ -282,7 +217,7 @@ export default function AdminPage() {
       } else {
         await deleteCurrentFamilyData();
       }
-      localStorage.clear();
+      clearFamilySessionStorage();
       useFamilyStore.getState().reset();
       window.location.href = '/setup';
     } catch (error) {
@@ -305,7 +240,7 @@ export default function AdminPage() {
       const { error } = await supabase.rpc('leave_current_family');
       if (error) throw error;
 
-      localStorage.clear();
+      clearFamilySessionStorage();
       useFamilyStore.getState().reset();
       window.location.href = '/setup';
     } catch (error) {
@@ -1292,6 +1227,26 @@ export default function AdminPage() {
     toast.success('환불 완료');
   };
 
+  const markRewardProcessed = async (redemption: RewardRedemption) => {
+    if (rewardProcessInFlightId || redemption.refunded_at || redemption.processed_at) return;
+
+    setRewardProcessInFlightId(redemption.id);
+    const supabase = createBrowserSupabase();
+    const { error } = await supabase.rpc('admin_mark_reward_redemption_processed', {
+      p_redemption_id: redemption.id,
+    });
+
+    if (error) {
+      setRewardProcessInFlightId(null);
+      toast.error(`처리 실패: ${error.message}`);
+      return;
+    }
+
+    await loadRewardRedemptions();
+    setRewardProcessInFlightId(null);
+    toast.success('처리 완료');
+  };
+
   const startEditName = (user: User) => {
     setEditingUserId(user.id);
     setEditingName(user.name);
@@ -1403,1154 +1358,123 @@ export default function AdminPage() {
         {/* Tab content */}
         <div key={activeTab} className="max-w-4xl mx-auto px-4 py-6 animate-fade-in">
 
-          {/* ─── SETTINGS & SECURITY ─── */}
           {activeTab === 'settings' && (
-            <div className="space-y-4">
-              {/* Family invitation */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-3 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-base font-black text-white">{adminCopy.familyInvitation}</h2>
-                    <p className="mt-1 text-sm leading-6 text-white/54">
-                      {adminCopy.familyInvitationHelp}
-                    </p>
-                  </div>
-                  <Icons.UsersRound className="shrink-0 text-[#4EEDB0]" size={20} />
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-white/10 bg-[#111224] px-3">
-                    <span className="truncate text-lg font-black tracking-[0.22em] text-white sm:text-xl">
-                      {familyInviteCode ?? '------'}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={copyInviteCode}
-                      disabled={!familyInviteCode}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4EEDB0]/14 px-3 text-sm font-black text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      title={adminCopy.copyInviteCode}
-                    >
-                      <Icons.Copy size={16} />
-                      <span className="hidden sm:inline">{adminCopy.copyInviteCode}</span>
-                    </button>
-                    <button
-                      onClick={generateInviteCode}
-                      disabled={generatingCode}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/56 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
-                      title={familyInviteCode ? adminCopy.regenerateCode : adminCopy.generateCode}
-                    >
-                      <Icons.RefreshCw size={16} className={generatingCode ? 'animate-spin' : ''} />
-                    </button>
-                  </div>
-                </div>
-                {!familyInviteCode && (
-                  <p className="mt-2 text-xs text-[#FFB830]">
-                    ↑ {adminCopy.noInviteCode}
-                  </p>
-                )}
-                <p className="mt-3 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-xs leading-5 text-white/48">
-                  {adminCopy.parentOnlyAdmin}
-                </p>
-              </div>
-
-              {/* Language */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <Icons.Languages size={18} className="text-[#5B8EFF]" />
-                  <h2 className="text-base font-black text-white">{adminCopy.language}</h2>
-                </div>
-                <div className="inline-flex w-full rounded-lg border border-white/10 bg-[#111224] p-1 sm:w-auto">
-                  <button
-                    onClick={() => setLang('ko')}
-                    className={`h-9 flex-1 rounded-md px-4 text-sm font-black transition-colors sm:min-w-24 ${
-                      lang === 'ko' ? 'bg-[#5B8EFF] text-white' : 'text-white/50 hover:bg-white/[0.055] hover:text-white'
-                    }`}
-                  >
-                    {adminCopy.korean}
-                  </button>
-                  <button
-                    onClick={() => setLang('en')}
-                    className={`h-9 flex-1 rounded-md px-4 text-sm font-black transition-colors sm:min-w-24 ${
-                      lang === 'en' ? 'bg-[#5B8EFF] text-white' : 'text-white/50 hover:bg-white/[0.055] hover:text-white'
-                    }`}
-                  >
-                    {adminCopy.english}
-                  </button>
-                </div>
-              </div>
-
-              {/* Change Admin PIN */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <Icons.LockKeyhole size={18} className="text-[#FFB830]" />
-                  <h2 className="text-base font-black text-white">{t('change_admin_pin')}</h2>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={4}
-                    value={currentPinInput}
-                    onChange={e => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder={t('current_pin')}
-                    className="h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-center text-lg font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-                  />
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={4}
-                    value={newPinInput}
-                    onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder={t('new_pin')}
-                    className="h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-center text-lg font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-                  />
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={4}
-                    value={confirmPinInput}
-                    onChange={e => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder={t('confirm_new_pin')}
-                    className="h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-center text-lg font-black tracking-widest text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-                  />
-                </div>
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={handleChangePin}
-                    disabled={pinChanging || !currentPinInput || !newPinInput || !confirmPinInput}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36 sm:w-auto"
-                  >
-                    {pinChanging ? '…' : t('change_pin_btn')}
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress Reset */}
-              <div className="flex flex-col gap-3 rounded-lg border border-white/8 bg-[#14162A] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                <div className="min-w-0">
-                  <div className="mb-1 flex items-center gap-2">
-                    <Icons.RotateCcw size={17} className="text-[#FFB830]" />
-                    <h2 className="text-base font-black text-white">{t('reset_all_progress')}</h2>
-                  </div>
-                  <p className="text-sm leading-6 text-white/54">{t('reset_description')}</p>
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!confirm(t('reset_confirm'))) return;
-                    await resetAllProgress();
-                    localStorage.removeItem('family_progress_reset_v1');
-                    toast.success(t('reset_success'));
-                    setTimeout(() => { location.href = '/'; }, 1000);
-                  }}
-                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#FFB830]/30 bg-[#FFB830]/10 px-4 text-sm font-bold text-[#FFE0A0] transition-colors hover:bg-[#FFB830]/15"
-                >
-                  {t('reset_full')}
-                </button>
-              </div>
-
-              {/* Data export / trust */}
-              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <Icons.ShieldCheck size={18} className="text-[#5B8EFF]" />
-                  <h2 className="text-base font-black text-white">{adminCopy.dataTrust}</h2>
-                </div>
-                <p className="text-sm leading-6 text-white/54">{adminCopy.dataTrustBody}</p>
-                <button
-                  type="button"
-                  onClick={() => { void exportFamilySnapshot(); }}
-                  disabled={exportingSnapshot}
-                  className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#5B8EFF]/35 bg-[#5B8EFF]/12 px-4 text-sm font-black text-[#B9CBFF] transition hover:bg-[#5B8EFF]/18 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
-                >
-                  <Icons.Download size={16} />
-                  {exportingSnapshot ? adminCopy.exportingSnapshot : adminCopy.exportSnapshot}
-                </button>
-              </div>
-
-              {/* Danger Zone — permanent family data deletion */}
-              <div className="rounded-lg border border-[#FF7BAC]/22 bg-[#FF7BAC]/8 p-4 sm:p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <Icons.TriangleAlert size={18} className="text-[#FF7BAC]" />
-                  <h2 className="text-base font-black text-[#FFD5E3]">{t('danger_zone')}</h2>
-                </div>
-                <p className="text-sm leading-6 text-white/62">{t('danger_zone_description')}</p>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  <button
-                    onClick={handleLeaveFamily}
-                    disabled={leavingFamily || deletingFamily}
-                    className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-[#FFB830]/30 bg-[#FFB830]/10 px-4 text-sm font-bold text-[#FFE0A0] transition-colors hover:bg-[#FFB830]/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {leavingFamily ? adminCopy.leavingFamily : adminCopy.leaveFamily}
-                  </button>
-                  <button
-                    onClick={handleDeleteFamilyData}
-                    disabled={deletingFamily || leavingFamily}
-                    className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/14 px-4 text-sm font-bold text-[#FFD5E3] transition-colors hover:bg-[#FF7BAC]/20 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {deletingFamily ? t('danger_zone_deleting') : t('danger_zone_button')}
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AdminSettingsPanel
+              familyInviteCode={familyInviteCode}
+              generatingCode={generatingCode}
+              copyInviteCode={copyInviteCode}
+              generateInviteCode={generateInviteCode}
+              currentPinInput={currentPinInput}
+              setCurrentPinInput={setCurrentPinInput}
+              newPinInput={newPinInput}
+              setNewPinInput={setNewPinInput}
+              confirmPinInput={confirmPinInput}
+              setConfirmPinInput={setConfirmPinInput}
+              pinChanging={pinChanging}
+              handleChangePin={handleChangePin}
+              exportingSnapshot={exportingSnapshot}
+              exportFamilySnapshot={exportFamilySnapshot}
+              leavingFamily={leavingFamily}
+              deletingFamily={deletingFamily}
+              handleLeaveFamily={handleLeaveFamily}
+              handleDeleteFamilyData={handleDeleteFamilyData}
+            />
           )}
 
-          {/* ─── FAMILY ─── */}
           {activeTab === 'family' && (
-            <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-                      <Icons.UsersRound size={18} className="text-[#5B8EFF]" />
-                    </span>
-                    <h2 className="text-base font-black text-white">{t('set_family_names')}</h2>
-                  </div>
-                  <p className="text-sm leading-6 text-white/54">
-                    {lang === 'en'
-                      ? 'Manage family members, roles, and order.'
-                      : '가족 멤버의 이름, 역할, 순서를 관리합니다.'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => { setAddingMember(true); setNewMemberName(''); setNewMemberRole('CHILD'); }}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#4EEDB0] px-4 py-2.5 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0]"
-                >
-                  <Icons.UserPlus size={16} />
-                  {adminCopy.addMember}
-                </button>
-              </div>
-
-              {/* Add member form */}
-              {addingMember && (
-                <div className="mb-4 space-y-3 rounded-lg border border-[#4EEDB0]/30 bg-[#111224] p-4">
-                  <p className="text-sm leading-6 text-white/54">{adminCopy.addMemberHelp}</p>
-                  <input
-                    type="text"
-                    value={newMemberName}
-                    onChange={e => setNewMemberName(e.target.value)}
-                    disabled={isAddingMember}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void addMember();
-                      }
-                    }}
-                    placeholder={adminCopy.memberNamePlaceholder}
-                    autoFocus
-                    className="w-full rounded-lg border border-white/10 bg-[#1A1B2E] px-4 text-base font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-                    style={{ minHeight: 'var(--touch-target)', fontSize: '16px' }}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewMemberRole('PARENT')}
-                      disabled={isAddingMember}
-                      className={`min-h-11 rounded-lg text-sm font-black transition-colors ${
-                        newMemberRole === 'PARENT'
-                          ? 'bg-[#5B8EFF] text-white'
-                          : 'border border-white/8 bg-[#1A1B2E] text-white/54 hover:bg-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      {t('parent_role')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewMemberRole('CHILD')}
-                      disabled={isAddingMember}
-                      className={`min-h-11 rounded-lg text-sm font-black transition-colors ${
-                        newMemberRole === 'CHILD'
-                          ? 'bg-[#FF7BAC] text-[#220610]'
-                          : 'border border-white/8 bg-[#1A1B2E] text-white/54 hover:bg-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      {t('child_role')}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { void addMember(); }}
-                      disabled={isAddingMember || !newMemberName.trim()}
-                      className="min-h-[var(--touch-target)] rounded-lg bg-[#4EEDB0] text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36"
-                    >
-                      {isAddingMember ? adminCopy.adding : adminCopy.add}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddingMember(false)}
-                      disabled={isAddingMember}
-                      className="min-h-[var(--touch-target)] rounded-lg border border-white/10 bg-white/[0.045] text-sm font-bold text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {adminCopy.cancel}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => { void handleAvatarUpload(e.target.files?.[0]); }}
-              />
-
-              <div className="space-y-2.5">
-                {sortedUsers.map((u, index) => {
-                  const isEditing = editingUserId === u.id;
-                  const isParent = u.role === 'PARENT';
-                  const isLinked = Boolean(u.authUserId);
-                  return (
-                    <div
-                      key={u.id}
-                      className="rounded-lg border border-white/8 bg-[#1A1B2E] p-3 transition-colors sm:p-4"
-                    >
-                      {isEditing ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input
-                            type="text"
-                            value={editingName}
-                            onChange={e => setEditingName(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') confirmEditName(u.id);
-                              if (e.key === 'Escape') cancelEditName();
-                            }}
-                            autoFocus
-                            className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#4EEDB0] bg-[#111224] px-3 text-base font-bold text-white outline-none"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => confirmEditName(u.id)}
-                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26"
-                              title={t('confirm')}
-                            >
-                              <Icons.Check size={18} />
-                            </button>
-                            <button
-                              onClick={cancelEditName}
-                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                              title={adminCopy.cancel}
-                            >
-                              <Icons.X size={18} />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-                          {/* Profile section: avatar + name + chips */}
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => openAvatarUpload(u.id)}
-                              disabled={avatarUploadingUserId === u.id}
-                              className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#111224] ring-2 ring-white/10 transition hover:ring-[#5B8EFF]/60 disabled:opacity-60"
-                              title={adminCopy.uploadAvatar}
-                            >
-                              {u.avatarUrl ? (
-                                <Image
-                                  src={withAvatarCache(u.avatarUrl, avatarVersion) ?? u.avatarUrl}
-                                  alt={u.name}
-                                  width={48}
-                                  height={48}
-                                  referrerPolicy="no-referrer"
-                                  className="h-12 w-12 object-cover"
-                                />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-base font-black text-white/72">
-                                  {u.name.charAt(0)}
-                                </span>
-                              )}
-                              <span className="absolute inset-x-0 bottom-0 flex h-4 items-center justify-center bg-black/65 text-white">
-                                {avatarUploadingUserId === u.id
-                                  ? <Icons.Loader2 size={10} className="animate-spin" />
-                                  : <Icons.Camera size={10} />}
-                              </span>
-                            </button>
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-base font-black text-white sm:text-lg">{u.name}</div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
-                                  isParent
-                                    ? 'bg-[#5B8EFF]/14 text-[#8EAFFF]'
-                                    : 'bg-[#FF7BAC]/14 text-[#FFB8CF]'
-                                }`}>
-                                  {isParent ? <Icons.Shield size={11} /> : <Icons.Sparkles size={11} />}
-                                  {isParent ? t('parent_role') : t('child_role')}
-                                </span>
-                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
-                                  isLinked
-                                    ? 'bg-[#4EEDB0]/14 text-[#4EEDB0]'
-                                    : 'bg-white/[0.06] text-white/45'
-                                }`}>
-                                  {isLinked
-                                    ? <Icons.CheckCircle2 size={11} />
-                                    : <Icons.CircleDashed size={11} />}
-                                  {isLinked ? adminCopy.linked : adminCopy.notLinked}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action buttons */}
-                          <div className="flex shrink-0 items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => moveMember(u.id, -1)}
-                              disabled={index === 0}
-                              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111224] text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                              title={adminCopy.moveUp}
-                              aria-label={adminCopy.moveUp}
-                            >
-                              <Icons.ChevronUp size={17} />
-                            </button>
-                            <button
-                              onClick={() => moveMember(u.id, 1)}
-                              disabled={index === sortedUsers.length - 1}
-                              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111224] text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                              title={adminCopy.moveDown}
-                              aria-label={adminCopy.moveDown}
-                            >
-                              <Icons.ChevronDown size={17} />
-                            </button>
-                            <button
-                              onClick={() => startEditName(u)}
-                              className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
-                              title={lang === 'en' ? 'Edit name' : '이름 수정'}
-                              aria-label={lang === 'en' ? 'Edit name' : '이름 수정'}
-                            >
-                              <Icons.Pencil size={16} />
-                            </button>
-                            {!(u.authUserId && u.authUserId === currentAuthUserId) && (
-                              <button
-                                onClick={() => removeMember(u.id)}
-                                className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                                title={adminCopy.deleteProfile}
-                                aria-label={adminCopy.deleteProfile}
-                              >
-                                <Icons.Trash2 size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+            <AdminFamilyPanel
+              sortedUsers={sortedUsers}
+              addingMember={addingMember}
+              setAddingMember={setAddingMember}
+              newMemberName={newMemberName}
+              setNewMemberName={setNewMemberName}
+              newMemberRole={newMemberRole}
+              setNewMemberRole={setNewMemberRole}
+              isAddingMember={isAddingMember}
+              addMember={addMember}
+              avatarInputRef={avatarInputRef}
+              handleAvatarUpload={handleAvatarUpload}
+              editingUserId={editingUserId}
+              editingName={editingName}
+              setEditingName={setEditingName}
+              confirmEditName={confirmEditName}
+              cancelEditName={cancelEditName}
+              avatarUploadingUserId={avatarUploadingUserId}
+              openAvatarUpload={openAvatarUpload}
+              avatarVersion={avatarVersion}
+              currentAuthUserId={currentAuthUserId}
+              moveMember={moveMember}
+              startEditName={startEditName}
+              removeMember={removeMember}
+            />
           )}
 
-          {/* ─── TASKS ─── */}
           {activeTab === 'tasks' && (
-            <div className="space-y-5">
-              <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-                        <Icons.ListChecks size={18} className="text-[#4EEDB0]" />
-                      </span>
-                      <h2 className="text-base font-black text-white">{adminCopy.tabs.tasks}</h2>
-                    </div>
-                    <p className="text-sm leading-6 text-white/54">
-                      {lang === 'en' ? 'Choose a member and tune their daily rhythm.' : '멤버별로 매일의 습관, 요일, 시간대, 포인트를 조정합니다.'}
-                    </p>
-                  </div>
-                  {selectedUser && (
-                    <div className="flex items-center gap-2 rounded-lg border border-[#4EEDB0]/20 bg-[#4EEDB0]/10 px-3 py-2 text-sm font-black text-[#4EEDB0]">
-                      <Icons.Sparkles size={15} />
-                      <span>{selectedUser.name}</span>
-                      <span className="text-white/45">{tasks.length}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                  {sortedUsers.map(u => {
-                    const isSelected = selectedUser?.id === u.id;
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => { void loadTasks(u); }}
-                        className={`flex min-h-[var(--touch-target)] shrink-0 items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-black transition-colors ${
-                          isSelected
-                            ? 'border-[#4EEDB0]/45 bg-[#4EEDB0] text-[#07120E]'
-                            : 'border-white/8 bg-[#111224] text-white/64 hover:border-[#5B8EFF]/35 hover:bg-[#5B8EFF]/10 hover:text-white'
-                        }`}
-                      >
-                        <span className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-xs font-black ${
-                          isSelected ? 'bg-[#07120E]/12 text-[#07120E]' : 'bg-white/[0.06] text-white/72'
-                        }`}>
-                          {u.avatarUrl ? (
-                            <Image
-                              src={withAvatarCache(u.avatarUrl, avatarVersion) ?? u.avatarUrl}
-                              alt={u.name}
-                              width={32}
-                              height={32}
-                              referrerPolicy="no-referrer"
-                              className="h-8 w-8 object-cover"
-                            />
-                          ) : (
-                            u.name.charAt(0)
-                          )}
-                        </span>
-                        <span className="max-w-28 truncate">{u.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {selectedUser && (
-                <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-xs font-black uppercase text-[#5B8EFF]">{t('select_user')}</p>
-                      <h2 className="mt-1 truncate text-xl font-black text-white">
-                        {selectedUser.name}{t('user_tasks_suffix')}
-                      </h2>
-                    </div>
-                    <div className="flex h-10 items-center gap-1 rounded-lg border border-white/10 bg-[#111224] p-1">
-                      <span className="h-2.5 w-8 rounded-full bg-[#5B8EFF]" />
-                      <span className="h-2.5 w-8 rounded-full bg-[#FF7BAC]" />
-                      <span className="h-2.5 w-8 rounded-full bg-[#4EEDB0]" />
-                    </div>
-                  </div>
-
-                  <div className="mb-5 space-y-3">
-                    {tasks.map((task, idx) => {
-                      const isActiveTask = task.active === 1;
-                      return (
-                        <div
-                          key={task.id}
-                          className={`rounded-lg border bg-[#1A1B2E] p-3 transition-colors sm:p-4 ${
-                            isActiveTask
-                              ? 'border-white/10 shadow-[0_14px_34px_rgba(0,0,0,0.18)]'
-                              : 'border-white/6 opacity-60'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <button
-                              onClick={() => setIconPickerTaskId(task.id)}
-                              className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#5B8EFF]/24 bg-[#5B8EFF]/10 text-[#8EAFFF] transition-colors hover:border-[#5B8EFF]/50 hover:bg-[#5B8EFF]/16 sm:h-12 sm:w-12"
-                              title={t('icon_change')}
-                              aria-label={t('icon_change')}
-                            >
-                              <LucideIcon name={task.icon} size={20} />
-                            </button>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex min-w-0 items-center gap-2">
-                                {editingTaskId === task.id ? (
-                                  <>
-                                    <input
-                                      type="text"
-                                      value={editingTaskTitle}
-                                      onChange={e => setEditingTaskTitle(e.target.value)}
-                                      onKeyDown={e => {
-                                        if (e.key === 'Enter') confirmEditTask(task.id);
-                                        if (e.key === 'Escape') cancelEditTask();
-                                      }}
-                                      autoFocus
-                                      className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#5B8EFF] bg-[#111224] px-3 text-base font-bold text-white outline-none"
-                                    />
-                                    <button
-                                      onClick={() => confirmEditTask(task.id)}
-                                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26"
-                                      title={t('confirm')}
-                                    >
-                                      <Icons.Check size={18} />
-                                    </button>
-                                    <button
-                                      onClick={cancelEditTask}
-                                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                                      title={adminCopy.cancel}
-                                    >
-                                      <Icons.X size={18} />
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="flex h-6 min-w-6 items-center justify-center rounded-md bg-[#4EEDB0]/14 px-1.5 text-xs font-black text-[#4EEDB0]">
-                                      {idx + 1}
-                                    </span>
-                                    <h3 className="min-w-0 flex-1 truncate text-base font-black text-white">{task.title}</h3>
-                                    <button
-                                      onClick={() => startEditTask(task)}
-                                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
-                                      title={lang === 'en' ? 'Edit habit' : '습관 이름 수정'}
-                                      aria-label={lang === 'en' ? 'Edit habit' : '습관 이름 수정'}
-                                    >
-                                      <Icons.Pencil size={15} />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-
-                              <div className="mt-3 grid gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => moveTask(idx, 'up')}
-                                    disabled={idx === 0}
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111224] text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                                    title={adminCopy.moveUp}
-                                  >
-                                    <Icons.ChevronUp size={17} />
-                                  </button>
-                                  <button
-                                    onClick={() => moveTask(idx, 'down')}
-                                    disabled={idx === tasks.length - 1}
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111224] text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                                    title={adminCopy.moveDown}
-                                  >
-                                    <Icons.ChevronDown size={17} />
-                                  </button>
-                                  <label className="flex h-10 flex-1 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2 md:flex-initial md:w-28">
-                                    <Icons.Coins size={15} className="text-[#FFB830]" />
-                                    <input
-                                      type="number"
-                                      value={task.basePoints}
-                                      onChange={e => setTasks(prev => prev.map(x => x.id === task.id ? { ...x, basePoints: Number(e.target.value) } : x))}
-                                      onBlur={e => updateTaskPoints(task.id, Number(e.target.value))}
-                                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                      min={1}
-                                      max={999}
-                                      className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                                      aria-label={lang === 'en' ? 'Points' : '포인트'}
-                                    />
-                                    <span className="text-xs font-bold text-white/40">pt</span>
-                                  </label>
-                                </div>
-
-                                <div className="grid grid-cols-7 gap-1">
-                                  {ALL_DAYS.map(day => {
-                                    const isOn = task.daysOfWeek.includes(day);
-                                    const isWeekend = day === 'SAT' || day === 'SUN';
-                                    return (
-                                      <button
-                                        key={day}
-                                        onClick={() => toggleDay(task, day)}
-                                        className={`h-9 rounded-lg text-[11px] font-black transition-colors sm:h-10 sm:text-xs ${
-                                          isOn
-                                            ? isWeekend
-                                              ? 'bg-[#FF7BAC] text-[#220610]'
-                                              : 'bg-[#5B8EFF] text-white'
-                                            : 'bg-[#111224] text-white/42 hover:bg-white/[0.07] hover:text-white'
-                                        }`}
-                                        title={day}
-                                      >
-                                        {DAY_LABELS[lang][day]}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => toggleTask(task)}
-                                    className={`flex h-10 flex-1 min-w-20 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-black transition-colors md:flex-initial ${
-                                      isActiveTask
-                                        ? 'bg-[#4EEDB0]/16 text-[#4EEDB0] hover:bg-[#4EEDB0]/22'
-                                        : 'bg-white/[0.055] text-white/42 hover:bg-white/[0.08]'
-                                    }`}
-                                  >
-                                    <Icons.Power size={14} />
-                                    {isActiveTask ? 'ON' : 'OFF'}
-                                  </button>
-                                  <button
-                                    onClick={() => deleteTask(task.id)}
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                                    title={t('delete')}
-                                    aria-label={t('delete')}
-                                  >
-                                    <Icons.Trash2 size={15} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
-                                {([
-                                  { value: 'morning', label: t('morning'), range: '00:00-12:59', icon: Icons.Sun },
-                                  { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '13:00-23:59', icon: Icons.Moon },
-                                ] as const).map(opt => {
-                                  const isActive = selectedTimeWindows(task.timeWindow).includes(opt.value);
-                                  const TimeIcon = opt.icon;
-                                  return (
-                                    <button
-                                      key={String(opt.value)}
-                                      onClick={() => toggleTimeWindow(task, opt.value)}
-                                      className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md px-1.5 text-xs font-black transition-colors ${
-                                        isActive
-                                          ? 'bg-[#4EEDB0] text-[#07120E]'
-                                          : 'text-white/45 hover:bg-white/[0.055] hover:text-white'
-                                      }`}
-                                    >
-                                      <span className="flex min-w-0 items-center gap-1">
-                                        <TimeIcon size={13} />
-                                        <span className="truncate">{opt.label}</span>
-                                      </span>
-                                      <span className={`mt-0.5 text-[9px] font-bold leading-none ${isActive ? 'text-[#07120E]/70' : 'text-white/32'}`}>
-                                        {opt.range}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {tasks.length === 0 && (
-                      <div className="rounded-lg border border-dashed border-white/12 bg-[#111224] px-4 py-8 text-center">
-                        <Icons.ListPlus className="mx-auto mb-2 text-white/34" size={24} />
-                        <p className="text-sm font-bold text-white/50">{t('no_tasks')}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg border border-white/10 bg-[#111224] p-3 sm:p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Icons.PlusCircle size={17} className="text-[#4EEDB0]" />
-                      <h3 className="text-sm font-black text-white">{t('add_task')}</h3>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_88px_auto]">
-                      <input
-                        type="text"
-                        value={newTaskTitle}
-                        onChange={e => setNewTaskTitle(e.target.value)}
-                        disabled={isAddingTask}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void addTask();
-                          }
-                        }}
-                        placeholder={t('task_name_placeholder')}
-                        className="min-h-[var(--touch-target)] min-w-0 rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-base font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
-                      />
-                      <input
-                        type="number"
-                        value={newTaskPoints}
-                        onChange={e => setNewTaskPoints(Number(e.target.value))}
-                        min={1}
-                        max={100}
-                        disabled={isAddingTask}
-                        aria-label={lang === 'en' ? 'Points' : '포인트'}
-                        className="min-h-[var(--touch-target)] rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-center font-black text-white outline-none transition-colors focus:border-[#4EEDB0]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => { void addTask(); }}
-                        disabled={isAddingTask || !newTaskTitle.trim()}
-                        className="inline-flex min-h-[var(--touch-target)] items-center justify-center gap-2 rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36"
-                      >
-                        {isAddingTask ? <Icons.Loader2 size={16} className="animate-spin" /> : <Icons.Plus size={16} />}
-                        {t('add')}
-                      </button>
-                    </div>
-                  </div>
-                </section>
-              )}
-            </div>
+            <AdminTasksPanel
+              selectedUser={selectedUser}
+              sortedUsers={sortedUsers}
+              tasks={tasks}
+              setTasks={setTasks}
+              loadTasks={loadTasks}
+              avatarVersion={avatarVersion}
+              setIconPickerTaskId={setIconPickerTaskId}
+              editingTaskId={editingTaskId}
+              editingTaskTitle={editingTaskTitle}
+              setEditingTaskTitle={setEditingTaskTitle}
+              confirmEditTask={confirmEditTask}
+              cancelEditTask={cancelEditTask}
+              startEditTask={startEditTask}
+              moveTask={moveTask}
+              updateTaskPoints={updateTaskPoints}
+              toggleDay={toggleDay}
+              toggleTask={toggleTask}
+              deleteTask={deleteTask}
+              selectedTimeWindows={selectedTimeWindows}
+              toggleTimeWindow={toggleTimeWindow}
+              newTaskTitle={newTaskTitle}
+              setNewTaskTitle={setNewTaskTitle}
+              newTaskPoints={newTaskPoints}
+              setNewTaskPoints={setNewTaskPoints}
+              isAddingTask={isAddingTask}
+              addTask={addTask}
+            />
           )}
 
-          {/* ─── STORE ─── */}
           {activeTab === 'store' && (
-            <div className="space-y-5">
-              <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1B2E] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-                        <Icons.Store size={18} className="text-[#FF7BAC]" />
-                      </span>
-                      <h2 className="text-base font-black text-white">{t('store_management')}</h2>
-                    </div>
-                    <p className="text-sm leading-6 text-white/54">
-                      {lang === 'en'
-                        ? 'Manage rewards, prices, sales, and stock.'
-                        : '보상, 가격, 세일, 재고를 한 곳에서 관리하세요.'}
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-lg border border-[#FF7BAC]/20 bg-[#FF7BAC]/10 px-3 py-2 text-sm font-black text-[#FFB8CF]">
-                    <Icons.Tags size={15} />
-                    <span>{rewards.length}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  {rewards.map(r => {
-                    const isEditing = editingRewardId === r.id;
-                    const saveStatus = rewardSaveStatus[r.id];
-                    const isSaving = savingRewardId === r.id || saveStatus === 'saving';
-                    const salePct = rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0;
-                    return (
-                      <div
-                        key={r.id}
-                        className={`rounded-lg border bg-[#1A1B2E] p-3 transition-colors sm:p-4 ${
-                          r.is_hidden ? 'border-white/6 opacity-70' : 'border-white/10'
-                        }`}
-                      >
-                        {isEditing ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setRewardIconPickerRewardId(r.id)}
-                                disabled={isSaving}
-                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16 disabled:opacity-50"
-                                title={t('icon_change')}
-                                aria-label={t('icon_change')}
-                              >
-                                <LucideIcon name={r.icon} size={21} />
-                              </button>
-                              <input
-                                type="text"
-                                value={editingRewardTitle}
-                                onChange={e => setEditingRewardTitle(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
-                                autoFocus
-                                className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#FF7BAC] bg-[#111224] px-3 text-base font-bold text-white outline-none"
-                              />
-                              <div className="flex shrink-0 gap-2">
-                                <button
-                                  onClick={() => saveRewardEdit(r.id)}
-                                  disabled={isSaving}
-                                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26 disabled:opacity-50"
-                                  title={t('confirm')}
-                                >
-                                  <Icons.Check size={18} />
-                                </button>
-                                <button
-                                  onClick={() => setEditingRewardId(null)}
-                                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                                  title={adminCopy.cancel}
-                                >
-                                  <Icons.X size={18} />
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                              <label className="flex h-11 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-3">
-                                <Icons.Coins size={15} className="text-[#FFB830]" />
-                                <input
-                                  type="number"
-                                  value={rewardCostDrafts[r.id] ?? r.cost_points}
-                                  onChange={e => setRewardCostDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') void saveRewardEdit(r.id);
-                                    if (e.key === 'Escape') setEditingRewardId(null);
-                                  }}
-                                  min={1}
-                                  className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                                  aria-label={lang === 'en' ? 'Points' : '포인트'}
-                                />
-                                <span className="text-xs font-bold text-white/40">pt</span>
-                              </label>
-                              <label className="flex h-11 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-3">
-                                <Icons.BadgePercent size={15} className="text-[#FF7BAC]" />
-                                <input
-                                  type="number"
-                                  aria-label={lang === 'en' ? 'Discount %' : '할인율 %'}
-                                  value={salePct}
-                                  onChange={e => setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') void saveRewardEdit(r.id);
-                                    if (e.key === 'Escape') setEditingRewardId(null);
-                                  }}
-                                  min={0}
-                                  max={100}
-                                  className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                                />
-                                <span className="text-xs font-bold text-white/40">%</span>
-                              </label>
-                            </div>
-                            <input
-                              type="text"
-                              aria-label={adminCopy.saleLabel}
-                              value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
-                              onChange={e => setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') void saveRewardEdit(r.id);
-                                if (e.key === 'Escape') setEditingRewardId(null);
-                              }}
-                              placeholder={adminCopy.saleLabel}
-                              className="min-h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                            <button
-                              type="button"
-                              onClick={() => setRewardIconPickerRewardId(r.id)}
-                              disabled={isSaving}
-                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16 disabled:opacity-50"
-                              title={t('icon_change')}
-                              aria-label={t('icon_change')}
-                            >
-                              <LucideIcon name={r.icon} size={21} />
-                            </button>
-
-                            <div className="min-w-0 flex-1">
-                              {/* Title row + edit/delete actions */}
-                              <div className="flex min-w-0 items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <h3 className="min-w-0 truncate text-base font-black text-white">{r.title}</h3>
-                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                    {(r.sale_percentage ?? 0) > 0 && (
-                                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
-                                        r.sale_enabled
-                                          ? 'bg-[#FF7BAC]/16 text-[#FFB8CF]'
-                                          : 'bg-white/[0.06] text-white/45'
-                                      }`}>
-                                        <Icons.BadgePercent size={11} />
-                                        {r.sale_enabled
-                                          ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`)
-                                          : `${adminCopy.saleOff} · ${r.sale_percentage}%`}
-                                      </span>
-                                    )}
-                                    {r.is_hidden && (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-black text-white/55">
-                                        <Icons.EyeOff size={11} />
-                                        {adminCopy.hidden}
-                                      </span>
-                                    )}
-                                    {r.is_sold_out && (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-[#FFB830]/16 px-2 py-0.5 text-[11px] font-black text-[#FFB830]">
-                                        <Icons.PackageX size={11} />
-                                        {adminCopy.soldOut}
-                                      </span>
-                                    )}
-                                    {saveStatus === 'saved' && (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[11px] font-black text-[#4EEDB0]">
-                                        <Icons.Check size={11} />
-                                        {lang === 'en' ? 'Saved' : '저장됨'}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex shrink-0 gap-1.5">
-                                  <button
-                                    onClick={() => {
-                                      setEditingRewardId(r.id);
-                                      setEditingRewardTitle(r.title);
-                                      setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
-                                      setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
-                                      setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
-                                    }}
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
-                                    title={lang === 'en' ? 'Edit reward' : '보상 수정'}
-                                    aria-label={lang === 'en' ? 'Edit reward' : '보상 수정'}
-                                  >
-                                    <Icons.Pencil size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteReward(r.id)}
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                                    title={t('delete')}
-                                    aria-label={t('delete')}
-                                  >
-                                    <Icons.Trash2 size={15} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Inline price + sale controls */}
-                              <div className="mt-3 grid gap-2 sm:grid-cols-[120px_120px_minmax(0,1fr)]">
-                                <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
-                                  <Icons.Coins size={15} className="text-[#FFB830]" />
-                                  <input
-                                    type="number"
-                                    value={rewardCostDrafts[r.id] ?? r.cost_points}
-                                    onChange={e => setRewardCostDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                                    onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                      if (e.key === 'Escape') {
-                                        setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
-                                        (e.target as HTMLInputElement).blur();
-                                      }
-                                    }}
-                                    min={1}
-                                    disabled={isSaving}
-                                    className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                                    aria-label={lang === 'en' ? 'Points' : '포인트'}
-                                  />
-                                  <span className="text-xs font-bold text-white/40">pt</span>
-                                </label>
-                                <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
-                                  <Icons.BadgePercent size={15} className="text-[#FF7BAC]" />
-                                  <input
-                                    type="number"
-                                    aria-label={lang === 'en' ? 'Discount %' : '할인율 %'}
-                                    value={salePct}
-                                    onChange={e => setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                                    onBlur={e => {
-                                      void updateRewardSale(
-                                        r.id,
-                                        Number(e.target.value),
-                                        rewardSaleNameDrafts[r.id] ?? r.sale_name ?? '',
-                                      );
-                                    }}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                      if (e.key === 'Escape') {
-                                        setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
-                                        (e.target as HTMLInputElement).blur();
-                                      }
-                                    }}
-                                    min={0}
-                                    max={100}
-                                    disabled={isSaving}
-                                    className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                                  />
-                                  <span className="text-xs font-bold text-white/40">%</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  aria-label={adminCopy.saleLabel}
-                                  value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
-                                  onChange={e => setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
-                                  onBlur={e => {
-                                    void updateRewardSale(
-                                      r.id,
-                                      rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0,
-                                      e.target.value,
-                                    );
-                                  }}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                    if (e.key === 'Escape') {
-                                      setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
-                                      (e.target as HTMLInputElement).blur();
-                                    }
-                                  }}
-                                  placeholder={adminCopy.saleLabel}
-                                  disabled={isSaving}
-                                  className="min-h-10 rounded-lg border border-white/8 bg-[#111224] px-3 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
-                                />
-                              </div>
-
-                              {/* Toggles */}
-                              <div className="mt-3 grid grid-cols-3 gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => { void updateRewardFlags(r.id, { sale_enabled: !r.sale_enabled }); }}
-                                  disabled={isSaving}
-                                  className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
-                                    r.sale_enabled
-                                      ? 'bg-[#FF7BAC] text-[#220610]'
-                                      : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
-                                  }`}
-                                >
-                                  <Icons.BadgePercent size={13} />
-                                  {lang === 'en' ? 'Sale' : '세일'} {r.sale_enabled ? 'ON' : 'OFF'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => { void updateRewardFlags(r.id, { is_hidden: !r.is_hidden }); }}
-                                  disabled={isSaving}
-                                  className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
-                                    r.is_hidden
-                                      ? 'bg-white/[0.12] text-white'
-                                      : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
-                                  }`}
-                                >
-                                  {r.is_hidden ? <Icons.EyeOff size={13} /> : <Icons.Eye size={13} />}
-                                  {r.is_hidden ? adminCopy.hidden : adminCopy.visible}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => { void updateRewardFlags(r.id, { is_sold_out: !r.is_sold_out }); }}
-                                  disabled={isSaving}
-                                  className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
-                                    r.is_sold_out
-                                      ? 'bg-[#FFB830] text-[#221606]'
-                                      : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
-                                  }`}
-                                >
-                                  {r.is_sold_out ? <Icons.PackageX size={13} /> : <Icons.Package size={13} />}
-                                  {r.is_sold_out ? adminCopy.soldOut : adminCopy.inStock}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {rewards.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-white/12 bg-[#111224] px-4 py-8 text-center">
-                      <Icons.Gift className="mx-auto mb-2 text-white/34" size={24} />
-                      <p className="text-sm font-bold text-white/50">{t('no_rewards_registered')}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Add new reward */}
-                <div className="mt-5 rounded-lg border border-white/10 bg-[#111224] p-3 sm:p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Icons.PlusCircle size={17} className="text-[#FF7BAC]" />
-                    <h3 className="text-sm font-black text-white">{t('add_new_reward')}</h3>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-[44px_minmax(0,1fr)_88px_auto]">
-                    <button
-                      onClick={() => setRewardIconPickerOpen(true)}
-                      className="flex h-11 w-full items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16"
-                      title={t('icon_select')}
-                      aria-label={t('icon_select')}
-                    >
-                      <LucideIcon name={newRewardIcon} size={20} />
-                    </button>
-                    <input
-                      type="text"
-                      value={newRewardTitle}
-                      onChange={e => setNewRewardTitle(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && addReward()}
-                      placeholder={t('reward_name_placeholder')}
-                      className="min-h-[var(--touch-target)] min-w-0 rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-base font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
-                    />
-                    <input
-                      type="number"
-                      value={newRewardPoints}
-                      onChange={e => setNewRewardPoints(Number(e.target.value))}
-                      min={1}
-                      aria-label={lang === 'en' ? 'Points' : '포인트'}
-                      className="min-h-[var(--touch-target)] rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-center font-black text-white outline-none transition-colors focus:border-[#FF7BAC]"
-                    />
-                    <button
-                      onClick={addReward}
-                      className="inline-flex min-h-[var(--touch-target)] items-center justify-center gap-2 rounded-lg bg-[#FF7BAC] px-4 text-sm font-black text-[#220610] transition-colors hover:bg-[#FF99BF]"
-                    >
-                      <Icons.Plus size={16} />
-                      {t('add')}
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              <RewardHistoryPanel
-                lang={lang}
-                copy={{
-                  rewardHistory: adminCopy.rewardHistory,
-                  refresh: adminCopy.refresh,
-                  refunded: adminCopy.refunded,
-                  refund: adminCopy.refund,
-                  refundComplete: adminCopy.refundComplete,
-                  processing: adminCopy.processing,
-                  noPurchases: adminCopy.noPurchases,
-                  sharedPayment: adminCopy.sharedPayment,
-                  sharedWith: adminCopy.sharedWith,
-                  sharedBuyer: adminCopy.sharedBuyer,
-                }}
-                redemptions={rewardRedemptions}
-                refundInFlightId={refundInFlightId}
-                onRefresh={loadRewardRedemptions}
-                onRefund={refundRedemption}
-              />
-            </div>
+            <AdminStorePanel
+              rewards={rewards}
+              editingRewardId={editingRewardId}
+              setEditingRewardId={setEditingRewardId}
+              editingRewardTitle={editingRewardTitle}
+              setEditingRewardTitle={setEditingRewardTitle}
+              savingRewardId={savingRewardId}
+              rewardSaveStatus={rewardSaveStatus}
+              rewardCostDrafts={rewardCostDrafts}
+              setRewardCostDrafts={setRewardCostDrafts}
+              rewardSalePercentageDrafts={rewardSalePercentageDrafts}
+              setRewardSalePercentageDrafts={setRewardSalePercentageDrafts}
+              rewardSaleNameDrafts={rewardSaleNameDrafts}
+              setRewardSaleNameDrafts={setRewardSaleNameDrafts}
+              setRewardIconPickerRewardId={setRewardIconPickerRewardId}
+              saveRewardEdit={saveRewardEdit}
+              deleteReward={deleteReward}
+              updateRewardCost={updateRewardCost}
+              updateRewardSale={updateRewardSale}
+              updateRewardFlags={updateRewardFlags}
+              newRewardIcon={newRewardIcon}
+              setRewardIconPickerOpen={setRewardIconPickerOpen}
+              newRewardTitle={newRewardTitle}
+              setNewRewardTitle={setNewRewardTitle}
+              newRewardPoints={newRewardPoints}
+              setNewRewardPoints={setNewRewardPoints}
+              addReward={addReward}
+              rewardRedemptions={rewardRedemptions}
+              refundInFlightId={refundInFlightId}
+              rewardProcessInFlightId={rewardProcessInFlightId}
+              loadRewardRedemptions={loadRewardRedemptions}
+              refundRedemption={refundRedemption}
+              markRewardProcessed={markRewardProcessed}
+            />
           )}
         </div>
 

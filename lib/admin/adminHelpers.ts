@@ -19,6 +19,9 @@ export interface RewardRedemption {
   reward_icon: string;
   cost_charged: number;
   redeemed_at: string;
+  processed_at?: string | null;
+  processed_by?: string | null;
+  processed_by_name?: string | null;
   refunded_at?: string | null;
   refunded_by?: string | null;
   refund_reason?: string | null;
@@ -66,6 +69,9 @@ export function mapRewardRedemption(row: Record<string, unknown>): RewardRedempt
     reward_icon: (row.reward_icon ?? 'gift') as string,
     cost_charged: Number(row.cost_charged ?? 0),
     redeemed_at: row.redeemed_at as string,
+    processed_at: (row.processed_at as string | null) ?? null,
+    processed_by: (row.processed_by as string | null) ?? null,
+    processed_by_name: (row.processed_by_name as string | null) ?? null,
     refunded_at: (row.refunded_at as string | null) ?? null,
     refunded_by: (row.refunded_by as string | null) ?? null,
     refund_reason: (row.refund_reason as string | null) ?? null,
@@ -77,6 +83,14 @@ export function mapRewardRedemption(row: Record<string, unknown>): RewardRedempt
     joint_user2_name: (row.joint_user2_name as string | null) ?? null,
     joint_user2_amount: Number(row.joint_user2_amount ?? 0),
   };
+}
+
+export type RewardRedemptionStatus = 'pending' | 'processed' | 'refunded';
+
+export function rewardRedemptionStatus(redemption: RewardRedemption): RewardRedemptionStatus {
+  if (redemption.refunded_at) return 'refunded';
+  if (redemption.processed_at) return 'processed';
+  return 'pending';
 }
 
 export function buildRefundPrompt(redemption: RewardRedemption, lang: Lang): string {

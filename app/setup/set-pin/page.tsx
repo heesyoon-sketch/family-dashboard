@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LockKeyhole, LogOut } from 'lucide-react';
 import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { getCurrentFamilyAdminPinHash, saveAdminPin } from '@/lib/adminPin';
 
 function getPinErrorMessage(error: unknown): string {
@@ -85,7 +86,7 @@ export default function SetPinPage() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
-    localStorage.clear();
+    clearFamilySessionStorage();
     router.replace('/login');
   };
 

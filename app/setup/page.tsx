@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, LogOut, Plus, Ticket } from 'lucide-react';
 import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -164,7 +165,7 @@ export default function SetupPage() {
   const handleLogout = async () => {
     const supabase = createBrowserSupabase();
     await supabase.auth.signOut();
-    localStorage.clear();
+    clearFamilySessionStorage();
     router.replace('/login');
   };
 
