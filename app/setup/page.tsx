@@ -8,6 +8,7 @@ import { ArrowLeft, LogOut, Plus, Ticket } from 'lucide-react';
 import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface GoogleUser {
   email: string;
@@ -33,12 +34,42 @@ function getSetupErrorMessage(error: unknown): string {
 
 export default function SetupPage() {
   const router = useRouter();
+  const { lang } = useLanguage();
   const [step, setStep] = useState<Step>('choose');
   const [familyName, setFamilyName] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
+  const copy = lang === 'en'
+    ? {
+        chooseTitle: 'Set up your family space',
+        createTitle: 'Create a new family space',
+        chooseDescription: 'Create a family space or join one with an invitation code to begin.',
+        createDescription: 'Enter a family name and we will preload sample members, habits, and rewards.',
+        join: 'Join with invitation code',
+        create: 'Create our family space',
+        helper: 'If you are not the family admin, you will need an invitation code.',
+        back: 'Back',
+        placeholder: 'e.g. The Kim Family, Our Family',
+        creating: 'Creating...',
+        start: 'Start dashboard',
+        logout: 'Log out',
+      }
+    : {
+        chooseTitle: '가족 공간 설정',
+        createTitle: '새 가족 공간 만들기',
+        chooseDescription: 'FamBit을 시작하려면 가족 공간을 만들거나 이미 받은 초대 코드로 합류하세요.',
+        createDescription: '가족 이름을 입력하면 예시 멤버, 습관, 보상이 자동으로 채워집니다.',
+        join: '초대 코드로 합류하기',
+        create: '우리 가족 공간 새로 만들기',
+        helper: '가족 관리자가 아니라면 초대 코드가 필요합니다.',
+        back: '뒤로',
+        placeholder: '예: 김씨 가족, Our Family',
+        creating: '생성 중...',
+        start: '대시보드 시작하기',
+        logout: '로그아웃',
+      };
 
   useEffect(() => {
     const check = async () => {
@@ -142,11 +173,11 @@ export default function SetupPage() {
   return (
     <FamBitAuthShell
       eyebrow="Setup"
-      title={step === 'choose' ? '가족 공간 설정' : '새 가족 공간 만들기'}
+      title={step === 'choose' ? copy.chooseTitle : copy.createTitle}
       description={
         step === 'choose'
-          ? 'FamBit을 시작하려면 가족 공간을 만들거나 이미 받은 초대 코드로 합류하세요.'
-          : '가족 이름을 입력하면 예시 멤버, 습관, 보상이 자동으로 채워집니다.'
+          ? copy.chooseDescription
+          : copy.createDescription
       }
     >
       <div className="space-y-4">
@@ -184,7 +215,7 @@ export default function SetupPage() {
             className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#FF7BAC]/30 bg-[#FF7BAC]/10 text-sm font-bold text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/12"
           >
             <LogOut size={15} />
-            로그아웃
+            {copy.logout}
           </button>
         )}
 
@@ -195,7 +226,7 @@ export default function SetupPage() {
               className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0]"
             >
               <Ticket size={17} />
-              초대 코드로 합류하기
+              {copy.join}
             </Link>
 
             <button
@@ -203,11 +234,11 @@ export default function SetupPage() {
               className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.055] px-4 text-sm font-black text-white transition-colors hover:bg-white/10"
             >
               <Plus size={17} />
-              우리 가족 공간 새로 만들기
+              {copy.create}
             </button>
 
             <p className="text-center text-xs leading-5 text-white/42">
-              가족 관리자가 아니라면 초대 코드가 필요합니다.
+              {copy.helper}
             </p>
           </>
         )}
@@ -219,7 +250,7 @@ export default function SetupPage() {
               className="flex items-center gap-2 text-sm font-bold text-white/52 transition-colors hover:text-white"
             >
               <ArrowLeft size={16} />
-              뒤로
+              {copy.back}
             </button>
 
             <input
@@ -227,7 +258,7 @@ export default function SetupPage() {
               value={familyName}
               onChange={e => setFamilyName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') void handleCreate(); }}
-              placeholder="예: 김씨 가족, Our Family"
+              placeholder={copy.placeholder}
               autoFocus
               maxLength={40}
               className="h-12 w-full rounded-lg border border-white/10 bg-[#111224] px-4 text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
@@ -244,7 +275,7 @@ export default function SetupPage() {
               disabled={!familyName.trim() || loading}
               className="h-12 w-full rounded-lg bg-[#4EEDB0] text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:bg-white/[0.055] disabled:text-white/36"
             >
-              {loading ? '생성 중...' : '대시보드 시작하기'}
+              {loading ? copy.creating : copy.start}
             </button>
           </>
         )}

@@ -7,6 +7,7 @@ import { ArrowLeft, LogIn, Ticket } from 'lucide-react';
 import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
 import type { UserRole } from '@/lib/db';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface JoinMemberOption {
   id: string;
@@ -26,6 +27,7 @@ interface JoinResult {
 
 export default function JoinFamilyPage() {
   const router = useRouter();
+  const { lang } = useLanguage();
   const [inviteCode, setInviteCode] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('CHILD');
@@ -35,6 +37,39 @@ export default function JoinFamilyPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
+  const copy = lang === 'en'
+    ? {
+        joinTitle: 'Join with invitation code',
+        linkTitle: 'Link your family profile',
+        withGoogle: (email: string) => `Enter the invitation code sent to ${email}.`,
+        guestDescription: 'Enter an invitation code and name to use FamBit on this device right away.',
+        chooseProfile: 'Choose the family profile this invite should connect to.',
+        inviteCode: 'Invite code',
+        name: 'Name',
+        yourName: 'Your name',
+        parent: 'Parent',
+        child: 'Child',
+        whoAreYou: 'Who are you?',
+        alreadyLinked: 'already linked',
+        cannotJoin: 'Could not join. Check the code or ask the admin for a fresh invitation.',
+        cannotLink: 'Could not link that profile. It may already be connected.',
+      }
+    : {
+        joinTitle: '초대 코드로 참여',
+        linkTitle: '가족 프로필 연결',
+        withGoogle: (email: string) => `${email} 계정으로 받은 초대 코드를 입력하세요.`,
+        guestDescription: '초대 코드와 이름만 입력하면 이 기기에서 바로 FamBit 대시보드를 사용할 수 있습니다.',
+        chooseProfile: '초대 코드에 연결할 가족 프로필을 선택하세요.',
+        inviteCode: 'Invite code',
+        name: 'Name',
+        yourName: 'Your name',
+        parent: 'Parent',
+        child: 'Child',
+        whoAreYou: 'Who are you? / 이 중 누구신가요?',
+        alreadyLinked: 'already linked',
+        cannotJoin: '참여할 수 없습니다. 코드를 확인하거나 관리자에게 다시 요청해주세요.',
+        cannotLink: '프로필을 연결할 수 없습니다. 이미 연결된 프로필인지 확인해주세요.',
+      };
 
   useEffect(() => {
     const checkExistingSession = async () => {
@@ -95,7 +130,7 @@ export default function JoinFamilyPage() {
       router.replace('/');
     } catch (e) {
       console.error(e);
-      setError('참여할 수 없습니다. 코드를 확인하거나 관리자에게 다시 요청해주세요.');
+      setError(copy.cannotJoin);
       setLoading(false);
     }
   };
@@ -126,7 +161,7 @@ export default function JoinFamilyPage() {
       router.replace('/');
     } catch (e) {
       console.error(e);
-      setError('프로필을 연결할 수 없습니다. 이미 연결된 프로필인지 확인해주세요.');
+      setError(copy.cannotLink);
       setLoading(false);
     }
   };
@@ -138,20 +173,20 @@ export default function JoinFamilyPage() {
   return (
     <FamBitAuthShell
       eyebrow="Invite"
-      title={memberOptions.length === 0 ? '초대 코드로 참여' : '가족 프로필 연결'}
+      title={memberOptions.length === 0 ? copy.joinTitle : copy.linkTitle}
       description={
         memberOptions.length === 0
           ? googleEmail
-            ? `${googleEmail} 계정으로 받은 초대 코드를 입력하세요.`
-            : '초대 코드와 이름만 입력하면 이 기기에서 바로 FamBit 대시보드를 사용할 수 있습니다.'
-          : '초대 코드에 연결할 가족 프로필을 선택하세요.'
+            ? copy.withGoogle(googleEmail)
+            : copy.guestDescription
+          : copy.chooseProfile
       }
     >
       <div className="space-y-4">
         {memberOptions.length === 0 ? (
           <div className="space-y-3 text-left">
             <label className="block">
-              <span className="mb-1.5 block text-xs font-black uppercase text-white/42">Invite code</span>
+              <span className="mb-1.5 block text-xs font-black uppercase text-white/42">{copy.inviteCode}</span>
               <input
                 value={inviteCode}
                 onChange={e => setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
@@ -164,12 +199,12 @@ export default function JoinFamilyPage() {
             {!googleEmail && (
               <>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-black uppercase text-white/42">Name</span>
+                  <span className="mb-1.5 block text-xs font-black uppercase text-white/42">{copy.name}</span>
                   <input
                     value={name}
                     onChange={e => setName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') void handleJoin(); }}
-                    placeholder="Your name"
+                    placeholder={copy.yourName}
                     maxLength={32}
                     className="h-12 w-full rounded-lg border border-white/10 bg-[#111224] px-4 text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
                   />
@@ -187,7 +222,7 @@ export default function JoinFamilyPage() {
                           : 'border border-white/10 bg-white/[0.045] text-white/54 hover:bg-white/10 hover:text-white',
                       ].join(' ')}
                     >
-                      {nextRole === 'PARENT' ? 'Parent' : 'Child'}
+                      {nextRole === 'PARENT' ? copy.parent : copy.child}
                     </button>
                   ))}
                 </div>
@@ -196,7 +231,7 @@ export default function JoinFamilyPage() {
           </div>
         ) : (
           <div className="space-y-3 text-left">
-            <p className="text-sm font-bold text-white">Who are you? / 이 중 누구신가요?</p>
+            <p className="text-sm font-bold text-white">{copy.whoAreYou}</p>
             <div className="space-y-2">
               {memberOptions.map(member => (
                 <button
@@ -214,8 +249,8 @@ export default function JoinFamilyPage() {
                 >
                   <span className="block font-black">{member.name}</span>
                   <span className="text-xs text-white/42">
-                    {member.role === 'PARENT' ? 'Parent' : 'Child'}
-                    {member.claimed ? ' · already linked' : ''}
+                    {member.role === 'PARENT' ? copy.parent : copy.child}
+                    {member.claimed ? ` · ${copy.alreadyLinked}` : ''}
                   </span>
                 </button>
               ))}

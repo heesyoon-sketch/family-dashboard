@@ -113,9 +113,9 @@ function HarmonyStatesDialog({
         </h2>
         <p className="mt-1 text-sm leading-snug text-white/65">
           Harmony measures how the family moves together over the last week. It mixes
-          how many of you show up on the same days with how much of each member's own
+          how many of you show up on the same days with how much of each member&apos;s own
           schedule they finished — fair across members with different numbers of habits.
-          A quiet sibling never lowers anyone else's score; it only goes up when more
+          A quiet sibling never lowers anyone else&apos;s score; it only goes up when more
           members join the rhythm.
         </p>
 
@@ -190,7 +190,7 @@ function HarmonyStatesDialog({
         </ul>
 
         <p className="mt-4 text-[11px] leading-snug text-white/45">
-          Bonuses stack with each member's Momentum and equipped shield loadout, capped
+          Bonuses stack with each member&apos;s Momentum and equipped shield loadout, capped
           at +50% total.
         </p>
       </motion.div>

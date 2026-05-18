@@ -12,6 +12,7 @@ import { playCompletionSound, playUndoSound } from '@/lib/sound';
 import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { toast } from 'sonner';
 
 const SWIPE_TRIGGER_PX = 54;
 const SWIPE_LIMIT_PX = 88;
@@ -91,7 +92,25 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         await undoCompletion(task.userId, task.id);
       } else {
         triggerEffects(clientX, clientY);
-        await markCompleted(task.userId, task.id);
+        const feedback = await markCompleted(task.userId, task.id);
+        if (feedback?.status === 'queued') {
+          toast.message(lang === 'en' ? 'Saved offline' : '오프라인에 저장됨', {
+            description: lang === 'en'
+              ? 'This completion will sync automatically when the connection returns.'
+              : '연결이 돌아오면 이 완료 기록이 자동으로 동기화됩니다.',
+          });
+        }
+        if (feedback?.status === 'awarded') {
+          const bonusPoints = Math.max(0, feedback.pointsAwarded - feedback.basePoints);
+          const detail = bonusPoints > 0
+            ? (lang === 'en'
+                ? `${feedback.basePoints} base + ${bonusPoints} bonus · Momentum ${feedback.bonus.momentumPercent}% · Harmony ${feedback.bonus.harmonyPercent}% · Shields ${feedback.bonus.loadoutPercent}%`
+                : `기본 ${feedback.basePoints} + 보너스 ${bonusPoints} · 모멘텀 ${feedback.bonus.momentumPercent}% · 하모니 ${feedback.bonus.harmonyPercent}% · 쉴드 ${feedback.bonus.loadoutPercent}%`)
+            : (lang === 'en'
+                ? `${feedback.basePoints} base points`
+                : `기본 ${feedback.basePoints}점`);
+          toast.success(`+${feedback.pointsAwarded}pt`, { description: detail });
+        }
       }
     } finally {
       setBusy(false);
@@ -151,6 +170,9 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
     : 'ring-[var(--task-card-border)]';
   const completedClass = completed ? 'opacity-60 saturate-50 grayscale-[0.35]' : '';
   const glowStyle: React.CSSProperties = {};
+  const toggleLabel = completed
+    ? (lang === 'en' ? `Undo ${task.title}` : `${task.title} 취소`)
+    : (lang === 'en' ? `Complete ${task.title}` : `${task.title} 완료`);
 
   return (
     <div className="relative h-full w-full">
@@ -190,12 +212,24 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         dragMomentum={false}
         dragTransition={{ bounceStiffness: 380, bounceDamping: 26 }}
         onDragEnd={handleDragEnd}
+        onKeyDown={event => {
+          if (disabled || busy) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            void fireComplete();
+          }
+        }}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        aria-pressed={completed}
+        aria-label={toggleLabel}
         style={{ x, rotate: cardRotate, scale: cardScale, touchAction: 'pan-y', ...glowStyle }}
         whileTap={disabled ? undefined : { scale: 0.97 }}
         className={[
           'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
           'px-3.5 py-2.5 flex items-center gap-3 md:px-2.5 md:py-2 md:gap-2',
-          disabled ? 'cursor-not-allowed opacity-50 saturate-75' : 'cursor-grab active:cursor-grabbing',
+          disabled ? 'cursor-not-allowed opacity-50 saturate-75' : 'cursor-grab active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)] transition-[opacity,filter] duration-200',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,

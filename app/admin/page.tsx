@@ -438,6 +438,7 @@ export default function AdminPage() {
   const [pinChanging, setPinChanging] = useState(false);
   const [deletingFamily, setDeletingFamily] = useState(false);
   const [leavingFamily, setLeavingFamily] = useState(false);
+  const [exportingSnapshot, setExportingSnapshot] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'family' | 'tasks' | 'store'>('settings');
@@ -518,6 +519,17 @@ export default function AdminPage() {
         : `${a} ${ap}pt + ${b} ${bp}pt`,
     sharedBuyer: (a: string, b: string) =>
       lang === 'en' ? `${a} with ${b}` : `${a} · ${b} 공동 구매`,
+    parentOnlyAdmin: lang === 'en'
+      ? 'Admin controls are parent-only. Invite codes let someone join the family; they do not grant admin access.'
+      : '관리자 기능은 부모 전용입니다. 초대 코드는 가족 참여만 허용하며 관리자 권한은 주지 않습니다.',
+    dataTrust: lang === 'en' ? 'Data & Trust' : '데이터와 신뢰',
+    dataTrustBody: lang === 'en'
+      ? 'Export a snapshot before major changes, then act with confidence. Deletion stays permanent; exports stay on your device.'
+      : '큰 변경 전에 스냅샷을 내려받아 더 안심하고 작업하세요. 삭제는 영구적이고, 내보낸 파일은 기기에만 저장됩니다.',
+    exportSnapshot: lang === 'en' ? 'Export family snapshot' : '가족 스냅샷 내보내기',
+    exportingSnapshot: lang === 'en' ? 'Exporting…' : '내보내는 중…',
+    exportSnapshotDone: lang === 'en' ? 'Family snapshot downloaded' : '가족 스냅샷을 내려받았습니다',
+    exportSnapshotFailed: lang === 'en' ? 'Could not export family snapshot' : '가족 스냅샷을 내보낼 수 없습니다',
   };
 
   async function loadRewardRedemptions() {
@@ -758,6 +770,66 @@ export default function AdminPage() {
     if (!familyInviteCode) return;
     await navigator.clipboard.writeText(familyInviteCode);
     toast.success('Invitation code copied');
+  };
+
+  const exportFamilySnapshot = async () => {
+    if (!familyId || exportingSnapshot) return;
+    setExportingSnapshot(true);
+    try {
+      const supabase = createBrowserSupabase();
+      const userIds = allUsers.map(user => user.id);
+      const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
+      const [
+        tasksRes,
+        rewardsRes,
+        levelsRes,
+        streaksRes,
+        completionsRes,
+        activitiesRes,
+      ] = await Promise.all([
+        supabase.from('tasks').select('*').eq('family_id', familyId).is('deleted_at', null).order('sort_order'),
+        supabase.from('rewards').select('*').eq('family_id', familyId).is('deleted_at', null).order('cost_points'),
+        supabase.from('levels').select('*').in('user_id', safeIds),
+        supabase.from('streaks').select('*').in('user_id', safeIds),
+        supabase.from('task_completions').select('*').in('user_id', safeIds).order('completed_at', { ascending: false }),
+        supabase.from('family_activities').select('*').eq('family_id', familyId).order('created_at', { ascending: false }),
+      ]);
+
+      const firstError = [
+        tasksRes.error,
+        rewardsRes.error,
+        levelsRes.error,
+        streaksRes.error,
+        completionsRes.error,
+        activitiesRes.error,
+      ].find(Boolean);
+      if (firstError) throw firstError;
+
+      const snapshot = {
+        exportedAt: new Date().toISOString(),
+        family: { id: familyId, name: familyName, inviteCode: familyInviteCode },
+        users: allUsers,
+        tasks: tasksRes.data ?? [],
+        rewards: rewardsRes.data ?? [],
+        levels: levelsRes.data ?? [],
+        streaks: streaksRes.data ?? [],
+        completions: completionsRes.data ?? [],
+        activities: activitiesRes.data ?? [],
+      };
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `fambit-family-snapshot-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(adminCopy.exportSnapshotDone);
+    } catch (error) {
+      console.error(error);
+      toast.error(adminCopy.exportSnapshotFailed);
+    } finally {
+      setExportingSnapshot(false);
+    }
   };
 
   const generateInviteCode = async () => {
@@ -1853,6 +1925,9 @@ export default function AdminPage() {
                     ↑ {adminCopy.noInviteCode}
                   </p>
                 )}
+                <p className="mt-3 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-xs leading-5 text-white/48">
+                  {adminCopy.parentOnlyAdmin}
+                </p>
               </div>
 
               {/* Language */}
@@ -1950,6 +2025,24 @@ export default function AdminPage() {
                   className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#FFB830]/30 bg-[#FFB830]/10 px-4 text-sm font-bold text-[#FFE0A0] transition-colors hover:bg-[#FFB830]/15"
                 >
                   {t('reset_full')}
+                </button>
+              </div>
+
+              {/* Data export / trust */}
+              <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Icons.ShieldCheck size={18} className="text-[#5B8EFF]" />
+                  <h2 className="text-base font-black text-white">{adminCopy.dataTrust}</h2>
+                </div>
+                <p className="text-sm leading-6 text-white/54">{adminCopy.dataTrustBody}</p>
+                <button
+                  type="button"
+                  onClick={() => { void exportFamilySnapshot(); }}
+                  disabled={exportingSnapshot}
+                  className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#5B8EFF]/35 bg-[#5B8EFF]/12 px-4 text-sm font-black text-[#B9CBFF] transition hover:bg-[#5B8EFF]/18 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+                >
+                  <Icons.Download size={16} />
+                  {exportingSnapshot ? adminCopy.exportingSnapshot : adminCopy.exportSnapshot}
                 </button>
               </div>
 

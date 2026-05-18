@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
 import type { AchievementProgress } from './achievements/engine';
-import { calculateMomentum, calculateHarmony, composeBonusPercent, loadoutBonusFromIds, type MomentumResult, type HarmonyResult } from './progression';
+import {
+  calculateMomentum,
+  calculateHarmony,
+  composeBonusPercent,
+  loadoutBonusFromIds,
+  type BonusBreakdown,
+  type MomentumResult,
+  type HarmonyResult,
+} from './progression';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
 import {
@@ -62,6 +70,20 @@ export type Celebration =
   | { type: 'level_up'; userId: string; newLevel: number }
   | { type: 'badge';    userId: string; badge: Badge };
 
+export type CompletionFeedback =
+  | {
+      status: 'awarded';
+      taskId: string;
+      basePoints: number;
+      pointsAwarded: number;
+      bonus: BonusBreakdown;
+    }
+  | {
+      status: 'queued';
+      taskId: string;
+      basePoints: number;
+    };
+
 export type TimeOfDay = TimeWindow;
 
 function addDays(d: Date, n: number): Date {
@@ -96,6 +118,7 @@ interface FamilyState {
   familyName: string | null;
   users: User[];
   rewards: Reward[];
+  activeTaskCount: number;
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
   tasksByUser: Record<string, Task[]>;
@@ -127,7 +150,7 @@ interface FamilyState {
 
   hydrate: () => Promise<void>;
   _hydrateOnce: () => Promise<void>;
-  markCompleted: (userId: string, taskId: string) => Promise<void>;
+  markCompleted: (userId: string, taskId: string) => Promise<CompletionFeedback | null>;
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
@@ -239,6 +262,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyName: null,
   users: [],
   rewards: [],
+  activeTaskCount: 0,
   currentMemberId: null,
   currentMemberCanAdmin: false,
   tasksByUser: {},
@@ -297,6 +321,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyName: null,
         users: [],
         rewards: [],
+        activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
         tasksByUser: {},
@@ -338,6 +363,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyName: null,
         users: [],
         rewards: [],
+        activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
         tasksByUser: {},
@@ -418,6 +444,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       createdAt: new Date(r.created_at),
     }));
     const rewards: Reward[] = (rRes.data ?? []).map(r => mapRewardRow(r as Record<string, unknown>));
+    const activeTaskCount = (tRes.data ?? []).filter(task => task.active === 1).length;
     const currentMember = users.find(u => u.authUserId === user.id) ?? null;
     const currentMemberId = currentMember?.id ?? null;
     const currentMemberCanAdmin = currentMember?.role === 'PARENT';
@@ -697,6 +724,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       familyName,
       users,
       rewards,
+      activeTaskCount,
       currentMemberId,
       currentMemberCanAdmin,
       tasksByUser,
@@ -804,11 +832,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
   markCompleted: async (userId, taskId) => {
     const mutationKey = taskMutationKey(userId, taskId);
-    if (_taskMutationsInFlight.has(mutationKey)) return;
-    if ((get().todayCompletions[userId] ?? []).includes(taskId)) return;
+    if (_taskMutationsInFlight.has(mutationKey)) return null;
+    if ((get().todayCompletions[userId] ?? []).includes(taskId)) return null;
     _taskMutationsInFlight.add(mutationKey);
 
     try {
+      const task = (get().tasksByUser[userId] ?? []).find(candidate => candidate.id === taskId);
+      const basePoints = task?.basePoints ?? 0;
+
       // Optimistic: mark as done immediately so the UI feels instant.
       set(state => ({
         todayCompletions: {
@@ -819,13 +850,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
       if (!isProbablyOnline()) {
         await enqueueTaskAction('complete', userId, taskId);
-        return;
+        return { status: 'queued', taskId, basePoints };
       }
 
       // Compose the loadout + momentum + harmony bonus on the client and
       // hand it to the RPC. The server clamps to 50% so a stale or tampered
       // client can never inflate points beyond the design ceiling (1.5×).
-      let bonusPercent = 0;
+      let bonus = composeBonusPercent({
+        momentumPercent: 0,
+        harmonyPercent: 0,
+        loadoutPercent: 0,
+      });
       try {
         const familyId = get().familyId;
         if (familyId) {
@@ -837,11 +872,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           const loadoutPct = loadoutBonusFromIds(equipped, unlocked);
           const momentumPct = get().momentumByUser[userId]?.bonusPercent ?? 0;
           const harmonyPct = get().harmony?.bonusPercent ?? 0;
-          bonusPercent = composeBonusPercent({
+          bonus = composeBonusPercent({
             momentumPercent: momentumPct,
             harmonyPercent: harmonyPct,
             loadoutPercent: loadoutPct,
-          }).totalPercent;
+          });
         }
       } catch (error) {
         console.warn('[bonus] failed to compose, sending 0%', error);
@@ -850,13 +885,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       let result;
       try {
         const { processCompletion } = await import('./gamification');
-        result = await processCompletion(userId, taskId, false, new Date(), bonusPercent);
-        console.log('[completion] bonus%', bonusPercent, '→ awarded', result.pointsAwarded, 'pts');
+        result = await processCompletion(userId, taskId, false, new Date(), bonus.totalPercent);
+        console.log('[completion] bonus%', bonus.totalPercent, '→ awarded', result.pointsAwarded, 'pts');
       } catch (error) {
         await enqueueTaskAction('complete', userId, taskId);
         console.warn('Queued completion for offline sync', error);
         await get().hydrate();
-        return;
+        return { status: 'queued', taskId, basePoints };
       }
 
       // Overwrite with exact backend values; no local arithmetic.
@@ -884,32 +919,41 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
       try {
         const familyId = get().familyId;
-        if (!familyId) return;
-        const { syncAchievements } = await import('./achievements/storage');
-        const achievementResult = await syncAchievements({
-          familyId,
-          children: get().users,
-          tasksByUser: get().tasksByUser,
-          levelsByUser: get().levelsByUser,
-          awardNew: true,
-        });
-        if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
-          set(state => ({
-            levelsByUser: {
-              ...state.levelsByUser,
-              ...achievementResult.awardedLevelsByUser,
-            },
-          }));
-        }
-        // Surface a celebratory pop-up for everything that unlocked from this
-        // completion (could be the kid's own badge plus a team badge that fired
-        // on the sibling). The overlay queues them and walks through one by one.
-        if (achievementResult.newlyUnlocked.length > 0) {
-          get().enqueueInsigniaUnlocks(achievementResult.newlyUnlocked);
+        if (familyId) {
+          const { syncAchievements } = await import('./achievements/storage');
+          const achievementResult = await syncAchievements({
+            familyId,
+            children: get().users,
+            tasksByUser: get().tasksByUser,
+            levelsByUser: get().levelsByUser,
+            awardNew: true,
+          });
+          if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
+            set(state => ({
+              levelsByUser: {
+                ...state.levelsByUser,
+                ...achievementResult.awardedLevelsByUser,
+              },
+            }));
+          }
+          // Surface a celebratory pop-up for everything that unlocked from this
+          // completion (could be the kid's own badge plus a team badge that fired
+          // on the sibling). The overlay queues them and walks through one by one.
+          if (achievementResult.newlyUnlocked.length > 0) {
+            get().enqueueInsigniaUnlocks(achievementResult.newlyUnlocked);
+          }
         }
       } catch (error) {
         console.warn('[achievements] sync after completion failed', error);
       }
+
+      return {
+        status: 'awarded',
+        taskId,
+        basePoints,
+        pointsAwarded: result.pointsAwarded,
+        bonus,
+      };
     } finally {
       _taskMutationsInFlight.delete(mutationKey);
     }
@@ -1192,6 +1236,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       familyName: null,
       users: [],
       rewards: [],
+      activeTaskCount: 0,
       currentMemberId: null,
       currentMemberCanAdmin: false,
       tasksByUser: {},

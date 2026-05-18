@@ -29,6 +29,7 @@ import {
 } from '@/lib/progression';
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
 import { loadAchievementState } from '@/lib/achievements/storage';
+import { buildCoachingInsight } from '@/lib/coaching';
 
 const THEME_ACCENT: Record<string, string> = {
   dark_minimal: '#4f9cff',
@@ -660,7 +661,6 @@ function StatsPageInner() {
 function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; copy: ReturnType<typeof labels> }) {
   const accent = THEME_ACCENT[stat.user.theme] ?? '#4f9cff';
   const delta = stat.deltaPct;
-  const deltaTone = delta === null ? 'text-white/45' : delta >= 0 ? 'text-[#3ddc97]' : 'text-[#ff6b6b]';
   const DOW_LABELS = lang === 'en' ? DOW_LABELS_EN : DOW_LABELS_KO;
 
   // Live bonus state — momentum is per-user, harmony is family-wide. The
@@ -682,6 +682,18 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
   const todayPct = pct(stat.todayDone, stat.todayPossible);
   const deltaArrow =
     delta === null ? null : delta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />;
+  const coaching = buildCoachingInsight({
+    userName: stat.user.name,
+    focusTaskTitle: stat.focusTask?.title ?? null,
+    focusTaskPct: stat.focusTask?.pct ?? null,
+    worstDayLabel: stat.worstDayOfWeek ? DOW_LABELS[stat.worstDayOfWeek.index] : null,
+    worstDayPct: stat.worstDayOfWeek?.pct ?? null,
+    deltaPct: stat.deltaPct,
+    todayDone: stat.todayDone,
+    todayPossible: stat.todayPossible,
+    activeDays30: stat.activeDays30,
+    lang,
+  });
 
   return (
     <section className="flex flex-col bg-[#111318] md:min-h-0 md:overflow-hidden">
@@ -716,6 +728,14 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
           packed panel never gets clipped by the 2x2 grid cell; on mobile the
           page scrolls and the panel grows naturally. */}
       <div className="space-y-2 px-2.5 py-2.5 md:flex-1 md:overflow-y-auto md:px-3 md:py-3">
+        <div className="rounded-xl border border-[#5B8EFF]/25 bg-[#5B8EFF]/10 px-3 py-2.5">
+          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8EAFFF]">
+            {lang === 'en' ? 'Coach note' : '코치 노트'}
+          </div>
+          <div className="mt-1 text-sm font-black text-white">{coaching.title}</div>
+          <p className="mt-1 text-[12px] leading-5 text-white/62">{coaching.body}</p>
+        </div>
+
         {/* 12 compact stat cards, 3 across (2 across on narrow phones). */}
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           <StatCard
@@ -1039,4 +1059,3 @@ function CompactTaskList({ tasks, accent, copy }: { tasks: TaskRate[]; accent: s
     </div>
   );
 }
-

@@ -23,6 +23,12 @@ class HabitOfflineDb extends Dexie {
 
 const db = new HabitOfflineDb();
 
+function notifyOfflineQueueChanged(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('fambit:offline-queue'));
+  }
+}
+
 export function canUseOfflineQueue(): boolean {
   return typeof window !== 'undefined' && 'indexedDB' in window;
 }
@@ -69,6 +75,7 @@ export async function enqueueTaskAction(
       createdAt: new Date().toISOString(),
     });
   });
+  notifyOfflineQueueChanged();
 }
 
 export async function listTaskActions(): Promise<OfflineTaskAction[]> {
@@ -79,6 +86,7 @@ export async function listTaskActions(): Promise<OfflineTaskAction[]> {
 export async function deleteTaskAction(id: string): Promise<void> {
   if (!canUseOfflineQueue()) return;
   await db.taskActions.delete(id);
+  notifyOfflineQueueChanged();
 }
 
 const OFFLINE_ACTION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -89,5 +97,6 @@ export async function pruneStaleActions(): Promise<void> {
   const stale = await db.taskActions.where('createdAt').below(cutoff).toArray();
   if (stale.length > 0) {
     await db.taskActions.bulkDelete(stale.map(a => a.id));
+    notifyOfflineQueueChanged();
   }
 }

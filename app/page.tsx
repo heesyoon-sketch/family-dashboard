@@ -13,6 +13,9 @@ import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { FamBitWordmark } from '@/components/FamBitLogo';
+import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
+import { FamilyOnboardingChecklist } from '@/components/FamilyOnboardingChecklist';
+import { FamilyQuestCard } from '@/components/FamilyQuestCard';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
@@ -60,6 +63,7 @@ export default function Dashboard() {
     setAuthProfile({ email: null, avatarUrl: null });
     useFamilyStore.setState({
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
+      activeTaskCount: 0,
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
@@ -115,6 +119,7 @@ export default function Dashboard() {
     }
     useFamilyStore.setState({
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
+      activeTaskCount: 0,
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
@@ -230,9 +235,7 @@ export default function Dashboard() {
             ) : (
               <span className="text-[12px] font-black text-white/52">Family Dashboard</span>
             )}
-            <span className="hidden rounded-full bg-[#4EEDB0]/12 px-2 py-0.5 text-[10px] font-black text-[#4EEDB0] md:inline">
-              LIVE
-            </span>
+            <ConnectionStatusChip className="hidden md:inline-flex" />
             <div className="hidden h-4 w-px bg-white/10 md:block" />
             <HarmonyChip className="hidden md:inline-flex" />
           </div>
@@ -300,7 +303,9 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col bg-[#0D0E1C] p-3 md:hidden">
+      <main className="flex flex-1 flex-col gap-3 bg-[#0D0E1C] p-3 md:hidden">
+        <FamilyOnboardingChecklist />
+        <FamilyQuestCard />
         <MobileMemberTabs users={orderedUsers} />
         <div className="grid grid-cols-1 gap-4">
           {orderedUsers.map(user => (
@@ -311,22 +316,28 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <main className="hidden flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:grid">
-        {desktopSlots.map((user, index) =>
-          user ? (
-            <MemberPanel key={user.id} user={user} />
-          ) : (
-            <div
-              key={`empty-${activePage}-${index}`}
-              className="grid min-h-0 place-items-center rounded-lg border border-dashed border-white/8 bg-[#111224]/60"
-            >
-              <div className="flex flex-col items-center gap-2 opacity-40">
-                <FamBitWordmark markSize={28} showText={false} />
-                <span className="text-xs font-black tracking-widest text-white/40">FAMBIT</span>
+      <main className="hidden flex-1 min-h-0 flex-col gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:flex">
+        <div className="grid grid-cols-2 gap-3">
+          <FamilyOnboardingChecklist />
+          <FamilyQuestCard />
+        </div>
+        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden">
+          {desktopSlots.map((user, index) =>
+            user ? (
+              <MemberPanel key={user.id} user={user} />
+            ) : (
+              <div
+                key={`empty-${activePage}-${index}`}
+                className="grid min-h-0 place-items-center rounded-lg border border-dashed border-white/8 bg-[#111224]/60"
+              >
+                <div className="flex flex-col items-center gap-2 opacity-40">
+                  <FamBitWordmark markSize={28} showText={false} />
+                  <span className="text-xs font-black tracking-widest text-white/40">FAMBIT</span>
+                </div>
               </div>
-            </div>
-          ),
-        )}
+            ),
+          )}
+        </div>
       </main>
 
       {celebration && (

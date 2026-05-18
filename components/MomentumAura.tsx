@@ -129,7 +129,7 @@ function MomentumStatesDialog({
         <p className="mt-1 text-sm leading-snug text-white/65">
           Momentum reflects the rhythm of your last two weeks, based on the share of your
           scheduled habits you finish each day. A 1-of-1 day counts the same as a 4-of-4
-          day, and rest days where nothing's scheduled don't pull the score down. The
+          day, and rest days where nothing&apos;s scheduled don&apos;t pull the score down. The
           brighter the flame, the larger the per-completion bonus.
         </p>
 
