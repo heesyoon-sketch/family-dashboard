@@ -33,6 +33,8 @@ export interface AchievementSyncResult {
   newlyUnlocked: AchievementProgress[];
 }
 
+const SHIELD_JOURNEY_BASELINE_AT = '2026-05-09T00:00:00.000Z';
+
 // v5: reset on 2026-05-09 (third pass). The Monthly Quests block had
 // targets of 1 on Better Month, Best Month Spark, etc. Combined with the
 // over-broad monthlyQuest metric (max of monthActiveDays, monthTotal,
@@ -41,6 +43,13 @@ export interface AchievementSyncResult {
 // the v4 unlock map so kids can't carry over the over-easy unlocks.
 function storageKey(familyId: string): string {
   return `fambit_shield_wall_v5_${familyId}`;
+}
+
+export function defaultUnlockBaselineAt(child?: Pick<User, 'createdAt'>): string {
+  const resetAt = new Date(SHIELD_JOURNEY_BASELINE_AT);
+  const createdAt = child?.createdAt instanceof Date ? child.createdAt : null;
+  if (!createdAt || Number.isNaN(createdAt.getTime())) return resetAt.toISOString();
+  return new Date(Math.max(resetAt.getTime(), createdAt.getTime())).toISOString();
 }
 
 function emptyChildState(childId: string, baselineAt?: string): ChildAchievementState {
@@ -52,7 +61,91 @@ function emptyChildState(childId: string, baselineAt?: string): ChildAchievement
     pinnedAchievementIds: [],
     equippedInsigniaIds: [],
     questClaims: {},
-    unlockBaselineAt: baselineAt ?? new Date().toISOString(),
+    unlockBaselineAt: baselineAt ?? defaultUnlockBaselineAt(),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+function stringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
+
+function uniqueStrings(...lists: readonly string[][]): string[] {
+  return Array.from(new Set(lists.flat()));
+}
+
+function hasMeaningfulChildState(state?: Partial<ChildAchievementState>): boolean {
+  if (!state) return false;
+  return (
+    Object.keys(state.unlockedAtByAchievementId ?? {}).length > 0 ||
+    (state.awardedAchievementIds ?? []).length > 0 ||
+    (state.unlockedVisualStyleIds ?? []).length > 0 ||
+    (state.pinnedAchievementIds ?? []).length > 0 ||
+    (state.equippedInsigniaIds ?? []).length > 0 ||
+    Object.keys(state.questClaims ?? {}).length > 0
+  );
+}
+
+function earliestIso(...values: Array<string | undefined>): string | undefined {
+  const valid = values
+    .map(value => value ? new Date(value) : null)
+    .filter((value): value is Date => value instanceof Date && !Number.isNaN(value.getTime()));
+  if (valid.length === 0) return undefined;
+  return new Date(Math.min(...valid.map(value => value.getTime()))).toISOString();
+}
+
+function latestIso(...values: Array<string | undefined>): string {
+  const valid = values
+    .map(value => value ? new Date(value) : null)
+    .filter((value): value is Date => value instanceof Date && !Number.isNaN(value.getTime()));
+  if (valid.length === 0) return new Date().toISOString();
+  return new Date(Math.max(...valid.map(value => value.getTime()))).toISOString();
+}
+
+function mergeUnlockedAt(
+  a: Record<string, string>,
+  b: Record<string, string>,
+): Record<string, string> {
+  const merged = { ...a };
+  for (const [id, unlockedAt] of Object.entries(b)) {
+    merged[id] = earliestIso(merged[id], unlockedAt) ?? unlockedAt;
+  }
+  return merged;
+}
+
+export function normaliseChildAchievementState(
+  child: Pick<User, 'id' | 'createdAt'>,
+  stored?: Partial<ChildAchievementState>,
+): ChildAchievementState {
+  const defaultBaseline = defaultUnlockBaselineAt(child);
+  const base = emptyChildState(child.id, defaultBaseline);
+  const meaningful = hasMeaningfulChildState(stored);
+  const baseline = meaningful
+    ? (earliestIso(stored?.unlockBaselineAt, defaultBaseline) ?? defaultBaseline)
+    : defaultBaseline;
+
+  return {
+    ...base,
+    ...(stored ?? {}),
+    childId: child.id,
+    unlockedAtByAchievementId: stringRecord(stored?.unlockedAtByAchievementId),
+    awardedAchievementIds: stringArray(stored?.awardedAchievementIds),
+    unlockedVisualStyleIds: stringArray(stored?.unlockedVisualStyleIds),
+    pinnedAchievementIds: stringArray(stored?.pinnedAchievementIds),
+    equippedInsigniaIds: stringArray(stored?.equippedInsigniaIds),
+    questClaims: stringRecord(stored?.questClaims),
+    unlockBaselineAt: baseline,
   };
 }
 
@@ -60,38 +153,164 @@ export function loadAchievementState(familyId: string, children: User[]): Family
   if (typeof window === 'undefined') {
     return {
       familyId,
-      children: Object.fromEntries(children.map(child => [child.id, emptyChildState(child.id)])),
+      children: Object.fromEntries(children.map(child => [child.id, normaliseChildAchievementState(child)])),
       updatedAt: new Date().toISOString(),
     };
   }
   const raw = localStorage.getItem(storageKey(familyId));
-  const parsed = raw ? JSON.parse(raw) as Partial<FamilyAchievementState> : {};
+  let parsed: Partial<FamilyAchievementState> = {};
+  try {
+    parsed = raw ? JSON.parse(raw) as Partial<FamilyAchievementState> : {};
+  } catch {
+    parsed = {};
+  }
   const childStates: Record<string, ChildAchievementState> = {};
   for (const child of children) {
     const stored = parsed.children?.[child.id];
-    const base = emptyChildState(child.id, stored?.unlockBaselineAt);
-    childStates[child.id] = {
-      ...base,
-      ...(stored ?? {}),
-      childId: child.id,
-      unlockBaselineAt: stored?.unlockBaselineAt ?? base.unlockBaselineAt,
-    };
+    childStates[child.id] = normaliseChildAchievementState(child, stored);
   }
   return {
     familyId,
     children: childStates,
-    updatedAt: parsed.updatedAt ?? new Date().toISOString(),
+    updatedAt: latestIso(parsed.updatedAt),
   };
 }
 
-export function saveAchievementState(state: FamilyAchievementState): void {
+function saveAchievementStateLocal(state: FamilyAchievementState): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(storageKey(state.familyId), JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
 }
 
+export function saveAchievementState(state: FamilyAchievementState): void {
+  saveAchievementStateLocal(state);
+  void persistAchievementState(state).catch(error => {
+    console.warn('[achievements] failed to persist shield state', error);
+  });
+}
+
+interface RemoteAchievementStateRow {
+  family_id: string;
+  user_id: string;
+  unlocked_at_by_achievement_id: Record<string, string> | null;
+  awarded_achievement_ids: string[] | null;
+  unlocked_visual_style_ids: string[] | null;
+  pinned_achievement_ids: string[] | null;
+  equipped_insignia_ids: string[] | null;
+  quest_claims: Record<string, string> | null;
+  unlock_baseline_at: string | null;
+  updated_at: string | null;
+}
+
+function remoteRowToChildState(row: RemoteAchievementStateRow, child: User): ChildAchievementState {
+  return normaliseChildAchievementState(child, {
+    childId: child.id,
+    unlockedAtByAchievementId: row.unlocked_at_by_achievement_id ?? {},
+    awardedAchievementIds: row.awarded_achievement_ids ?? [],
+    unlockedVisualStyleIds: row.unlocked_visual_style_ids ?? [],
+    pinnedAchievementIds: row.pinned_achievement_ids ?? [],
+    equippedInsigniaIds: row.equipped_insignia_ids ?? [],
+    questClaims: row.quest_claims ?? {},
+    unlockBaselineAt: row.unlock_baseline_at ?? undefined,
+  });
+}
+
+function mergeChildState(
+  child: User,
+  local: ChildAchievementState,
+  remote: ChildAchievementState | undefined,
+  preferRemote: boolean,
+): ChildAchievementState {
+  if (!remote) return normaliseChildAchievementState(child, local);
+  const preferred = preferRemote ? remote : local;
+  const secondary = preferRemote ? local : remote;
+
+  return normaliseChildAchievementState(child, {
+    childId: child.id,
+    unlockedAtByAchievementId: mergeUnlockedAt(local.unlockedAtByAchievementId, remote.unlockedAtByAchievementId),
+    awardedAchievementIds: uniqueStrings(local.awardedAchievementIds, remote.awardedAchievementIds),
+    unlockedVisualStyleIds: uniqueStrings(local.unlockedVisualStyleIds, remote.unlockedVisualStyleIds),
+    pinnedAchievementIds: preferred.pinnedAchievementIds.length > 0 ? preferred.pinnedAchievementIds : secondary.pinnedAchievementIds,
+    equippedInsigniaIds: preferred.equippedInsigniaIds.length > 0 ? preferred.equippedInsigniaIds : secondary.equippedInsigniaIds,
+    questClaims: { ...secondary.questClaims, ...preferred.questClaims },
+    unlockBaselineAt: earliestIso(local.unlockBaselineAt, remote.unlockBaselineAt) ?? defaultUnlockBaselineAt(child),
+  });
+}
+
+function mergeAchievementStates(
+  familyId: string,
+  children: User[],
+  local: FamilyAchievementState,
+  remote: FamilyAchievementState | null,
+): FamilyAchievementState {
+  if (!remote) return local;
+  const preferRemote = new Date(remote.updatedAt).getTime() >= new Date(local.updatedAt).getTime();
+  return {
+    familyId,
+    children: Object.fromEntries(children.map(child => [
+      child.id,
+      mergeChildState(child, local.children[child.id] ?? normaliseChildAchievementState(child), remote.children[child.id], preferRemote),
+    ])),
+    updatedAt: latestIso(local.updatedAt, remote.updatedAt),
+  };
+}
+
+export async function loadPersistedAchievementState(familyId: string, children: User[]): Promise<FamilyAchievementState> {
+  const local = loadAchievementState(familyId, children);
+  if (typeof window === 'undefined' || children.length === 0) return local;
+
+  try {
+    const supabase = createBrowserSupabase();
+    const { data, error } = await supabase
+      .from('achievement_states')
+      .select('*')
+      .eq('family_id', familyId)
+      .in('user_id', children.map(child => child.id));
+    if (error) throw error;
+
+    const byChild = new Map(children.map(child => [child.id, child]));
+    const remoteRows = (data ?? []) as unknown as RemoteAchievementStateRow[];
+    const remote: FamilyAchievementState = {
+      familyId,
+      children: Object.fromEntries(remoteRows.flatMap(row => {
+        const child = byChild.get(row.user_id);
+        return child ? [[row.user_id, remoteRowToChildState(row, child)]] : [];
+      })),
+      updatedAt: latestIso(...remoteRows.map(row => row.updated_at ?? undefined)),
+    };
+    const merged = mergeAchievementStates(familyId, children, local, remoteRows.length > 0 ? remote : null);
+    saveAchievementStateLocal(merged);
+    return merged;
+  } catch (error) {
+    console.warn('[achievements] failed to load persisted shield state', error);
+    return local;
+  }
+}
+
+export async function persistAchievementState(state: FamilyAchievementState): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const rows = Object.values(state.children).map(child => ({
+    family_id: state.familyId,
+    user_id: child.childId,
+    unlocked_at_by_achievement_id: child.unlockedAtByAchievementId,
+    awarded_achievement_ids: child.awardedAchievementIds,
+    unlocked_visual_style_ids: child.unlockedVisualStyleIds,
+    pinned_achievement_ids: child.pinnedAchievementIds,
+    equipped_insignia_ids: child.equippedInsigniaIds,
+    quest_claims: child.questClaims,
+    unlock_baseline_at: child.unlockBaselineAt,
+  }));
+  if (rows.length === 0) return;
+  const supabase = createBrowserSupabase();
+  const { error } = await supabase
+    .from('achievement_states')
+    .upsert(rows, { onConflict: 'family_id,user_id' });
+  if (error) throw error;
+}
+
 export function togglePinnedAchievement(familyId: string, children: User[], childId: string, achievementId: string): FamilyAchievementState {
   const state = loadAchievementState(familyId, children);
-  const child = state.children[childId] ?? emptyChildState(childId);
+  const member = children.find(child => child.id === childId);
+  const child = state.children[childId] ?? (member ? normaliseChildAchievementState(member) : emptyChildState(childId));
   const current = child.pinnedAchievementIds.includes(achievementId)
     ? child.pinnedAchievementIds.filter(id => id !== achievementId)
     : [...child.pinnedAchievementIds, achievementId].slice(-5);
@@ -112,7 +331,8 @@ export function setEquippedInsignia(
   maxSlots: number,
 ): FamilyAchievementState {
   const state = loadAchievementState(familyId, children);
-  const child = state.children[childId] ?? emptyChildState(childId);
+  const member = children.find(child => child.id === childId);
+  const child = state.children[childId] ?? (member ? normaliseChildAchievementState(member) : emptyChildState(childId));
   const current = new Set(child.equippedInsigniaIds);
   if (equipped) {
     current.add(achievementId);
@@ -138,7 +358,8 @@ export function clampEquippedToSlots(
   maxSlots: number,
 ): FamilyAchievementState {
   const state = loadAchievementState(familyId, children);
-  const child = state.children[childId] ?? emptyChildState(childId);
+  const member = children.find(child => child.id === childId);
+  const child = state.children[childId] ?? (member ? normaliseChildAchievementState(member) : emptyChildState(childId));
   if (child.equippedInsigniaIds.length <= maxSlots) return state;
   state.children[childId] = {
     ...child,
@@ -239,7 +460,7 @@ export async function syncAchievements(params: {
 }): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
   // Shield Wall is open to everyone in the family — kids and parents alike.
   const members = params.children;
-  const state = loadAchievementState(params.familyId, members);
+  const state = await loadPersistedAchievementState(params.familyId, members);
   // Fetches are independent — issue them in parallel rather than serially.
   const memberIds = members.map(member => member.id);
   const [completionsByChild, allTasksByUser] = await Promise.all([
@@ -284,7 +505,8 @@ export async function syncAchievements(params: {
     }));
   }
 
-  saveAchievementState(state);
+  saveAchievementStateLocal(state);
+  await persistAchievementState(state);
   return { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
 }
 
@@ -305,7 +527,7 @@ export async function revokeUnmetAchievements(params: {
   tasksByUser: Record<string, Task[]>;
 }): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
   const members = params.children;
-  const state = loadAchievementState(params.familyId, members);
+  const state = await loadPersistedAchievementState(params.familyId, members);
   const completionsByChild = await fetchCompletions(members.map(member => member.id));
   const allTasksByUser = await fetchTasks(members.map(member => member.id), params.tasksByUser);
 
@@ -391,7 +613,8 @@ export async function revokeUnmetAchievements(params: {
     state.children[child.id] = childState;
   }
 
-  saveAchievementState(state);
+  saveAchievementStateLocal(state);
+  await persistAchievementState(state);
   return { revoked, refundedLevelsByUser };
 }
 

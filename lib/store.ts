@@ -864,8 +864,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       try {
         const familyId = get().familyId;
         if (familyId) {
-          const { loadAchievementState } = await import('./achievements/storage');
-          const ach = loadAchievementState(familyId, get().users);
+          const { loadPersistedAchievementState } = await import('./achievements/storage');
+          const ach = await loadPersistedAchievementState(familyId, get().users);
           const child = ach.children[userId];
           const equipped = child?.equippedInsigniaIds ?? [];
           const unlocked = new Set(Object.keys(child?.unlockedAtByAchievementId ?? {}));

@@ -28,7 +28,7 @@ import {
   loadoutBonusFromIds,
 } from '@/lib/progression';
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
-import { loadAchievementState } from '@/lib/achievements/storage';
+import { loadPersistedAchievementState } from '@/lib/achievements/storage';
 import { buildCoachingInsight } from '@/lib/coaching';
 
 const THEME_ACCENT: Record<string, string> = {
@@ -319,10 +319,10 @@ function StatsPageInner() {
       // *would* have been worth at the live base, and surface bonus deltas.
       const taskBaseById = new Map(tasks.map(task => [task.id, task.basePoints]));
 
-      // Insignia loadout per member — equipped IDs + which are unlocked. Stored
-      // in localStorage; pulled here so we can show the current bonus % and
-      // the unlocked tally on each member panel.
-      const achievementState = loadAchievementState(familyId, users);
+      // Insignia loadout per member — equipped IDs + which are unlocked.
+      // DB-backed with localStorage as a cache, so stats stay consistent
+      // across devices and after logout.
+      const achievementState = await loadPersistedAchievementState(familyId, users);
       function loadoutFor(userId: string): { unlocked: number; bonusPct: number; equipped: number } {
         const child = achievementState.children[userId];
         if (!child) return { unlocked: 0, bonusPct: 0, equipped: 0 };
