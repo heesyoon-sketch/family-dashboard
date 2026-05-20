@@ -27,6 +27,15 @@ npm run test
 npm run build
 ```
 
+For database security changes, also run the remote RLS regression suite:
+
+```bash
+npm run test:rls
+```
+
+Current coverage includes Shield Wall multi-family isolation. The test runs in
+a transaction and rolls back its temporary rows.
+
 ## Product notes
 
 - Admin mode is parent-protected by PIN.

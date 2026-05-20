@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test \"lib/**/*.test.ts\"",
+    "test:rls": "npm run test:rls:shields",
     "test:rls:shields": "npx supabase db query --linked --file supabase/tests/achievement_states_rls.sql"
   },
   "dependencies": {
