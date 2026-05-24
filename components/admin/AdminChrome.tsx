@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import Link from 'next/link';
 import * as Icons from 'lucide-react';
 import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
+import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
 import { FamBitWordmark } from '@/components/FamBitLogo';
 import type { User } from '@/lib/db';
 
@@ -42,6 +43,7 @@ export function AdminHeader({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <ConnectionStatusChip className="hidden md:inline-flex" />
         <a
           href="https://forms.gle/KgxsBSBHwkdrwdTz7"
           target="_blank"

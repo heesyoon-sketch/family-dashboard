@@ -20,6 +20,7 @@ import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
+import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
 import { InsigniaWall } from '@/components/InsigniaWall';
 import { useFamilyStore } from '@/lib/store';
 import {
@@ -579,6 +580,7 @@ function StatsPageInner() {
           </div>
           <div className="truncate text-xs text-white/45">{copy.pageSub}</div>
         </div>
+        <ConnectionStatusChip className="hidden md:inline-flex" />
         <div className="flex shrink-0 rounded-lg border border-white/10 bg-white/[0.04] p-1">
           <button
             type="button"

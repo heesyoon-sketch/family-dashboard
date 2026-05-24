@@ -324,6 +324,12 @@ export function InsigniaWall() {
     hydrate().catch(console.error);
   }, [hydrate]);
 
+  // syncAchievements fetches fresh tasks + completions internally; tasksByUser
+  // and levelsByUser are only used as fallback maps. Subscribing the effect
+  // to those map references would re-run the (heavy) sync on every hydrate,
+  // even when no relevant data changed. Key on the stable member ID list
+  // instead so the sync runs once per actual member-set change.
+  const memberSignature = members.map(m => m.id).join(',');
   useEffect(() => {
     if (!familyId || members.length === 0) return;
     syncAchievements({ familyId, children: members, tasksByUser, levelsByUser, awardNew: false })
@@ -332,7 +338,9 @@ export function InsigniaWall() {
         setAchievementsByChild(result.achievementsByChild);
       })
       .catch(console.error);
-  }, [familyId, members, tasksByUser, levelsByUser]);
+    // tasksByUser / levelsByUser intentionally omitted — see comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyId, memberSignature]);
 
   const selectedChild = members.find(member => member.id === selectedChildId) ?? members[0];
   const childState = selectedChild ? childStateFor(state, selectedChild.id) : undefined;

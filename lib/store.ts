@@ -204,6 +204,66 @@ function scheduleRealtimeHydrate(ownMemberId: string | null, eventUserId?: strin
   }, REALTIME_HYDRATE_DEBOUNCE_MS);
 }
 
+// Apply a task_completions realtime change directly from the payload instead
+// of doing a full hydrate. Cheap and correct for the most common case (other
+// devices marking/un-marking tasks), with the trade-off that derived stats
+// (momentum, harmony, recap) refresh on the next full hydrate (e.g. tab
+// focus or admin action). For a 4-person kiosk that's a worthwhile trade —
+// a full hydrate is ~8 queries; this is zero.
+type TaskCompletionRow = {
+  id?: string;
+  user_id?: string;
+  task_id?: string;
+  completed_at?: string;
+};
+
+function isToday(iso: string | undefined): boolean {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return false;
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const end = new Date(start); end.setDate(end.getDate() + 1);
+  return t >= start.getTime() && t < end.getTime();
+}
+
+function applyTaskCompletionEvent(
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE',
+  newRow: TaskCompletionRow | null,
+  oldRow: TaskCompletionRow | null,
+): void {
+  const userId = newRow?.user_id ?? oldRow?.user_id;
+  const taskId = newRow?.task_id ?? oldRow?.task_id;
+  if (!userId || !taskId) return;
+
+  useFamilyStore.setState(state => {
+    if (!state.users.some(u => u.id === userId)) return {};
+    const current = state.todayCompletions[userId] ?? [];
+
+    if (eventType === 'DELETE') {
+      if (!current.includes(taskId)) return {};
+      return {
+        todayCompletions: {
+          ...state.todayCompletions,
+          [userId]: current.filter(id => id !== taskId),
+        },
+      };
+    }
+
+    // INSERT / UPDATE — only flip to "completed today" when the completion
+    // actually falls within today. Out-of-window historical inserts are rare
+    // (admin tools) but we still want them reflected in the recap, which
+    // means a full hydrate will be needed — defer to that.
+    if (!isToday(newRow?.completed_at)) return {};
+    if (current.includes(taskId)) return {};
+    return {
+      todayCompletions: {
+        ...state.todayCompletions,
+        [userId]: [...current, taskId],
+      },
+    };
+  });
+}
+
 // Admin-driven tables (tasks, users, rewards, family_activities) are scoped by
 // family_id rather than user_id, so the per-member self-filter above doesn't
 // apply. We still debounce so a burst of edits coalesces into one hydrate.
@@ -399,6 +459,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       { label: 'tasks',   error: tRes.error },
       { label: 'rewards', error: rRes.error },
     ], get().lastHydrateAt > 0);
+
+    // If the core SELECTs all failed AND we already have a successful hydrate
+    // in memory, this is almost certainly a connectivity blip. Bail out so
+    // we don't wipe the kiosk's last-known-good state and leave the kids
+    // staring at an empty dashboard mid-task. Realtime / SyncBootstrap will
+    // retry when connectivity returns.
+    const allCoreFailed = Boolean(uRes.error && tRes.error && rRes.error);
+    if (allCoreFailed && get().lastHydrateAt > 0) {
+      console.warn('[hydrate] core selects all failed, preserving last-known state');
+      return;
+    }
 
     // Phase 2: load per-user tables filtered by the verified user IDs.
     // levels/streaks have no family_id column; task_completions relies on user_id.
@@ -800,7 +871,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'task_completions', filter: userFilter },
-          payload => scheduleRealtimeHydrate(currentMemberId, (payload.new as Record<string, string> | null)?.user_id ?? (payload.old as Record<string, string> | null)?.user_id),
+          payload => {
+            const newRow = (payload.new ?? null) as TaskCompletionRow | null;
+            const oldRow = (payload.old ?? null) as TaskCompletionRow | null;
+            const eventUserId = newRow?.user_id ?? oldRow?.user_id;
+            // Skip our own writes coming back through realtime — markCompleted
+            // / undoCompletion already applied them optimistically.
+            if (eventUserId && eventUserId === currentMemberId) return;
+            // Apply the change directly to todayCompletions; skip the full
+            // hydrate. Derived stats (momentum, harmony, recap) catch up on
+            // the next full hydrate triggered by SyncBootstrap or an admin
+            // action — for a kiosk that's seconds-to-minutes.
+            applyTaskCompletionEvent(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', newRow, oldRow);
+          },
         )
         .on(
           'postgres_changes',

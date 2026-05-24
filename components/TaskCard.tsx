@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { Task } from '@/lib/db';
 import type { ThemeName } from '@/lib/db';
@@ -154,9 +154,16 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
 
   const iconKey = pascalCase(task.icon);
   const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>>;
-  const LucideIcon: React.ComponentType<{ size?: number; className?: string }> =
-    CUSTOM_ICON_MAP[task.icon] ??
-    (IconMap[iconKey] || (console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`), Icons.Circle));
+  const iconCandidate = CUSTOM_ICON_MAP[task.icon] ?? IconMap[iconKey];
+  const LucideIcon: React.ComponentType<{ size?: number; className?: string }> = iconCandidate ?? Icons.Circle;
+  const iconMissing = !iconCandidate;
+  // Log missing icons in an effect, not during render — render-phase side
+  // effects fire on every commit (and React StrictMode double-fires them).
+  useEffect(() => {
+    if (iconMissing) {
+      console.error(`[TaskCard] 아이콘 없음: "${task.icon}" → "${iconKey}"`);
+    }
+  }, [iconMissing, task.icon, iconKey]);
 
   // Points are now the simple base reward — no streak multipliers, no
   // tier glow. Momentum/harmony bonuses live on the dashboard HUD instead
