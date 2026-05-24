@@ -254,9 +254,33 @@ function mergeAchievementStates(
   };
 }
 
+// Short-window cache so a single task tap doesn't re-fetch achievement_states
+// twice (once to compose the loadout bonus, once during syncAchievements
+// post-completion). Invalidated immediately by persistAchievementState so
+// writes are never read stale from cache.
+let _achievementStateCache:
+  | { familyId: string; childIds: string; state: FamilyAchievementState; fetchedAt: number }
+  | null = null;
+const ACHIEVEMENT_STATE_CACHE_TTL_MS = 5_000;
+
+function invalidateAchievementStateCache(): void {
+  _achievementStateCache = null;
+}
+
 export async function loadPersistedAchievementState(familyId: string, children: User[]): Promise<FamilyAchievementState> {
   const local = loadAchievementState(familyId, children);
   if (typeof window === 'undefined' || children.length === 0) return local;
+
+  const childIdsKey = children.map(c => c.id).sort().join(',');
+  const now = Date.now();
+  if (
+    _achievementStateCache
+    && _achievementStateCache.familyId === familyId
+    && _achievementStateCache.childIds === childIdsKey
+    && now - _achievementStateCache.fetchedAt < ACHIEVEMENT_STATE_CACHE_TTL_MS
+  ) {
+    return _achievementStateCache.state;
+  }
 
   try {
     const supabase = createBrowserSupabase();
@@ -279,6 +303,7 @@ export async function loadPersistedAchievementState(familyId: string, children: 
     };
     const merged = mergeAchievementStates(familyId, children, local, remoteRows.length > 0 ? remote : null);
     saveAchievementStateLocal(merged);
+    _achievementStateCache = { familyId, childIds: childIdsKey, state: merged, fetchedAt: now };
     return merged;
   } catch (error) {
     console.warn('[achievements] failed to load persisted shield state', error);
@@ -300,6 +325,7 @@ export async function persistAchievementState(state: FamilyAchievementState): Pr
     unlock_baseline_at: child.unlockBaselineAt,
   }));
   if (rows.length === 0) return;
+  invalidateAchievementStateCache();
   const supabase = createBrowserSupabase();
   const { error } = await supabase
     .from('achievement_states')
@@ -406,7 +432,12 @@ async function fetchTasks(userIds: string[], fallback: Record<string, Task[]>): 
     .select('id, user_id, code, title, icon, difficulty, base_points, recurrence, days_of_week, time_window, active, sort_order, streak_count, last_completed_at')
     .in('user_id', safeIds)
     .is('deleted_at', null);
-  if (error) return fallback;
+  if (error) {
+    // Silently using `fallback` here is what hid migration-060 from us before;
+    // log loudly so a missing column or RLS regression isn't invisible.
+    console.error('[achievements] fetchTasks failed, using fallback', error);
+    return fallback;
+  }
   const byUser: Record<string, Task[]> = Object.fromEntries(userIds.map(id => [id, fallback[id] ?? []]));
   for (const row of data ?? []) {
     const task: Task = {
@@ -528,8 +559,11 @@ export async function revokeUnmetAchievements(params: {
 }): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
   const members = params.children;
   const state = await loadPersistedAchievementState(params.familyId, members);
-  const completionsByChild = await fetchCompletions(members.map(member => member.id));
-  const allTasksByUser = await fetchTasks(members.map(member => member.id), params.tasksByUser);
+  const memberIds = members.map(member => member.id);
+  const [completionsByChild, allTasksByUser] = await Promise.all([
+    fetchCompletions(memberIds),
+    fetchTasks(memberIds, params.tasksByUser),
+  ]);
 
   const revoked: AchievementProgress[] = [];
   const refundedLevelsByUser: Record<string, Level> = {};

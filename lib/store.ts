@@ -771,9 +771,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const today = new Date().toDateString();
       if (lastCleanup !== today) {
         _activityCleanupDone = true;
-        const supabaseForCleanup = createBrowserSupabase();
-        (async () => {
-          const { error } = await supabaseForCleanup.rpc('prune_old_task_activities');
+        void (async () => {
+          const { error } = await supabase.rpc('prune_old_task_activities');
           if (error) { _activityCleanupDone = false; return; }
           localStorage.setItem('activity_cleanup_date', today);
         })();
@@ -787,7 +786,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // family_activities) are admin-driven and rare, so we always hydrate.
     if (typeof window !== 'undefined' && userIds.length > 0 && resolvedFamilyId !== _realtimeSubscribedFamilyId) {
       if (_realtimeChannel) {
-        _realtimeChannel.unsubscribe();
+        // Await unsubscribe so the next .subscribe() below can't race with
+        // teardown and leave two channels live for the same family.
+        await _realtimeChannel.unsubscribe();
         _realtimeChannel = null;
       }
       _realtimeSubscribedFamilyId = resolvedFamilyId;
@@ -1062,7 +1063,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const actions = await listTaskActions();
       if (actions.length === 0) return;
 
-      const { processCompletion, processUndo } = await import('./gamification');
+      const { processCompletion, processUndo, RpcError } = await import('./gamification');
+      // Postgres / Supabase error codes that mean "this action will never
+      // succeed, regardless of retry" — typically because the underlying
+      // task/user no longer exists or RLS denies access. We drop these from
+      // the queue rather than letting them block every other pending action.
+      const PERMANENT_CODES = new Set([
+        '23503', // foreign_key_violation — task or user deleted
+        '23505', // unique_violation — completion already exists
+        '42501', // insufficient_privilege — RLS denied
+        '42883', // undefined_function — RPC removed/renamed
+        'PGRST116', // PostgREST: no rows / not found
+        'PGRST204', // PostgREST: function not found in schema cache
+      ]);
+
       for (const action of actions) {
         try {
           const actionAt = new Date(action.createdAt);
@@ -1073,7 +1087,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           }
           await deleteTaskAction(action.id);
         } catch (error) {
-          console.warn('Offline action sync paused', error);
+          const isPermanent =
+            error instanceof RpcError && error.code !== null && PERMANENT_CODES.has(error.code);
+          if (isPermanent) {
+            console.warn('[sync] dropping unrecoverable offline action', {
+              actionId: action.id,
+              type: action.type,
+              code: (error as { code: string }).code,
+            });
+            await deleteTaskAction(action.id);
+            continue;
+          }
+          console.warn('[sync] paused on transient error', error);
           break;
         }
       }
@@ -1117,10 +1142,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       p_user2_id: user2Id,
       p_user2_amount: Math.max(0, Math.round(user2Amount)),
     };
-    console.log('[shop:purchase_reward_joint] supabase.rpc payload', payload);
     const { data, error } = await supabase.rpc('purchase_reward_joint', payload);
     if (error) {
-      console.error('[shop:purchase_reward_joint] supabase.rpc error', { payload, error });
+      console.error('[shop:purchase_reward_joint] rpc error', error);
       throw new Error(error.message);
     }
 
@@ -1150,6 +1174,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     assertUuid(receiverId, 'receiverId');
     const safeAmount = Math.max(1, Math.round(amount));
     const supabase = createBrowserSupabase();
+    await requireAuthSession(supabase);
     const { data, error } = await supabase.rpc('transfer_points_with_message', {
       p_sender_id: senderId,
       p_receiver_id: receiverId,
@@ -1222,7 +1247,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
   reset: () => {
     if (_realtimeChannel) {
-      _realtimeChannel.unsubscribe();
+      // Fire-and-forget is fine here: reset() runs on logout and we don't
+      // resubscribe in this path. The hot reset→hydrate race lives in
+      // _hydrateOnce, where the unsubscribe is awaited.
+      void _realtimeChannel.unsubscribe();
       _realtimeChannel = null;
       _realtimeSubscribedFamilyId = null;
     }

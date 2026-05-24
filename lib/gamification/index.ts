@@ -52,6 +52,30 @@ interface RpcLevel {
   updatedAt: string;
 }
 
+/** Error thrown when a Supabase RPC returns a structured error. Preserves
+ *  the Postgres error code so callers (e.g. the offline-action queue) can
+ *  distinguish "this will never succeed, drop it" from "transient, retry". */
+export class RpcError extends Error {
+  readonly code: string | null;
+  readonly details: string | null;
+  constructor(message: string, code: string | null, details: string | null) {
+    super(message);
+    this.name = 'RpcError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
+interface SupabaseRpcError {
+  message: string;
+  code?: string | null;
+  details?: string | null;
+}
+
+function throwRpcError(error: SupabaseRpcError): never {
+  throw new RpcError(error.message, error.code ?? null, error.details ?? null);
+}
+
 function mapRpcLevel(level: RpcLevel): Level {
   return {
     userId: level.userId,
@@ -98,7 +122,7 @@ export async function processCompletion(
   };
   if (bonusPercent > 0) params.p_bonus_percent = bonusPercent;
   const { data, error } = await supabase.rpc('process_task_completion_atomic', params);
-  if (error) throw new Error(error.message);
+  if (error) throwRpcError(error);
 
   const raw = data as {
     pointsAwarded: number;
@@ -150,7 +174,7 @@ export async function processUndo(
     p_time_window: timeWindow,
     p_now: now.toISOString(),
   });
-  if (error) throw new Error(error.message);
+  if (error) throwRpcError(error);
 
   const raw = data as {
     level: RpcLevel | null;
@@ -188,10 +212,9 @@ export async function redeemReward(
     p_day_key: dayKey(now),
     p_now: now.toISOString(),
   };
-  console.log('[shop:redeem_reward_atomic] supabase.rpc payload', payload);
   const { data, error } = await supabase.rpc('redeem_reward_atomic', payload);
   if (error) {
-    console.error('[shop:redeem_reward_atomic] supabase.rpc error', { payload, error });
+    console.error('[shop:redeem_reward_atomic] rpc error', error);
     throw new Error(error.message);
   }
 
@@ -199,20 +222,41 @@ export async function redeemReward(
   return raw.spendableBalance;
 }
 
+// `badges` is effectively static config — re-fetching it on every task tap
+// is pure waste. Cache for the page session; cache key is `active=1`.
+let _badgesCache: { rows: Badge[]; fetchedAt: number } | null = null;
+const BADGES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function loadActiveBadges(supabase: ReturnType<typeof createBrowserSupabase>): Promise<Badge[]> {
+  const now = Date.now();
+  if (_badgesCache && now - _badgesCache.fetchedAt < BADGES_CACHE_TTL_MS) {
+    return _badgesCache.rows;
+  }
+  const { data, error } = await supabase.from('badges').select('*').eq('active', 1);
+  if (error) {
+    console.error('[badges] load failed', error);
+    return _badgesCache?.rows ?? [];
+  }
+  const rows: Badge[] = (data ?? []).map(b => ({
+    id: b.id, code: b.code, name: b.name, description: b.description,
+    icon: b.icon, category: b.category, conditionJson: b.condition_json, active: b.active,
+  }));
+  _badgesCache = { rows, fetchedAt: now };
+  return rows;
+}
+
 export async function evaluateAllBadges(userId: string): Promise<Badge[]> {
   const supabase = createBrowserSupabase();
-  const [{ data: all }, { data: earned }] = await Promise.all([
-    supabase.from('badges').select('*').eq('active', 1),
+  const [all, { data: earned }] = await Promise.all([
+    loadActiveBadges(supabase),
     supabase.from('user_badges').select('badge_id').eq('user_id', userId),
   ]);
   const earnedIds = new Set((earned ?? []).map(e => e.badge_id));
 
-  const candidates: Badge[] = (all ?? [])
-    .filter(b => !earnedIds.has(b.id))
-    .map(b => ({
-      id: b.id, code: b.code, name: b.name, description: b.description,
-      icon: b.icon, category: b.category, conditionJson: b.condition_json, active: b.active,
-    }));
+  const candidates: Badge[] = all.filter(b => !earnedIds.has(b.id));
+  // Common case once a kid has earned everything: skip the per-condition
+  // queries entirely. evaluateCondition issues 1–2 SELECTs per candidate.
+  if (candidates.length === 0) return [];
 
   const evaluated = await Promise.all(
     candidates.map(async badge => ({ badge, met: await evaluateCondition(userId, badge.conditionJson, supabase) }))
@@ -221,12 +265,21 @@ export async function evaluateAllBadges(userId: string): Promise<Badge[]> {
   const newly: Badge[] = [];
   for (const { badge, met } of evaluated) {
     if (!met) continue;
-    await supabase.from('user_badges').insert({
+    const { error: insertError } = await supabase.from('user_badges').insert({
       id: crypto.randomUUID(),
       user_id: userId,
       badge_id: badge.id,
       earned_at: new Date().toISOString(),
     });
+    if (insertError) {
+      // A unique-violation on (user_id, badge_id) means we lost a race with
+      // another tab/device awarding the same badge — that's fine, treat as
+      // not newly earned. Anything else (RLS, schema drift) is a real error.
+      if (insertError.code !== '23505') {
+        console.error('[badges] failed to award', badge.code, insertError);
+      }
+      continue;
+    }
     newly.push(badge);
   }
   return newly;
