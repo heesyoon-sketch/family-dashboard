@@ -48,6 +48,7 @@ export type TranslationKey =
   | 'child_role'
   | 'pin_incorrect'
   | 'task_add_failed'
+  | 'task_save_failed'
   | 'reward_add_failed'
   | 'reward_added'
   | 'reward_save_failed'
@@ -147,6 +148,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     child_role: '자녀',
     pin_incorrect: 'PIN이 올바르지 않습니다',
     task_add_failed: '태스크 추가 실패',
+    task_save_failed: '태스크 저장 실패',
     reward_add_failed: '리워드 추가 실패',
     reward_added: '리워드 추가 완료',
     reward_save_failed: '리워드 저장 실패',
@@ -245,6 +247,7 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     child_role: 'Child',
     pin_incorrect: 'Incorrect PIN',
     task_add_failed: 'Failed to add task',
+    task_save_failed: 'Failed to save task',
     reward_add_failed: 'Failed to add reward',
     reward_added: 'Reward added',
     reward_save_failed: 'Failed to save reward',

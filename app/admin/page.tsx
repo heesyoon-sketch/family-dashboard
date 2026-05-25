@@ -426,13 +426,34 @@ export default function AdminPage() {
     setGeneratingCode(true);
     try {
       const supabase = createBrowserSupabase();
+      // Crockford-style alphabet (no 0/1/I/O) so a kid reading the code from
+      // a sibling's screen is less likely to mistype it. crypto.getRandomValues
+      // replaces Math.random — invite codes gate family access, so weak PRNG
+      // wasn't appropriate even though the search space is small.
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-      const { error } = await supabase.from('families').update({ invite_code: code }).eq('id', familyId);
-      if (error) throw error;
-      setFamilyInviteCode(code);
+      const generate = (): string => {
+        const bytes = new Uint8Array(6);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, b => chars[b % chars.length]).join('');
+      };
+
+      // Retry on the rare unique-constraint collision (32^6 ≈ 1B keyspace
+      // makes this essentially impossible at family scale, but the loop is
+      // free and turns the surprise rare-failure into clean recovery).
+      let lastError: { code?: string; message: string } | null = null;
+      let savedCode: string | null = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generate();
+        const { error } = await supabase.from('families').update({ invite_code: candidate }).eq('id', familyId);
+        if (!error) { savedCode = candidate; break; }
+        lastError = error;
+        if (error.code !== '23505') break; // anything other than unique-violation is a real failure
+      }
+      if (!savedCode) throw lastError ?? new Error('invite_code_generation_failed');
+      setFamilyInviteCode(savedCode);
       toast.success('새 초대 코드가 생성되었습니다');
-    } catch {
+    } catch (e) {
+      console.error('[admin] invite code generation failed', e);
       toast.error('코드 생성에 실패했습니다');
     } finally {
       setGeneratingCode(false);
@@ -700,8 +721,13 @@ export default function AdminPage() {
   const toggleTask = async (task: Task) => {
     const supabase = createBrowserSupabase();
     const newActive = task.active === 1 ? 0 : 1;
-    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { active: newActive } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, active: newActive } : t));
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { active: newActive } });
+    if (error) {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, active: task.active } : t));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -741,16 +767,26 @@ export default function AdminPage() {
     const supabase = createBrowserSupabase();
     const aOrder = tasks[index].sortOrder;
     const bOrder = tasks[other].sortOrder;
-    await Promise.all([
-      supabase.rpc('admin_update_task', { p_task_id: tasks[index].id, p_patch: { sort_order: bOrder } }),
-      supabase.rpc('admin_update_task', { p_task_id: tasks[other].id, p_patch: { sort_order: aOrder } }),
-    ]);
+    const previousTasks = tasks;
     const updated = tasks.map((task, i) => {
       if (i === index) return { ...task, sortOrder: bOrder };
       if (i === other) return { ...task, sortOrder: aOrder };
       return task;
     });
     setTasks(updated.sort((a, b) => a.sortOrder - b.sortOrder));
+    const [res1, res2] = await Promise.all([
+      supabase.rpc('admin_update_task', { p_task_id: tasks[index].id, p_patch: { sort_order: bOrder } }),
+      supabase.rpc('admin_update_task', { p_task_id: tasks[other].id, p_patch: { sort_order: aOrder } }),
+    ]);
+    const firstError = res1.error ?? res2.error;
+    if (firstError) {
+      // Roll back to the original order. We don't try to recover one half
+      // even if the other succeeded — that would leave the DB in a stable
+      // but reordered state we never intended. Let the next hydrate sync it.
+      setTasks(previousTasks);
+      toast.error(`${t('task_save_failed')}: ${firstError.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -769,30 +805,50 @@ export default function AdminPage() {
   const confirmEditTask = async (taskId: string) => {
     const trimmed = editingTaskTitle.trim();
     if (!trimmed) return;
+    const previous = tasks.find(task => task.id === taskId);
+    if (!previous) return;
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { title: trimmed } });
     setTasks(prev => prev.map(task => task.id === taskId ? { ...task, title: trimmed } : task));
     setEditingTaskId(null);
     setEditingTaskTitle('');
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { title: trimmed } });
+    if (error) {
+      setTasks(prev => prev.map(task => task.id === taskId ? { ...task, title: previous.title } : task));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
   };
 
   const selectIcon = async (taskId: string, icon: string) => {
+    const previous = tasks.find(task => task.id === taskId);
+    if (!previous) return;
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { icon } });
     setTasks(prev => prev.map(task => task.id === taskId ? { ...task, icon } : task));
     setIconPickerTaskId(null);
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { icon } });
+    if (error) {
+      setTasks(prev => prev.map(task => task.id === taskId ? { ...task, icon: previous.icon } : task));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
   };
 
   const saveDaysOfWeek = async (task: Task, daysOfWeek: DayOfWeek[]) => {
+    const previousDays = task.daysOfWeek;
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { days_of_week: daysOfWeek } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, daysOfWeek } : t));
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { days_of_week: daysOfWeek } });
+    if (error) {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, daysOfWeek: previousDays } : t));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -835,9 +891,15 @@ export default function AdminPage() {
       ? current.filter(value => value !== timeWindow)
       : (['morning', 'evening'] as TimeWindow[]).filter(value => current.includes(value) || value === timeWindow);
     const timeWindowValue = timeWindowsToTaskWindow(nextWindows);
+    const previousWindow = task.timeWindow;
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindowValue } });
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: timeWindowValue } : t));
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { time_window: timeWindowValue } });
+    if (error) {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, timeWindow: previousWindow } : t));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -845,9 +907,16 @@ export default function AdminPage() {
 
   const updateTaskPoints = async (taskId: string, rawValue: number) => {
     const pts = Math.max(1, Math.round(rawValue) || 1);
+    const previous = tasks.find(task => task.id === taskId);
+    if (!previous) return;
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { base_points: pts } });
     setTasks(prev => prev.map(task => task.id === taskId ? { ...task, basePoints: pts } : task));
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { base_points: pts } });
+    if (error) {
+      setTasks(prev => prev.map(task => task.id === taskId ? { ...task, basePoints: previous.basePoints } : task));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
@@ -1260,13 +1329,21 @@ export default function AdminPage() {
   const confirmEditName = async (userId: string) => {
     const trimmed = editingName.trim();
     if (!trimmed) return;
+    const previous = allUsers.find(u => u.id === userId);
+    if (!previous) return;
     const supabase = createBrowserSupabase();
-    await supabase.rpc('admin_update_user_name', { p_user_id: userId, p_name: trimmed });
     const updated = allUsers.map(u => u.id === userId ? { ...u, name: trimmed } : u);
     setAllUsers(updated);
     if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, name: trimmed } : prev);
     setEditingUserId(null);
     setEditingName('');
+    const { error } = await supabase.rpc('admin_update_user_name', { p_user_id: userId, p_name: trimmed });
+    if (error) {
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, name: previous.name } : u));
+      if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, name: previous.name } : prev);
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
     await storeHydrate();
     router.refresh();
     notifyDashboard();
