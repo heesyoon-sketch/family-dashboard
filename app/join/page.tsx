@@ -72,20 +72,50 @@ export default function JoinFamilyPage() {
       };
 
   useEffect(() => {
+    let cancelled = false;
+
+    // Bound the auth check so a flaky connection can't leave the join screen
+    // stuck on a black div forever. If Supabase doesn't answer in this window
+    // we surface the form anyway — the user can still attempt to join, and
+    // any real failure will surface through the normal join-error UI rather
+    // than as a silent hang. Tuned to feel snappy on the kiosk laptop
+    // without false-positiving on a normal cold supabase response.
+    const AUTH_CHECK_TIMEOUT_MS = 3000;
+
     const checkExistingSession = async () => {
-      const supabase = createBrowserSupabase();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setGoogleEmail(user.email ?? null);
-        const { data: familyId } = await supabase.rpc('get_my_family_id');
-        if (familyId) {
-          router.replace('/');
+      try {
+        const supabase = createBrowserSupabase();
+        const userPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise<'timeout'>(resolve => {
+          setTimeout(() => resolve('timeout'), AUTH_CHECK_TIMEOUT_MS);
+        });
+        const result = await Promise.race([userPromise, timeoutPromise]);
+        if (cancelled) return;
+        if (result === 'timeout') {
+          console.warn('[join] auth check timed out, rendering form anyway');
+          setChecking(false);
           return;
         }
+        const user = result.data?.user ?? null;
+        if (user) {
+          setGoogleEmail(user.email ?? null);
+          const { data: familyId } = await supabase.rpc('get_my_family_id');
+          if (cancelled) return;
+          if (familyId) {
+            router.replace('/');
+            return;
+          }
+        }
+      } catch (e) {
+        // Don't trap the user in a black screen if the auth check itself
+        // throws (e.g. network error mid-request, malformed env config).
+        console.warn('[join] auth check failed, rendering form anyway', e);
       }
-      setChecking(false);
+      if (!cancelled) setChecking(false);
     };
     checkExistingSession();
+
+    return () => { cancelled = true; };
   }, [router]);
 
   const handleJoin = async () => {
