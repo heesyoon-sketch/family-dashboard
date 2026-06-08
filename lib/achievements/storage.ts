@@ -183,8 +183,12 @@ function saveAchievementStateLocal(state: FamilyAchievementState): void {
 
 export function saveAchievementState(state: FamilyAchievementState): void {
   saveAchievementStateLocal(state);
-  void persistAchievementState(state).catch(error => {
-    console.warn('[achievements] failed to persist shield state', error);
+  // The only callers of saveAchievementState are the direct-intent mutators
+  // (equip / pin / quest claim), so we persist *only* the intent columns.
+  // Writing the full row here would let this fire-and-forget upsert clobber
+  // unlock progress that a concurrent syncAchievements is mid-write on.
+  void persistAchievementState(state, INTENT_COLUMNS).catch(error => {
+    console.warn('[achievements] failed to persist shield loadout', error);
   });
 }
 
@@ -311,19 +315,85 @@ export async function loadPersistedAchievementState(familyId: string, children: 
   }
 }
 
-export async function persistAchievementState(state: FamilyAchievementState): Promise<void> {
+// Columns on `achievement_states`, grouped by the concern that owns them.
+//
+// Each row mixes two independent concerns: unlock *progress* (driven by the
+// evaluation engine) and user *intent* (the loadout the member equipped, what
+// they pinned, quest claims). A write must only touch the columns it owns —
+// otherwise a stale in-memory snapshot from one concern silently overwrites
+// the other. That clobber is what made equipped shields spontaneously
+// un-equip: syncAchievements snapshots the loadout, awaits a slow fetch, then
+// upserts the whole row — reverting any equip the user made in the meantime.
+//
+// A partial Supabase upsert emits `INSERT ... ON CONFLICT DO UPDATE SET
+// <provided columns>`, so listing only the owned columns leaves the rest
+// untouched and lets the two concerns be written concurrently without races.
+export type AchievementStateColumn =
+  | 'unlocked_at_by_achievement_id'
+  | 'awarded_achievement_ids'
+  | 'unlocked_visual_style_ids'
+  | 'unlock_baseline_at'
+  | 'pinned_achievement_ids'
+  | 'equipped_insignia_ids'
+  | 'quest_claims';
+
+/** Owned by the evaluation engine (syncAchievements / revokeUnmetAchievements). */
+export const UNLOCK_COLUMNS: readonly AchievementStateColumn[] = [
+  'unlocked_at_by_achievement_id',
+  'awarded_achievement_ids',
+  'unlocked_visual_style_ids',
+  'unlock_baseline_at',
+];
+
+/** Owned by direct user intent (equip / pin / quest claim). */
+export const INTENT_COLUMNS: readonly AchievementStateColumn[] = [
+  'equipped_insignia_ids',
+  'pinned_achievement_ids',
+  'quest_claims',
+];
+
+export const ALL_COLUMNS: readonly AchievementStateColumn[] = [
+  ...UNLOCK_COLUMNS,
+  ...INTENT_COLUMNS,
+];
+
+function columnValue(child: ChildAchievementState, column: AchievementStateColumn): unknown {
+  switch (column) {
+    case 'unlocked_at_by_achievement_id': return child.unlockedAtByAchievementId;
+    case 'awarded_achievement_ids': return child.awardedAchievementIds;
+    case 'unlocked_visual_style_ids': return child.unlockedVisualStyleIds;
+    case 'unlock_baseline_at': return child.unlockBaselineAt;
+    case 'pinned_achievement_ids': return child.pinnedAchievementIds;
+    case 'equipped_insignia_ids': return child.equippedInsigniaIds;
+    case 'quest_claims': return child.questClaims;
+  }
+}
+
+/** Build the upsert payload for `persistAchievementState`: the composite
+ *  primary key plus only the requested columns. Exported so tests can assert
+ *  that a given write path never touches columns it doesn't own. */
+export function buildPersistRows(
+  state: FamilyAchievementState,
+  columns: readonly AchievementStateColumn[] = ALL_COLUMNS,
+): Array<Record<string, unknown>> {
+  return Object.values(state.children).map(child => {
+    const row: Record<string, unknown> = {
+      family_id: state.familyId,
+      user_id: child.childId,
+    };
+    for (const column of columns) {
+      row[column] = columnValue(child, column);
+    }
+    return row;
+  });
+}
+
+export async function persistAchievementState(
+  state: FamilyAchievementState,
+  columns: readonly AchievementStateColumn[] = ALL_COLUMNS,
+): Promise<void> {
   if (typeof window === 'undefined') return;
-  const rows = Object.values(state.children).map(child => ({
-    family_id: state.familyId,
-    user_id: child.childId,
-    unlocked_at_by_achievement_id: child.unlockedAtByAchievementId,
-    awarded_achievement_ids: child.awardedAchievementIds,
-    unlocked_visual_style_ids: child.unlockedVisualStyleIds,
-    pinned_achievement_ids: child.pinnedAchievementIds,
-    equipped_insignia_ids: child.equippedInsigniaIds,
-    quest_claims: child.questClaims,
-    unlock_baseline_at: child.unlockBaselineAt,
-  }));
+  const rows = buildPersistRows(state, columns);
   if (rows.length === 0) return;
   invalidateAchievementStateCache();
   const supabase = createBrowserSupabase();
@@ -537,7 +607,10 @@ export async function syncAchievements(params: {
   }
 
   saveAchievementStateLocal(state);
-  await persistAchievementState(state);
+  // syncAchievements only ever changes unlock progress — never the loadout.
+  // Persist just the unlock columns so a slow sync can't revert an equip the
+  // user made while its snapshot was in flight.
+  await persistAchievementState(state, UNLOCK_COLUMNS);
   return { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
 }
 
@@ -567,6 +640,10 @@ export async function revokeUnmetAchievements(params: {
 
   const revoked: AchievementProgress[] = [];
   const refundedLevelsByUser: Record<string, Level> = {};
+  // Members whose loadout we actually changed. We only write the equipped
+  // column for these, so revoking one member's stale shield can't clobber a
+  // sibling's loadout that was equipped during our fetch window.
+  const loadoutChanged = new Set<string>();
   const supabase = createBrowserSupabase();
 
   for (const child of members) {
@@ -596,7 +673,10 @@ export async function revokeUnmetAchievements(params: {
       // Drop the unlock + the awarded marker so a future re-earn re-awards.
       delete childState.unlockedAtByAchievementId[id];
       childState.awardedAchievementIds = childState.awardedAchievementIds.filter(x => x !== id);
-      childState.equippedInsigniaIds = childState.equippedInsigniaIds.filter(eid => eid !== id);
+      if (childState.equippedInsigniaIds.includes(id)) {
+        childState.equippedInsigniaIds = childState.equippedInsigniaIds.filter(eid => eid !== id);
+        loadoutChanged.add(child.id);
+      }
 
       // Visual styles can be unlocked by more than one shield, so only
       // revoke a style when no other still-unlocked shield grants it.
@@ -648,7 +728,21 @@ export async function revokeUnmetAchievements(params: {
   }
 
   saveAchievementStateLocal(state);
-  await persistAchievementState(state);
+  // Unlock progress changed for (potentially) every member, so persist the
+  // unlock columns family-wide.
+  await persistAchievementState(state, UNLOCK_COLUMNS);
+  // The loadout only changed for members whose equipped shield was revoked.
+  // Write the equipped column for *just* those, scoping the state to avoid
+  // overwriting an unaffected sibling's freshly-equipped loadout.
+  if (loadoutChanged.size > 0) {
+    const scoped: FamilyAchievementState = {
+      ...state,
+      children: Object.fromEntries(
+        Object.entries(state.children).filter(([childId]) => loadoutChanged.has(childId)),
+      ),
+    };
+    await persistAchievementState(scoped, ['equipped_insignia_ids']);
+  }
   return { revoked, refundedLevelsByUser };
 }
 
