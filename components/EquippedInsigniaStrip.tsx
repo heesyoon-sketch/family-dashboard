@@ -27,6 +27,13 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
   const [equipped, setEquipped] = useState<AchievementProgress[]>([]);
   const [state, setState] = useState<ChildAchievementState | undefined>(undefined);
 
+  // syncAchievements fetches fresh tasks + completions internally; tasksByUser
+  // and levelsByUser here are only fallback maps. Keying this effect on those
+  // (unstable) store references made every task completion re-run a *full
+  // family* syncAchievements — once for each member panel's strip at the same
+  // time. Key on the stable member-id list instead (as InsigniaWall does) so a
+  // strip re-syncs only when the member set actually changes.
+  const memberSignature = users.map(u => u.id).join(',');
   useEffect(() => {
     if (!familyId || users.length === 0) return;
     let cancelled = false;
@@ -46,7 +53,9 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
         setState(fallback);
       });
     return () => { cancelled = true; };
-  }, [familyId, users, tasksByUser, levelsByUser, userId]);
+    // tasksByUser / levelsByUser intentionally omitted — see comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyId, memberSignature, userId]);
 
   if (!state) return null;
 
