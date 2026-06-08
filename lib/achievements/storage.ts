@@ -218,7 +218,27 @@ function remoteRowToChildState(row: RemoteAchievementStateRow, child: User): Chi
   });
 }
 
-function mergeChildState(
+/** Resolve a user-intent list (loadout / pins) during a local⇄remote merge.
+ *
+ *  Intent lists are last-writer-wins, and an *intentional clear to empty* is a
+ *  legitimate write we must honor. The old "non-empty side wins" rule couldn't:
+ *  an empty preferred side always lost to a stale non-empty copy, so clearing
+ *  your loadout would silently bounce back — shields re-equipping themselves.
+ *
+ *  We therefore trust the timestamp-preferred side's value as-is, *including*
+ *  empty — but only when that side is a real record. A brand-new/empty record
+ *  (e.g. first load on a fresh device, which `loadAchievementState` stamps with
+ *  `now`) carries no intent to honor, so we fall back to whichever side
+ *  actually has data rather than wiping it. */
+function pickIntentList(
+  preferred: readonly string[],
+  secondary: readonly string[],
+  preferredIsMeaningful: boolean,
+): string[] {
+  return [...(preferredIsMeaningful ? preferred : secondary)];
+}
+
+export function mergeChildState(
   child: User,
   local: ChildAchievementState,
   remote: ChildAchievementState | undefined,
@@ -227,14 +247,15 @@ function mergeChildState(
   if (!remote) return normaliseChildAchievementState(child, local);
   const preferred = preferRemote ? remote : local;
   const secondary = preferRemote ? local : remote;
+  const preferredIsMeaningful = hasMeaningfulChildState(preferred);
 
   return normaliseChildAchievementState(child, {
     childId: child.id,
     unlockedAtByAchievementId: mergeUnlockedAt(local.unlockedAtByAchievementId, remote.unlockedAtByAchievementId),
     awardedAchievementIds: uniqueStrings(local.awardedAchievementIds, remote.awardedAchievementIds),
     unlockedVisualStyleIds: uniqueStrings(local.unlockedVisualStyleIds, remote.unlockedVisualStyleIds),
-    pinnedAchievementIds: preferred.pinnedAchievementIds.length > 0 ? preferred.pinnedAchievementIds : secondary.pinnedAchievementIds,
-    equippedInsigniaIds: preferred.equippedInsigniaIds.length > 0 ? preferred.equippedInsigniaIds : secondary.equippedInsigniaIds,
+    pinnedAchievementIds: pickIntentList(preferred.pinnedAchievementIds, secondary.pinnedAchievementIds, preferredIsMeaningful),
+    equippedInsigniaIds: pickIntentList(preferred.equippedInsigniaIds, secondary.equippedInsigniaIds, preferredIsMeaningful),
     questClaims: { ...secondary.questClaims, ...preferred.questClaims },
     unlockBaselineAt: earliestIso(local.unlockBaselineAt, remote.unlockBaselineAt) ?? defaultUnlockBaselineAt(child),
   });

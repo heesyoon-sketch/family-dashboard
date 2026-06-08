@@ -597,7 +597,16 @@ export default function AdminPage() {
         .from('users')
         .update({ display_order: currentOrder })
         .eq('id', other.id);
-      if (secondError) throw secondError;
+      if (secondError) {
+        // The swap is two non-atomic writes; if the second fails, the first
+        // already landed and both members now share `otherOrder`. Compensate by
+        // restoring the first member so we never leave a duplicate order behind.
+        await supabase
+          .from('users')
+          .update({ display_order: currentOrder })
+          .eq('id', current.id);
+        throw secondError;
+      }
 
       await storeHydrate();
       router.refresh();

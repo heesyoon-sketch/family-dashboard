@@ -6,10 +6,12 @@ import type { User } from '../db';
 import {
   buildPersistRows,
   defaultUnlockBaselineAt,
+  mergeChildState,
   normaliseChildAchievementState,
   ALL_COLUMNS,
   INTENT_COLUMNS,
   UNLOCK_COLUMNS,
+  type ChildAchievementState,
   type FamilyAchievementState,
 } from './storage';
 
@@ -127,6 +129,63 @@ test('the intent and unlock column sets are disjoint and cover every column', ()
   const overlap = INTENT_COLUMNS.filter(c => UNLOCK_COLUMNS.includes(c));
   assert.deepEqual(overlap, [], 'a column owned by both concerns would re-introduce the clobber');
   assert.equal(new Set(ALL_COLUMNS).size, UNLOCK_COLUMNS.length + INTENT_COLUMNS.length);
+});
+
+function childState(stored: Partial<ChildAchievementState>): ChildAchievementState {
+  return normaliseChildAchievementState(user('kid', '2026-01-01T00:00:00.000Z'), {
+    childId: 'kid',
+    ...stored,
+  });
+}
+
+// Regression: clearing your loadout used to bounce back. mergeChildState used
+// "non-empty side wins", so an intentional clear (empty) always lost to a stale
+// non-empty copy — shields silently re-equipping themselves.
+test('clearing the loadout on the preferred side wins over a stale copy', () => {
+  const child = user('kid', '2026-01-01T00:00:00.000Z');
+  // Preferred side is meaningful (has unlocks) but the user emptied the loadout.
+  const cleared = childState({
+    unlockedAtByAchievementId: { 'weekly-spark': '2026-05-10T00:00:00.000Z' },
+    equippedInsigniaIds: [],
+    pinnedAchievementIds: [],
+  });
+  const stale = childState({
+    unlockedAtByAchievementId: { 'weekly-spark': '2026-05-10T00:00:00.000Z' },
+    equippedInsigniaIds: ['weekly-spark'],
+    pinnedAchievementIds: ['weekly-spark'],
+  });
+
+  // local is the preferred side (preferRemote = false).
+  const merged = mergeChildState(child, cleared, stale, false);
+  assert.deepEqual(merged.equippedInsigniaIds, []);
+  assert.deepEqual(merged.pinnedAchievementIds, []);
+});
+
+// But an empty *fresh* record (e.g. first load on a new device) carries no
+// intent, so it must not wipe a real loadout that lives on the other side.
+test('a fresh empty preferred side falls back to the real loadout', () => {
+  const child = user('kid', '2026-01-01T00:00:00.000Z');
+  const fresh = childState({}); // no unlocks, no loadout — brand new
+  const real = childState({
+    unlockedAtByAchievementId: { 'weekly-spark': '2026-05-10T00:00:00.000Z' },
+    equippedInsigniaIds: ['weekly-spark'],
+    pinnedAchievementIds: ['weekly-spark'],
+  });
+
+  // remote is the real side; fresh local is (wrongly) preferred by timestamp.
+  const merged = mergeChildState(child, fresh, real, false);
+  assert.deepEqual(merged.equippedInsigniaIds, ['weekly-spark']);
+  assert.deepEqual(merged.pinnedAchievementIds, ['weekly-spark']);
+});
+
+// Unlocks are monotonic regardless of which side is preferred — never lost.
+test('unlocks are unioned across sides during a merge', () => {
+  const child = user('kid', '2026-01-01T00:00:00.000Z');
+  const a = childState({ unlockedAtByAchievementId: { 'a-shield': '2026-05-10T00:00:00.000Z' } });
+  const b = childState({ unlockedAtByAchievementId: { 'b-shield': '2026-05-11T00:00:00.000Z' } });
+
+  const merged = mergeChildState(child, a, b, true);
+  assert.deepEqual(Object.keys(merged.unlockedAtByAchievementId).sort(), ['a-shield', 'b-shield']);
 });
 
 test('shield persistence migration is family-scoped and RLS protected', () => {
