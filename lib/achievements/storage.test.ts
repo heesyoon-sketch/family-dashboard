@@ -5,10 +5,13 @@ import test from 'node:test';
 import type { User } from '../db';
 import {
   buildPersistRows,
+  completionWindowCoversBaseline,
   defaultUnlockBaselineAt,
+  isRevocableRequirement,
   mergeChildState,
   normaliseChildAchievementState,
   ALL_COLUMNS,
+  COMPLETION_FETCH_WINDOW_DAYS,
   INTENT_COLUMNS,
   UNLOCK_COLUMNS,
   type ChildAchievementState,
@@ -186,6 +189,48 @@ test('unlocks are unioned across sides during a merge', () => {
 
   const merged = mergeChildState(child, a, b, true);
   assert.deepEqual(Object.keys(merged.unlockedAtByAchievementId).sort(), ['a-shield', 'b-shield']);
+});
+
+// Regression: revokeUnmetAchievements re-derives every badge from a rolling
+// 370-day window after an undo. Long-horizon and peak badges must not be
+// stripped just because old data aged out or the metric naturally receded.
+test('cumulative requirements are revocable; peaks/streaks/quests are not', () => {
+  // Monotonic cumulative-since-baseline counts — an undo can legitimately drop
+  // these below target, so they stay revocable.
+  for (const type of ['totalCompletions', 'activeDays', 'daysWithAtLeast', 'categoryCompletions', 'comboDays', 'teamSameDay', 'perfectDays'] as const) {
+    assert.equal(isRevocableRequirement(type), true, `${type} should be revocable`);
+  }
+  // Peaks, live streaks, and current-period quests recede for reasons unrelated
+  // to the undone completion — keep them once earned.
+  for (const type of ['dailyPersonalBest', 'weeklyPersonalBest', 'gentleFrequency', 'dailyStreak', 'weeklyQuest', 'monthlyQuest'] as const) {
+    assert.equal(isRevocableRequirement(type), false, `${type} should not be revocable`);
+  }
+});
+
+test('revocation only trusts data that reaches back to the baseline', () => {
+  const now = new Date('2027-08-01T00:00:00.000Z');
+  const windowStart = new Date(now);
+  windowStart.setDate(windowStart.getDate() - COMPLETION_FETCH_WINDOW_DAYS);
+
+  // Baseline inside the fetch window → we can see the full history → trustable.
+  assert.equal(completionWindowCoversBaseline(now.toISOString(), now), true);
+  assert.equal(completionWindowCoversBaseline(windowStart.toISOString(), now), true);
+
+  // Baseline older than the window → early history is invisible → don't revoke.
+  const justBeforeWindow = new Date(windowStart.getTime() - 86_400_000);
+  assert.equal(completionWindowCoversBaseline(justBeforeWindow.toISOString(), now), false);
+
+  // A garbage baseline is treated as "can't trust it".
+  assert.equal(completionWindowCoversBaseline('not-a-date', now), false);
+});
+
+test('a one-year-old baseline keeps long-horizon shields safe from revocation', () => {
+  // The exact failure mode reported: ~13 months after the shield journey began,
+  // the 370-day window no longer reaches the baseline, so the year-active-days
+  // badge can no longer be recomputed faithfully and must not be revoked.
+  const baseline = '2026-05-09T00:00:00.000Z';
+  const thirteenMonthsLater = new Date('2027-06-20T00:00:00.000Z');
+  assert.equal(completionWindowCoversBaseline(baseline, thirteenMonthsLater), false);
 });
 
 test('shield persistence migration is family-scoped and RLS protected', () => {

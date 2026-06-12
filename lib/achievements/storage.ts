@@ -2,7 +2,7 @@
 
 import { legacyRecurrenceToDays, type Level, type Task, type User } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
-import { ACHIEVEMENTS, VISUAL_STYLE_DEFINITIONS } from './definitions';
+import { ACHIEVEMENTS, VISUAL_STYLE_DEFINITIONS, type RequirementType } from './definitions';
 import { evaluateAchievementsForChild, type AchievementCompletion, type AchievementProgress } from './engine';
 
 export interface ChildAchievementState {
@@ -486,10 +486,49 @@ export function clampEquippedToSlots(
   return state;
 }
 
+// How far back fetchCompletions looks. Anything older than this is invisible
+// to the achievement engine, so cumulative metrics it computes are only
+// faithful when this window reaches all the way back to a member's baseline.
+export const COMPLETION_FETCH_WINDOW_DAYS = 370;
+
+// Requirement types whose metric naturally recedes for reasons unrelated to
+// the specific completion an undo removed — a "best ever" peak, a live streak,
+// or a current-week / current-month quest. Re-deriving these from scratch
+// after an unrelated undo (or after old data ages out of the fetch window)
+// would strip a milestone the member genuinely reached, so we never revoke
+// them. Only monotonic cumulative-since-baseline counts remain revocable.
+const NON_REVOCABLE_REQUIREMENTS: ReadonlySet<RequirementType> = new Set([
+  'dailyPersonalBest',
+  'weeklyPersonalBest',
+  'gentleFrequency',
+  'dailyStreak',
+  'weeklyQuest',
+  'monthlyQuest',
+]);
+
+/** Whether an achievement of this requirement type may be revoked when its
+ *  requirement no longer recomputes as met. Peaks, streaks, and current-period
+ *  quests are milestones we keep once earned (see NON_REVOCABLE_REQUIREMENTS). */
+export function isRevocableRequirement(requirementType: RequirementType): boolean {
+  return !NON_REVOCABLE_REQUIREMENTS.has(requirementType);
+}
+
+/** Whether the completion fetch window reaches back to `baselineAt`. When it
+ *  doesn't, the engine can't see a member's full history since their shield
+ *  journey began, so cumulative metrics are undercounted and revocation based
+ *  on them would be a false positive. */
+export function completionWindowCoversBaseline(baselineAt: string, now: Date = new Date()): boolean {
+  const baselineTime = new Date(baselineAt).getTime();
+  if (!Number.isFinite(baselineTime)) return false;
+  const windowStart = new Date(now);
+  windowStart.setDate(windowStart.getDate() - COMPLETION_FETCH_WINDOW_DAYS);
+  return windowStart.getTime() <= baselineTime;
+}
+
 async function fetchCompletions(userIds: string[]): Promise<Record<string, AchievementCompletion[]>> {
   const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
   const since = new Date();
-  since.setDate(since.getDate() - 370);
+  since.setDate(since.getDate() - COMPLETION_FETCH_WINDOW_DAYS);
   const supabase = createBrowserSupabase();
   const { data, error } = await supabase
     .from('task_completions')
@@ -671,6 +710,13 @@ export async function revokeUnmetAchievements(params: {
     const childState = state.children[child.id];
     if (!childState) continue;
 
+    // If our fetch window doesn't reach this member's baseline, the engine
+    // can't see their full history since the shield journey began. Cumulative
+    // metrics (active days, total completions, …) would be undercounted, so a
+    // recompute here would falsely revoke long-earned shields. Skip the member
+    // entirely rather than revoke from truncated data.
+    if (!completionWindowCoversBaseline(childState.unlockBaselineAt)) continue;
+
     // Evaluate as if nothing was unlocked yet — gives us the truth of which
     // achievements *currently* meet their requirement based on live data.
     const result = evaluateAchievementsForChild({
@@ -690,6 +736,10 @@ export async function revokeUnmetAchievements(params: {
       if (stillUnlocked.has(id)) continue;
       const def = ACHIEVEMENTS.find(a => a.achievementId === id);
       if (!def) continue;
+      // Peaks, streaks, and current-period quests are milestones we keep once
+      // earned — their metric recedes for reasons unrelated to any undo, so
+      // recomputing them from scratch must not strip the badge.
+      if (!isRevocableRequirement(def.requirementType)) continue;
 
       // Drop the unlock + the awarded marker so a future re-earn re-awards.
       delete childState.unlockedAtByAchievementId[id];
