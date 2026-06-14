@@ -1063,10 +1063,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         return;
       }
 
+      const undoAt = new Date();
+      const undoTask = (get().tasksByUser[userId] ?? []).find(candidate => candidate.id === taskId);
+      const undoWindowStart = getCompletionWindowStart(
+        startOfDayLocal(undoAt),
+        undoTask?.timeWindow,
+        getCurrentTimeWindow(undoAt),
+      );
+
       let undoResult;
       try {
         const { processUndo } = await import('./gamification');
-        undoResult = await processUndo(userId, taskId);
+        undoResult = await processUndo(userId, taskId, undoAt);
       } catch (error) {
         await enqueueTaskAction('undo', userId, taskId);
         console.warn('Queued undo for offline sync', error);
@@ -1117,6 +1125,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             familyId,
             children: get().users,
             tasksByUser: get().tasksByUser,
+            revocationWindowStart: undoWindowStart,
           });
           if (Object.keys(revokeResult.refundedLevelsByUser).length > 0) {
             set(state => ({

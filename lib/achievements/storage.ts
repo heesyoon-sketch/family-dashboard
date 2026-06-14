@@ -513,6 +513,23 @@ export function isRevocableRequirement(requirementType: RequirementType): boolea
   return !NON_REVOCABLE_REQUIREMENTS.has(requirementType);
 }
 
+/** A revoke pass is caused by one undo. If the badge was unlocked before the
+ *  undone task's completion window, that task cannot have put the badge over
+ *  the line, so revoking it would be historical drift rather than undo repair. */
+export function canRevokeStoredAchievement(params: {
+  requirementType: RequirementType;
+  unlockedAt: string | undefined;
+  revocationWindowStart?: Date;
+}): boolean {
+  if (!isRevocableRequirement(params.requirementType)) return false;
+  if (!params.revocationWindowStart) return true;
+
+  const windowStartTime = params.revocationWindowStart.getTime();
+  const unlockedAtTime = params.unlockedAt ? new Date(params.unlockedAt).getTime() : NaN;
+  if (!Number.isFinite(windowStartTime)) return true;
+  return Number.isFinite(unlockedAtTime) && unlockedAtTime >= windowStartTime;
+}
+
 /** Whether the completion fetch window reaches back to `baselineAt`. When it
  *  doesn't, the engine can't see a member's full history since their shield
  *  journey began, so cumulative metrics are undercounted and revocation based
@@ -689,6 +706,9 @@ export async function revokeUnmetAchievements(params: {
   familyId: string;
   children: User[];
   tasksByUser: Record<string, Task[]>;
+  /** Start of the completion window for the task being undone. When provided,
+   *  only achievements unlocked during that window are eligible for revocation. */
+  revocationWindowStart?: Date;
 }): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
   const members = params.children;
   const state = await loadPersistedAchievementState(params.familyId, members);
@@ -736,10 +756,11 @@ export async function revokeUnmetAchievements(params: {
       if (stillUnlocked.has(id)) continue;
       const def = ACHIEVEMENTS.find(a => a.achievementId === id);
       if (!def) continue;
-      // Peaks, streaks, and current-period quests are milestones we keep once
-      // earned — their metric recedes for reasons unrelated to any undo, so
-      // recomputing them from scratch must not strip the badge.
-      if (!isRevocableRequirement(def.requirementType)) continue;
+      if (!canRevokeStoredAchievement({
+        requirementType: def.requirementType,
+        unlockedAt: childState.unlockedAtByAchievementId[id],
+        revocationWindowStart: params.revocationWindowStart,
+      })) continue;
 
       // Drop the unlock + the awarded marker so a future re-earn re-awards.
       delete childState.unlockedAtByAchievementId[id];

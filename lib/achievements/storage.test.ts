@@ -5,6 +5,7 @@ import test from 'node:test';
 import type { User } from '../db';
 import {
   buildPersistRows,
+  canRevokeStoredAchievement,
   completionWindowCoversBaseline,
   defaultUnlockBaselineAt,
   isRevocableRequirement,
@@ -231,6 +232,40 @@ test('a one-year-old baseline keeps long-horizon shields safe from revocation', 
   const baseline = '2026-05-09T00:00:00.000Z';
   const thirteenMonthsLater = new Date('2027-06-20T00:00:00.000Z');
   assert.equal(completionWindowCoversBaseline(baseline, thirteenMonthsLater), false);
+});
+
+test('today undo cannot revoke shields unlocked before the undone task window', () => {
+  const undoWindowStart = new Date('2026-06-12T13:00:00.000Z');
+
+  assert.equal(
+    canRevokeStoredAchievement({
+      requirementType: 'activeDays',
+      unlockedAt: '2026-06-01T09:00:00.000Z',
+      revocationWindowStart: undoWindowStart,
+    }),
+    false,
+    'a historical long-horizon shield was not caused by the current undo window',
+  );
+
+  assert.equal(
+    canRevokeStoredAchievement({
+      requirementType: 'activeDays',
+      unlockedAt: '2026-06-12T13:00:00.000Z',
+      revocationWindowStart: undoWindowStart,
+    }),
+    true,
+    'a shield unlocked inside the undone task window may have been caused by that task',
+  );
+
+  assert.equal(
+    canRevokeStoredAchievement({
+      requirementType: 'dailyPersonalBest',
+      unlockedAt: '2026-06-12T13:05:00.000Z',
+      revocationWindowStart: undoWindowStart,
+    }),
+    false,
+    'peak-style milestones stay non-revocable even when unlocked in the window',
+  );
 });
 
 test('shield persistence migration is family-scoped and RLS protected', () => {
