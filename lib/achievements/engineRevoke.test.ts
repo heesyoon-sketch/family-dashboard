@@ -197,3 +197,25 @@ test('engine: routine shields unlock after enough category active days', () => {
   assert.equal(legendaryMorning?.isUnlocked, true);
   assert.equal(legendaryMorning?.progressCurrent, 150);
 });
+
+test('engine: completion category snapshots survive later habit renames', () => {
+  const kid = child();
+  const renamedTask = task('task-1', 'kid', { title: 'practice piano', timeWindow: 'evening' });
+  const completions = Array.from({ length: 14 }, (_, dayIndex) => ({
+    ...completion('task-1', 'kid', dayOffsetIso(dayIndex, 10)),
+    categories: ['learning' as const],
+  }));
+
+  const result = evaluateAchievementsForChild({
+    child: kid,
+    tasks: [renamedTask],
+    completions,
+    allCompletionsByChild: { kid: completions },
+    unlockedAtByAchievementId: {},
+    now: new Date('2026-02-01T12:00:00.000Z'),
+  });
+  const readingRookie = result.achievements.find(a => a.achievementId === 'learning-1-reading-rookie');
+
+  assert.equal(result.metrics.categoryActiveDays.learning, 14);
+  assert.equal(readingRookie?.isUnlocked, true);
+});

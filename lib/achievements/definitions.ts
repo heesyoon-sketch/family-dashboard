@@ -84,6 +84,17 @@ export type HabitCategory =
   | 'morning'
   | 'evening';
 
+export const HABIT_CATEGORIES: readonly HabitCategory[] = [
+  'health',
+  'learning',
+  'faith',
+  'responsibility',
+  'exercise',
+  'school',
+  'morning',
+  'evening',
+];
+
 const tierByIndex: AchievementTier[] = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Legendary', 'Mythic'];
 const rarityByIndex: AchievementRarity[] = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 const milestoneValues = [7, 14, 21, 30, 50, 75, 100, 150, 200, 250, 300, 365];

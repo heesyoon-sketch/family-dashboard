@@ -2,7 +2,7 @@
 
 import { legacyRecurrenceToDays, type Level, type Task, type User } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
-import { ACHIEVEMENTS, VISUAL_STYLE_DEFINITIONS, type RequirementType } from './definitions';
+import { ACHIEVEMENTS, HABIT_CATEGORIES, VISUAL_STYLE_DEFINITIONS, type HabitCategory, type RequirementType } from './definitions';
 import { evaluateAchievementsForChild, type AchievementCompletion, type AchievementProgress } from './engine';
 
 export interface ChildAchievementState {
@@ -105,10 +105,6 @@ function stringRecord(value: unknown): Record<string, string> {
   );
 }
 
-function uniqueStrings(...lists: readonly string[][]): string[] {
-  return Array.from(new Set(lists.flat()));
-}
-
 function hasMeaningfulChildState(state?: Partial<ChildAchievementState>): boolean {
   if (!state) return false;
   return (
@@ -135,17 +131,6 @@ function latestIso(...values: Array<string | undefined>): string {
     .filter((value): value is Date => value instanceof Date && !Number.isNaN(value.getTime()));
   if (valid.length === 0) return new Date().toISOString();
   return new Date(Math.max(...valid.map(value => value.getTime()))).toISOString();
-}
-
-function mergeUnlockedAt(
-  a: Record<string, string>,
-  b: Record<string, string>,
-): Record<string, string> {
-  const merged = { ...a };
-  for (const [id, unlockedAt] of Object.entries(b)) {
-    merged[id] = earliestIso(merged[id], unlockedAt) ?? unlockedAt;
-  }
-  return merged;
 }
 
 function dateIso(value: Date | undefined): string | undefined {
@@ -364,13 +349,16 @@ export function mergeChildState(
 
   return normaliseChildAchievementState(child, {
     childId: child.id,
-    unlockedAtByAchievementId: mergeUnlockedAt(local.unlockedAtByAchievementId, remote.unlockedAtByAchievementId),
-    awardedAchievementIds: uniqueStrings(local.awardedAchievementIds, remote.awardedAchievementIds),
-    unlockedVisualStyleIds: uniqueStrings(local.unlockedVisualStyleIds, remote.unlockedVisualStyleIds),
+    // Unlock columns are engine-owned and remote-authoritative once a remote
+    // row exists. Unioning local unlocks here lets stale browser storage
+    // resurrect shields that were repaired or revoked on another device.
+    unlockedAtByAchievementId: remote.unlockedAtByAchievementId,
+    awardedAchievementIds: remote.awardedAchievementIds,
+    unlockedVisualStyleIds: remote.unlockedVisualStyleIds,
     pinnedAchievementIds: pickIntentList(preferred.pinnedAchievementIds, secondary.pinnedAchievementIds, preferredIsMeaningful),
     equippedInsigniaIds: pickIntentList(preferred.equippedInsigniaIds, secondary.equippedInsigniaIds, preferredIsMeaningful),
     questClaims: { ...secondary.questClaims, ...preferred.questClaims },
-    unlockBaselineAt: earliestIso(local.unlockBaselineAt, remote.unlockBaselineAt) ?? defaultUnlockBaselineAt(child),
+    unlockBaselineAt: remote.unlockBaselineAt,
   });
 }
 
@@ -662,14 +650,20 @@ async function fetchCompletions(userIds: string[]): Promise<Record<string, Achie
   const supabase = createBrowserSupabase();
   const { data, error } = await supabase
     .from('task_completions')
-    .select('id, user_id, task_id, completed_at, points_awarded')
+    .select('id, user_id, task_id, completed_at, points_awarded, achievement_categories')
     .in('user_id', safeIds)
     .gte('completed_at', since.toISOString());
   if (error) throw new Error(error.message);
 
   const byChild: Record<string, AchievementCompletion[]> = Object.fromEntries(userIds.map(id => [id, []]));
+  const validCategories = new Set<string>(HABIT_CATEGORIES);
   for (const row of data ?? []) {
     const childId = row.user_id as string;
+    const categories = Array.isArray(row.achievement_categories)
+      ? row.achievement_categories.filter((category): category is HabitCategory =>
+          typeof category === 'string' && validCategories.has(category),
+        )
+      : undefined;
     byChild[childId] = [
       ...(byChild[childId] ?? []),
       {
@@ -678,6 +672,7 @@ async function fetchCompletions(userIds: string[]): Promise<Record<string, Achie
         taskId: row.task_id as string,
         completedAt: new Date(row.completed_at as string),
         pointsAwarded: Number(row.points_awarded ?? 0),
+        categories,
       },
     ];
   }
@@ -763,6 +758,7 @@ export async function syncAchievements(params: {
   const newlyUnlocked: AchievementProgress[] = [];
   const awardedLevelsByUser: Record<string, Level> = {};
   const auditEvents: AchievementAuditEventInput[] = [];
+  const intentChanged = new Set<string>();
   const causeTaskCompletionId = params.auditCause
     ? inferCauseTaskCompletionId(completionsByChild[params.auditCause.userId] ?? [], params.auditCause)
     : undefined;
@@ -770,6 +766,71 @@ export async function syncAchievements(params: {
 
   for (const child of members) {
     const childState = state.children[child.id] ?? emptyChildState(child.id);
+    const currentTruth = evaluateAchievementsForChild({
+      child,
+      tasks: allTasksByUser[child.id] ?? [],
+      completions: completionsByChild[child.id] ?? [],
+      allCompletionsByChild: completionsByChild,
+      unlockedAtByAchievementId: {},
+      since: childState.unlockBaselineAt ? new Date(childState.unlockBaselineAt) : undefined,
+    });
+    const currentTruthById = new Map(currentTruth.achievements.map(achievement => [achievement.achievementId, achievement]));
+
+    if (completionWindowCoversBaseline(childState.unlockBaselineAt)) {
+      const removedIds: string[] = [];
+      for (const [achievementId, previousUnlockedAt] of Object.entries(childState.unlockedAtByAchievementId)) {
+        const current = currentTruthById.get(achievementId);
+        if (current?.isUnlocked) continue;
+
+        delete childState.unlockedAtByAchievementId[achievementId];
+        childState.awardedAchievementIds = childState.awardedAchievementIds.filter(id => id !== achievementId);
+        removedIds.push(achievementId);
+
+        auditEvents.push({
+          familyId: params.familyId,
+          userId: child.id,
+          achievementId,
+          eventType: 'REVOKED',
+          occurredAt: new Date(),
+          source: params.auditCause?.source ?? 'syncAchievements',
+          detail: current
+            ? achievementAuditDetail(current, {
+                cause: causeDetail,
+                previousUnlockedAt,
+                reason: 'stored_unlock_below_current_progress',
+              })
+            : {
+                cause: causeDetail,
+                previousUnlockedAt,
+                reason: 'stored_unlock_missing_from_catalog',
+              },
+        });
+      }
+
+      if (removedIds.length > 0) {
+        const removed = new Set(removedIds);
+        const nextEquipped = childState.equippedInsigniaIds.filter(id => !removed.has(id));
+        const nextPinned = childState.pinnedAchievementIds.filter(id => !removed.has(id));
+        if (
+          nextEquipped.length !== childState.equippedInsigniaIds.length ||
+          nextPinned.length !== childState.pinnedAchievementIds.length
+        ) {
+          intentChanged.add(child.id);
+        }
+        childState.equippedInsigniaIds = nextEquipped;
+        childState.pinnedAchievementIds = nextPinned;
+
+        const activeStyleIds = new Set<string>();
+        for (const achievement of ACHIEVEMENTS) {
+          if (!childState.unlockedAtByAchievementId[achievement.achievementId]) continue;
+          for (const styleId of achievement.unlocksVisualStyleIds ?? []) {
+            activeStyleIds.add(styleId);
+          }
+        }
+        childState.unlockedVisualStyleIds = Array.from(activeStyleIds);
+      }
+    }
+
     const result = evaluateAchievementsForChild({
       child,
       tasks: allTasksByUser[child.id] ?? [],
@@ -836,6 +897,15 @@ export async function syncAchievements(params: {
   // Persist just the unlock columns so a slow sync can't revert an equip the
   // user made while its snapshot was in flight.
   await persistAchievementState(state, UNLOCK_COLUMNS);
+  if (intentChanged.size > 0) {
+    const scoped: FamilyAchievementState = {
+      ...state,
+      children: Object.fromEntries(
+        Object.entries(state.children).filter(([childId]) => intentChanged.has(childId)),
+      ),
+    };
+    await persistAchievementState(scoped, ['equipped_insignia_ids', 'pinned_achievement_ids']);
+  }
   await recordAchievementAuditEvents(auditEvents);
   return { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
 }

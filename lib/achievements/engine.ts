@@ -8,6 +8,7 @@ export interface AchievementCompletion {
   taskId: string;
   completedAt: Date;
   pointsAwarded?: number;
+  categories?: HabitCategory[];
 }
 
 export interface AchievementProgress {
@@ -217,7 +218,9 @@ function buildCategoryData(completions: AchievementCompletion[], tasks: Task[]) 
   const categoriesByDay = new Map<string, Set<HabitCategory>>();
 
   for (const completion of completions) {
-    const categories = taskCategories.get(completion.taskId) ?? ['responsibility'];
+    const categories = completion.categories && completion.categories.length > 0
+      ? completion.categories
+      : taskCategories.get(completion.taskId) ?? ['responsibility'];
     const day = isoDay(completion.completedAt);
     const set = categoriesByDay.get(day) ?? new Set<HabitCategory>();
     for (const category of categories) {

@@ -213,14 +213,18 @@ test('a fresh empty preferred side falls back to the real loadout', () => {
   assert.deepEqual(merged.pinnedAchievementIds, ['weekly-spark']);
 });
 
-// Unlocks are monotonic regardless of which side is preferred — never lost.
-test('unlocks are unioned across sides during a merge', () => {
+// Unlock progress is engine-owned and remote-authoritative once a remote row
+// exists. Otherwise a stale browser cache can resurrect shields that were
+// repaired or revoked in the database.
+test('remote unlock state wins over stale local unlocks during a merge', () => {
   const child = user('kid', '2026-01-01T00:00:00.000Z');
-  const a = childState({ unlockedAtByAchievementId: { 'a-shield': '2026-05-10T00:00:00.000Z' } });
-  const b = childState({ unlockedAtByAchievementId: { 'b-shield': '2026-05-11T00:00:00.000Z' } });
+  const local = childState({ unlockedAtByAchievementId: { 'stale-shield': '2026-05-10T00:00:00.000Z' } });
+  const remote = childState({ unlockedAtByAchievementId: { 'real-shield': '2026-05-11T00:00:00.000Z' } });
 
-  const merged = mergeChildState(child, a, b, true);
-  assert.deepEqual(Object.keys(merged.unlockedAtByAchievementId).sort(), ['a-shield', 'b-shield']);
+  const merged = mergeChildState(child, local, remote, false);
+  assert.deepEqual(merged.unlockedAtByAchievementId, {
+    'real-shield': '2026-05-11T00:00:00.000Z',
+  });
 });
 
 // Regression: revokeUnmetAchievements re-derives every badge from a rolling
@@ -351,4 +355,17 @@ test('task completion windows are unique per local day and time window', () => {
   assert.match(migration, /create unique index if not exists task_completions_one_per_task_window_idx/);
   assert.match(migration, /completed_at at time zone 'America\/Toronto'/);
   assert.match(migration, /extract\(hour from completed_at at time zone 'America\/Toronto'\) < 13/);
+});
+
+test('task completions snapshot achievement categories for rename-safe shields', () => {
+  const migration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/090_snapshot_completion_achievement_categories.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /add column if not exists achievement_categories text\[\]/);
+  assert.match(migration, /public\.task_achievement_categories/);
+  assert.match(migration, /set achievement_categories = public\.task_achievement_categories/);
+  assert.match(migration, /achievement_categories\s*\)/);
+  assert.match(migration, /v_achievement_categories/);
 });
