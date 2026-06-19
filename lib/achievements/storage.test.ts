@@ -229,7 +229,7 @@ test('unlocks are unioned across sides during a merge', () => {
 test('cumulative requirements are revocable; peaks/streaks/quests are not', () => {
   // Monotonic cumulative-since-baseline counts — an undo can legitimately drop
   // these below target, so they stay revocable.
-  for (const type of ['totalCompletions', 'activeDays', 'daysWithAtLeast', 'categoryCompletions', 'comboDays', 'teamSameDay', 'perfectDays'] as const) {
+  for (const type of ['totalCompletions', 'activeDays', 'daysWithAtLeast', 'categoryCompletions', 'categoryActiveDays', 'comboDays', 'teamSameDay', 'perfectDays'] as const) {
     assert.equal(isRevocableRequirement(type), true, `${type} should be revocable`);
   }
   // Peaks, live streaks, and current-period quests recede for reasons unrelated
@@ -340,4 +340,15 @@ test('achievement bonus activity feed writes use UUID member ids', () => {
   assert.match(migration, /select u\.family_id, u\.id::uuid\s+into v_family_id, v_activity_user_id/s);
   assert.match(migration, /v_activity_user_id,\s+'SYSTEM_MESSAGE'/);
   assert.doesNotMatch(migration, /\n\s+p_user_id,\s+'SYSTEM_MESSAGE'/);
+});
+
+test('task completion windows are unique per local day and time window', () => {
+  const migration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/089_prevent_duplicate_task_completion_windows.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /create unique index if not exists task_completions_one_per_task_window_idx/);
+  assert.match(migration, /completed_at at time zone 'America\/Toronto'/);
+  assert.match(migration, /extract\(hour from completed_at at time zone 'America\/Toronto'\) < 13/);
 });

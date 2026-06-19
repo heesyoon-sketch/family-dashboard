@@ -14,7 +14,7 @@ function child(id = 'kid'): User {
   };
 }
 
-function task(id = 'task-1', userId = 'kid'): Task {
+function task(id = 'task-1', userId = 'kid', patch: Partial<Task> = {}): Task {
   return {
     id,
     userId,
@@ -28,11 +28,19 @@ function task(id = 'task-1', userId = 'kid'): Task {
     sortOrder: 0,
     streakCount: 0,
     lastCompletedAt: null,
+    ...patch,
   };
 }
 
 function completion(taskId: string, childId: string, at: string): AchievementCompletion {
   return { childId, taskId, completedAt: new Date(at), pointsAwarded: 10 };
+}
+
+function dayOffsetIso(dayIndex: number, hour: number): string {
+  const date = new Date('2026-01-01T00:00:00.000Z');
+  date.setUTCDate(date.getUTCDate() + dayIndex);
+  date.setUTCHours(hour, 0, 0, 0);
+  return date.toISOString();
 }
 
 test('engine: zero completions yields no first-spark unlock', () => {
@@ -128,4 +136,64 @@ test('engine: progressPercent caps at 100 even when current exceeds target', () 
   assert.equal(firstSpark?.isUnlocked, true);
   assert.equal(firstSpark?.progressPercent, 100, 'progressPercent must clamp at 100');
   assert.equal(firstSpark?.progressCurrent, 1, 'progressCurrent must clamp at progressTarget');
+});
+
+test('engine: routine shields count category active days, not same-day task volume', () => {
+  const kid = child();
+  const morningTasks = [
+    task('morning-1', 'kid', { title: 'morning checklist', timeWindow: 'morning' }),
+    task('morning-2', 'kid', { title: 'morning stretch', timeWindow: 'morning' }),
+    task('morning-3', 'kid', { title: 'morning reading', timeWindow: 'morning' }),
+  ];
+  const completions = Array.from({ length: 50 }).flatMap((_, dayIndex) =>
+    morningTasks.map((morningTask, taskIndex) =>
+      completion(
+        morningTask.id,
+        'kid',
+        dayOffsetIso(dayIndex, 10 + taskIndex),
+      ),
+    ),
+  );
+
+  const result = evaluateAchievementsForChild({
+    child: kid,
+    tasks: morningTasks,
+    completions,
+    allCompletionsByChild: { kid: completions },
+    unlockedAtByAchievementId: {},
+    now: new Date('2026-03-01T12:00:00.000Z'),
+  });
+  const legendaryMorning = result.achievements.find(a => a.achievementId === 'morning-3-sunrise-builder');
+
+  assert.equal(result.metrics.categoryCompletions.morning, 150);
+  assert.equal(result.metrics.categoryActiveDays.morning, 50);
+  assert.equal(legendaryMorning?.isUnlocked, false);
+  assert.equal(legendaryMorning?.progressCurrent, 50);
+});
+
+test('engine: routine shields unlock after enough category active days', () => {
+  const kid = child();
+  const morningTask = task('morning-1', 'kid', { title: 'morning checklist', timeWindow: 'morning' });
+  const completions = Array.from({ length: 150 }, (_, dayIndex) =>
+    completion(
+      morningTask.id,
+      'kid',
+      dayOffsetIso(dayIndex, 10),
+    ),
+  );
+
+  const result = evaluateAchievementsForChild({
+    child: kid,
+    tasks: [morningTask],
+    completions,
+    allCompletionsByChild: { kid: completions },
+    unlockedAtByAchievementId: {},
+    now: new Date('2026-06-01T12:00:00.000Z'),
+  });
+  const legendaryMorning = result.achievements.find(a => a.achievementId === 'morning-3-sunrise-builder');
+
+  assert.equal(result.metrics.categoryCompletions.morning, 150);
+  assert.equal(result.metrics.categoryActiveDays.morning, 150);
+  assert.equal(legendaryMorning?.isUnlocked, true);
+  assert.equal(legendaryMorning?.progressCurrent, 150);
 });

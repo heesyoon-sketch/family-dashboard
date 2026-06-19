@@ -25,6 +25,7 @@ export type RequirementType =
   | 'totalCompletions'
   | 'activeDays'
   | 'categoryCompletions'
+  | 'categoryActiveDays'
   | 'habitKeywordCompletions'
   | 'daysWithAtLeast'
   | 'dailyStreak'
@@ -147,10 +148,9 @@ const habitGroups: Array<{
   names: [string, string, string];
   thresholds: [number, number, number];
 }> = [
-  // Habit-group thresholds: index 0 = rare (~14 of that habit), 1 = epic
-  // (~60), 2 = legendary (~200). Bumped from the old lenient set so a kid
-  // can't unlock a "rare" silhouette by reading three times in one
-  // afternoon — a rare shield should reflect a couple weeks of work.
+  // Habit-group thresholds are category active days: index 0 = rare (~14 days),
+  // 1 = epic (~60 days), 2 = legendary (150-200 days). Counting days keeps
+  // multi-task routines from unlocking long-horizon shields in a few weeks.
   { category: 'Learning & Reading', habitCategory: 'learning', keyword: 'read', icon: '📚', names: ['Reading Rookie', 'Book Explorer', 'Reading Legend'], thresholds: [14, 60, 200] },
   { category: 'Exercise', habitCategory: 'exercise', keyword: 'exercise', icon: '🏃', names: ['Move Maker', 'Strong Body', 'Energy Champion'], thresholds: [14, 60, 200] },
   { category: 'Health & Hygiene', habitCategory: 'health', keyword: 'brush', icon: '🪥', names: ['Clean Start', 'Hygiene Hero', 'Toothbrush Master'], thresholds: [14, 60, 150] },
@@ -228,11 +228,11 @@ function baseDefinitions(): AchievementDefinition[] {
       defs.push(makeAchievement({
         achievementId: `${group.habitCategory}-${index + 1}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
         title: name,
-        description: `Complete ${group.category.toLowerCase()} habits ${group.thresholds[index]} times.`,
+        description: `Show up for ${group.category.toLowerCase()} on ${group.thresholds[index]} different days.`,
         category: group.category,
         tier: tierByIndex[index + 1],
         icon: group.icon,
-        requirementType: 'categoryCompletions',
+        requirementType: 'categoryActiveDays',
         requirementCategory: group.habitCategory,
         habitKeyword: group.keyword,
         requirementValue: group.thresholds[index],

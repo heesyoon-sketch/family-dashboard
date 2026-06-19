@@ -47,6 +47,7 @@ export interface AchievementMetrics {
   dailyPersonalBest: number;
   weeklyPersonalBest: number;
   categoryCompletions: Record<HabitCategory, number>;
+  categoryActiveDays: Record<HabitCategory, number>;
   comboDaysByKey: Record<string, number>;
   teamSameDays: number;
   currentWeekActiveDays: number;
@@ -203,6 +204,16 @@ function buildCategoryData(completions: AchievementCompletion[], tasks: Task[]) 
     morning: 0,
     evening: 0,
   };
+  const categoryActiveDays: Record<HabitCategory, number> = {
+    health: 0,
+    learning: 0,
+    faith: 0,
+    responsibility: 0,
+    exercise: 0,
+    school: 0,
+    morning: 0,
+    evening: 0,
+  };
   const categoriesByDay = new Map<string, Set<HabitCategory>>();
 
   for (const completion of completions) {
@@ -219,6 +230,9 @@ function buildCategoryData(completions: AchievementCompletion[], tasks: Task[]) 
   const comboDaysByKey: Record<string, number> = {};
   for (const categories of categoriesByDay.values()) {
     const sorted = Array.from(categories).sort();
+    for (const category of sorted) {
+      categoryActiveDays[category]++;
+    }
     for (let size = 2; size <= sorted.length; size++) {
       const key = sorted.slice(0, size).join('+');
       comboDaysByKey[key] = (comboDaysByKey[key] ?? 0) + 1;
@@ -227,7 +241,7 @@ function buildCategoryData(completions: AchievementCompletion[], tasks: Task[]) 
     if (sorted.length >= 5) comboDaysByKey['any-5'] = (comboDaysByKey['any-5'] ?? 0) + 1;
   }
 
-  return { categoryCompletions, comboDaysByKey, categoriesByDay };
+  return { categoryCompletions, categoryActiveDays, comboDaysByKey, categoriesByDay };
 }
 
 function countTeamSameDays(childId: string, allCompletionsByChild: Record<string, AchievementCompletion[]>): number {
@@ -272,6 +286,7 @@ export function calculateAchievementMetrics(
     dailyPersonalBest: dailyBest,
     weeklyPersonalBest: weeklyBest,
     categoryCompletions: categoryData.categoryCompletions,
+    categoryActiveDays: categoryData.categoryActiveDays,
     comboDaysByKey: categoryData.comboDaysByKey,
     teamSameDays: countTeamSameDays(childId, allCompletionsByChild),
     currentWeekActiveDays: currentWeekDays,
@@ -296,6 +311,8 @@ function progressFor(definition: AchievementDefinition, metrics: AchievementMetr
     case 'categoryCompletions':
     case 'habitKeywordCompletions':
       return metrics.categoryCompletions[definition.requirementCategory ?? 'responsibility'] ?? 0;
+    case 'categoryActiveDays':
+      return metrics.categoryActiveDays[definition.requirementCategory ?? 'responsibility'] ?? 0;
     case 'daysWithAtLeast':
       return metrics.activeDays;
     case 'dailyStreak':
