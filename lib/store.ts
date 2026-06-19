@@ -966,10 +966,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         console.warn('[bonus] failed to compose, sending 0%', error);
       }
 
+      const completionAt = new Date();
       let result;
       try {
         const { processCompletion } = await import('./gamification');
-        result = await processCompletion(userId, taskId, false, new Date(), bonus.totalPercent);
+        result = await processCompletion(userId, taskId, false, completionAt, bonus.totalPercent);
         console.log('[completion] bonus%', bonus.totalPercent, '→ awarded', result.pointsAwarded, 'pts');
       } catch (error) {
         await enqueueTaskAction('complete', userId, taskId);
@@ -1011,6 +1012,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             tasksByUser: get().tasksByUser,
             levelsByUser: get().levelsByUser,
             awardNew: true,
+            auditCause: {
+              userId,
+              taskId,
+              occurredAt: completionAt,
+              source: 'task_completion',
+            },
           });
           if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
             set(state => ({
@@ -1066,6 +1073,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const undoAt = new Date();
       const undoTask = (get().tasksByUser[userId] ?? []).find(candidate => candidate.id === taskId);
       const undoWindowStart = getCompletionWindowStart(
+        startOfDayLocal(undoAt),
+        undoTask?.timeWindow,
+        getCurrentTimeWindow(undoAt),
+      );
+      const undoWindowEnd = getCompletionWindowEnd(
         startOfDayLocal(undoAt),
         undoTask?.timeWindow,
         getCurrentTimeWindow(undoAt),
@@ -1126,6 +1138,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             children: get().users,
             tasksByUser: get().tasksByUser,
             revocationWindowStart: undoWindowStart,
+            revocationWindowEnd: undoWindowEnd,
+            auditCause: {
+              userId,
+              taskId,
+              occurredAt: undoAt,
+              source: 'task_undo',
+            },
           });
           if (Object.keys(revokeResult.refundedLevelsByUser).length > 0) {
             set(state => ({

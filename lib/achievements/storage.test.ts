@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { User } from '../db';
 import {
+  buildAchievementAuditRows,
   buildPersistRows,
   canRevokeStoredAchievement,
   completionWindowCoversBaseline,
@@ -133,6 +134,36 @@ test('the intent and unlock column sets are disjoint and cover every column', ()
   const overlap = INTENT_COLUMNS.filter(c => UNLOCK_COLUMNS.includes(c));
   assert.deepEqual(overlap, [], 'a column owned by both concerns would re-introduce the clobber');
   assert.equal(new Set(ALL_COLUMNS).size, UNLOCK_COLUMNS.length + INTENT_COLUMNS.length);
+});
+
+test('achievement audit events are converted to the RPC row contract', () => {
+  const rows = buildAchievementAuditRows([{
+    familyId: 'fam-1',
+    userId: 'kid',
+    achievementId: 'year-active-days-365',
+    eventType: 'REVOKED',
+    pointsDelta: -60,
+    taskCompletionId: 'completion-1',
+    revocationWindowStart: new Date('2026-06-12T13:00:00.000Z'),
+    revocationWindowEnd: new Date('2026-06-13T00:00:00.000Z'),
+    occurredAt: new Date('2026-06-12T13:05:00.000Z'),
+    source: 'task_undo',
+    detail: { reason: 'requirement_unmet_after_undo' },
+  }]);
+
+  assert.deepEqual(rows, [{
+    family_id: 'fam-1',
+    user_id: 'kid',
+    achievement_id: 'year-active-days-365',
+    event_type: 'REVOKED',
+    points_delta: -60,
+    task_completion_id: 'completion-1',
+    revocation_window_start: '2026-06-12T13:00:00.000Z',
+    revocation_window_end: '2026-06-13T00:00:00.000Z',
+    occurred_at: '2026-06-12T13:05:00.000Z',
+    source: 'task_undo',
+    detail: { reason: 'requirement_unmet_after_undo' },
+  }]);
 });
 
 function childState(stored: Partial<ChildAchievementState>): ChildAchievementState {
@@ -278,4 +309,35 @@ test('shield persistence migration is family-scoped and RLS protected', () => {
   assert.match(migration, /alter table public\.achievement_states enable row level security/);
   assert.match(migration, /public\.is_family_member\(family_id\)/);
   assert.match(migration, /u\.family_id = achievement_states\.family_id/);
+});
+
+test('achievement audit ledger is append-only and family-scoped', () => {
+  const migration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/087_achievement_audit_events.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /create table if not exists public\.achievement_audit_events/);
+  assert.match(migration, /event_type in \('UNLOCKED', 'BONUS_AWARDED', 'REVOKED', 'BONUS_REFUNDED'\)/);
+  assert.match(migration, /alter table public\.achievement_audit_events enable row level security/);
+  assert.match(migration, /create policy achievement_audit_events_family_select/);
+  assert.match(migration, /using \(public\.is_family_member\(family_id\)\)/);
+  assert.match(migration, /create or replace function public\.record_achievement_audit_events/);
+  assert.match(migration, /not exists \(\s*select 1\s*from public\.users u\s*where u\.id = v_user_id\s*and u\.family_id = v_family_id/s);
+  assert.doesNotMatch(migration, /for insert to authenticated/);
+  assert.doesNotMatch(migration, /for update to authenticated/);
+  assert.doesNotMatch(migration, /for delete to authenticated/);
+});
+
+test('achievement bonus activity feed writes use UUID member ids', () => {
+  const migration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/088_fix_achievement_activity_user_cast.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /create or replace function public\.award_achievement_bonus/);
+  assert.match(migration, /create or replace function public\.revoke_achievement_bonus/);
+  assert.match(migration, /select u\.family_id, u\.id::uuid\s+into v_family_id, v_activity_user_id/s);
+  assert.match(migration, /v_activity_user_id,\s+'SYSTEM_MESSAGE'/);
+  assert.doesNotMatch(migration, /\n\s+p_user_id,\s+'SYSTEM_MESSAGE'/);
 });

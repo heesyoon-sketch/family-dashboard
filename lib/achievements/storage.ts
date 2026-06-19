@@ -33,6 +33,30 @@ export interface AchievementSyncResult {
   newlyUnlocked: AchievementProgress[];
 }
 
+export type AchievementAuditEventType = 'UNLOCKED' | 'BONUS_AWARDED' | 'REVOKED' | 'BONUS_REFUNDED';
+
+export interface AchievementAuditCause {
+  userId: string;
+  taskId?: string;
+  taskCompletionId?: string;
+  occurredAt?: Date;
+  source?: string;
+}
+
+export interface AchievementAuditEventInput {
+  familyId: string;
+  userId: string;
+  achievementId: string;
+  eventType: AchievementAuditEventType;
+  pointsDelta?: number;
+  taskCompletionId?: string;
+  revocationWindowStart?: Date;
+  revocationWindowEnd?: Date;
+  occurredAt?: Date;
+  source?: string;
+  detail?: Record<string, unknown>;
+}
+
 const SHIELD_JOURNEY_BASELINE_AT = '2026-05-09T00:00:00.000Z';
 
 // v5: reset on 2026-05-09 (third pass). The Monthly Quests block had
@@ -122,6 +146,95 @@ function mergeUnlockedAt(
     merged[id] = earliestIso(merged[id], unlockedAt) ?? unlockedAt;
   }
   return merged;
+}
+
+function dateIso(value: Date | undefined): string | undefined {
+  if (!value || Number.isNaN(value.getTime())) return undefined;
+  return value.toISOString();
+}
+
+export function buildAchievementAuditRows(events: readonly AchievementAuditEventInput[]): Array<Record<string, unknown>> {
+  return events.map(event => ({
+    family_id: event.familyId,
+    user_id: event.userId,
+    achievement_id: event.achievementId,
+    event_type: event.eventType,
+    points_delta: event.pointsDelta ?? 0,
+    task_completion_id: event.taskCompletionId,
+    revocation_window_start: dateIso(event.revocationWindowStart),
+    revocation_window_end: dateIso(event.revocationWindowEnd),
+    occurred_at: dateIso(event.occurredAt) ?? new Date().toISOString(),
+    source: event.source ?? 'achievement_engine',
+    detail: event.detail ?? {},
+  }));
+}
+
+async function recordAchievementAuditEvents(events: readonly AchievementAuditEventInput[]): Promise<void> {
+  if (typeof window === 'undefined' || events.length === 0) return;
+  try {
+    const supabase = createBrowserSupabase();
+    const { error } = await supabase.rpc('record_achievement_audit_events', {
+      p_events: buildAchievementAuditRows(events),
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.warn('[achievements] failed to record audit events', error);
+  }
+}
+
+function achievementAuditDetail(
+  achievement: AchievementProgress,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    title: achievement.title,
+    category: achievement.category,
+    rarity: achievement.rarity,
+    tier: achievement.tier,
+    requirementType: achievement.requirementType,
+    requirementValue: achievement.requirementValue,
+    progressCurrent: achievement.progressCurrent,
+    progressTarget: achievement.progressTarget,
+    progressPercent: achievement.progressPercent,
+    rewardPoints: achievement.rewardPoints ?? 0,
+    unlocksVisualStyleIds: achievement.unlocksVisualStyleIds ?? [],
+    ...extra,
+  };
+}
+
+function inferCauseTaskCompletionId(
+  completions: readonly AchievementCompletion[],
+  cause?: AchievementAuditCause,
+): string | undefined {
+  if (cause?.taskCompletionId) return cause.taskCompletionId;
+  if (!cause?.taskId) return undefined;
+
+  const candidates = completions
+    .filter(completion => completion.taskId === cause.taskId && completion.id)
+    .sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+  if (candidates.length === 0) return undefined;
+
+  const causeTime = cause.occurredAt?.getTime();
+  if (!Number.isFinite(causeTime)) return candidates[0].id;
+
+  const closest = candidates
+    .map(completion => ({
+      completion,
+      distance: Math.abs(completion.completedAt.getTime() - causeTime!),
+    }))
+    .sort((a, b) => a.distance - b.distance)[0];
+  return closest?.completion.id;
+}
+
+function auditCauseDetail(cause?: AchievementAuditCause, taskCompletionId?: string): Record<string, unknown> | undefined {
+  if (!cause && !taskCompletionId) return undefined;
+  return {
+    userId: cause?.userId,
+    taskId: cause?.taskId,
+    taskCompletionId,
+    occurredAt: dateIso(cause?.occurredAt),
+    source: cause?.source,
+  };
 }
 
 export function normaliseChildAchievementState(
@@ -635,6 +748,7 @@ export async function syncAchievements(params: {
   tasksByUser: Record<string, Task[]>;
   levelsByUser?: Record<string, Level>;
   awardNew?: boolean;
+  auditCause?: AchievementAuditCause;
 }): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
   // Shield Wall is open to everyone in the family — kids and parents alike.
   const members = params.children;
@@ -648,6 +762,11 @@ export async function syncAchievements(params: {
   const achievementsByChild: Record<string, AchievementProgress[]> = {};
   const newlyUnlocked: AchievementProgress[] = [];
   const awardedLevelsByUser: Record<string, Level> = {};
+  const auditEvents: AchievementAuditEventInput[] = [];
+  const causeTaskCompletionId = params.auditCause
+    ? inferCauseTaskCompletionId(completionsByChild[params.auditCause.userId] ?? [], params.auditCause)
+    : undefined;
+  const causeDetail = auditCauseDetail(params.auditCause, causeTaskCompletionId);
 
   for (const child of members) {
     const childState = state.children[child.id] ?? emptyChildState(child.id);
@@ -660,18 +779,47 @@ export async function syncAchievements(params: {
       since: childState.unlockBaselineAt ? new Date(childState.unlockBaselineAt) : undefined,
     });
     for (const achievement of result.newlyUnlocked) {
-      childState.unlockedAtByAchievementId[achievement.achievementId] = achievement.unlockedAt ?? new Date().toISOString();
+      const unlockedAt = achievement.unlockedAt ?? new Date().toISOString();
+      childState.unlockedAtByAchievementId[achievement.achievementId] = unlockedAt;
       childState.unlockedVisualStyleIds = Array.from(new Set([
         ...childState.unlockedVisualStyleIds,
         ...(achievement.unlocksVisualStyleIds ?? []),
       ]));
       newlyUnlocked.push(achievement);
+      auditEvents.push({
+        familyId: params.familyId,
+        userId: child.id,
+        achievementId: achievement.achievementId,
+        eventType: 'UNLOCKED',
+        taskCompletionId: causeTaskCompletionId,
+        occurredAt: new Date(unlockedAt),
+        source: params.auditCause?.source ?? 'syncAchievements',
+        detail: achievementAuditDetail(achievement, {
+          cause: causeDetail,
+        }),
+      });
 
       if (params.awardNew && !childState.awardedAchievementIds.includes(achievement.achievementId)) {
         const awarded = await awardBonusPoints(child.id, achievement);
         if (awarded) {
           awardedLevelsByUser[child.id] = awarded;
           childState.awardedAchievementIds.push(achievement.achievementId);
+          auditEvents.push({
+            familyId: params.familyId,
+            userId: child.id,
+            achievementId: achievement.achievementId,
+            eventType: 'BONUS_AWARDED',
+            pointsDelta: Math.max(0, Math.round(achievement.rewardPoints ?? 0)),
+            taskCompletionId: causeTaskCompletionId,
+            occurredAt: awarded.updatedAt,
+            source: params.auditCause?.source ?? 'syncAchievements',
+            detail: achievementAuditDetail(achievement, {
+              cause: causeDetail,
+              totalPoints: awarded.totalPoints,
+              spendableBalance: awarded.spendableBalance,
+              currentLevel: awarded.currentLevel,
+            }),
+          });
         }
       }
     }
@@ -688,6 +836,7 @@ export async function syncAchievements(params: {
   // Persist just the unlock columns so a slow sync can't revert an equip the
   // user made while its snapshot was in flight.
   await persistAchievementState(state, UNLOCK_COLUMNS);
+  await recordAchievementAuditEvents(auditEvents);
   return { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
 }
 
@@ -709,6 +858,8 @@ export async function revokeUnmetAchievements(params: {
   /** Start of the completion window for the task being undone. When provided,
    *  only achievements unlocked during that window are eligible for revocation. */
   revocationWindowStart?: Date;
+  revocationWindowEnd?: Date;
+  auditCause?: AchievementAuditCause;
 }): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
   const members = params.children;
   const state = await loadPersistedAchievementState(params.familyId, members);
@@ -720,6 +871,8 @@ export async function revokeUnmetAchievements(params: {
 
   const revoked: AchievementProgress[] = [];
   const refundedLevelsByUser: Record<string, Level> = {};
+  const auditEvents: AchievementAuditEventInput[] = [];
+  const causeDetail = auditCauseDetail(params.auditCause, params.auditCause?.taskCompletionId);
   // Members whose loadout we actually changed. We only write the equipped
   // column for these, so revoking one member's stale shield can't clobber a
   // sibling's loadout that was equipped during our fetch window.
@@ -762,6 +915,9 @@ export async function revokeUnmetAchievements(params: {
         revocationWindowStart: params.revocationWindowStart,
       })) continue;
 
+      const previousUnlockedAt = childState.unlockedAtByAchievementId[id];
+      const fullDef = result.achievements.find(a => a.achievementId === id);
+
       // Drop the unlock + the awarded marker so a future re-earn re-awards.
       delete childState.unlockedAtByAchievementId[id];
       childState.awardedAchievementIds = childState.awardedAchievementIds.filter(x => x !== id);
@@ -785,6 +941,25 @@ export async function revokeUnmetAchievements(params: {
         }
       }
 
+      if (fullDef) {
+        auditEvents.push({
+          familyId: params.familyId,
+          userId: child.id,
+          achievementId: id,
+          eventType: 'REVOKED',
+          taskCompletionId: params.auditCause?.taskCompletionId,
+          revocationWindowStart: params.revocationWindowStart,
+          revocationWindowEnd: params.revocationWindowEnd,
+          occurredAt: new Date(),
+          source: params.auditCause?.source ?? 'revokeUnmetAchievements',
+          detail: achievementAuditDetail(fullDef, {
+            cause: causeDetail,
+            previousUnlockedAt,
+            reason: 'requirement_unmet_after_undo',
+          }),
+        });
+      }
+
       // Refund the bonus points this badge originally granted.
       try {
         const { data, error } = await supabase.rpc('revoke_achievement_bonus', {
@@ -800,6 +975,7 @@ export async function revokeUnmetAchievements(params: {
             updatedAt: string;
             refunded: number;
           };
+          const refunded = Math.max(0, Number(raw.refunded ?? 0));
           refundedLevelsByUser[child.id] = {
             userId: raw.userId,
             currentLevel: raw.currentLevel,
@@ -807,12 +983,32 @@ export async function revokeUnmetAchievements(params: {
             spendableBalance: raw.spendableBalance,
             updatedAt: new Date(raw.updatedAt),
           };
+          if (refunded > 0) {
+            auditEvents.push({
+              familyId: params.familyId,
+              userId: child.id,
+              achievementId: id,
+              eventType: 'BONUS_REFUNDED',
+              pointsDelta: -refunded,
+              taskCompletionId: params.auditCause?.taskCompletionId,
+              revocationWindowStart: params.revocationWindowStart,
+              revocationWindowEnd: params.revocationWindowEnd,
+              occurredAt: new Date(raw.updatedAt),
+              source: params.auditCause?.source ?? 'revokeUnmetAchievements',
+              detail: {
+                cause: causeDetail,
+                refunded,
+                totalPoints: raw.totalPoints,
+                spendableBalance: raw.spendableBalance,
+                currentLevel: raw.currentLevel,
+              },
+            });
+          }
         }
       } catch (error) {
         console.warn('[revoke] failed to refund', id, error);
       }
 
-      const fullDef = result.achievements.find(a => a.achievementId === id);
       if (fullDef) revoked.push(fullDef);
     }
 
@@ -835,6 +1031,7 @@ export async function revokeUnmetAchievements(params: {
     };
     await persistAchievementState(scoped, ['equipped_insignia_ids']);
   }
+  await recordAchievementAuditEvents(auditEvents);
   return { revoked, refundedLevelsByUser };
 }
 
