@@ -93,6 +93,10 @@ declare
   v_user_b text := current_setting('rls_test.user_b');
   v_count integer;
   v_rows integer;
+  v_before_total integer;
+  v_after_total integer;
+  v_first_award jsonb;
+  v_duplicate_award jsonb;
   v_cross_insert_blocked boolean := false;
   v_cross_rpc_blocked boolean := false;
 begin
@@ -185,6 +189,25 @@ begin
     and not (unlocked_at_by_achievement_id ? 'legacy-extra');
   if v_count <> 1 then
     raise exception 'legacy generic update changed engine-owned unlock state';
+  end if;
+
+  select coalesce((
+    select total_points from public.levels where user_id = v_user_a
+  ), 0) into v_before_total;
+  v_first_award := public.award_achievement_bonus(
+    v_user_a, 'rls-idempotency-probe', 1, 'RLS idempotency probe'
+  );
+  v_duplicate_award := public.award_achievement_bonus(
+    v_user_a, 'rls-idempotency-probe', 1, 'RLS duplicate probe'
+  );
+  select total_points into v_after_total
+  from public.levels
+  where user_id = v_user_a;
+  if coalesce((v_first_award->>'awarded')::boolean, false) is not true
+    or coalesce((v_duplicate_award->>'awarded')::boolean, true) is not false
+    or v_after_total <> v_before_total + 1
+  then
+    raise exception 'achievement bonus RPC is not idempotent';
   end if;
 
   update public.achievement_states

@@ -859,7 +859,12 @@ async function fetchTasks(userIds: string[], fallback: Record<string, Task[]>): 
   return byUser;
 }
 
-async function awardBonusPoints(childId: string, achievement: AchievementProgress): Promise<Level | null> {
+type AchievementBonusResult = { level: Level; awarded: boolean };
+
+async function awardBonusPoints(
+  childId: string,
+  achievement: AchievementProgress,
+): Promise<AchievementBonusResult | null> {
   const points = Math.max(0, Math.round(achievement.rewardPoints ?? 0));
   if (points <= 0) return null;
   const supabase = createBrowserSupabase();
@@ -870,13 +875,23 @@ async function awardBonusPoints(childId: string, achievement: AchievementProgres
     p_message: `Shield unlocked: ${achievement.title}`,
   });
   if (error || !data) return null;
-  const raw = data as { userId: string; currentLevel: number; totalPoints: number; spendableBalance: number; updatedAt: string };
+  const raw = data as {
+    awarded?: boolean;
+    userId: string;
+    currentLevel: number;
+    totalPoints: number;
+    spendableBalance: number;
+    updatedAt: string;
+  };
   return {
-    userId: raw.userId,
-    currentLevel: raw.currentLevel,
-    totalPoints: raw.totalPoints,
-    spendableBalance: raw.spendableBalance,
-    updatedAt: new Date(raw.updatedAt),
+    awarded: raw.awarded === true,
+    level: {
+      userId: raw.userId,
+      currentLevel: raw.currentLevel,
+      totalPoints: raw.totalPoints,
+      spendableBalance: raw.spendableBalance,
+      updatedAt: new Date(raw.updatedAt),
+    },
   };
 }
 
@@ -1014,26 +1029,30 @@ async function runAchievementSync(params: AchievementSyncParams): Promise<FullAc
       });
 
       if (params.awardNew && !childState.awardedAchievementIds.includes(achievement.achievementId)) {
-        const awarded = await awardBonusPoints(child.id, achievement);
-        if (awarded) {
-          awardedLevelsByUser[child.id] = awarded;
+        const bonus = await awardBonusPoints(child.id, achievement);
+        if (bonus) {
+          // The server receipt is authoritative. Mark a duplicate as handled
+          // locally, but never report it as a new award or refresh points.
           childState.awardedAchievementIds.push(achievement.achievementId);
-          auditEvents.push({
-            familyId: params.familyId,
-            userId: child.id,
-            achievementId: achievement.achievementId,
-            eventType: 'BONUS_AWARDED',
-            pointsDelta: Math.max(0, Math.round(achievement.rewardPoints ?? 0)),
-            taskCompletionId: causeTaskCompletionId,
-            occurredAt: awarded.updatedAt,
-            source: params.auditCause?.source ?? 'syncAchievements',
-            detail: achievementAuditDetail(achievement, {
-              cause: causeDetail,
-              totalPoints: awarded.totalPoints,
-              spendableBalance: awarded.spendableBalance,
-              currentLevel: awarded.currentLevel,
-            }),
-          });
+          if (bonus.awarded) {
+            awardedLevelsByUser[child.id] = bonus.level;
+            auditEvents.push({
+              familyId: params.familyId,
+              userId: child.id,
+              achievementId: achievement.achievementId,
+              eventType: 'BONUS_AWARDED',
+              pointsDelta: Math.max(0, Math.round(achievement.rewardPoints ?? 0)),
+              taskCompletionId: causeTaskCompletionId,
+              occurredAt: bonus.level.updatedAt,
+              source: params.auditCause?.source ?? 'syncAchievements',
+              detail: achievementAuditDetail(achievement, {
+                cause: causeDetail,
+                totalPoints: bonus.level.totalPoints,
+                spendableBalance: bonus.level.spendableBalance,
+                currentLevel: bonus.level.currentLevel,
+              }),
+            });
+          }
         }
       }
     }
@@ -1136,11 +1155,11 @@ export function syncAchievementsOnce(params: {
  *  so the shield wall stays honest with the underlying activity.
  *
  *  For each revoked achievement we:
- *    - drop it from `unlockedAtByAchievementId` and `awardedAchievementIds`
+ *    - drop it from `unlockedAtByAchievementId` and the local awarded cache
  *    - unequip it if it was in the loadout
  *    - drop any visual styles that were unlocked *only* by this achievement
- *    - call `revoke_achievement_bonus` on the server to refund the points
- *      this achievement originally granted
+ *    - call `revoke_achievement_bonus` on the server to refund the points once;
+ *      the permanent server receipt still prevents a later duplicate award
  */
 export async function revokeUnmetAchievements(params: {
   familyId: string;
@@ -1209,7 +1228,8 @@ export async function revokeUnmetAchievements(params: {
       const previousUnlockedAt = childState.unlockedAtByAchievementId[id];
       const fullDef = result.achievements.find(a => a.achievementId === id);
 
-      // Drop the unlock + the awarded marker so a future re-earn re-awards.
+      // Drop the unlock + local cache marker. The permanent server receipt is
+      // authoritative and prevents a future re-earn from paying twice.
       delete childState.unlockedAtByAchievementId[id];
       childState.awardedAchievementIds = childState.awardedAchievementIds.filter(x => x !== id);
       if (childState.equippedInsigniaIds.includes(id)) {

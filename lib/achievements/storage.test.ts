@@ -447,4 +447,14 @@ test('database guard blocks stale clients from deleting shield state', () => {
   assert.match(auditGuardMigration, /new\.event_type = 'REVOKED'/);
   assert.match(auditGuardMigration, /new\.source not in \('task_undo', 'revokeUnmetAchievements'\)/);
   assert.match(auditGuardMigration, /before insert on public\.achievement_audit_events/);
+
+  const permanentClaimsMigration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/094_make_shield_bonus_claims_permanent.sql'),
+    'utf8',
+  );
+  assert.match(permanentClaimsMigration, /add column if not exists refunded_at/);
+  assert.match(permanentClaimsMigration, /'awarded', v_award_id is not null/);
+  assert.match(permanentClaimsMigration, /on conflict \(user_id, achievement_id\) do nothing/);
+  assert.doesNotMatch(permanentClaimsMigration, /delete from public\.achievement_awards/);
+  assert.match(permanentClaimsMigration, /insert into public\.achievement_awards[\s\S]*jsonb_object_keys/);
 });
