@@ -235,9 +235,10 @@ function StatsPageInner() {
   const [allStats, setAllStats] = useState<UserStats[]>([]);
   const [familyName, setFamilyName] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(0);
-  // Deep links from the unlock celebration land here with ?view=insignia.
-  const initialView = searchParams.get('view') === 'insignia' ? 'insignia' : 'stats';
-  const [view, setView] = useState<'stats' | 'insignia'>(initialView);
+  // Keep the old `insignia` query compatible with saved links, but emit the
+  // product's canonical Shield terminology everywhere going forward.
+  const initialView = ['shield', 'insignia'].includes(searchParams.get('view') ?? '') ? 'shield' : 'stats';
+  const [view, setView] = useState<'stats' | 'shield'>(initialView);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -591,8 +592,8 @@ function StatsPageInner() {
           </button>
           <button
             type="button"
-            onClick={() => setView('insignia')}
-            className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'insignia' ? 'bg-[#FFD166] text-slate-950' : 'text-white/58 hover:text-white'}`}
+            onClick={() => setView('shield')}
+            className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'shield' ? 'bg-[#FFD166] text-slate-950' : 'text-white/58 hover:text-white'}`}
           >
             Shield Wall
           </button>
@@ -635,7 +636,7 @@ function StatsPageInner() {
         )}
       </header>
 
-      {view === 'insignia' ? (
+      {view === 'shield' ? (
         <main className="flex-1 overflow-auto bg-[#0b0d12]">
           <InsigniaWall />
         </main>

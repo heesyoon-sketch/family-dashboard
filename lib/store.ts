@@ -11,7 +11,14 @@ import {
   type HarmonyResult,
 } from './progression';
 import { assertUuid, createBrowserSupabase } from './supabase';
-import { deleteTaskAction, enqueueTaskAction, isProbablyOnline, listTaskActions, pruneStaleActions } from './offlineQueue';
+import {
+  deleteTaskAction,
+  enqueueTaskAction,
+  isProbablyOnline,
+  isUnrecoverableOfflineRpcCode,
+  listTaskActions,
+  pruneStaleActions,
+} from './offlineQueue';
 import {
   getCompletionWindowEnd,
   getCompletionWindowStart,
@@ -181,6 +188,7 @@ const _taskMutationsInFlight = new Set<string>();
 let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
 let _realtimeSubscribedFamilyId: string | null = null;
 let _hydrateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let _shieldSyncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _hydrateInFlight: Promise<void> | null = null;
 let _hydrateQueued = false;
 
@@ -201,6 +209,26 @@ function scheduleRealtimeHydrate(ownMemberId: string | null, eventUserId?: strin
   _hydrateDebounceTimer = setTimeout(() => {
     _hydrateDebounceTimer = null;
     useFamilyStore.getState().hydrate().catch(console.error);
+  }, REALTIME_HYDRATE_DEBOUNCE_MS);
+}
+
+function scheduleRealtimeShieldSync() {
+  if (_shieldSyncDebounceTimer) clearTimeout(_shieldSyncDebounceTimer);
+  _shieldSyncDebounceTimer = setTimeout(() => {
+    _shieldSyncDebounceTimer = null;
+    const state = useFamilyStore.getState();
+    if (!state.familyId || state.users.length === 0) return;
+    void import('./achievements/storage')
+      .then(({ syncAchievementsOnce }) => syncAchievementsOnce({
+        familyId: state.familyId!,
+        children: state.users,
+        tasksByUser: state.tasksByUser,
+        levelsByUser: state.levelsByUser,
+        // Another device owns the remote write. This device only needs a
+        // fresh local evaluation and UI notification.
+        persist: false,
+      }))
+      .catch(error => console.warn('[shields] realtime refresh failed', error));
   }, REALTIME_HYDRATE_DEBOUNCE_MS);
 }
 
@@ -883,6 +911,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             // the next full hydrate triggered by SyncBootstrap or an admin
             // action — for a kiosk that's seconds-to-minutes.
             applyTaskCompletionEvent(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', newRow, oldRow);
+            scheduleRealtimeShieldSync();
           },
         )
         .on(
@@ -1175,18 +1204,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       if (actions.length === 0) return;
 
       const { processCompletion, processUndo, RpcError } = await import('./gamification');
-      // Postgres / Supabase error codes that mean "this action will never
-      // succeed, regardless of retry" — typically because the underlying
-      // task/user no longer exists or RLS denies access. We drop these from
-      // the queue rather than letting them block every other pending action.
-      const PERMANENT_CODES = new Set([
-        '23503', // foreign_key_violation — task or user deleted
-        '23505', // unique_violation — completion already exists
-        '42501', // insufficient_privilege — RLS denied
-        '42883', // undefined_function — RPC removed/renamed
-        'PGRST116', // PostgREST: no rows / not found
-        'PGRST204', // PostgREST: function not found in schema cache
-      ]);
+      let queueChanged = false;
 
       for (const action of actions) {
         try {
@@ -1197,9 +1215,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             await processUndo(action.userId, action.taskId, actionAt);
           }
           await deleteTaskAction(action.id);
+          queueChanged = true;
         } catch (error) {
           const isPermanent =
-            error instanceof RpcError && error.code !== null && PERMANENT_CODES.has(error.code);
+            error instanceof RpcError && isUnrecoverableOfflineRpcCode(error.code);
           if (isPermanent) {
             console.warn('[sync] dropping unrecoverable offline action', {
               actionId: action.id,
@@ -1207,6 +1226,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
               code: (error as { code: string }).code,
             });
             await deleteTaskAction(action.id);
+            queueChanged = true;
             continue;
           }
           console.warn('[sync] paused on transient error', error);
@@ -1215,6 +1235,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
 
       await get().hydrate();
+      if (queueChanged) {
+        const familyId = get().familyId;
+        const users = get().users;
+        if (familyId && users.length > 0) {
+          const { syncAchievementsOnce } = await import('./achievements/storage');
+          await syncAchievementsOnce({
+            familyId,
+            children: users,
+            tasksByUser: get().tasksByUser,
+            levelsByUser: get().levelsByUser,
+          });
+        }
+      }
       broadcastSync();
     } finally {
       _syncInFlight = false;

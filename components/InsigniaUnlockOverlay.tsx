@@ -69,7 +69,7 @@ export function InsigniaUnlockOverlay() {
 
   const goToWall = () => {
     dismiss();
-    router.push('/stats?view=insignia');
+    router.push('/stats?view=shield');
   };
 
   return (

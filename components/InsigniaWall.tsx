@@ -15,7 +15,8 @@ import {
 import {
   loadAchievementState,
   setEquippedInsignia,
-  syncAchievements,
+  subscribeToShieldState,
+  syncAchievementsOnce,
   togglePinnedAchievement,
   type ChildAchievementState,
 } from '@/lib/achievements/storage';
@@ -244,7 +245,7 @@ function BadgeDetail({
           </div>
         </div>
         <p className="mt-4 text-sm font-semibold leading-relaxed text-white/72">
-          {secretLocked ? 'This insignia stays hidden until it is earned.' : badge.description}
+          {secretLocked ? 'This shield stays hidden until it is earned.' : badge.description}
         </p>
         <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/8">
           <div
@@ -282,7 +283,7 @@ function BadgeDetail({
                   : 'border border-white/10 bg-white/[0.04] text-white/40 cursor-not-allowed',
             ].join(' ')}
           >
-            {equipped ? 'Unequip insignia' : canEquip ? 'Equip to active loadout' : 'Loadout full — unequip another first'}
+            {equipped ? 'Unequip shield' : canEquip ? 'Equip to active loadout' : 'Loadout full — unequip another shield first'}
           </button>
         )}
         <button type="button" onClick={onClose} className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-black text-white/72 transition hover:bg-white/10 hover:text-white">
@@ -332,7 +333,7 @@ export function InsigniaWall() {
   const memberSignature = members.map(m => m.id).join(',');
   useEffect(() => {
     if (!familyId || members.length === 0) return;
-    syncAchievements({ familyId, children: members, tasksByUser, levelsByUser, awardNew: false })
+    syncAchievementsOnce({ familyId, children: members, tasksByUser, levelsByUser })
       .then(result => {
         setState(result.state);
         setAchievementsByChild(result.achievementsByChild);
@@ -341,6 +342,14 @@ export function InsigniaWall() {
     // tasksByUser / levelsByUser intentionally omitted — see comment above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, memberSignature]);
+
+  useEffect(() => subscribeToShieldState(detail => {
+    if (!familyId || detail.familyId !== familyId) return;
+    setState(detail.state);
+    if (detail.achievementsByChild) {
+      setAchievementsByChild(detail.achievementsByChild);
+    }
+  }), [familyId]);
 
   const selectedChild = members.find(member => member.id === selectedChildId) ?? members[0];
   const childState = selectedChild ? childStateFor(state, selectedChild.id) : undefined;

@@ -227,6 +227,21 @@ test('remote unlock state wins over stale local unlocks during a merge', () => {
   });
 });
 
+test('remote loadout wins over stale local intent outside an active local write', () => {
+  const child = user('kid', '2026-01-01T00:00:00.000Z');
+  const staleLocal = childState({
+    unlockedAtByAchievementId: { 'weekly-spark': '2026-05-10T00:00:00.000Z' },
+    equippedInsigniaIds: [],
+  });
+  const remote = childState({
+    unlockedAtByAchievementId: { 'weekly-spark': '2026-05-10T00:00:00.000Z' },
+    equippedInsigniaIds: ['weekly-spark'],
+  });
+
+  const merged = mergeChildState(child, staleLocal, remote, true);
+  assert.deepEqual(merged.equippedInsigniaIds, ['weekly-spark']);
+});
+
 // Regression: revokeUnmetAchievements re-derives every badge from a rolling
 // 370-day window after an undo. Long-horizon and peak badges must not be
 // stripped just because old data aged out or the metric naturally receded.
@@ -301,6 +316,17 @@ test('today undo cannot revoke shields unlocked before the undone task window', 
     false,
     'peak-style milestones stay non-revocable even when unlocked in the window',
   );
+});
+
+test('routine shield sync never revokes or unequips stored shields', () => {
+  const source = readFileSync(join(process.cwd(), 'lib/achievements/storage.ts'), 'utf8');
+  const routineSync = source.slice(
+    source.indexOf('export async function syncAchievements('),
+    source.indexOf('export async function revokeUnmetAchievements('),
+  );
+
+  assert.doesNotMatch(routineSync, /eventType:\s*'REVOKED'/);
+  assert.doesNotMatch(routineSync, /equippedInsigniaIds\s*=\s*.*filter/);
 });
 
 test('shield persistence migration is family-scoped and RLS protected', () => {

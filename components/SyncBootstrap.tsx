@@ -23,6 +23,7 @@ const WAKE_DEBOUNCE_MS = 500;
 // mobile, where switching back from another app fires multiple events in
 // quick succession.
 const FRESH_WINDOW_MS = 30_000;
+const OFFLINE_RETRY_MS = 15_000;
 
 export function SyncBootstrap() {
   useEffect(() => {
@@ -51,6 +52,11 @@ export function SyncBootstrap() {
       if (e.persisted) wake('bfcache');
     };
     const onFocus = () => wake('focus');
+    const offlineRetry = window.setInterval(() => {
+      const state = useFamilyStore.getState();
+      if (!state.familyId || !navigator.onLine) return;
+      state.syncOfflineActions().catch(err => console.warn('[sync retry]', err));
+    }, OFFLINE_RETRY_MS);
 
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('online', onOnline);
@@ -59,6 +65,7 @@ export function SyncBootstrap() {
 
     return () => {
       if (timer) clearTimeout(timer);
+      window.clearInterval(offlineRetry);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('pageshow', onPageShow);

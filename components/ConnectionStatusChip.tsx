@@ -38,7 +38,9 @@ export function ConnectionStatusChip({ className }: { className?: string }) {
     ? (lang === 'en' ? 'Live' : '실시간')
     : !online
       ? (lang === 'en' ? 'Offline' : '오프라인')
-      : (lang === 'en' ? `${pendingCount} syncing` : `${pendingCount}개 동기화`);
+      : (lang === 'en'
+          ? `${pendingCount} offline task${pendingCount === 1 ? '' : 's'} syncing`
+          : `오프라인 작업 ${pendingCount}개 동기화`);
 
   return (
     <div

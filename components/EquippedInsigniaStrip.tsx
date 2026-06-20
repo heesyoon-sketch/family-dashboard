@@ -5,7 +5,12 @@ import { Lock, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import { useFamilyStore } from '@/lib/store';
-import { syncAchievements, loadAchievementState, type ChildAchievementState } from '@/lib/achievements/storage';
+import {
+  loadAchievementState,
+  subscribeToShieldState,
+  syncAchievementsOnce,
+  type ChildAchievementState,
+} from '@/lib/achievements/storage';
 import type { AchievementProgress } from '@/lib/achievements/engine';
 import { MAX_INSIGNIA_SLOTS, insigniaSlotsForLevel } from '@/lib/progression';
 
@@ -26,6 +31,7 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
   const unlockedSlots = insigniaSlotsForLevel(level);
   const [equipped, setEquipped] = useState<AchievementProgress[]>([]);
   const [state, setState] = useState<ChildAchievementState | undefined>(undefined);
+  const [achievements, setAchievements] = useState<AchievementProgress[]>([]);
 
   // syncAchievements fetches fresh tasks + completions internally; tasksByUser
   // and levelsByUser here are only fallback maps. Keying this effect on those
@@ -37,13 +43,14 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
   useEffect(() => {
     if (!familyId || users.length === 0) return;
     let cancelled = false;
-    syncAchievements({ familyId, children: users, tasksByUser, levelsByUser, awardNew: false })
+    syncAchievementsOnce({ familyId, children: users, tasksByUser, levelsByUser })
       .then(result => {
         if (cancelled) return;
         const memberState = result.state.children[userId];
         setState(memberState);
         const ids = memberState?.equippedInsigniaIds ?? [];
         const all = result.achievementsByChild[userId] ?? [];
+        setAchievements(all);
         const byId = new Map(all.map(a => [a.achievementId, a]));
         setEquipped(ids.map(id => byId.get(id)).filter((b): b is AchievementProgress => Boolean(b)));
       })
@@ -57,13 +64,28 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, memberSignature, userId]);
 
+  useEffect(() => subscribeToShieldState(detail => {
+    if (!familyId || detail.familyId !== familyId) return;
+    const memberState = detail.state.children[userId];
+    if (!memberState) return;
+    const latestAchievements = detail.achievementsByChild?.[userId] ?? achievements;
+    const byId = new Map(latestAchievements.map(item => [item.achievementId, item]));
+    setState(memberState);
+    if (detail.achievementsByChild?.[userId]) setAchievements(latestAchievements);
+    setEquipped(
+      memberState.equippedInsigniaIds
+        .map(id => byId.get(id))
+        .filter((item): item is AchievementProgress => Boolean(item)),
+    );
+  }), [familyId, userId, achievements]);
+
   if (!state) return null;
 
   const filled = equipped.slice(0, unlockedSlots);
 
   return (
     <Link
-      href={`/stats?view=insignia&member=${userId}`}
+      href={`/stats?view=shield&member=${userId}`}
       className="inline-flex items-center gap-1 transition hover:opacity-80"
       title="Shield loadout — tap to manage on the Shield Wall"
       aria-label="Equipped shields"

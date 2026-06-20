@@ -37,6 +37,20 @@ export function isProbablyOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
 
+const UNRECOVERABLE_OFFLINE_RPC_CODES = new Set([
+  '23503', // foreign_key_violation — task or user deleted
+  '23505', // unique_violation — completion already exists
+  '42501', // insufficient_privilege — RLS denied
+  '42883', // undefined_function — RPC removed/renamed
+  'P0001', // explicit RPC rejection — task missing/no longer due/no family
+  'PGRST116', // PostgREST: no rows / not found
+  'PGRST204', // PostgREST: function not found in schema cache
+]);
+
+export function isUnrecoverableOfflineRpcCode(code: string | null): boolean {
+  return code !== null && UNRECOVERABLE_OFFLINE_RPC_CODES.has(code);
+}
+
 export async function enqueueTaskAction(
   type: OfflineTaskActionType,
   userId: string,
