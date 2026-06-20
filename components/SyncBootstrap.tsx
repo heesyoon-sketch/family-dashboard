@@ -26,6 +26,29 @@ const FRESH_WINDOW_MS = 30_000;
 const OFFLINE_RETRY_MS = 15_000;
 
 export function SyncBootstrap() {
+  const familyId = useFamilyStore(state => state.familyId);
+  const hydrated = useFamilyStore(state => state.hydrated);
+  const memberSignature = useFamilyStore(state => state.users.map(user => user.id).join(','));
+
+  // One app-level shield sync replaces per-card/per-page evaluations. Route
+  // transitions now consume the same stable snapshot instead of starting a
+  // new 370-day family recomputation for every mounted component.
+  useEffect(() => {
+    if (!hydrated || !familyId || !memberSignature) return;
+    const state = useFamilyStore.getState();
+    void import('@/lib/achievements/storage')
+      .then(({ primeShieldSnapshot, syncAchievementsOnce }) => {
+        primeShieldSnapshot(familyId, state.users, state.tasksByUser);
+        return syncAchievementsOnce({
+          familyId,
+          children: state.users,
+          tasksByUser: state.tasksByUser,
+          levelsByUser: state.levelsByUser,
+        });
+      })
+      .catch(error => console.warn('[shields] bootstrap sync failed', error));
+  }, [familyId, hydrated, memberSignature]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 

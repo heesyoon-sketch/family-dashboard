@@ -227,6 +227,7 @@ function scheduleRealtimeShieldSync() {
         // Another device owns the remote write. This device only needs a
         // fresh local evaluation and UI notification.
         persist: false,
+        force: true,
       }))
       .catch(error => console.warn('[shields] realtime refresh failed', error));
   }, REALTIME_HYDRATE_DEBOUNCE_MS);
@@ -1245,6 +1246,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             children: users,
             tasksByUser: get().tasksByUser,
             levelsByUser: get().levelsByUser,
+            force: true,
           });
         }
       }

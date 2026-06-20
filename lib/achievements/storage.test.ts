@@ -5,6 +5,7 @@ import test from 'node:test';
 import type { User } from '../db';
 import {
   buildAchievementAuditRows,
+  buildPersistedAchievementSnapshot,
   buildPersistRows,
   canRevokeStoredAchievement,
   completionWindowCoversBaseline,
@@ -242,6 +243,19 @@ test('remote loadout wins over stale local intent outside an active local write'
   assert.deepEqual(merged.equippedInsigniaIds, ['weekly-spark']);
 });
 
+test('persisted shield snapshot never flashes a stored unlock as locked', () => {
+  const child = user('kid', '2026-01-01T00:00:00.000Z');
+  const state = familyStateWith(child, {
+    unlockedAtByAchievementId: { 'first-spark': '2026-05-10T00:00:00.000Z' },
+    equippedInsigniaIds: ['first-spark'],
+  });
+  const snapshot = buildPersistedAchievementSnapshot(state, [child], { [child.id]: [] });
+  const firstSpark = snapshot[child.id].find(shield => shield.achievementId === 'first-spark');
+
+  assert.equal(firstSpark?.isUnlocked, true);
+  assert.equal(firstSpark?.unlockedAt, '2026-05-10T00:00:00.000Z');
+});
+
 // Regression: revokeUnmetAchievements re-derives every badge from a rolling
 // 370-day window after an undo. Long-horizon and peak badges must not be
 // stripped just because old data aged out or the metric naturally receded.
@@ -329,6 +343,14 @@ test('routine shield sync never revokes or unequips stored shields', () => {
   assert.doesNotMatch(routineSync, /equippedInsigniaIds\s*=\s*.*filter/);
 });
 
+test('shield UI components consume the central snapshot instead of starting family syncs', () => {
+  for (const file of ['components/EquippedInsigniaStrip.tsx', 'components/InsigniaWall.tsx']) {
+    const source = readFileSync(join(process.cwd(), file), 'utf8');
+    assert.doesNotMatch(source, /syncAchievements(?:Once)?\s*\(/, `${file} must not start a network sync`);
+    assert.match(source, /useShieldSnapshot/);
+  }
+});
+
 test('shield persistence migration is family-scoped and RLS protected', () => {
   const migration = readFileSync(
     join(process.cwd(), 'supabase/migrations/086_persist_family_shield_state.sql'),
@@ -394,4 +416,35 @@ test('task completions snapshot achievement categories for rename-safe shields',
   assert.match(migration, /set achievement_categories = public\.task_achievement_categories/);
   assert.match(migration, /achievement_categories\s*\)/);
   assert.match(migration, /v_achievement_categories/);
+});
+
+test('database guard blocks stale clients from deleting shield state', () => {
+  const migration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/091_guard_shield_state_replacements.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /create trigger trg_achievement_states_guard_replacement/);
+  assert.match(migration, /new\.unlocked_at_by_achievement_id[\s\S]*old\.unlocked_at_by_achievement_id/);
+  assert.match(migration, /public\.merge_jsonb_text_arrays\([\s\S]*old\.equipped_insignia_ids/);
+  assert.match(migration, /replace_achievement_state_intent[\s\S]*security definer/);
+  assert.match(migration, /replace_achievement_unlock_state[\s\S]*security definer/);
+  assert.match(migration, /public\.is_family_member\(p_family_id\)/);
+
+  const lockMigration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/092_lock_legacy_shield_writes.sql'),
+    'utf8',
+  );
+  assert.match(lockMigration, /new\.unlocked_at_by_achievement_id := old\.unlocked_at_by_achievement_id/);
+  assert.match(lockMigration, /new\.equipped_insignia_ids := old\.equipped_insignia_ids/);
+  assert.match(lockMigration, /merge_achievement_unlock_state[\s\S]*security definer/);
+  assert.match(lockMigration, /public\.is_family_member\(p_family_id\)/);
+
+  const auditGuardMigration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/093_guard_shield_audit_events.sql'),
+    'utf8',
+  );
+  assert.match(auditGuardMigration, /new\.event_type = 'REVOKED'/);
+  assert.match(auditGuardMigration, /new\.source not in \('task_undo', 'revokeUnmetAchievements'\)/);
+  assert.match(auditGuardMigration, /before insert on public\.achievement_audit_events/);
 });

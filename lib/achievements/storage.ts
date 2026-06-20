@@ -41,6 +41,12 @@ export interface ShieldStateChangedDetail {
   achievementsByChild?: Record<string, AchievementProgress[]>;
 }
 
+const _latestShieldSnapshots = new Map<string, ShieldStateChangedDetail>();
+
+export function getLatestShieldSnapshot(familyId: string): ShieldStateChangedDetail | undefined {
+  return _latestShieldSnapshots.get(familyId);
+}
+
 export function subscribeToShieldState(
   listener: (detail: ShieldStateChangedDetail) => void,
 ): () => void {
@@ -53,8 +59,14 @@ export function subscribeToShieldState(
 }
 
 function notifyShieldStateChanged(detail: ShieldStateChangedDetail): void {
+  const previous = _latestShieldSnapshots.get(detail.familyId);
+  const stableDetail: ShieldStateChangedDetail = {
+    ...detail,
+    achievementsByChild: detail.achievementsByChild ?? previous?.achievementsByChild,
+  };
+  _latestShieldSnapshots.set(detail.familyId, stableDetail);
   if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent<ShieldStateChangedDetail>(SHIELD_STATE_CHANGED_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent<ShieldStateChangedDetail>(SHIELD_STATE_CHANGED_EVENT, { detail: stableDetail }));
 }
 
 export type AchievementAuditEventType = 'UNLOCKED' | 'BONUS_AWARDED' | 'REVOKED' | 'BONUS_REFUNDED';
@@ -322,7 +334,6 @@ function intentRevision(familyId: string, childId: string): number {
 function queueIntentPersist(
   state: FamilyAchievementState,
   childId: string,
-  columns: readonly AchievementStateColumn[],
 ): void {
   const child = state.children[childId];
   if (!child) return;
@@ -338,7 +349,7 @@ function queueIntentPersist(
   const previous = _intentWriteChains.get(key) ?? Promise.resolve();
   const write = previous
     .catch(() => undefined)
-    .then(() => persistAchievementState(scoped, columns));
+    .then(() => persistAchievementIntentExact(scoped, childId));
   _intentWriteChains.set(key, write);
   void write
     .catch(error => {
@@ -355,7 +366,6 @@ function queueIntentPersist(
 export function saveAchievementState(
   state: FamilyAchievementState,
   childId: string,
-  columns: readonly AchievementStateColumn[],
 ): void {
   saveAchievementStateLocal(state);
   notifyShieldStateChanged({ familyId: state.familyId, state });
@@ -363,7 +373,7 @@ export function saveAchievementState(
   // every family member here allowed one stale local cache to unequip siblings.
   // Serialising per member also prevents rapid equip taps from landing out of
   // order at Supabase.
-  queueIntentPersist(state, childId, columns);
+  queueIntentPersist(state, childId);
 }
 
 interface RemoteAchievementStateRow {
@@ -605,6 +615,59 @@ export async function persistAchievementState(
   if (error) throw error;
 }
 
+async function persistAchievementIntentExact(
+  state: FamilyAchievementState,
+  childId: string,
+): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const child = state.children[childId];
+  if (!child) return;
+  invalidateAchievementStateCache();
+  const supabase = createBrowserSupabase();
+  const { error } = await supabase.rpc('replace_achievement_state_intent', {
+    p_family_id: state.familyId,
+    p_user_id: childId,
+    p_equipped_insignia_ids: child.equippedInsigniaIds,
+    p_pinned_achievement_ids: child.pinnedAchievementIds,
+    p_quest_claims: child.questClaims,
+  });
+  if (error) throw error;
+}
+
+async function persistAchievementUnlockStateExact(state: FamilyAchievementState): Promise<void> {
+  if (typeof window === 'undefined') return;
+  invalidateAchievementStateCache();
+  const supabase = createBrowserSupabase();
+  await Promise.all(Object.values(state.children).map(async child => {
+    const { error } = await supabase.rpc('replace_achievement_unlock_state', {
+      p_family_id: state.familyId,
+      p_user_id: child.childId,
+      p_unlocked_at_by_achievement_id: child.unlockedAtByAchievementId,
+      p_awarded_achievement_ids: child.awardedAchievementIds,
+      p_unlocked_visual_style_ids: child.unlockedVisualStyleIds,
+      p_unlock_baseline_at: child.unlockBaselineAt,
+    });
+    if (error) throw error;
+  }));
+}
+
+async function persistAchievementUnlockStateMerge(state: FamilyAchievementState): Promise<void> {
+  if (typeof window === 'undefined') return;
+  invalidateAchievementStateCache();
+  const supabase = createBrowserSupabase();
+  await Promise.all(Object.values(state.children).map(async child => {
+    const { error } = await supabase.rpc('merge_achievement_unlock_state', {
+      p_family_id: state.familyId,
+      p_user_id: child.childId,
+      p_unlocked_at_by_achievement_id: child.unlockedAtByAchievementId,
+      p_awarded_achievement_ids: child.awardedAchievementIds,
+      p_unlocked_visual_style_ids: child.unlockedVisualStyleIds,
+      p_unlock_baseline_at: child.unlockBaselineAt,
+    });
+    if (error) throw error;
+  }));
+}
+
 export function togglePinnedAchievement(familyId: string, children: User[], childId: string, achievementId: string): FamilyAchievementState {
   const state = loadAchievementState(familyId, children);
   const member = children.find(child => child.id === childId);
@@ -613,7 +676,7 @@ export function togglePinnedAchievement(familyId: string, children: User[], chil
     ? child.pinnedAchievementIds.filter(id => id !== achievementId)
     : [...child.pinnedAchievementIds, achievementId].slice(-5);
   state.children[childId] = { ...child, pinnedAchievementIds: current };
-  saveAchievementState(state, childId, ['pinned_achievement_ids']);
+  saveAchievementState(state, childId);
   return state;
 }
 
@@ -644,7 +707,7 @@ export function setEquippedInsignia(
   ];
   const trimmed = ordered.slice(Math.max(0, ordered.length - Math.max(0, maxSlots)));
   state.children[childId] = { ...child, equippedInsigniaIds: trimmed };
-  saveAchievementState(state, childId, ['equipped_insignia_ids']);
+  saveAchievementState(state, childId);
   return state;
 }
 
@@ -663,7 +726,7 @@ export function clampEquippedToSlots(
     ...child,
     equippedInsigniaIds: child.equippedInsigniaIds.slice(0, maxSlots),
   };
-  saveAchievementState(state, childId, ['equipped_insignia_ids']);
+  saveAchievementState(state, childId);
   return state;
 }
 
@@ -817,7 +880,63 @@ async function awardBonusPoints(childId: string, achievement: AchievementProgres
   };
 }
 
-export async function syncAchievements(params: {
+export function buildPersistedAchievementSnapshot(
+  state: FamilyAchievementState,
+  members: User[],
+  tasksByUser: Record<string, Task[]>,
+): Record<string, AchievementProgress[]> {
+  const emptyCompletionsByChild: Record<string, AchievementCompletion[]> = Object.fromEntries(
+    members.map(member => [member.id, []]),
+  );
+  return Object.fromEntries(members.map(member => {
+    const childState = state.children[member.id] ?? emptyChildState(member.id);
+    const snapshot = evaluateAchievementsForChild({
+      child: member,
+      tasks: tasksByUser[member.id] ?? [],
+      completions: [],
+      allCompletionsByChild: emptyCompletionsByChild,
+      unlockedAtByAchievementId: childState.unlockedAtByAchievementId,
+      since: childState.unlockBaselineAt ? new Date(childState.unlockBaselineAt) : undefined,
+    });
+    return [member.id, snapshot.achievements];
+  }));
+}
+
+/** Seed the external shield store from a meaningful local cache before the
+ *  network refresh completes. Empty caches stay unpublished so the UI shows a
+ *  loading state instead of flashing a false zero-shield state. */
+export function primeShieldSnapshot(
+  familyId: string,
+  members: User[],
+  tasksByUser: Record<string, Task[]>,
+): ShieldStateChangedDetail | undefined {
+  const current = getLatestShieldSnapshot(familyId);
+  if (current) return current;
+  const state = loadAchievementState(familyId, members);
+  const meaningful = Object.values(state.children).some(hasMeaningfulChildState);
+  if (!meaningful) return undefined;
+  const detail: ShieldStateChangedDetail = {
+    familyId,
+    state,
+    achievementsByChild: buildPersistedAchievementSnapshot(state, members, tasksByUser),
+  };
+  notifyShieldStateChanged(detail);
+  return getLatestShieldSnapshot(familyId);
+}
+
+function unlockStateFingerprint(state: FamilyAchievementState): string {
+  return JSON.stringify(Object.values(state.children)
+    .sort((a, b) => a.childId.localeCompare(b.childId))
+    .map(child => ({
+      childId: child.childId,
+      unlockedAtByAchievementId: child.unlockedAtByAchievementId,
+      awardedAchievementIds: child.awardedAchievementIds,
+      unlockedVisualStyleIds: child.unlockedVisualStyleIds,
+      unlockBaselineAt: child.unlockBaselineAt,
+    })));
+}
+
+export interface AchievementSyncParams {
   familyId: string;
   children: User[];
   tasksByUser: Record<string, Task[]>;
@@ -827,33 +946,22 @@ export async function syncAchievements(params: {
   /** Realtime observers can evaluate and refresh local UI without writing the
    *  same remote rows back and creating a cross-device feedback loop. */
   persist?: boolean;
-}): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
+}
+
+type FullAchievementSyncResult = AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> };
+
+async function runAchievementSync(params: AchievementSyncParams): Promise<FullAchievementSyncResult> {
   // Shield Wall is open to everyone in the family — kids and parents alike.
   const members = params.children;
   const state = await loadPersistedAchievementState(params.familyId, members);
+  const initialUnlockFingerprint = unlockStateFingerprint(state);
   const intentRevisionAtStart = new Map(
     members.map(member => [member.id, intentRevision(params.familyId, member.id)]),
   );
   // Paint persisted unlock/equip truth as soon as the lightweight state query
   // returns. The 370-day completion evaluation continues below, but the wall
   // no longer looks empty while those heavier reads are in flight.
-  const emptyCompletionsByChild: Record<string, AchievementCompletion[]> = Object.fromEntries(
-    members.map(member => [member.id, []]),
-  );
-  const persistedAchievementsByChild: Record<string, AchievementProgress[]> = Object.fromEntries(
-    members.map(member => {
-      const childState = state.children[member.id] ?? emptyChildState(member.id);
-      const snapshot = evaluateAchievementsForChild({
-        child: member,
-        tasks: params.tasksByUser[member.id] ?? [],
-        completions: [],
-        allCompletionsByChild: emptyCompletionsByChild,
-        unlockedAtByAchievementId: childState.unlockedAtByAchievementId,
-        since: childState.unlockBaselineAt ? new Date(childState.unlockBaselineAt) : undefined,
-      });
-      return [member.id, snapshot.achievements];
-    }),
-  );
+  const persistedAchievementsByChild = buildPersistedAchievementSnapshot(state, members, params.tasksByUser);
   notifyShieldStateChanged({
     familyId: params.familyId,
     state,
@@ -952,10 +1060,11 @@ export async function syncAchievements(params: {
   }
 
   saveAchievementStateLocal(state);
-  if (params.persist !== false) {
+  const unlockStateChanged = unlockStateFingerprint(state) !== initialUnlockFingerprint;
+  if (params.persist !== false && unlockStateChanged) {
     // Routine sync can unlock shields but never revokes or changes the user's
     // loadout. Revocation is restricted to the explicit undo path below.
-    await persistAchievementState(state, UNLOCK_COLUMNS);
+    await persistAchievementUnlockStateMerge(state);
     await recordAchievementAuditEvents(auditEvents);
   }
   const syncResult = { state, achievementsByChild, newlyUnlocked, awardedLevelsByUser };
@@ -963,10 +1072,29 @@ export async function syncAchievements(params: {
   return syncResult;
 }
 
-const _backgroundAchievementSyncs = new Map<
-  string,
-  Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }>
->();
+// Every family has exactly one shield evaluation lane. This prevents a
+// completion-triggered sync, a realtime refresh, and a route mount from
+// publishing different snapshots out of order.
+const _familyAchievementSyncTails = new Map<string, Promise<unknown>>();
+
+export function syncAchievements(params: AchievementSyncParams): Promise<FullAchievementSyncResult> {
+  const previous = _familyAchievementSyncTails.get(params.familyId) ?? Promise.resolve();
+  const sync = previous
+    .catch(() => undefined)
+    .then(() => runAchievementSync(params));
+  _familyAchievementSyncTails.set(params.familyId, sync);
+  const cleanup = () => {
+    if (_familyAchievementSyncTails.get(params.familyId) === sync) {
+      _familyAchievementSyncTails.delete(params.familyId);
+    }
+  };
+  void sync.then(cleanup, cleanup);
+  return sync;
+}
+
+const _backgroundAchievementSyncs = new Map<string, Promise<FullAchievementSyncResult>>();
+const _backgroundAchievementResults = new Map<string, { result: FullAchievementSyncResult; completedAt: number }>();
+const BACKGROUND_SYNC_FRESH_MS = 30_000;
 
 /** Share one background family evaluation across every mounted shield strip
  *  and the Shield Wall. Mutation-driven syncs still call syncAchievements
@@ -977,12 +1105,23 @@ export function syncAchievementsOnce(params: {
   tasksByUser: Record<string, Task[]>;
   levelsByUser?: Record<string, Level>;
   persist?: boolean;
-}): Promise<AchievementSyncResult & { awardedLevelsByUser: Record<string, Level> }> {
+  force?: boolean;
+}): Promise<FullAchievementSyncResult> {
   const memberKey = params.children.map(child => child.id).sort().join(',');
   const key = `${params.familyId}:${memberKey}:${params.persist === false ? 'local' : 'remote'}`;
   const current = _backgroundAchievementSyncs.get(key);
   if (current) return current;
-  const sync = syncAchievements({ ...params, awardNew: false })
+  const cached = _backgroundAchievementResults.get(key);
+  if (!params.force && cached && Date.now() - cached.completedAt < BACKGROUND_SYNC_FRESH_MS) {
+    return Promise.resolve(cached.result);
+  }
+  const { force: _force, ...syncParams } = params;
+  void _force;
+  const sync = syncAchievements({ ...syncParams, awardNew: false })
+    .then(result => {
+      _backgroundAchievementResults.set(key, { result, completedAt: Date.now() });
+      return result;
+    })
     .finally(() => {
       if (_backgroundAchievementSyncs.get(key) === sync) {
         _backgroundAchievementSyncs.delete(key);
@@ -1168,9 +1307,9 @@ export async function revokeUnmetAchievements(params: {
   }
 
   saveAchievementStateLocal(state);
-  // Unlock progress changed for (potentially) every member, so persist the
-  // unlock columns family-wide.
-  await persistAchievementState(state, UNLOCK_COLUMNS);
+  // Revocation is the only path allowed to replace engine-owned unlock state.
+  // The validated RPC opts into the DB trigger's exact-replacement mode.
+  await persistAchievementUnlockStateExact(state);
   // The loadout only changed for members whose equipped shield was revoked.
   // Write the equipped column for *just* those, scoping the state to avoid
   // overwriting an unaffected sibling's freshly-equipped loadout.
@@ -1181,9 +1320,16 @@ export async function revokeUnmetAchievements(params: {
         Object.entries(state.children).filter(([childId]) => loadoutChanged.has(childId)),
       ),
     };
-    await persistAchievementState(scoped, ['equipped_insignia_ids']);
+    await Promise.all(Array.from(loadoutChanged).map(childId => (
+      persistAchievementIntentExact(scoped, childId)
+    )));
   }
   await recordAchievementAuditEvents(auditEvents);
+  notifyShieldStateChanged({
+    familyId: params.familyId,
+    state,
+    achievementsByChild: buildPersistedAchievementSnapshot(state, members, allTasksByUser),
+  });
   return { revoked, refundedLevelsByUser };
 }
 

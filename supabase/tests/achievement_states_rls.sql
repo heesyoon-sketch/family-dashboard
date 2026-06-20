@@ -94,6 +94,7 @@ declare
   v_count integer;
   v_rows integer;
   v_cross_insert_blocked boolean := false;
+  v_cross_rpc_blocked boolean := false;
 begin
   select count(*) into v_count
   from public.achievement_states
@@ -115,6 +116,75 @@ begin
   get diagnostics v_rows = row_count;
   if v_rows <> 1 then
     raise exception 'auth A same-family UPDATE failed; expected 1, got %', v_rows;
+  end if;
+
+  perform public.replace_achievement_state_intent(
+    v_family_a,
+    v_user_a,
+    '["rpc-a-exact"]'::jsonb,
+    '[]'::jsonb,
+    '{}'::jsonb
+  );
+  select count(*) into v_count
+  from public.achievement_states
+  where family_id = v_family_a
+    and user_id = v_user_a
+    and equipped_insignia_ids = '["rpc-a-exact"]'::jsonb;
+  if v_count <> 1 then
+    raise exception 'auth A exact intent RPC failed';
+  end if;
+
+  -- A generic stale client cannot remove the exact loadout.
+  -- PostgREST runs each RPC in its own transaction; this test wraps everything
+  -- in one rollback transaction, so explicitly end the RPC's local bypass.
+  perform set_config('app.allow_achievement_state_replace', 'off', true);
+  update public.achievement_states
+  set equipped_insignia_ids = '[]'::jsonb
+  where family_id = v_family_a and user_id = v_user_a;
+  select count(*) into v_count
+  from public.achievement_states
+  where family_id = v_family_a
+    and user_id = v_user_a
+    and equipped_insignia_ids = '["rpc-a-exact"]'::jsonb;
+  if v_count <> 1 then
+    raise exception 'stale generic update removed auth A loadout';
+  end if;
+
+  begin
+    perform public.replace_achievement_state_intent(
+      v_family_b,
+      v_user_b,
+      '["rpc-cross-family"]'::jsonb,
+      '[]'::jsonb,
+      '{}'::jsonb
+    );
+  exception when others then
+    v_cross_rpc_blocked := true;
+  end;
+  if not v_cross_rpc_blocked then
+    raise exception 'auth A cross-family intent RPC unexpectedly succeeded';
+  end if;
+
+  perform public.merge_achievement_unlock_state(
+    v_family_a,
+    v_user_a,
+    '{"rls-shield":"2026-06-20T00:00:00.000Z"}'::jsonb,
+    '[]'::jsonb,
+    '[]'::jsonb,
+    '2026-05-09T00:00:00.000Z'::timestamptz
+  );
+  perform set_config('app.allow_achievement_state_replace', 'off', true);
+  update public.achievement_states
+  set unlocked_at_by_achievement_id = '{"legacy-extra":"2026-06-20T00:00:00.000Z"}'::jsonb
+  where family_id = v_family_a and user_id = v_user_a;
+  select count(*) into v_count
+  from public.achievement_states
+  where family_id = v_family_a
+    and user_id = v_user_a
+    and unlocked_at_by_achievement_id ? 'rls-shield'
+    and not (unlocked_at_by_achievement_id ? 'legacy-extra');
+  if v_count <> 1 then
+    raise exception 'legacy generic update changed engine-owned unlock state';
   end if;
 
   update public.achievement_states
@@ -199,6 +269,6 @@ begin
 end;
 $$;
 
-select 'PASS: achievement_states RLS allows same-family access and blocks cross-family SELECT/UPDATE/INSERT in both directions' as result;
+select 'PASS: achievement_states RLS/RPC allows validated same-family changes, blocks cross-family writes, and rejects legacy shield mutations' as result;
 
 rollback;

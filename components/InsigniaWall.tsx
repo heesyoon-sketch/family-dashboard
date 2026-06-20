@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Award, Check, Flame, Medal, Pin, Search, Sparkles, Trophy } from 'lucide-react';
@@ -13,13 +13,12 @@ import {
   type AchievementRarity,
 } from '@/lib/achievements/definitions';
 import {
-  loadAchievementState,
   setEquippedInsignia,
-  subscribeToShieldState,
-  syncAchievementsOnce,
   togglePinnedAchievement,
   type ChildAchievementState,
+  type FamilyAchievementState,
 } from '@/lib/achievements/storage';
+import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
 import type { AchievementProgress } from '@/lib/achievements/engine';
 import {
   archetypeColor,
@@ -73,7 +72,7 @@ function sortBadges(a: AchievementProgress, b: AchievementProgress) {
   return a.displayOrder - b.displayOrder;
 }
 
-function childStateFor(state: ReturnType<typeof loadAchievementState> | null, childId: string): ChildAchievementState | undefined {
+function childStateFor(state: FamilyAchievementState | null, childId: string): ChildAchievementState | undefined {
   return state?.children[childId];
 }
 
@@ -297,11 +296,9 @@ function BadgeDetail({
 export function InsigniaWall() {
   const familyId = useFamilyStore(s => s.familyId);
   const users = useFamilyStore(s => s.users);
-  const tasksByUser = useFamilyStore(s => s.tasksByUser);
   const levelsByUser = useFamilyStore(s => s.levelsByUser);
   const momentumByUser = useFamilyStore(s => s.momentumByUser);
   const harmony = useFamilyStore(s => s.harmony);
-  const hydrate = useFamilyStore(s => s.hydrate);
   const hydrated = useFamilyStore(s => s.hydrated);
   const searchParams = useSearchParams();
   const memberQuery = searchParams.get('member');
@@ -314,42 +311,21 @@ export function InsigniaWall() {
     });
   }, [users]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(memberQuery);
-  const [state, setState] = useState<ReturnType<typeof loadAchievementState> | null>(null);
-  const [achievementsByChild, setAchievementsByChild] = useState<Record<string, AchievementProgress[]>>({});
+  const snapshot = useShieldSnapshot(familyId);
+  const state = snapshot?.state ?? null;
+  const achievementsByChild = snapshot?.achievementsByChild ?? {};
   const [category, setCategory] = useState<AchievementCategory | 'All'>('All');
   const [rarity, setRarity] = useState<AchievementRarity | 'all'>('all');
   const [query, setQuery] = useState('');
   const [detail, setDetail] = useState<AchievementProgress | null>(null);
 
-  useEffect(() => {
-    hydrate().catch(console.error);
-  }, [hydrate]);
-
-  // syncAchievements fetches fresh tasks + completions internally; tasksByUser
-  // and levelsByUser are only used as fallback maps. Subscribing the effect
-  // to those map references would re-run the (heavy) sync on every hydrate,
-  // even when no relevant data changed. Key on the stable member ID list
-  // instead so the sync runs once per actual member-set change.
-  const memberSignature = members.map(m => m.id).join(',');
-  useEffect(() => {
-    if (!familyId || members.length === 0) return;
-    syncAchievementsOnce({ familyId, children: members, tasksByUser, levelsByUser })
-      .then(result => {
-        setState(result.state);
-        setAchievementsByChild(result.achievementsByChild);
-      })
-      .catch(console.error);
-    // tasksByUser / levelsByUser intentionally omitted — see comment above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [familyId, memberSignature]);
-
-  useEffect(() => subscribeToShieldState(detail => {
-    if (!familyId || detail.familyId !== familyId) return;
-    setState(detail.state);
-    if (detail.achievementsByChild) {
-      setAchievementsByChild(detail.achievementsByChild);
-    }
-  }), [familyId]);
+  if (!state || state.familyId !== familyId || Object.keys(achievementsByChild).length === 0) {
+    return (
+      <div className="grid min-h-[420px] place-items-center bg-[#0b0d12] text-sm font-bold text-white/45">
+        Loading shields…
+      </div>
+    );
+  }
 
   const selectedChild = members.find(member => member.id === selectedChildId) ?? members[0];
   const childState = selectedChild ? childStateFor(state, selectedChild.id) : undefined;
@@ -383,20 +359,20 @@ export function InsigniaWall() {
 
   const pinBadge = (achievementId: string) => {
     if (!familyId || !selectedChild) return;
-    setState(togglePinnedAchievement(familyId, members, selectedChild.id, achievementId));
+    togglePinnedAchievement(familyId, members, selectedChild.id, achievementId);
   };
 
   const toggleEquip = (achievementId: string) => {
     if (!familyId || !selectedChild) return;
     const isEquipped = equippedIds.includes(achievementId);
-    setState(setEquippedInsignia(
+    setEquippedInsignia(
       familyId,
       members,
       selectedChild.id,
       achievementId,
       !isEquipped,
       slotCapacity,
-    ));
+    );
   };
 
   if (!hydrated || !familyId) {

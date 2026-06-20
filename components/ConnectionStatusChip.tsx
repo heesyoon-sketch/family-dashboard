@@ -39,8 +39,8 @@ export function ConnectionStatusChip({ className }: { className?: string }) {
     : !online
       ? (lang === 'en' ? 'Offline' : '오프라인')
       : (lang === 'en'
-          ? `${pendingCount} offline task${pendingCount === 1 ? '' : 's'} syncing`
-          : `오프라인 작업 ${pendingCount}개 동기화`);
+          ? `${pendingCount} offline task${pendingCount === 1 ? '' : 's'} pending`
+          : `오프라인 작업 ${pendingCount}개 대기`);
 
   return (
     <div
@@ -49,7 +49,7 @@ export function ConnectionStatusChip({ className }: { className?: string }) {
         ? (lang === 'en' ? 'Connected and synced' : '연결 및 동기화 완료')
         : !online
           ? (lang === 'en' ? 'Offline actions will sync when connection returns' : '연결되면 오프라인 작업이 동기화됩니다')
-          : (lang === 'en' ? 'Pending offline actions are syncing' : '대기 중인 오프라인 작업을 동기화하고 있습니다')}
+          : (lang === 'en' ? 'Offline actions are queued and retry automatically' : '오프라인 작업이 대기 중이며 자동으로 다시 시도합니다')}
       className={[
         'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em]',
         healthy
@@ -60,7 +60,7 @@ export function ConnectionStatusChip({ className }: { className?: string }) {
         className ?? '',
       ].join(' ')}
     >
-      {healthy ? <Cloud size={12} /> : !online ? <CloudOff size={12} /> : <RefreshCw size={12} className="animate-spin" />}
+      {healthy ? <Cloud size={12} /> : !online ? <CloudOff size={12} /> : <RefreshCw size={12} />}
       <span>{label}</span>
     </div>
   );
