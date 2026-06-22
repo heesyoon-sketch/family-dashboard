@@ -11,14 +11,12 @@ import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 const QUICK_MESSAGES: Record<Lang, string[]> = {
   ko: [
     '👍 도와줘서 고마워!',
-    '🔥 조금만 더 힘내!',
     '❤️ 사랑해!',
     '🙏 미안해!',
     '🎁 깜짝 선물이야!',
   ],
   en: [
     '👍 Thanks for helping!',
-    '🔥 Keep going!',
     '❤️ Love you!',
     '🙏 I am sorry!',
     '🎁 A surprise gift!',
@@ -57,7 +55,6 @@ export function WarmGiftModal({
     amount: lang === 'en' ? 'Points to send' : '보낼 포인트',
     message: lang === 'en' ? 'Message' : '메시지',
     custom: lang === 'en' ? 'Write a custom message' : '직접 메시지 쓰기',
-    placeholder: lang === 'en' ? 'Example: Sorry about today' : '예: 오늘 속상하게 해서 미안해',
     sending: lang === 'en' ? 'Sending...' : '보내는 중…',
     submit: lang === 'en' ? 'Send warm points' : '마음 보내기',
     success: (name: string, points: number) => (
@@ -104,7 +101,7 @@ export function WarmGiftModal({
     >
       <div
         data-theme={sender.theme}
-        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] shadow-2xl"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="flex items-center gap-2 font-bold">
@@ -174,27 +171,31 @@ export function WarmGiftModal({
                   {option}
                 </button>
               ))}
+              <div className="relative">
+                <input
+                  id="warm-gift-custom-input"
+                  type="text"
+                  value={customMessage}
+                  onFocus={() => setUsingCustomMessage(true)}
+                  onChange={e => {
+                    setUsingCustomMessage(true);
+                    setCustomMessage(e.target.value);
+                  }}
+                  maxLength={60}
+                  aria-label={copy.custom}
+                  placeholder={`✍️ ${copy.custom}`}
+                  className={[
+                    'h-11 w-full rounded-xl border bg-[var(--bg-card)] px-3 pr-12 text-sm text-[var(--fg)] outline-none transition-colors placeholder:text-[var(--fg-muted)] focus:ring-2 focus:ring-rose-300/15',
+                    usingCustomMessage
+                      ? 'border-rose-300/60 bg-rose-300/10 focus:border-rose-300'
+                      : 'border-[var(--border)] focus:border-rose-300/60',
+                  ].join(' ')}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] tabular-nums text-[var(--fg-muted)]">
+                  {customMessage.length}/60
+                </span>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setUsingCustomMessage(value => !value)}
-              className={[
-                'mt-2 text-xs font-semibold transition-colors',
-                usingCustomMessage ? 'text-rose-300' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-              ].join(' ')}
-            >
-              {copy.custom}
-            </button>
-            {usingCustomMessage && (
-              <input
-                type="text"
-                value={customMessage}
-                onChange={e => setCustomMessage(e.target.value)}
-                maxLength={60}
-                placeholder={copy.placeholder}
-                className="mt-2 h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--fg)] placeholder:text-[var(--fg-muted)] outline-none focus:border-rose-300/60"
-              />
-            )}
           </div>
 
           <button
