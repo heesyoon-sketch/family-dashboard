@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'sonner';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { SyncBootstrap } from '@/components/SyncBootstrap';
+import { ServiceWorkerUpdate } from '@/components/ServiceWorkerUpdate';
 
 export const metadata: Metadata = {
   title: 'FamBit',
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <LanguageProvider>
+          <ServiceWorkerUpdate />
           <SyncBootstrap />
           <Toaster position="top-center" richColors />
           {children}
