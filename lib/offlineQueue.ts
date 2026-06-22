@@ -102,15 +102,3 @@ export async function deleteTaskAction(id: string): Promise<void> {
   await db.taskActions.delete(id);
   notifyOfflineQueueChanged();
 }
-
-const OFFLINE_ACTION_TTL_MS = 24 * 60 * 60 * 1000;
-
-export async function pruneStaleActions(): Promise<void> {
-  if (!canUseOfflineQueue()) return;
-  const cutoff = new Date(Date.now() - OFFLINE_ACTION_TTL_MS).toISOString();
-  const stale = await db.taskActions.where('createdAt').below(cutoff).toArray();
-  if (stale.length > 0) {
-    await db.taskActions.bulkDelete(stale.map(a => a.id));
-    notifyOfflineQueueChanged();
-  }
-}

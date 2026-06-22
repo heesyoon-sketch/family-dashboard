@@ -111,48 +111,12 @@ export default function SetupPage() {
       if (authError || !authUser) throw new Error('로그인이 필요합니다');
 
       const adminName = googleUser?.name?.trim() || authUser.email || 'Family Admin';
-      const familyId = crypto.randomUUID();
-      const preparePayload = {};
-      console.log('[setup:create-family] supabase.rpc prepare_create_family payload', preparePayload);
-      const { error: prepareError } = await supabase.rpc('prepare_create_family', preparePayload);
-      if (prepareError) {
-        console.error('[setup:create-family] supabase.rpc prepare_create_family error', { payload: preparePayload, error: prepareError });
-        throw prepareError;
-      }
-
-      const familyPayload = { id: familyId, name: trimmed, owner_id: authUser.id };
-      console.log('[setup:create-family] supabase.from(families).insert payload', familyPayload);
-      const { error: familyError } = await supabase
-        .from('families')
-        .insert(familyPayload);
-      if (familyError) {
-        console.error('[setup:create-family] supabase.from(families).insert error', { payload: familyPayload, error: familyError });
-        throw familyError;
-      }
-
-      // If any seed step fails after the family row exists, delete the family so
-      // the next attempt starts from a clean slate. The owner can always retry.
-      try {
-        const seedPayload = {
-          p_family_id: familyId,
-          p_admin_name: adminName,
-          p_admin_avatar_url: googleUser?.avatarUrl ?? null,
-        };
-        console.log('[setup:create-family] supabase.rpc seed_default_family_data payload', seedPayload);
-        const { error: seedError } = await supabase.rpc('seed_default_family_data', seedPayload);
-        if (seedError) {
-          console.error('[setup:create-family] supabase.rpc seed_default_family_data error', { payload: seedPayload, error: seedError });
-          throw seedError;
-        }
-      } catch (seedError) {
-        const cleanupPayload = { id: familyId };
-        console.log('[setup:create-family] supabase.from(families).delete payload', cleanupPayload);
-        const { error: cleanupError } = await supabase.from('families').delete().eq('id', familyId);
-        if (cleanupError) {
-          console.error('[setup:create-family] supabase.from(families).delete error', { payload: cleanupPayload, error: cleanupError });
-        }
-        throw seedError;
-      }
+      const { error: createError } = await supabase.rpc('create_family_atomic', {
+        p_name: trimmed,
+        p_admin_name: adminName,
+        p_admin_avatar_url: googleUser?.avatarUrl ?? null,
+      });
+      if (createError) throw createError;
 
       router.replace('/setup/set-pin');
     } catch (e) {

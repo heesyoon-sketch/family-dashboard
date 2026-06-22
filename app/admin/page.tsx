@@ -783,17 +783,13 @@ export default function AdminPage() {
       return task;
     });
     setTasks(updated.sort((a, b) => a.sortOrder - b.sortOrder));
-    const [res1, res2] = await Promise.all([
-      supabase.rpc('admin_update_task', { p_task_id: tasks[index].id, p_patch: { sort_order: bOrder } }),
-      supabase.rpc('admin_update_task', { p_task_id: tasks[other].id, p_patch: { sort_order: aOrder } }),
-    ]);
-    const firstError = res1.error ?? res2.error;
-    if (firstError) {
-      // Roll back to the original order. We don't try to recover one half
-      // even if the other succeeded — that would leave the DB in a stable
-      // but reordered state we never intended. Let the next hydrate sync it.
+    const { error: swapError } = await supabase.rpc('admin_swap_task_order', {
+      p_first_task_id: tasks[index].id,
+      p_second_task_id: tasks[other].id,
+    });
+    if (swapError) {
       setTasks(previousTasks);
-      toast.error(`${t('task_save_failed')}: ${firstError.message}`);
+      toast.error(`${t('task_save_failed')}: ${swapError.message}`);
       return;
     }
     await storeHydrate();

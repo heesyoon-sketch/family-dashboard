@@ -734,6 +734,17 @@ export function clampEquippedToSlots(
 // to the achievement engine, so cumulative metrics it computes are only
 // faithful when this window reaches all the way back to a member's baseline.
 export const COMPLETION_FETCH_WINDOW_DAYS = 370;
+const COMPLETION_CACHE_FULL_REFRESH_MS = 5 * 60 * 1000;
+const COMPLETION_CACHE_OVERLAP_MS = 60 * 1000;
+
+type CompletionCache = {
+  userKey: string;
+  fullLoadedAt: number;
+  refreshedAt: number;
+  byId: Map<string, AchievementCompletion>;
+};
+
+let _completionCache: CompletionCache | null = null;
 
 // Requirement types whose metric naturally recedes for reasons unrelated to
 // the specific completion an undo removed — a "best ever" peak, a live streak,
@@ -788,8 +799,14 @@ export function completionWindowCoversBaseline(baselineAt: string, now: Date = n
 
 async function fetchCompletions(userIds: string[]): Promise<Record<string, AchievementCompletion[]>> {
   const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
-  const since = new Date();
-  since.setDate(since.getDate() - COMPLETION_FETCH_WINDOW_DAYS);
+  const userKey = [...userIds].sort().join(',');
+  const now = Date.now();
+  const needsFullRefresh = !_completionCache
+    || _completionCache.userKey !== userKey
+    || now - _completionCache.fullLoadedAt >= COMPLETION_CACHE_FULL_REFRESH_MS;
+  const since = new Date(needsFullRefresh
+    ? now - COMPLETION_FETCH_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    : _completionCache!.refreshedAt - COMPLETION_CACHE_OVERLAP_MS);
   const supabase = createBrowserSupabase();
   const { data, error } = await supabase
     .from('task_completions')
@@ -798,31 +815,56 @@ async function fetchCompletions(userIds: string[]): Promise<Record<string, Achie
     .gte('completed_at', since.toISOString());
   if (error) throw new Error(error.message);
 
-  const byChild: Record<string, AchievementCompletion[]> = Object.fromEntries(userIds.map(id => [id, []]));
+  const byId = needsFullRefresh
+    ? new Map<string, AchievementCompletion>()
+    : new Map(_completionCache!.byId);
+  if (!needsFullRefresh) {
+    // Replace the overlap rather than only appending, so a recent undo/delete
+    // removes the completion from the cache as well.
+    for (const [id, completion] of byId) {
+      if (completion.completedAt.getTime() >= since.getTime()) byId.delete(id);
+    }
+  }
+
   const validCategories = new Set<string>(HABIT_CATEGORIES);
   for (const row of data ?? []) {
+    const completionId = row.id as string;
     const childId = row.user_id as string;
     const categories = Array.isArray(row.achievement_categories)
       ? row.achievement_categories.filter((category): category is HabitCategory =>
           typeof category === 'string' && validCategories.has(category),
         )
       : undefined;
-    byChild[childId] = [
-      ...(byChild[childId] ?? []),
-      {
-        id: row.id as string,
-        childId,
-        taskId: row.task_id as string,
-        completedAt: new Date(row.completed_at as string),
-        pointsAwarded: Number(row.points_awarded ?? 0),
-        categories,
-      },
-    ];
+    const completion: AchievementCompletion = {
+      id: completionId,
+      childId,
+      taskId: row.task_id as string,
+      completedAt: new Date(row.completed_at as string),
+      pointsAwarded: Number(row.points_awarded ?? 0),
+      categories,
+    };
+    byId.set(completionId, completion);
+  }
+
+  _completionCache = {
+    userKey,
+    fullLoadedAt: needsFullRefresh ? now : _completionCache!.fullLoadedAt,
+    refreshedAt: now,
+    byId,
+  };
+
+  const byChild: Record<string, AchievementCompletion[]> = Object.fromEntries(userIds.map(id => [id, []]));
+  for (const completion of byId.values()) {
+    if (!(completion.childId in byChild)) continue;
+    byChild[completion.childId].push(completion);
   }
   return byChild;
 }
 
 async function fetchTasks(userIds: string[], fallback: Record<string, Task[]>): Promise<Record<string, Task[]>> {
+  if (userIds.every(id => Object.prototype.hasOwnProperty.call(fallback, id))) {
+    return fallback;
+  }
   const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
   const supabase = createBrowserSupabase();
   const { data, error } = await supabase

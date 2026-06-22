@@ -17,7 +17,6 @@ import {
   isProbablyOnline,
   isUnrecoverableOfflineRpcCode,
   listTaskActions,
-  pruneStaleActions,
 } from './offlineQueue';
 import {
   getCompletionWindowEnd,
@@ -182,7 +181,6 @@ function loadSoundPref(): boolean {
 let _timeIntervalStarted = false;
 let _offlineSyncListenersStarted = false;
 let _syncInFlight = false;
-let _activityCleanupDone = false;
 const _taskMutationsInFlight = new Set<string>();
 
 let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
@@ -866,19 +864,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       get().syncOfflineActions().catch(console.error);
     }
 
-    if (!_activityCleanupDone && isProbablyOnline() && typeof window !== 'undefined') {
-      const lastCleanup = localStorage.getItem('activity_cleanup_date');
-      const today = new Date().toDateString();
-      if (lastCleanup !== today) {
-        _activityCleanupDone = true;
-        void (async () => {
-          const { error } = await supabase.rpc('prune_old_task_activities');
-          if (error) { _activityCleanupDone = false; return; }
-          localStorage.setItem('activity_cleanup_date', today);
-        })();
-      }
-    }
-
     // Cross-device realtime sync. Subscribes once per family; resubscribes only if
     // the family changes. The user-scoped tables (task_completions, levels) use a
     // self-filter via scheduleRealtimeHydrate so a device doesn't bounce on its own
@@ -938,7 +923,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'family_activities', filter: familyFilter },
-          () => scheduleFamilyHydrate(),
+          payload => {
+            const row = (payload.new ?? payload.old ?? null) as { type?: string } | null;
+            // Task completion already arrives through task_completions and
+            // levels. Hydrating all eight dashboard queries again here made
+            // the cheap realtime fast path ineffective.
+            if (row?.type === 'TASK_COMPLETED') return;
+            scheduleFamilyHydrate();
+          },
         )
         .subscribe();
     }
@@ -1200,7 +1192,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     if (_syncInFlight || !isProbablyOnline()) return;
     _syncInFlight = true;
     try {
-      await pruneStaleActions();
       const actions = await listTaskActions();
       if (actions.length === 0) return;
 
@@ -1326,6 +1317,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       p_receiver_id: receiverId,
       p_amount: safeAmount,
       p_message: message,
+      p_request_id: crypto.randomUUID(),
     });
     if (error) throw new Error(error.message);
 
@@ -1404,7 +1396,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       clearTimeout(_hydrateDebounceTimer);
       _hydrateDebounceTimer = null;
     }
-    _activityCleanupDone = false;
     set({
       familyId: null,
       familyName: null,

@@ -20,6 +20,7 @@ declare
   v_family_a uuid;
   v_user_a text;
   v_auth_a uuid;
+  v_receiver_a text;
   v_family_b uuid;
   v_user_b text;
   v_auth_b uuid;
@@ -54,9 +55,25 @@ begin
     raise exception 'RLS test needs at least two families with auth-linked users';
   end if;
 
+  select id into v_receiver_a
+  from public.users
+  where family_id = v_family_a and id <> v_user_a
+  order by created_at, id
+  limit 1;
+  if v_receiver_a is null then
+    raise exception 'RLS test needs two members in family A';
+  end if;
+
+  if has_function_privilege('anon', 'public.prune_old_task_activities()'::regprocedure, 'EXECUTE')
+    or has_function_privilege('anon', 'public.link_auth_user_to_profile(text,uuid)'::regprocedure, 'EXECUTE')
+  then
+    raise exception 'anon can execute internal SECURITY DEFINER functions';
+  end if;
+
   perform set_config('rls_test.family_a', v_family_a::text, true);
   perform set_config('rls_test.user_a', v_user_a, true);
   perform set_config('rls_test.auth_a', v_auth_a::text, true);
+  perform set_config('rls_test.receiver_a', v_receiver_a, true);
   perform set_config('rls_test.family_b', v_family_b::text, true);
   perform set_config('rls_test.user_b', v_user_b, true);
   perform set_config('rls_test.auth_b', v_auth_b::text, true);
@@ -74,6 +91,12 @@ begin
   on conflict (family_id, user_id) do update set
     pinned_achievement_ids = excluded.pinned_achievement_ids,
     equipped_insignia_ids = excluded.equipped_insignia_ids;
+
+  insert into public.levels (user_id, current_level, total_points, spendable_balance, updated_at)
+  values
+    (v_user_a, 1, 100, 100, now()),
+    (v_receiver_a, 1, 100, 100, now())
+  on conflict (user_id) do nothing;
 end;
 $$;
 
@@ -91,12 +114,19 @@ declare
   v_user_a text := current_setting('rls_test.user_a');
   v_family_b uuid := current_setting('rls_test.family_b')::uuid;
   v_user_b text := current_setting('rls_test.user_b');
+  v_receiver_a text := current_setting('rls_test.receiver_a');
   v_count integer;
   v_rows integer;
   v_before_total integer;
   v_after_total integer;
   v_first_award jsonb;
   v_duplicate_award jsonb;
+  v_transfer_request_id uuid := gen_random_uuid();
+  v_first_transfer jsonb;
+  v_duplicate_transfer jsonb;
+  v_sender_balance_before integer;
+  v_receiver_balance_before integer;
+  v_unauthorized_transfer_blocked boolean := false;
   v_cross_insert_blocked boolean := false;
   v_cross_rpc_blocked boolean := false;
 begin
@@ -208,6 +238,40 @@ begin
     or v_after_total <> v_before_total + 1
   then
     raise exception 'achievement bonus RPC is not idempotent';
+  end if;
+
+  select spendable_balance into v_sender_balance_before
+  from public.levels where user_id = v_user_a;
+  select spendable_balance into v_receiver_balance_before
+  from public.levels where user_id = v_receiver_a;
+  if v_sender_balance_before < 1 then
+    raise exception 'RLS transfer test sender has no balance';
+  end if;
+
+  v_first_transfer := public.transfer_points_with_message(
+    v_user_a, v_receiver_a, 1, 'RLS transfer probe', v_transfer_request_id
+  );
+  v_duplicate_transfer := public.transfer_points_with_message(
+    v_user_a, v_receiver_a, 1, 'RLS transfer probe', v_transfer_request_id
+  );
+  if coalesce((v_first_transfer->>'duplicate')::boolean, true) is not false
+    or coalesce((v_duplicate_transfer->>'duplicate')::boolean, false) is not true
+    or (select spendable_balance from public.levels where user_id = v_user_a) <> v_sender_balance_before - 1
+    or (select spendable_balance from public.levels where user_id = v_receiver_a) <> v_receiver_balance_before + 1
+    or (select count(*) from public.point_transactions where request_id = v_transfer_request_id) <> 1
+  then
+    raise exception 'point transfer RPC is not idempotent';
+  end if;
+
+  begin
+    perform public.transfer_points_with_message(
+      v_user_b, v_receiver_a, 1, 'cross-family probe', gen_random_uuid()
+    );
+  exception when others then
+    v_unauthorized_transfer_blocked := true;
+  end;
+  if not v_unauthorized_transfer_blocked then
+    raise exception 'cross-family sender impersonation unexpectedly succeeded';
   end if;
 
   update public.achievement_states
