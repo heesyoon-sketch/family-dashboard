@@ -55,6 +55,7 @@ export function WarmGiftModal({
     amount: lang === 'en' ? 'Points to send' : '보낼 포인트',
     message: lang === 'en' ? 'Message' : '메시지',
     custom: lang === 'en' ? 'Write a custom message' : '직접 메시지 쓰기',
+    customHint: lang === 'en' ? 'Type here right away' : '여기에 바로 입력하세요',
     sending: lang === 'en' ? 'Sending...' : '보내는 중…',
     submit: lang === 'en' ? 'Send warm points' : '마음 보내기',
     success: (name: string, points: number) => (
@@ -171,29 +172,35 @@ export function WarmGiftModal({
                   {option}
                 </button>
               ))}
-              <div className="relative">
-                <input
-                  id="warm-gift-custom-input"
-                  type="text"
-                  value={customMessage}
-                  onFocus={() => setUsingCustomMessage(true)}
-                  onChange={e => {
-                    setUsingCustomMessage(true);
-                    setCustomMessage(e.target.value);
-                  }}
-                  maxLength={60}
-                  aria-label={copy.custom}
-                  placeholder={`✍️ ${copy.custom}`}
-                  className={[
-                    'h-11 w-full rounded-xl border bg-[var(--bg-card)] px-3 pr-12 text-sm text-[var(--fg)] outline-none transition-colors placeholder:text-[var(--fg-muted)] focus:ring-2 focus:ring-rose-300/15',
-                    usingCustomMessage
-                      ? 'border-rose-300/60 bg-rose-300/10 focus:border-rose-300'
-                      : 'border-[var(--border)] focus:border-rose-300/60',
-                  ].join(' ')}
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] tabular-nums text-[var(--fg-muted)]">
-                  {customMessage.length}/60
-                </span>
+              <div className={[
+                'rounded-xl border-2 p-2.5 transition-colors',
+                usingCustomMessage
+                  ? 'border-rose-300/75 bg-rose-300/15 shadow-[0_0_0_3px_rgba(253,164,175,0.08)]'
+                  : 'border-rose-300/40 bg-rose-300/10',
+              ].join(' ')}>
+                <label htmlFor="warm-gift-custom-input" className="mb-2 flex flex-wrap items-center justify-between gap-1 px-0.5">
+                  <span className="text-sm font-bold text-rose-200">✍️ {copy.custom}</span>
+                  <span className="text-[11px] font-medium text-rose-200/70">{copy.customHint}</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="warm-gift-custom-input"
+                    type="text"
+                    value={customMessage}
+                    onFocus={() => setUsingCustomMessage(true)}
+                    onChange={e => {
+                      setUsingCustomMessage(true);
+                      setCustomMessage(e.target.value);
+                    }}
+                    maxLength={60}
+                    aria-label={copy.custom}
+                    placeholder="..."
+                    className="h-11 w-full rounded-lg border border-rose-200/35 bg-[var(--bg)] px-3 pr-12 text-sm text-[var(--fg)] outline-none transition-colors placeholder:text-[var(--fg-muted)] focus:border-rose-200 focus:ring-2 focus:ring-rose-300/15"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] tabular-nums text-[var(--fg-muted)]">
+                    {customMessage.length}/60
+                  </span>
+                </div>
               </div>
             </div>
           </div>
