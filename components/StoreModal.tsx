@@ -43,6 +43,32 @@ function saleLabel(reward: Reward): string {
   return `${salePercentage(reward)}% OFF`;
 }
 
+// ── Cash trade ($1 = 100pt, price rounded to the nearest dollar) ─────────────
+
+const CASH_MAX_CENTS = 99999;
+
+function sanitizeCashInput(raw: string): string {
+  let out = raw.replace(/[^0-9.]/g, '');
+  const firstDot = out.indexOf('.');
+  if (firstDot !== -1) {
+    out = out.slice(0, firstDot + 1) + out.slice(firstDot + 1).replace(/\./g, '');
+    out = out.slice(0, firstDot + 3); // at most 2 decimals
+  }
+  return out.slice(0, 7);
+}
+
+function cashCents(input: string): number {
+  const value = Number.parseFloat(input);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.round(value * 100);
+}
+
+/** Must mirror redeem_cash_trade_atomic: nearest dollar, minimum $1. */
+function cashPoints(cents: number): number {
+  if (cents <= 0) return 0;
+  return Math.max(1, Math.round(cents / 100)) * 100;
+}
+
 // ── StoreModal ────────────────────────────────────────────────────────────────
 
 export function StoreModal({
@@ -82,6 +108,30 @@ export function StoreModal({
     paying: lang === 'en' ? 'Paying...' : '결제 중…',
     payComplete: lang === 'en' ? 'Complete payment' : '결제 완료',
     jointSuccess: lang === 'en' ? 'Joint purchase complete!' : '합동 구매 성공!',
+    cashTitle: lang === 'en' ? 'Buy something at a store' : '가게에서 사고 싶은 게 있어요',
+    cashRate: '$1 = 100pt',
+    cashHint: lang === 'en'
+      ? 'Type the price tag and pay with points'
+      : '가격표 금액을 입력하고 포인트로 결제해요',
+    cashPriceLabel: lang === 'en' ? 'Price on the tag' : '가격표 금액',
+    cashRoundNote: lang === 'en'
+      ? 'Rounds to the nearest dollar (minimum $1)'
+      : '1달러 단위로 반올림돼요 (최소 $1)',
+    cashConversion: (price: string, dollars: number, points: number) => (
+      lang === 'en'
+        ? `$${price} counts as $${dollars}, so it costs ${points}pt`
+        : `$${price}는 $${dollars}(으)로 계산해서 ${points}pt예요`
+    ),
+    cashBalanceAfter: (remaining: number) => (
+      lang === 'en' ? `Points left after paying: ${remaining}pt` : `결제 후 남는 포인트: ${remaining}pt`
+    ),
+    cashTooHigh: lang === 'en' ? 'Price is too high (max $999.99)' : '금액이 너무 커요 (최대 $999.99)',
+    cashPay: (points: number) => (lang === 'en' ? `Pay ${points}pt` : `${points}pt 결제하기`),
+    cashSuccess: (price: string, points: number) => (
+      lang === 'en'
+        ? `💵 Paid ${points}pt for the $${price} item!`
+        : `💵 $${price} 물건을 ${points}pt로 결제했어요!`
+    ),
   };
   const rewards = useFamilyStore(state => state.rewards);
   const users = useFamilyStore(state => state.users);
@@ -89,7 +139,10 @@ export function StoreModal({
   const hydrate = useFamilyStore(state => state.hydrate);
   const hydrated = useFamilyStore(state => state.hydrated);
   const purchaseRewardJoint = useFamilyStore(state => state.purchaseRewardJoint);
+  const tradeCashForPoints = useFamilyStore(state => state.tradeCashForPoints);
   const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [cashOpen, setCashOpen] = useState(false);
+  const [cashInput, setCashInput] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutReward, setCheckoutReward] = useState<Reward | null>(null);
   const [checkoutMode, setCheckoutMode] = useState<'alone' | 'together'>('alone');
@@ -164,6 +217,37 @@ export function StoreModal({
       await onRedeem(effectiveReward);
       toast.success(`🎉 "${latestReward.title}" ${t('exchange_complete')}`);
       setCheckoutReward(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('exchange_fail'));
+    } finally {
+      redeemingRef.current = false;
+      setRedeeming(null);
+    }
+  };
+
+  const cashCentsValue = cashCents(cashInput);
+  const cashTooHigh = cashCentsValue > CASH_MAX_CENTS;
+  const cashValid = cashCentsValue > 0 && !cashTooHigh;
+  const cashPointsValue = cashValid ? cashPoints(cashCentsValue) : 0;
+  const cashDollars = cashValid ? cashPointsValue / 100 : 0;
+  const cashPriceLabel = cashValid ? (cashCentsValue / 100).toFixed(2) : '';
+  const cashAffordable = cashValid && balance >= cashPointsValue;
+
+  const closeCash = () => {
+    if (redeeming) return;
+    setCashOpen(false);
+  };
+
+  const handleCashTrade = async () => {
+    if (redeemingRef.current || !cashValid) return;
+    redeemingRef.current = true;
+    setRedeeming('cash-trade');
+
+    try {
+      await tradeCashForPoints(user.id, cashCentsValue);
+      toast.success(copy.cashSuccess(cashPriceLabel, cashPointsValue));
+      setCashOpen(false);
+      setCashInput('');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('exchange_fail'));
     } finally {
@@ -255,6 +339,26 @@ export function StoreModal({
               {t('no_rewards')}
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => { setCashInput(''); setCashOpen(true); }}
+            disabled={!!redeeming}
+            className="mb-2 w-full rounded-xl border border-emerald-400/50 bg-emerald-400/10 p-3 text-left transition-colors disabled:cursor-not-allowed"
+            style={{ boxShadow: '0 0 12px rgba(52, 211, 153, 0.14)' }}
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-400/15 flex items-center justify-center shrink-0">
+                <Icons.DollarSign size={17} className="text-emerald-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-xs text-[var(--fg)] leading-tight">{copy.cashTitle}</div>
+                <div className="text-[10px] text-[var(--fg-muted)] mt-0.5 truncate">{copy.cashHint}</div>
+              </div>
+              <span className="px-2 py-1 rounded-full text-[10px] font-bold shrink-0 bg-emerald-400 text-black">
+                {copy.cashRate}
+              </span>
+            </div>
+          </button>
           <div className="grid grid-cols-2 gap-2">
             {visibleRewards.map(r => {
               const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
@@ -477,6 +581,86 @@ export function StoreModal({
                 ].join(' ')}
               >
                 {redeeming === checkoutReward.id ? copy.paying : copy.payComplete}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {cashOpen && (
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.62)' }}
+            onClick={e => { if (e.target === e.currentTarget) closeCash(); }}
+          >
+            <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-2xl">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Icons.DollarSign size={18} className="text-emerald-300" />
+                    <h3 className="truncate text-sm font-bold text-[var(--fg)]">{copy.cashTitle}</h3>
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--fg-muted)]">
+                    {copy.cashRate} · {copy.balance} <span className="font-bold text-[var(--accent)]">{balance}pt</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCash}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] text-[var(--fg-muted)]"
+                >
+                  <Icons.X size={15} />
+                </button>
+              </div>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">{copy.cashPriceLabel}</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl font-bold text-gray-400">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoFocus
+                    placeholder="4.99"
+                    value={cashInput}
+                    onChange={e => setCashInput(sanitizeCashInput(e.target.value))}
+                    className="h-14 w-full rounded-xl border border-gray-300 bg-white pl-8 pr-3 text-2xl font-bold text-gray-900 placeholder-gray-300 outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">{copy.cashRoundNote}</span>
+              </label>
+
+              <div className={[
+                'mt-3 rounded-xl border px-3 py-2 text-xs',
+                cashTooHigh || (cashValid && !cashAffordable)
+                  ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
+                  : cashValid
+                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                    : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
+              ].join(' ')}>
+                {cashTooHigh
+                  ? copy.cashTooHigh
+                  : cashValid
+                    ? (
+                      <>
+                        {copy.cashConversion(cashPriceLabel, cashDollars, cashPointsValue)}
+                        <br />
+                        {cashAffordable
+                          ? copy.cashBalanceAfter(balance - cashPointsValue)
+                          : copy.insufficientPoints}
+                      </>
+                    )
+                    : copy.cashHint}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleCashTrade()}
+                disabled={redeeming === 'cash-trade' || !cashValid || !cashAffordable}
+                className="mt-4 h-12 w-full rounded-xl bg-emerald-400 text-black text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {redeeming === 'cash-trade'
+                  ? copy.paying
+                  : cashValid ? copy.cashPay(cashPointsValue) : copy.payComplete}
               </button>
             </div>
           </div>

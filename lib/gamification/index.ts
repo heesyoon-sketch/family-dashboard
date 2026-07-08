@@ -222,6 +222,28 @@ export async function redeemReward(
   return raw.spendableBalance;
 }
 
+/**
+ * Trades spendable points for a real-world cash purchase ($1 = 100pt, price
+ * rounded to the nearest dollar server-side). total_points are never touched.
+ * Returns the new spendable balance.
+ */
+export async function tradeCashForPoints(userId: string, priceCents: number): Promise<number> {
+  const supabase = createBrowserSupabase();
+  const payload = {
+    p_user_id: assertUuid(userId, 'userId'),
+    p_price_cents: Math.round(priceCents),
+    p_request_id: crypto.randomUUID(),
+  };
+  const { data, error } = await supabase.rpc('redeem_cash_trade_atomic', payload);
+  if (error) {
+    console.error('[shop:redeem_cash_trade_atomic] rpc error', error);
+    throw new Error(error.message);
+  }
+
+  const raw = data as { spendableBalance: number };
+  return raw.spendableBalance;
+}
+
 // `badges` is effectively static config — re-fetching it on every task tap
 // is pure waste. Cache for the page session; cache key is `active=1`.
 let _badgesCache: { rows: Badge[]; fetchedAt: number } | null = null;

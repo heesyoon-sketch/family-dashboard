@@ -160,6 +160,7 @@ interface FamilyState {
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
+  tradeCashForPoints: (userId: string, priceCents: number) => Promise<void>;
   purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
@@ -1254,6 +1255,24 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     await requireAuthSession(supabase);
     const { redeemReward: doRedeem } = await import('./gamification');
     const newBalance = await doRedeem(userId, rewardId, cost);
+    set(state => ({
+      levelsByUser: {
+        ...state.levelsByUser,
+        [userId]: state.levelsByUser[userId]
+          ? { ...state.levelsByUser[userId], spendableBalance: newBalance }
+          : state.levelsByUser[userId],
+      },
+    }));
+    await get().hydrate();
+    broadcastSync();
+  },
+
+  tradeCashForPoints: async (userId, priceCents) => {
+    assertUuid(userId, 'userId');
+    const supabase = createBrowserSupabase();
+    await requireAuthSession(supabase);
+    const { tradeCashForPoints: doTrade } = await import('./gamification');
+    const newBalance = await doTrade(userId, priceCents);
     set(state => ({
       levelsByUser: {
         ...state.levelsByUser,
