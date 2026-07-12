@@ -1111,6 +1111,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         const { processUndo } = await import('./gamification');
         undoResult = await processUndo(userId, taskId, undoAt);
       } catch (error) {
+        // A definitive server rejection (e.g. undo blocked because the reward
+        // points were already spent) is not an offline blip — queuing it just
+        // schedules a doomed retry the sync loop will later drop. Restore the
+        // true state and stop; the task snaps back to completed with no points.
+        const { RpcError } = await import('./gamification');
+        const permanentReject =
+          error instanceof RpcError && isUnrecoverableOfflineRpcCode(error.code);
+        if (permanentReject && isProbablyOnline()) {
+          await get().hydrate();
+          return;
+        }
         await enqueueTaskAction('undo', userId, taskId);
         console.warn('Queued undo for offline sync', error);
         await get().hydrate();
