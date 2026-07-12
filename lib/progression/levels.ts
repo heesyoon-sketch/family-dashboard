@@ -33,6 +33,15 @@ export function levelForXp(totalXp: number): number {
   return Math.max(1, Math.floor(raw));
 }
 
+/** Compact XP for display: 999 → "999", 12,345 → "12.3k", 2,000 → "2k". */
+export function formatXp(totalXp: number): string {
+  const xp = Math.max(0, Math.round(totalXp));
+  if (xp < 1000) return String(xp);
+  const thousands = xp / 1000;
+  const label = thousands >= 100 ? Math.round(thousands).toString() : thousands.toFixed(1);
+  return `${label.replace(/\.0$/, '')}k`;
+}
+
 export interface LevelProgress {
   /** Current level number. */
   level: number;

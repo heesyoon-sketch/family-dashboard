@@ -227,12 +227,19 @@ export async function redeemReward(
  * rounded to the nearest dollar server-side). total_points are never touched.
  * Returns the new spendable balance.
  */
-export async function tradeCashForPoints(userId: string, priceCents: number): Promise<number> {
+export async function tradeCashForPoints(
+  userId: string,
+  priceCents: number,
+  requestId?: string,
+): Promise<number> {
   const supabase = createBrowserSupabase();
   const payload = {
     p_user_id: assertUuid(userId, 'userId'),
     p_price_cents: Math.round(priceCents),
-    p_request_id: crypto.randomUUID(),
+    // A stable per-checkout request id makes retries idempotent: if the first
+    // attempt committed but the response was lost, the retry returns the
+    // committed result instead of charging again.
+    p_request_id: requestId ?? crypto.randomUUID(),
   };
   const { data, error } = await supabase.rpc('redeem_cash_trade_atomic', payload);
   if (error) {

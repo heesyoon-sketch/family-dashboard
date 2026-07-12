@@ -32,6 +32,8 @@ export interface RewardRedemption {
   joint_user2_id?: string | null;
   joint_user2_name?: string | null;
   joint_user2_amount: number;
+  /** True when this row is a cash trade (096) rather than a reward redemption. */
+  is_cash_trade?: boolean;
 }
 
 export function normaliseSalePercentage(value: unknown): number {
@@ -82,6 +84,7 @@ export function mapRewardRedemption(row: Record<string, unknown>): RewardRedempt
     joint_user2_id: (row.joint_user2_id as string | null) ?? null,
     joint_user2_name: (row.joint_user2_name as string | null) ?? null,
     joint_user2_amount: Number(row.joint_user2_amount ?? 0),
+    is_cash_trade: Boolean(row.is_cash_trade),
   };
 }
 

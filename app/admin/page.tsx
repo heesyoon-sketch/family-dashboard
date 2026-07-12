@@ -123,16 +123,23 @@ export default function AdminPage() {
 
   async function loadRewardRedemptions() {
     const supabase = createBrowserSupabase();
-    const { data, error } = await supabase.rpc('admin_list_reward_redemptions', {
-      p_limit: 80,
-    });
-    if (error) {
-      console.warn('Failed to load reward redemptions', error);
+    const [redemptionRes, cashRes] = await Promise.all([
+      supabase.rpc('admin_list_reward_redemptions', { p_limit: 80 }),
+      supabase.rpc('admin_list_cash_trades', { p_limit: 80 }),
+    ]);
+    if (redemptionRes.error) {
+      console.warn('Failed to load reward redemptions', redemptionRes.error);
       return;
     }
-    setRewardRedemptions(Array.isArray(data)
-      ? data.map(row => mapRewardRedemption(row as Record<string, unknown>))
-      : []);
+    if (cashRes.error) {
+      console.warn('Failed to load cash trades', cashRes.error);
+    }
+    const rows = [
+      ...(Array.isArray(redemptionRes.data) ? redemptionRes.data : []),
+      ...(Array.isArray(cashRes.data) ? cashRes.data : []),
+    ].map(row => mapRewardRedemption(row as Record<string, unknown>));
+    rows.sort((a, b) => new Date(b.redeemed_at).getTime() - new Date(a.redeemed_at).getTime());
+    setRewardRedemptions(rows);
   }
 
   useEffect(() => {
@@ -1282,10 +1289,15 @@ export default function AdminPage() {
 
     setRefundInFlightId(redemption.id);
     const supabase = createBrowserSupabase();
-    const { error } = await supabase.rpc('admin_refund_reward_redemption', {
-      p_redemption_id: redemption.id,
-      p_reason: 'admin_refund',
-    });
+    const { error } = redemption.is_cash_trade
+      ? await supabase.rpc('admin_refund_cash_trade', {
+          p_trade_id: redemption.id,
+          p_reason: 'admin_refund',
+        })
+      : await supabase.rpc('admin_refund_reward_redemption', {
+          p_redemption_id: redemption.id,
+          p_reason: 'admin_refund',
+        });
 
     if (error) {
       setRefundInFlightId(null);
@@ -1306,9 +1318,13 @@ export default function AdminPage() {
 
     setRewardProcessInFlightId(redemption.id);
     const supabase = createBrowserSupabase();
-    const { error } = await supabase.rpc('admin_mark_reward_redemption_processed', {
-      p_redemption_id: redemption.id,
-    });
+    const { error } = redemption.is_cash_trade
+      ? await supabase.rpc('admin_mark_cash_trade_processed', {
+          p_trade_id: redemption.id,
+        })
+      : await supabase.rpc('admin_mark_reward_redemption_processed', {
+          p_redemption_id: redemption.id,
+        });
 
     if (error) {
       setRewardProcessInFlightId(null);

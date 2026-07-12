@@ -143,6 +143,9 @@ export function StoreModal({
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [cashOpen, setCashOpen] = useState(false);
   const [cashInput, setCashInput] = useState('');
+  // One id per checkout session (not per attempt) so a retry after a lost
+  // response can't charge twice — the RPC is idempotent on request_id.
+  const cashRequestIdRef = useRef('');
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutReward, setCheckoutReward] = useState<Reward | null>(null);
   const [checkoutMode, setCheckoutMode] = useState<'alone' | 'together'>('alone');
@@ -244,7 +247,7 @@ export function StoreModal({
     setRedeeming('cash-trade');
 
     try {
-      await tradeCashForPoints(user.id, cashCentsValue);
+      await tradeCashForPoints(user.id, cashCentsValue, cashRequestIdRef.current || undefined);
       toast.success(copy.cashSuccess(cashPriceLabel, cashPointsValue));
       setCashOpen(false);
       setCashInput('');
@@ -341,7 +344,11 @@ export function StoreModal({
           )}
           <button
             type="button"
-            onClick={() => { setCashInput(''); setCashOpen(true); }}
+            onClick={() => {
+              setCashInput('');
+              cashRequestIdRef.current = crypto.randomUUID();
+              setCashOpen(true);
+            }}
             disabled={!!redeeming}
             className="mb-2 w-full rounded-xl border border-emerald-400/50 bg-emerald-400/10 p-3 text-left transition-colors disabled:cursor-not-allowed"
             style={{ boxShadow: '0 0 12px rgba(52, 211, 153, 0.14)' }}
@@ -622,7 +629,12 @@ export function StoreModal({
                     autoFocus
                     placeholder="4.99"
                     value={cashInput}
-                    onChange={e => setCashInput(sanitizeCashInput(e.target.value))}
+                    onChange={e => {
+                      // New price → new idempotency key; retries of the same
+                      // price keep the same key.
+                      cashRequestIdRef.current = crypto.randomUUID();
+                      setCashInput(sanitizeCashInput(e.target.value));
+                    }}
                     className="h-14 w-full rounded-xl border border-gray-300 bg-white pl-8 pr-3 text-2xl font-bold text-gray-900 placeholder-gray-300 outline-none focus:border-emerald-500"
                   />
                 </div>

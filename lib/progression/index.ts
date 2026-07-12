@@ -11,6 +11,7 @@ export {
   LEVEL_UNLOCKS,
   MAX_INSIGNIA_SLOTS,
   computeLevelProgress,
+  formatXp,
   insigniaSlotsForLevel,
   levelForXp,
   nextLevelUnlock,

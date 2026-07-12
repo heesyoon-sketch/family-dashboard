@@ -10,7 +10,7 @@ import { ProgressRing } from './ProgressRing';
 import { MomentumAura } from './MomentumAura';
 import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
 import { useFamilyStore } from '@/lib/store';
-import { computeLevelProgress, emptyMomentum } from '@/lib/progression';
+import { computeLevelProgress, emptyMomentum, formatXp } from '@/lib/progression';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
@@ -269,7 +269,7 @@ export function MemberPanel({ user }: { user: User }) {
                     className="min-w-0 truncate"
                     title={`XP earned. ${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} to Lv.${displayLevel + 1}`}
                   >
-                    {totalXp}xp
+                    {formatXp(totalXp)}xp
                   </span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
                   <MomentumAura momentum={momentum} size={14} showLabel />

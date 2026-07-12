@@ -26,6 +26,7 @@ import { useFamilyStore } from '@/lib/store';
 import {
   composeBonusPercent,
   computeLevelProgress,
+  formatXp,
   loadoutBonusFromIds,
 } from '@/lib/progression';
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
@@ -772,7 +773,7 @@ function MemberStatsPanel({ stat, lang, copy }: { stat: UserStats; lang: Lang; c
           <StatCard
             label={copy.levelProgress}
             value={`Lv.${stat.level}`}
-            sub={`${stat.pointsInLevel}/${stat.pointsToNext} XP`}
+            sub={`${formatXp(stat.pointsInLevel)}/${formatXp(stat.pointsToNext)} XP`}
             tone="primary"
             accent={accent}
             barPct={Math.round(stat.progressToNext * 100)}

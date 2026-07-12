@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart2, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
+import { BarChart2, CalendarDays, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
 import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
@@ -296,6 +296,13 @@ export default function Dashboard() {
           >
             <LogOut size={17} />
           </button>
+          <Link
+            href="/calendar"
+            aria-label="Family calendar"
+            className={`${iconBtnClass} hover:border-[#FFB830]/40 hover:bg-[#FFB830]/10 hover:text-[#FFDB7A]`}
+          >
+            <CalendarDays size={17} />
+          </Link>
           <Link href="/admin" aria-label={t('admin_mode')} className={iconBtnClass}>
             <Settings size={17} />
           </Link>
