@@ -35,7 +35,7 @@ interface AdminStorePanelProps {
   deleteReward: (rewardId: string) => void;
   updateRewardCost: (rewardId: string, rawCost: number) => void;
   updateRewardSale: (rewardId: string, rawPercentage: number, rawName: string) => void;
-  updateRewardFlags: (rewardId: string, patch: Partial<Pick<Reward, 'sale_enabled' | 'is_hidden' | 'is_sold_out'>>) => void;
+  updateRewardFlags: (rewardId: string, patch: Partial<Pick<Reward, 'sale_enabled'>>) => void;
   newRewardIcon: string;
   setRewardIconPickerOpen: Dispatch<SetStateAction<boolean>>;
   newRewardTitle: string;
@@ -269,8 +269,8 @@ export function AdminStorePanel({
             </div>
             <p className="text-sm leading-6 text-white/54">
               {lang === 'en'
-                ? 'Manage rewards, prices, sales, and stock.'
-                : '보상, 가격, 세일, 재고를 한 곳에서 관리하세요.'}
+                ? 'Manage rewards, prices, and sales.'
+                : '보상, 가격, 세일을 한 곳에서 관리하세요.'}
             </p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-lg border border-[#FF7BAC]/20 bg-[#FF7BAC]/10 px-3 py-2 text-sm font-black text-[#FFB8CF]">
@@ -288,9 +288,7 @@ export function AdminStorePanel({
             return (
               <div
                 key={r.id}
-                className={`rounded-lg border bg-[#1A1B2E] p-3 transition-colors sm:p-4 ${
-                  r.is_hidden ? 'border-white/6 opacity-70' : 'border-white/10'
-                }`}
+                className="rounded-lg border border-white/10 bg-[#1A1B2E] p-3 transition-colors sm:p-4"
               >
                 {isEditing ? (
                   <div className="space-y-3">
@@ -411,18 +409,6 @@ export function AdminStorePanel({
                                   : `${adminCopy.saleOff} · ${r.sale_percentage}%`}
                               </span>
                             )}
-                            {r.is_hidden && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-black text-white/55">
-                                <Icons.EyeOff size={11} />
-                                {adminCopy.hidden}
-                              </span>
-                            )}
-                            {r.is_sold_out && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#FFB830]/16 px-2 py-0.5 text-[11px] font-black text-[#FFB830]">
-                                <Icons.PackageX size={11} />
-                                {adminCopy.soldOut}
-                              </span>
-                            )}
                             {saveStatus === 'saved' && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[11px] font-black text-[#4EEDB0]">
                                 <Icons.Check size={11} />
@@ -533,13 +519,12 @@ export function AdminStorePanel({
                         />
                       </div>
 
-                      {/* Toggles */}
-                      <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="mt-3">
                         <button
                           type="button"
                           onClick={() => { void updateRewardFlags(r.id, { sale_enabled: !r.sale_enabled }); }}
                           disabled={isSaving}
-                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
+                          className={`flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
                             r.sale_enabled
                               ? 'bg-[#FF7BAC] text-[#220610]'
                               : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
@@ -547,32 +532,6 @@ export function AdminStorePanel({
                         >
                           <Icons.BadgePercent size={13} />
                           {lang === 'en' ? 'Sale' : '세일'} {r.sale_enabled ? 'ON' : 'OFF'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void updateRewardFlags(r.id, { is_hidden: !r.is_hidden }); }}
-                          disabled={isSaving}
-                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
-                            r.is_hidden
-                              ? 'bg-white/[0.12] text-white'
-                              : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
-                          }`}
-                        >
-                          {r.is_hidden ? <Icons.EyeOff size={13} /> : <Icons.Eye size={13} />}
-                          {r.is_hidden ? adminCopy.hidden : adminCopy.visible}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { void updateRewardFlags(r.id, { is_sold_out: !r.is_sold_out }); }}
-                          disabled={isSaving}
-                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
-                            r.is_sold_out
-                              ? 'bg-[#FFB830] text-[#221606]'
-                              : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
-                          }`}
-                        >
-                          {r.is_sold_out ? <Icons.PackageX size={13} /> : <Icons.Package size={13} />}
-                          {r.is_sold_out ? adminCopy.soldOut : adminCopy.inStock}
                         </button>
                       </div>
                     </div>
