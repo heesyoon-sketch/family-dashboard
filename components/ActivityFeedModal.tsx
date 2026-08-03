@@ -132,6 +132,19 @@ function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { ico
     };
   }
   if (activity.type === 'SYSTEM_MESSAGE') {
+    if (activity.message?.startsWith('PERFECT_DAY_COUPON:')) {
+      const kind = activity.message.split(':')[1];
+      const reward = kind === 'game'
+        ? (lang === 'en' ? '30 minutes of game time' : '게임 시간 30분')
+        : (lang === 'en' ? '30 minutes of media time' : '미디어 시간 30분');
+      return {
+        icon: '🎟️',
+        text: lang === 'en'
+          ? `Used a Perfect Day pass for ${reward}.`
+          : `퍼펙트 데이 이용권으로 ${reward}을(를) 선택했어요.`,
+        amount: '',
+      };
+    }
     return {
       icon: '🎉',
       text: activity.message ?? (lang === 'en' ? 'Welcome to your family dashboard!' : '가족 대시보드에 오신 것을 환영합니다!'),

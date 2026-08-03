@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { HeartHandshake, Mail, Store } from 'lucide-react';
+import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -14,6 +14,8 @@ import { computeLevelProgress, emptyMomentum, formatXp } from '@/lib/progression
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
+import { PerfectDayCouponModal } from './PerfectDayCouponModal';
+import { RoutineReferenceCard } from './RoutineReferenceCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getTimeWindowDisplay,
@@ -72,16 +74,23 @@ export function MemberPanel({ user }: { user: User }) {
   const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? []);
   const level          = useFamilyStore(s => s.levelsByUser[user.id]);
   const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? []);
+  const completionsByWindow = useFamilyStore(
+    s => s.todayCompletionsByWindow[user.id] ?? { morning: [], evening: [] },
+  );
+  const coupons        = useFamilyStore(s => s.couponsByUser[user.id] ?? []);
   const bestDay        = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
   const momentum       = useFamilyStore(s => s.momentumByUser[user.id]) ?? emptyMomentum();
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
+  const doRedeemCoupon = useFamilyStore(s => s.redeemPerfectDayCoupon);
   const allUsers       = useFamilyStore(s => s.users);
   const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? []);
 
   const [storeOpen, setStoreOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [routineView, setRoutineView] = useState<'current' | 'reference'>('current');
 
   const [activityReadAt, setActivityReadAt] = useState(() => {
     if (typeof window === 'undefined') return 0;
@@ -112,12 +121,18 @@ export function MemberPanel({ user }: { user: User }) {
     return isTaskActiveInTimeWindow(task.timeWindow, timeOfDay);
   };
   const currentTasks = tasks.filter(isTaskCurrent);
+  const referenceWindow = timeOfDay === 'morning' ? 'evening' : 'morning';
+  const referenceTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, referenceWindow));
   // Tasks stay in their original position when completed — checking off a
   // habit shouldn't re-shuffle the layout. Only sort by time window so the
   // morning/afternoon/evening grouping stays stable.
   const sortedTasks = [...currentTasks].sort((a, b) => {
     return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
   });
+  const sortedReferenceTasks = [...referenceTasks].sort((a, b) => {
+    return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
+  });
+  const visibleTasks = routineView === 'current' ? sortedTasks : sortedReferenceTasks;
 
   const updateScrollHint = useCallback(() => {
     const el = scrollRef.current;
@@ -136,17 +151,18 @@ export function MemberPanel({ user }: { user: User }) {
     observer.observe(el);
     if (list) observer.observe(list);
     return () => observer.disconnect();
-  }, [sortedTasks.length, timeOfDay, updateScrollHint]);
+  }, [visibleTasks.length, timeOfDay, routineView, updateScrollHint]);
 
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
-  const moreCount = Math.max(0, sortedTasks.length - 8);
+  const moreCount = Math.max(0, visibleTasks.length - 8);
   const showMore  = hasOverflow && !atBottom;
 
   const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = currentTasks.length;
   const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
+  const availableCouponCount = coupons.filter(coupon => coupon.status === 'available').length;
 
   // Soft, no-pressure encouragement. We surface "best day so far" only and
   // skip streak language entirely — the momentum aura already communicates
@@ -211,6 +227,14 @@ export function MemberPanel({ user }: { user: User }) {
           user={user}
           activities={mailboxActivities}
           onClose={() => setActivityOpen(false)}
+        />
+      )}
+      {couponOpen && (
+        <PerfectDayCouponModal
+          user={user}
+          coupons={coupons}
+          onClose={() => setCouponOpen(false)}
+          onRedeem={(couponId, kind) => doRedeemCoupon(couponId, user.id, kind)}
         />
       )}
       <section
@@ -295,6 +319,22 @@ export function MemberPanel({ user }: { user: User }) {
               <span className="mx-1 h-6 w-px bg-[var(--border)]" aria-hidden />
               <button
                 type="button"
+                onClick={() => setCouponOpen(true)}
+                className="relative grid h-8 w-8 place-items-center rounded-lg border border-[#E7C94B] bg-[#FFE56B] text-[#17151E] transition hover:bg-[#FFF09C] max-[380px]:h-7 max-[380px]:w-7"
+                title={lang === 'en' ? 'Perfect Day passes' : '퍼펙트 데이 이용권'}
+                aria-label={lang === 'en'
+                  ? `${availableCouponCount} Perfect Day passes`
+                  : `퍼펙트 데이 이용권 ${availableCouponCount}장`}
+              >
+                <TicketCheck size={15} strokeWidth={2.5} />
+                {availableCouponCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF4F91] px-1 text-[9px] font-black leading-none text-white ring-2 ring-[var(--bg-card)]">
+                    {availableCouponCount > 9 ? '9+' : availableCouponCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setGiftOpen(true)}
                 disabled={giftReceivers.length === 0}
                 className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35 max-[380px]:h-7 max-[380px]:w-7"
@@ -336,6 +376,51 @@ export function MemberPanel({ user }: { user: User }) {
           </div>
         </header>
 
+        <div
+          className="mb-1.5 grid h-8 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
+          role="tablist"
+          aria-label={lang === 'en' ? `${user.name}'s routine view` : `${user.name}의 루틴 보기`}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={routineView === 'current'}
+            onClick={() => setRoutineView('current')}
+            className={[
+              'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-black transition',
+              routineView === 'current'
+                ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
+                : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
+            ].join(' ')}
+          >
+            {timeOfDay === 'morning' ? <Sunrise size={14} /> : <MoonStar size={14} />}
+            <span className="truncate">
+              {lang === 'en'
+                ? `Now · ${timeOfDay === 'morning' ? 'Morning' : 'Afternoon / evening'}`
+                : `지금 · ${timeOfDay === 'morning' ? '오전' : '오후·저녁'}`}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={routineView === 'reference'}
+            onClick={() => setRoutineView('reference')}
+            className={[
+              'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-black transition',
+              routineView === 'reference'
+                ? 'bg-[var(--fg)] text-[var(--bg)] shadow-sm'
+                : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
+            ].join(' ')}
+          >
+            <Eye size={14} />
+            <span className="truncate">
+              {lang === 'en'
+                ? `${referenceWindow === 'morning' ? 'Review' : 'Preview'} · ${referenceWindow === 'morning' ? 'Morning' : 'Afternoon / evening'}`
+                : `${referenceWindow === 'morning' ? '돌아보기' : '미리보기'} · ${referenceWindow === 'morning' ? '오전' : '오후·저녁'}`}
+            </span>
+          </button>
+        </div>
+
         {/* Positioning context for gradient + badge overlays */}
         <div className="relative flex-1" style={{ minHeight: 0 }}>
 
@@ -350,25 +435,36 @@ export function MemberPanel({ user }: { user: User }) {
               layout
               className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-108px)/4),76px)] md:pb-6"
             >
-              {sortedTasks.length === 0 && (
+              {visibleTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
-                  {t('no_tasks_today')}
+                  {routineView === 'current'
+                    ? t('no_tasks_today')
+                    : (lang === 'en' ? 'No routines scheduled in this window' : '이 시간대에 예정된 루틴이 없어요')}
                 </div>
               )}
-              {sortedTasks.map((task, i) => (
+              {visibleTasks.map((task, i) => (
                 <motion.div
                   key={task.id}
                   layout
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className={sortedTasks.length % 2 !== 0 && i === sortedTasks.length - 1 ? 'col-span-2' : ''}
+                  className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-2' : ''}
                 >
-                  <TaskCard
-                    task={task}
-                    completed={completed.includes(task.id)}
-                    theme={user.theme}
-                    disabled={!isTaskCurrent(task)}
-                    timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang)}
-                  />
+                  {routineView === 'current' ? (
+                    <TaskCard
+                      task={task}
+                      completed={completed.includes(task.id)}
+                      theme={user.theme}
+                      disabled={!isTaskCurrent(task)}
+                      timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang)}
+                    />
+                  ) : (
+                    <RoutineReferenceCard
+                      task={task}
+                      completed={completionsByWindow[referenceWindow].includes(task.id)}
+                      theme={user.theme}
+                      referenceWindow={referenceWindow}
+                    />
+                  )}
                 </motion.div>
               ))}
             </motion.div>

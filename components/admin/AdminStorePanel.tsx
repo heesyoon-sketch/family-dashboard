@@ -1,14 +1,23 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import * as Icons from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { Reward } from '@/lib/db';
+import type { AutomaticSaleConfig, Reward } from '@/lib/db';
 import { LucideIcon } from '@/components/admin/IconPicker';
 import { RewardHistoryPanel } from '@/components/admin/RewardHistoryPanel';
 import type { RewardRedemption, SaveStatus } from '@/lib/admin/adminHelpers';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
+import {
+  holidayCountries,
+  holidaySubdivisions,
+  publicHolidayDates,
+} from '@/lib/holidayCalendar';
 
 interface AdminStorePanelProps {
   rewards: Reward[];
+  automaticSaleConfig: AutomaticSaleConfig;
+  setAutomaticSaleConfig: Dispatch<SetStateAction<AutomaticSaleConfig>>;
+  automaticSaleSaving: boolean;
+  saveAutomaticSale: () => void;
   editingRewardId: string | null;
   setEditingRewardId: Dispatch<SetStateAction<string | null>>;
   editingRewardTitle: string;
@@ -44,6 +53,10 @@ interface AdminStorePanelProps {
 
 export function AdminStorePanel({
   rewards,
+  automaticSaleConfig,
+  setAutomaticSaleConfig,
+  automaticSaleSaving,
+  saveAutomaticSale,
   editingRewardId,
   setEditingRewardId,
   editingRewardTitle,
@@ -78,9 +91,173 @@ export function AdminStorePanel({
 }: AdminStorePanelProps) {
   const { lang, t } = useLanguage();
   const adminCopy = buildAdminCopy(lang);
+  const countryOptions = useMemo(() => holidayCountries(lang), [lang]);
+  const subdivisionOptions = useMemo(
+    () => holidaySubdivisions(automaticSaleConfig.countryCode, lang),
+    [automaticSaleConfig.countryCode, lang],
+  );
+  const upcomingHolidays = useMemo(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const year = new Date().getFullYear();
+      return publicHolidayDates(
+        automaticSaleConfig.countryCode,
+        automaticSaleConfig.subdivisionCode,
+        year,
+        year + 1,
+        lang,
+      ).filter(holiday => holiday.date >= today).slice(0, 3);
+    } catch {
+      return [];
+    }
+  }, [automaticSaleConfig.countryCode, automaticSaleConfig.subdivisionCode, lang]);
 
   return (
     <div className="space-y-5">
+      <section className="rounded-lg border border-[#4EEDB0]/20 bg-[#101D22] p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4EEDB0]/12 shadow-[inset_0_0_0_1px_rgba(78,237,176,0.18)]">
+              <Icons.CalendarDays size={18} className="text-[#4EEDB0]" />
+            </span>
+            <div>
+              <h2 className="text-base font-black text-white">
+                {lang === 'en' ? 'Automatic sale days' : '자동 세일 날짜'}
+              </h2>
+              <p className="mt-1 text-xs font-bold text-white/48">
+                {lang === 'en' ? 'Public holidays and weekends' : '공휴일 및 주말'}
+              </p>
+            </div>
+          </div>
+          <label className="flex h-10 w-full items-center gap-2 rounded-lg border border-[#FFB830]/24 bg-[#FFB830]/10 px-3 sm:w-36">
+            <Icons.BadgePercent size={16} className="text-[#FFB830]" />
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={automaticSaleConfig.percentage}
+              onChange={event => setAutomaticSaleConfig(current => ({
+                ...current,
+                percentage: Number(event.target.value),
+              }))}
+              className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
+              aria-label={lang === 'en' ? 'Automatic discount percentage' : '자동 할인율'}
+            />
+            <span className="text-xs font-black text-[#FFB830]">%</span>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setAutomaticSaleConfig(current => ({
+              ...current,
+              weekendEnabled: !current.weekendEnabled,
+            }))}
+            aria-pressed={automaticSaleConfig.weekendEnabled}
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg border text-sm font-black transition-colors ${
+              automaticSaleConfig.weekendEnabled
+                ? 'border-[#4EEDB0]/45 bg-[#4EEDB0]/16 text-[#7BF4C7]'
+                : 'border-white/10 bg-white/[0.035] text-white/48'
+            }`}
+          >
+            <Icons.CalendarRange size={16} />
+            {lang === 'en' ? 'Weekends' : '주말'}
+            {automaticSaleConfig.weekendEnabled ? ' ON' : ' OFF'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAutomaticSaleConfig(current => ({
+              ...current,
+              holidayEnabled: !current.holidayEnabled,
+            }))}
+            aria-pressed={automaticSaleConfig.holidayEnabled}
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg border text-sm font-black transition-colors ${
+              automaticSaleConfig.holidayEnabled
+                ? 'border-[#FF7BAC]/45 bg-[#FF7BAC]/16 text-[#FFB8CF]'
+                : 'border-white/10 bg-white/[0.035] text-white/48'
+            }`}
+          >
+            <Icons.CalendarHeart size={16} />
+            {lang === 'en' ? 'Holidays' : '공휴일'}
+            {automaticSaleConfig.holidayEnabled ? ' ON' : ' OFF'}
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-black uppercase text-white/42">
+              {lang === 'en' ? 'Country' : '국가'}
+            </span>
+            <select
+              value={automaticSaleConfig.countryCode}
+              onChange={event => {
+                const countryCode = event.target.value;
+                const firstSubdivision = holidaySubdivisions(countryCode, lang)[0]?.code ?? '';
+                setAutomaticSaleConfig(current => ({
+                  ...current,
+                  countryCode,
+                  subdivisionCode: firstSubdivision,
+                  holidayDates: [],
+                  generatedThrough: 0,
+                }));
+              }}
+              className="h-11 w-full rounded-lg border border-white/10 bg-[#111821] px-3 text-sm font-bold text-white outline-none focus:border-[#4EEDB0]/55"
+            >
+              {countryOptions.map(country => (
+                <option key={country.code} value={country.code}>{country.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-black uppercase text-white/42">
+              {lang === 'en' ? 'Province / state' : '주 / 지역'}
+            </span>
+            <select
+              value={automaticSaleConfig.subdivisionCode}
+              disabled={subdivisionOptions.length === 0}
+              onChange={event => setAutomaticSaleConfig(current => ({
+                ...current,
+                subdivisionCode: event.target.value,
+                holidayDates: [],
+                generatedThrough: 0,
+              }))}
+              className="h-11 w-full rounded-lg border border-white/10 bg-[#111821] px-3 text-sm font-bold text-white outline-none disabled:opacity-45 focus:border-[#4EEDB0]/55"
+            >
+              {subdivisionOptions.length === 0 && <option value="">{lang === 'en' ? 'National' : '전국'}</option>}
+              {subdivisionOptions.map(subdivision => (
+                <option key={subdivision.code} value={subdivision.code}>{subdivision.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-3 border-t border-white/8 pt-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 text-xs text-white/48">
+            <div className="flex items-center gap-1.5 font-bold text-white/64">
+              <Icons.Landmark size={13} className="text-[#FFB830]" />
+              {lang === 'en' ? 'Public holidays only' : '공식 공휴일만 적용'}
+              {automaticSaleConfig.generatedThrough > 0 && ` · ${automaticSaleConfig.generatedThrough}`}
+            </div>
+            <div className="mt-1 truncate">{automaticSaleConfig.timezone}</div>
+            {upcomingHolidays.length > 0 && (
+              <div className="mt-1 truncate">
+                {upcomingHolidays.map(holiday => `${holiday.date} ${holiday.name}`).join(' · ')}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={saveAutomaticSale}
+            disabled={automaticSaleSaving}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#071510] transition-colors hover:bg-[#7BF4C7] disabled:opacity-55"
+          >
+            {automaticSaleSaving ? <Icons.LoaderCircle size={16} className="animate-spin" /> : <Icons.Save size={16} />}
+            {lang === 'en' ? 'Save schedule' : '일정 저장'}
+          </button>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>

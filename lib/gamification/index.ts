@@ -1,7 +1,19 @@
-import { DOW_INDEX, Level, Badge, startOfDay } from '../db';
+import {
+  DOW_INDEX,
+  Level,
+  Badge,
+  startOfDay,
+  type PerfectDayCoupon,
+  type PerfectDayCouponKind,
+} from '../db';
 import { assertUuid, createBrowserSupabase } from '../supabase';
 import { evaluateCondition } from './conditions';
 import { getCurrentTimeWindow, type TimeWindow } from '../timeWindows';
+import {
+  localDateKey,
+  mapPerfectDayCoupon,
+  type PerfectDayClaimResult,
+} from '../perfectDay';
 
 export const LEVEL_THRESHOLDS = [
   { level: 1,  min: 0,     max: 599 },
@@ -34,6 +46,7 @@ export interface CompletionResult {
   streakCurrent: number;
   streakLongest: number;
   taskLastCompletedAt: Date | null;
+  perfectDay: PerfectDayClaimResult;
 }
 
 export interface UndoResult {
@@ -42,6 +55,7 @@ export interface UndoResult {
   longestStreak: number;
   taskStreakCount: number;
   taskLastCompletedAt: Date | null;
+  revokedCouponId: string | null;
 }
 
 interface RpcLevel {
@@ -94,6 +108,28 @@ function currentTimeWindow(date: Date): TimeWindow {
   return getCurrentTimeWindow(date);
 }
 
+export async function claimPerfectDayCoupon(
+  userId: string,
+  dayStart: Date,
+  now = new Date(),
+): Promise<PerfectDayClaimResult> {
+  const supabase = createBrowserSupabase();
+  const { data, error } = await supabase.rpc('claim_perfect_day_coupon', {
+    p_user_id: assertUuid(userId, 'userId'),
+    p_day_start: dayStart.toISOString(),
+    p_day_key: dayKey(dayStart),
+    p_earned_for_day: localDateKey(dayStart),
+    p_now: now.toISOString(),
+  });
+  if (error) throwRpcError(error);
+
+  const raw = data as { awarded?: boolean; coupon?: Record<string, unknown> | null } | null;
+  return {
+    awarded: Boolean(raw?.awarded),
+    coupon: raw?.coupon ? mapPerfectDayCoupon(raw.coupon) : null,
+  };
+}
+
 export async function processCompletion(
   userId: string,
   taskId: string,
@@ -135,6 +171,16 @@ export async function processCompletion(
     taskLastCompletedAt: string | null;
   };
 
+  let perfectDay: PerfectDayClaimResult = { awarded: false, coupon: null };
+  try {
+    perfectDay = await claimPerfectDayCoupon(userId, dayStart, now);
+  } catch (error) {
+    // The completion itself is already committed. Keep that success and let
+    // hydrate reconciliation retry coupon claiming instead of queueing a
+    // duplicate completion action.
+    console.warn('[perfect-day] claim after completion failed', error);
+  }
+
   const badgesEarned = await evaluateAllBadges(userId);
   const leveledUp = Boolean(raw.leveledUp);
 
@@ -153,6 +199,7 @@ export async function processCompletion(
     streakCurrent: raw.streakCurrent,
     streakLongest: raw.streakLongest,
     taskLastCompletedAt: raw.taskLastCompletedAt ? new Date(raw.taskLastCompletedAt) : null,
+    perfectDay,
   };
 }
 
@@ -182,6 +229,7 @@ export async function processUndo(
     longestStreak: number;
     taskStreakCount: number;
     taskLastCompletedAt: string | null;
+    revokedCouponId?: string | null;
   };
 
   return {
@@ -190,7 +238,24 @@ export async function processUndo(
     longestStreak: raw.longestStreak,
     taskStreakCount: raw.taskStreakCount,
     taskLastCompletedAt: raw.taskLastCompletedAt ? new Date(raw.taskLastCompletedAt) : null,
+    revokedCouponId: raw.revokedCouponId ?? null,
   };
+}
+
+export async function redeemPerfectDayCoupon(
+  couponId: string,
+  userId: string,
+  kind: PerfectDayCouponKind,
+): Promise<PerfectDayCoupon> {
+  const supabase = createBrowserSupabase();
+  const { data, error } = await supabase.rpc('redeem_perfect_day_coupon', {
+    p_coupon_id: assertUuid(couponId, 'couponId'),
+    p_user_id: assertUuid(userId, 'userId'),
+    p_redeemed_for: kind,
+    p_now: new Date().toISOString(),
+  });
+  if (error) throwRpcError(error);
+  return mapPerfectDayCoupon(data as Record<string, unknown>);
 }
 
 /**

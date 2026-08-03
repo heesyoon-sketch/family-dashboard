@@ -5,6 +5,11 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { Reward, User } from '@/lib/db';
+import {
+  rewardEffectiveCost,
+  rewardEffectiveSaleLabel,
+  rewardHasEffectiveSale,
+} from '@/lib/automaticSale';
 import { useFamilyStore } from '@/lib/store';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -19,28 +24,6 @@ const IconMap = Icons as unknown as Record<string, React.ComponentType<{ size?: 
 function RewardIcon({ name, size = 20, className }: { name: string; size?: number; className?: string }) {
   const Comp = IconMap[pascalCase(name)] ?? Icons.Gift;
   return <Comp size={size} className={className} />;
-}
-
-function salePercentage(reward: Reward): number {
-  if (!reward.sale_enabled) return 0;
-  const n = Math.round(Number(reward.sale_percentage ?? 0));
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(100, Math.max(0, n));
-}
-
-function discountedCost(reward: Reward): number {
-  if (reward.sale_enabled && reward.sale_price != null) {
-    return Math.max(0, Math.min(reward.cost_points, Math.round(reward.sale_price)));
-  }
-  const pct = salePercentage(reward);
-  return Math.max(0, Math.floor(reward.cost_points * (100 - pct) / 100));
-}
-
-function saleLabel(reward: Reward): string {
-  const customName = reward.sale_name?.trim();
-  if (customName) return customName;
-  if (reward.sale_price != null) return 'SALE';
-  return `${salePercentage(reward)}% OFF`;
 }
 
 // ── Cash trade ($1 = 100pt, price rounded to the nearest dollar) ─────────────
@@ -184,7 +167,7 @@ export function StoreModal({
   const jointPartnerBalance = jointPartner ? (levelsByUser[jointPartner.id]?.spendableBalance ?? 0) : 0;
 
   const openCheckout = (reward: Reward) => {
-    const cost = discountedCost(reward);
+    const cost = rewardEffectiveCost(reward);
     setCheckoutReward(reward);
     setCheckoutMode('alone');
     setJointUserId(jointPartners[0]?.id ?? '');
@@ -212,7 +195,7 @@ export function StoreModal({
         toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
         return;
       }
-      const cost = discountedCost(latestReward);
+      const cost = rewardEffectiveCost(latestReward);
       const latestBalance = useFamilyStore.getState().levelsByUser[user.id]?.spendableBalance ?? balance;
       if (latestBalance < cost) return;
 
@@ -275,7 +258,7 @@ export function StoreModal({
         return;
       }
 
-      const cost = discountedCost(latestReward);
+      const cost = rewardEffectiveCost(latestReward);
       const share1 = Math.max(0, Math.round(userShare) || 0);
       const share2 = Math.max(0, Math.round(partnerShare) || 0);
       const latestLevels = useFamilyStore.getState().levelsByUser;
@@ -297,7 +280,7 @@ export function StoreModal({
 
   const loading = !hydrated || refreshing;
   const visibleRewards = rewards.filter(reward => !reward.is_hidden);
-  const checkoutCost = checkoutReward ? discountedCost(checkoutReward) : 0;
+  const checkoutCost = checkoutReward ? rewardEffectiveCost(checkoutReward) : 0;
   const checkoutSoldOut = Boolean(checkoutReward?.is_sold_out);
   const shareTotal = Math.max(0, Math.round(userShare) || 0) + Math.max(0, Math.round(partnerShare) || 0);
   const jointInvalid =
@@ -369,9 +352,8 @@ export function StoreModal({
           <div className="grid grid-cols-2 gap-2">
             {visibleRewards.map(r => {
               const itemTitle = r.title || (r as unknown as Record<string, string>).name || '';
-              const pct = salePercentage(r);
-              const cost = discountedCost({ ...r, title: itemTitle });
-              const hasDeal = Boolean(r.sale_enabled) && cost < r.cost_points && (pct > 0 || r.sale_price != null);
+              const cost = rewardEffectiveCost({ ...r, title: itemTitle });
+              const hasDeal = rewardHasEffectiveSale(r);
               const soldOut = Boolean(r.is_sold_out);
               const canAfford = !soldOut && balance >= cost;
               const busy = redeeming === r.id;
@@ -414,7 +396,7 @@ export function StoreModal({
                       )}
                       {!soldOut && hasDeal && (
                         <div className="inline-flex max-w-full rounded-full bg-rose-400/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-300 leading-tight mt-1 truncate">
-                          {saleLabel(r)}
+                          {rewardEffectiveSaleLabel(r, lang)}
                         </div>
                       )}
                     </div>

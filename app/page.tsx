@@ -8,6 +8,7 @@ import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { InsigniaUnlockOverlay } from '@/components/InsigniaUnlockOverlay';
+import { PerfectDayCelebrationOverlay } from '@/components/PerfectDayCelebrationOverlay';
 import { HarmonyChip } from '@/components/HarmonyChip';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
@@ -46,6 +47,8 @@ export default function Dashboard() {
   const familyId  = useFamilyStore(s => s.familyId);
   const familyName = useFamilyStore(s => s.familyName);
   const weeklyRecapByUser = useFamilyStore(s => s.weeklyRecapByUser);
+  const perfectDayAward = useFamilyStore(s => s.perfectDayQueue[0] ?? null);
+  const dismissPerfectDayAward = useFamilyStore(s => s.dismissPerfectDayAward);
   const [recapDismissedKey, setRecapDismissedKey] = useState<string | null>(null);
   // authReady starts as false on every mount — the blank screen is shown until
   // hydrate() finishes verifying the session. This is the primary guard against
@@ -66,6 +69,7 @@ export default function Dashboard() {
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       activeTaskCount: 0,
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
+      todayCompletionsByWindow: {}, couponsByUser: {}, perfectDayQueue: [],
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     try {
@@ -120,6 +124,7 @@ export default function Dashboard() {
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       activeTaskCount: 0,
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
+      todayCompletionsByWindow: {}, couponsByUser: {}, perfectDayQueue: [],
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     router.replace('/login');
@@ -347,6 +352,17 @@ export default function Dashboard() {
       {celebration && (
         <CelebrationOverlay data={celebration} onDismiss={dismissCelebration} />
       )}
+
+      {perfectDayAward && (() => {
+        const awardUser = users.find(user => user.id === perfectDayAward.userId);
+        return awardUser ? (
+          <PerfectDayCelebrationOverlay
+            award={perfectDayAward}
+            user={awardUser}
+            onDismiss={dismissPerfectDayAward}
+          />
+        ) : null;
+      })()}
 
       <InsigniaUnlockOverlay />
 

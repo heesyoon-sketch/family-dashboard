@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { TicketCheck } from 'lucide-react';
 import type { User } from '@/lib/db';
 import { useFamilyStore } from '@/lib/store';
+import { isTaskActiveInTimeWindow } from '@/lib/timeWindows';
 
 interface MobileMemberTabsProps {
   users: User[];
@@ -16,6 +18,8 @@ export function MobileMemberTabs({ users }: MobileMemberTabsProps) {
   const todayCompletions = useFamilyStore(s => s.todayCompletions);
   const tasksByUser = useFamilyStore(s => s.tasksByUser);
   const dailyStreakByUser = useFamilyStore(s => s.dailyStreakByUser);
+  const timeOfDay = useFamilyStore(s => s.timeOfDay);
+  const couponsByUser = useFamilyStore(s => s.couponsByUser);
   const [activeUserId, setActiveUserId] = useState<string | null>(users[0]?.id ?? null);
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -76,9 +80,12 @@ export function MobileMemberTabs({ users }: MobileMemberTabsProps) {
     >
       {users.map(user => {
         const isActive = user.id === activeUserId;
-        const totalToday = (tasksByUser[user.id] ?? []).length;
+        const totalToday = (tasksByUser[user.id] ?? [])
+          .filter(task => isTaskActiveInTimeWindow(task.timeWindow, timeOfDay)).length;
         const doneToday = (todayCompletions[user.id] ?? []).length;
         const streak = dailyStreakByUser[user.id] ?? 0;
+        const couponCount = (couponsByUser[user.id] ?? [])
+          .filter(coupon => coupon.status === 'available').length;
 
         return (
           <button
@@ -113,6 +120,11 @@ export function MobileMemberTabs({ users }: MobileMemberTabsProps) {
             </span>
             {streak > 0 && (
               <span className="text-[10px] font-bold text-[#4EEDB0]">🔥{streak}</span>
+            )}
+            {couponCount > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px] font-black text-[#FFE56B]">
+                <TicketCheck size={11} />{couponCount}
+              </span>
             )}
           </button>
         );

@@ -6,7 +6,16 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
-import { User, Task, Reward, DayOfWeek, ALL_DAYS, ThemeName, UserRole } from '@/lib/db';
+import {
+  User,
+  Task,
+  Reward,
+  DayOfWeek,
+  ALL_DAYS,
+  ThemeName,
+  UserRole,
+  type AutomaticSaleConfig,
+} from '@/lib/db';
 import { getCurrentFamilyAdminPinHash, saveAdminPin, verifyAdminPin } from '@/lib/adminPin';
 import { deleteCurrentFamilyData } from '@/lib/deleteFamilyData';
 import { useFamilyStore } from '@/lib/store';
@@ -31,6 +40,11 @@ import {
   type SaveStatus,
 } from '@/lib/admin/adminHelpers';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
+import {
+  defaultAutomaticSaleConfig,
+  parseAutomaticSaleSetting,
+} from '@/lib/automaticSale';
+import { holidayTimezone, publicHolidayDates } from '@/lib/holidayCalendar';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -83,6 +97,10 @@ export default function AdminPage() {
   const [rewardRedemptions, setRewardRedemptions] = useState<RewardRedemption[]>([]);
   const [refundInFlightId, setRefundInFlightId] = useState<string | null>(null);
   const [rewardProcessInFlightId, setRewardProcessInFlightId] = useState<string | null>(null);
+  const [automaticSaleConfig, setAutomaticSaleConfig] = useState<AutomaticSaleConfig>(
+    () => defaultAutomaticSaleConfig(),
+  );
+  const [automaticSaleSaving, setAutomaticSaleSaving] = useState(false);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [familyInviteCode, setFamilyInviteCode] = useState<string | null>(null);
   // Admin PIN management
@@ -176,9 +194,10 @@ export default function AdminPage() {
 
       await supabase.rpc('claim_owner_parent_profile');
 
-      const [userRes, rewardRes] = await Promise.all([
+      const [userRes, rewardRes, automaticSaleRes] = await Promise.all([
         supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
         supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
+        supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'automatic_reward_sale').maybeSingle(),
       ]);
       const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
@@ -191,6 +210,7 @@ export default function AdminPage() {
       }));
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
+      setAutomaticSaleConfig(parseAutomaticSaleSetting(automaticSaleRes.data?.value));
       await loadRewardRedemptions();
       const [{ data: parentAllowed }, { data: ownerAllowed }] = await Promise.all([
         supabase.rpc('is_my_family_parent'),
@@ -207,6 +227,51 @@ export default function AdminPage() {
     await supabase.auth.signOut();
     clearFamilySessionStorage();
     window.location.href = '/login';
+  };
+
+  const saveAutomaticSale = async () => {
+    if (automaticSaleSaving) return;
+    setAutomaticSaleSaving(true);
+    try {
+      const timezone = holidayTimezone(
+        automaticSaleConfig.countryCode,
+        automaticSaleConfig.subdivisionCode,
+        automaticSaleConfig.timezone,
+      );
+      const year = Number(new Intl.DateTimeFormat('en', {
+        timeZone: timezone,
+        year: 'numeric',
+      }).format(new Date()));
+      const generatedThrough = year + 10;
+      const holidays = publicHolidayDates(
+        automaticSaleConfig.countryCode,
+        automaticSaleConfig.subdivisionCode,
+        year,
+        generatedThrough,
+        lang,
+      );
+      const nextConfig: AutomaticSaleConfig = {
+        ...automaticSaleConfig,
+        percentage: Math.min(100, Math.max(0, Math.round(automaticSaleConfig.percentage))),
+        timezone,
+        holidayDates: holidays.map(holiday => holiday.date),
+        generatedThrough,
+      };
+      const supabase = createBrowserSupabase();
+      const { error: saveError } = await supabase.rpc('admin_update_automatic_sale', {
+        p_config: nextConfig,
+      });
+      if (saveError) throw saveError;
+      setAutomaticSaleConfig(nextConfig);
+      await storeHydrate();
+      notifyDashboard();
+      toast.success(lang === 'en' ? 'Automatic sale schedule saved.' : '자동 세일 일정이 저장됐어요.');
+    } catch (saveError) {
+      console.error('Failed to save automatic sale schedule', saveError);
+      toast.error(lang === 'en' ? 'Could not save the sale schedule.' : '세일 일정을 저장하지 못했어요.');
+    } finally {
+      setAutomaticSaleSaving(false);
+    }
   };
 
   const handleDeleteFamilyData = async () => {
@@ -1541,6 +1606,10 @@ export default function AdminPage() {
           {activeTab === 'store' && (
             <AdminStorePanel
               rewards={rewards}
+              automaticSaleConfig={automaticSaleConfig}
+              setAutomaticSaleConfig={setAutomaticSaleConfig}
+              automaticSaleSaving={automaticSaleSaving}
+              saveAutomaticSale={saveAutomaticSale}
               editingRewardId={editingRewardId}
               setEditingRewardId={setEditingRewardId}
               editingRewardTitle={editingRewardTitle}

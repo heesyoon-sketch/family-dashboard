@@ -1,5 +1,19 @@
 import { create } from 'zustand';
-import { Level, Badge, Task, User, Reward, FamilyActivity, DayOfWeek, DOW_INDEX, legacyRecurrenceToDays } from './db';
+import {
+  Level,
+  Badge,
+  Task,
+  User,
+  Reward,
+  FamilyActivity,
+  DayOfWeek,
+  DOW_INDEX,
+  legacyRecurrenceToDays,
+  type AutomaticSaleConfig,
+  type AutomaticSaleStatus,
+  type PerfectDayCoupon,
+  type PerfectDayCouponKind,
+} from './db';
 import type { AchievementProgress } from './achievements/engine';
 import {
   calculateMomentum,
@@ -26,6 +40,18 @@ import {
   normalizeTimeWindow,
   type TimeWindow,
 } from './timeWindows';
+import {
+  isPerfectRoutineDay,
+  mapPerfectDayCoupon,
+  splitCompletionsByWindow,
+  type WindowCompletions,
+} from './perfectDay';
+import {
+  automaticSaleStatus as getAutomaticSaleStatus,
+  defaultAutomaticSaleConfig,
+  parseAutomaticSaleSetting,
+  withAutomaticSale,
+} from './automaticSale';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -92,6 +118,11 @@ export type CompletionFeedback =
 
 export type TimeOfDay = TimeWindow;
 
+export interface PerfectDayAward {
+  userId: string;
+  coupon: PerfectDayCoupon;
+}
+
 function addDays(d: Date, n: number): Date {
   const r = new Date(d); r.setDate(r.getDate() + n); return r;
 }
@@ -124,6 +155,8 @@ interface FamilyState {
   familyName: string | null;
   users: User[];
   rewards: Reward[];
+  automaticSaleConfig: AutomaticSaleConfig;
+  automaticSaleStatus: AutomaticSaleStatus;
   activeTaskCount: number;
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
@@ -131,6 +164,8 @@ interface FamilyState {
   activitiesByUser: Record<string, FamilyActivity[]>;
   levelsByUser: Record<string, Level>;
   todayCompletions: Record<string, string[]>;
+  todayCompletionsByWindow: Record<string, WindowCompletions>;
+  couponsByUser: Record<string, PerfectDayCoupon[]>;
   maxStreakByUser: Record<string, number>;
   longestStreakByUser: Record<string, number>;
   bestDayByUser: Record<string, number>;
@@ -146,6 +181,7 @@ interface FamilyState {
   /** Insignias unlocked but not yet shown to the user. Surfaces a celebration
    *  pop-up that nudges them to check out the Insignia Wall. */
   insigniaQueue: AchievementProgress[];
+  perfectDayQueue: PerfectDayAward[];
   hydrated: boolean;
   soundEnabled: boolean;
   timeOfDay: TimeOfDay;
@@ -163,12 +199,14 @@ interface FamilyState {
   tradeCashForPoints: (userId: string, priceCents: number, requestId?: string) => Promise<void>;
   purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
+  redeemPerfectDayCoupon: (couponId: string, userId: string, kind: PerfectDayCouponKind) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
   applyBalance: (userId: string, newBalance: number) => void;
   dismissCelebration: () => void;
   enqueueInsigniaUnlocks: (items: AchievementProgress[]) => void;
   dismissInsigniaUnlock: () => void;
+  dismissPerfectDayAward: () => void;
   toggleSound: () => void;
   reset: () => void;
 }
@@ -265,29 +303,38 @@ function applyTaskCompletionEvent(
 
   useFamilyStore.setState(state => {
     if (!state.users.some(u => u.id === userId)) return {};
+    const task = (state.tasksByUser[userId] ?? []).find(candidate => candidate.id === taskId);
+    const completedAt = newRow?.completed_at ?? oldRow?.completed_at;
+    if (!task || !completedAt || !isToday(completedAt)) return {};
+    const completionWindow = getCurrentTimeWindow(new Date(completedAt));
+    if (!isTaskActiveInTimeWindow(task.timeWindow, completionWindow)) return {};
+
     const current = state.todayCompletions[userId] ?? [];
+    const existingWindows = state.todayCompletionsByWindow[userId] ?? { morning: [], evening: [] };
+    const windowIds = existingWindows[completionWindow];
 
     if (eventType === 'DELETE') {
-      if (!current.includes(taskId)) return {};
+      const nextWindows = {
+        ...existingWindows,
+        [completionWindow]: windowIds.filter(id => id !== taskId),
+      };
       return {
-        todayCompletions: {
-          ...state.todayCompletions,
-          [userId]: current.filter(id => id !== taskId),
-        },
+        todayCompletionsByWindow: { ...state.todayCompletionsByWindow, [userId]: nextWindows },
+        todayCompletions: completionWindow === state.timeOfDay
+          ? { ...state.todayCompletions, [userId]: current.filter(id => id !== taskId) }
+          : state.todayCompletions,
       };
     }
 
-    // INSERT / UPDATE — only flip to "completed today" when the completion
-    // actually falls within today. Out-of-window historical inserts are rare
-    // (admin tools) but we still want them reflected in the recap, which
-    // means a full hydrate will be needed — defer to that.
-    if (!isToday(newRow?.completed_at)) return {};
-    if (current.includes(taskId)) return {};
+    const nextWindows = {
+      ...existingWindows,
+      [completionWindow]: Array.from(new Set([...windowIds, taskId])),
+    };
     return {
-      todayCompletions: {
-        ...state.todayCompletions,
-        [userId]: [...current, taskId],
-      },
+      todayCompletionsByWindow: { ...state.todayCompletionsByWindow, [userId]: nextWindows },
+      todayCompletions: completionWindow === state.timeOfDay
+        ? { ...state.todayCompletions, [userId]: Array.from(new Set([...current, taskId])) }
+        : state.todayCompletions,
     };
   });
 }
@@ -350,6 +397,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyName: null,
   users: [],
   rewards: [],
+  automaticSaleConfig: defaultAutomaticSaleConfig(),
+  automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
   activeTaskCount: 0,
   currentMemberId: null,
   currentMemberCanAdmin: false,
@@ -357,6 +406,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   activitiesByUser: {},
   levelsByUser: {},
   todayCompletions: {},
+  todayCompletionsByWindow: {},
+  couponsByUser: {},
   maxStreakByUser: {},
   longestStreakByUser: {},
   bestDayByUser: {},
@@ -368,6 +419,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   harmony: null,
   celebration: null,
   insigniaQueue: [],
+  perfectDayQueue: [],
   hydrated: false,
   soundEnabled: loadSoundPref(),
   timeOfDay: getCurrentTimeOfDay(),
@@ -409,6 +461,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyName: null,
         users: [],
         rewards: [],
+        automaticSaleConfig: defaultAutomaticSaleConfig(),
+        automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -416,6 +470,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         activitiesByUser: {},
         levelsByUser: {},
         todayCompletions: {},
+        todayCompletionsByWindow: {},
+        couponsByUser: {},
+        perfectDayQueue: [],
       });
       return;
     }
@@ -451,6 +508,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyName: null,
         users: [],
         rewards: [],
+        automaticSaleConfig: defaultAutomaticSaleConfig(),
+        automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -458,6 +517,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         activitiesByUser: {},
         levelsByUser: {},
         todayCompletions: {},
+        todayCompletionsByWindow: {},
+        couponsByUser: {},
+        perfectDayQueue: [],
       });
       return;
     }
@@ -473,10 +535,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // .is('deleted_at', null) filters out soft-deleted rows. Migration 060
     // added the column with a default null and partial indexes scoped by
     // (family_id) where deleted_at is null, so this filter is cheap.
-    const [uRes, tRes, rRes] = await Promise.all([
+    const [uRes, tRes, rRes, automaticSaleRes] = await Promise.all([
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null),
       supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
+      supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'automatic_reward_sale').maybeSingle(),
     ]);
     // Surface SELECT errors loudly. Previously these were silently swallowed
     // by `?? []` fallbacks, which meant a missing column or RLS regression
@@ -486,6 +549,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       { label: 'users',   error: uRes.error },
       { label: 'tasks',   error: tRes.error },
       { label: 'rewards', error: rRes.error },
+      { label: 'automatic-sale', error: automaticSaleRes.error },
     ], get().lastHydrateAt > 0);
 
     // If the core SELECTs all failed AND we already have a successful hydrate
@@ -506,7 +570,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const userIds = (uRes.data ?? []).map((r: { id: string }) => r.id);
     const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
 
-    const [lRes, sRes, cTodayRes, cHistRes, aRes] = await Promise.all([
+    const [lRes, sRes, cTodayRes, cHistRes, aRes, couponRes] = await Promise.all([
       supabase.from('levels').select('*').in('user_id', safeIds),
       supabase.from('streaks').select('*').in('user_id', safeIds),
       supabase.from('task_completions')
@@ -524,6 +588,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         .in('type', ['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE'])
         .order('created_at', { ascending: false })
         .limit(200),
+      supabase.from('perfect_day_coupons')
+        .select('*')
+        .eq('family_id', resolvedFamilyId)
+        .in('user_id', safeIds)
+        .order('awarded_at', { ascending: false }),
     ]);
     surfaceHydrateErrors([
       { label: 'levels',           error: lRes.error },
@@ -531,6 +600,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       { label: 'completions:today', error: cTodayRes.error },
       { label: 'completions:30d',  error: cHistRes.error },
       { label: 'family_activities', error: aRes.error },
+      { label: 'perfect_day_coupons', error: couponRes.error },
     ], get().lastHydrateAt > 0);
 
     const users: User[] = (uRes.data ?? []).map(r => ({
@@ -542,7 +612,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       displayOrder: r.display_order ?? 0,
       createdAt: new Date(r.created_at),
     }));
-    const rewards: Reward[] = (rRes.data ?? []).map(r => mapRewardRow(r as Record<string, unknown>));
+    const automaticSaleConfig = parseAutomaticSaleSetting(automaticSaleRes.data?.value);
+    const automaticSaleStatus = getAutomaticSaleStatus(automaticSaleConfig, now);
+    const rewards: Reward[] = (rRes.data ?? []).map(r => withAutomaticSale(
+      mapRewardRow(r as Record<string, unknown>),
+      automaticSaleStatus,
+    ));
     const activeTaskCount = (tRes.data ?? []).filter(task => task.active === 1).length;
     const currentMember = users.find(u => u.authUserId === user.id) ?? null;
     const currentMemberId = currentMember?.id ?? null;
@@ -574,6 +649,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const activitiesByUser: Record<string, FamilyActivity[]> = {};
     const levelsByUser: Record<string, Level> = {};
     const todayCompletions: Record<string, string[]> = {};
+    const todayCompletionsByWindow: Record<string, WindowCompletions> = {};
+    const couponsByUser: Record<string, PerfectDayCoupon[]> = {};
     const maxStreakByUser: Record<string, number> = {};
     const longestStreakByUser: Record<string, number> = {};
     const bestDayByUser: Record<string, number> = {};
@@ -645,21 +722,17 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         };
       }
 
-      // 현재 dashboard window의 완료만 반영한다. "both" task는 오전/오후·저녁을 따로 완료할 수 있다.
-      const taskMap = new Map(tasksByUser[u.id].map(t => [t.id, t.timeWindow]));
       const userTodayComps = (cTodayRes.data ?? []).filter(c => c.user_id === u.id);
-      const completedTaskIds = new Set<string>();
-      for (const c of userTodayComps) {
-        const tw = taskMap.get(c.task_id);
-        if (!isTaskActiveInTimeWindow(tw, timeOfDay)) continue;
-        const completedAt = new Date(c.completed_at);
-        const windowStart = getCompletionWindowStart(todayStart, tw, timeOfDay);
-        const windowEnd = getCompletionWindowEnd(todayStart, tw, timeOfDay);
-        if (completedAt >= windowStart && completedAt < windowEnd) {
-          completedTaskIds.add(c.task_id);
-        }
-      }
-      todayCompletions[u.id] = Array.from(completedTaskIds);
+      const windowCompletions = splitCompletionsByWindow(
+        tasksByUser[u.id],
+        userTodayComps,
+        todayStart,
+      );
+      todayCompletionsByWindow[u.id] = windowCompletions;
+      todayCompletions[u.id] = windowCompletions[timeOfDay];
+      couponsByUser[u.id] = (couponRes.data ?? [])
+        .filter(row => row.user_id === u.id)
+        .map(row => mapPerfectDayCoupon(row as Record<string, unknown>));
 
       const userStreaks = (sRes.data ?? []).filter(s => s.user_id === u.id);
       // maxStreak: read live streak_count from tasks (primary source)
@@ -818,11 +891,48 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       memberIds: users.map(u => u.id),
     });
 
+    // Reconcile a coupon after refresh as well as immediately after a tap.
+    // This closes the small gap where the completion committed but the client
+    // closed before the idempotent coupon-claim RPC finished.
+    const perfectDayAwards: PerfectDayAward[] = [];
+    const perfectCandidates = users.filter(member =>
+      isPerfectRoutineDay(
+        tasksByUser[member.id] ?? [],
+        todayCompletionsByWindow[member.id] ?? { morning: [], evening: [] },
+      ),
+    );
+    if (perfectCandidates.length > 0) {
+      const { claimPerfectDayCoupon } = await import('./gamification');
+      for (const member of perfectCandidates) {
+        try {
+          const claim = await claimPerfectDayCoupon(member.id, todayStart, now);
+          if (!claim.coupon) continue;
+          const current = couponsByUser[member.id] ?? [];
+          couponsByUser[member.id] = [
+            claim.coupon,
+            ...current.filter(coupon => coupon.id !== claim.coupon!.id),
+          ];
+          if (claim.awarded) {
+            perfectDayAwards.push({ userId: member.id, coupon: claim.coupon });
+          }
+        } catch (error) {
+          console.warn('[perfect-day] hydrate reconciliation failed', error);
+        }
+      }
+    }
+
+    const existingPerfectAwardIds = new Set(get().perfectDayQueue.map(item => item.coupon.id));
+    const freshPerfectDayAwards = perfectDayAwards.filter(
+      item => !existingPerfectAwardIds.has(item.coupon.id),
+    );
+
     set({
       familyId: resolvedFamilyId,
       familyName,
       users,
       rewards,
+      automaticSaleConfig,
+      automaticSaleStatus,
       activeTaskCount,
       currentMemberId,
       currentMemberCanAdmin,
@@ -830,6 +940,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       activitiesByUser,
       levelsByUser,
       todayCompletions,
+      todayCompletionsByWindow,
+      couponsByUser,
       maxStreakByUser,
       longestStreakByUser,
       bestDayByUser,
@@ -839,6 +951,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       weeklyRecapByUser,
       momentumByUser,
       harmony,
+      perfectDayQueue: [...get().perfectDayQueue, ...freshPerfectDayAwards],
       hydrated: true,
       timeOfDay,
       lastHydrateAt: Date.now(),
@@ -848,9 +961,31 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       _timeIntervalStarted = true;
       setInterval(() => {
         const newTOD = getCurrentTimeOfDay();
-        if (useFamilyStore.getState().timeOfDay !== newTOD) {
-          useFamilyStore.setState({ timeOfDay: newTOD });
-        }
+        useFamilyStore.setState(state => {
+          const nextAutomaticSaleStatus = getAutomaticSaleStatus(state.automaticSaleConfig);
+          const timeChanged = state.timeOfDay !== newTOD;
+          const saleChanged =
+            state.automaticSaleStatus.active !== nextAutomaticSaleStatus.active ||
+            state.automaticSaleStatus.percentage !== nextAutomaticSaleStatus.percentage ||
+            state.automaticSaleStatus.reason !== nextAutomaticSaleStatus.reason ||
+            state.automaticSaleStatus.localDate !== nextAutomaticSaleStatus.localDate;
+          if (!timeChanged && !saleChanged) return {};
+          return {
+            ...(timeChanged ? {
+              timeOfDay: newTOD,
+              todayCompletions: Object.fromEntries(
+                state.users.map(member => [
+                  member.id,
+                  state.todayCompletionsByWindow[member.id]?.[newTOD] ?? [],
+                ]),
+              ),
+            } : {}),
+            ...(saleChanged ? {
+              automaticSaleStatus: nextAutomaticSaleStatus,
+              rewards: state.rewards.map(reward => withAutomaticSale(reward, nextAutomaticSaleStatus)),
+            } : {}),
+          };
+        });
       }, 60_000);
     }
 
@@ -923,6 +1058,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         )
         .on(
           'postgres_changes',
+          { event: '*', schema: 'public', table: 'family_settings', filter: familyFilter },
+          () => scheduleFamilyHydrate(),
+        )
+        .on(
+          'postgres_changes',
           { event: '*', schema: 'public', table: 'family_activities', filter: familyFilter },
           payload => {
             const row = (payload.new ?? payload.old ?? null) as { type?: string } | null;
@@ -932,6 +1072,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             if (row?.type === 'TASK_COMPLETED') return;
             scheduleFamilyHydrate();
           },
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'perfect_day_coupons', filter: familyFilter },
+          () => scheduleFamilyHydrate(),
         )
         .subscribe();
     }
@@ -952,6 +1097,16 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         todayCompletions: {
           ...state.todayCompletions,
           [userId]: Array.from(new Set([...(state.todayCompletions[userId] ?? []), taskId])),
+        },
+        todayCompletionsByWindow: {
+          ...state.todayCompletionsByWindow,
+          [userId]: {
+            ...(state.todayCompletionsByWindow[userId] ?? { morning: [], evening: [] }),
+            [state.timeOfDay]: Array.from(new Set([
+              ...(state.todayCompletionsByWindow[userId]?.[state.timeOfDay] ?? []),
+              taskId,
+            ])),
+          },
         },
       }));
 
@@ -1004,26 +1159,41 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
       // Overwrite with exact backend values; no local arithmetic.
       // CompletionResult.level is always non-null, so this always reflects DB truth.
-      set(state => ({
-        levelsByUser: { ...state.levelsByUser, [userId]: result.level },
-        celebration:  result.celebration ?? state.celebration,
-        maxStreakByUser: {
-          ...state.maxStreakByUser,
-          [userId]: result.maxStreak,
-        },
-        longestStreakByUser: {
-          ...state.longestStreakByUser,
-          [userId]: result.longestStreak,
-        },
-        tasksByUser: {
-          ...state.tasksByUser,
-          [userId]: (state.tasksByUser[userId] ?? []).map(t =>
-            t.id === taskId
-              ? { ...t, streakCount: result.streakCurrent, lastCompletedAt: result.taskLastCompletedAt }
-              : t
-          ),
-        },
-      }));
+      set(state => {
+        const coupon = result.perfectDay.coupon;
+        const coupons = coupon
+          ? [coupon, ...(state.couponsByUser[userId] ?? []).filter(item => item.id !== coupon.id)]
+          : state.couponsByUser[userId] ?? [];
+        const alreadyQueued = coupon
+          ? state.perfectDayQueue.some(item => item.coupon.id === coupon.id)
+          : false;
+        return {
+          levelsByUser: { ...state.levelsByUser, [userId]: result.level },
+          celebration: result.celebration ?? state.celebration,
+          couponsByUser: coupon
+            ? { ...state.couponsByUser, [userId]: coupons }
+            : state.couponsByUser,
+          perfectDayQueue: result.perfectDay.awarded && coupon && !alreadyQueued
+            ? [...state.perfectDayQueue, { userId, coupon }]
+            : state.perfectDayQueue,
+          maxStreakByUser: {
+            ...state.maxStreakByUser,
+            [userId]: result.maxStreak,
+          },
+          longestStreakByUser: {
+            ...state.longestStreakByUser,
+            [userId]: result.longestStreak,
+          },
+          tasksByUser: {
+            ...state.tasksByUser,
+            [userId]: (state.tasksByUser[userId] ?? []).map(t =>
+              t.id === taskId
+                ? { ...t, streakCount: result.streakCurrent, lastCompletedAt: result.taskLastCompletedAt }
+                : t
+            ),
+          },
+        };
+      });
 
       try {
         const familyId = get().familyId;
@@ -1086,6 +1256,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           ...state.todayCompletions,
           [userId]: (state.todayCompletions[userId] ?? []).filter(id => id !== taskId),
         },
+        todayCompletionsByWindow: {
+          ...state.todayCompletionsByWindow,
+          [userId]: {
+            ...(state.todayCompletionsByWindow[userId] ?? { morning: [], evening: [] }),
+            [state.timeOfDay]: (state.todayCompletionsByWindow[userId]?.[state.timeOfDay] ?? [])
+              .filter(id => id !== taskId),
+          },
+        },
       }));
 
       if (!isProbablyOnline()) {
@@ -1140,6 +1318,16 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       // user's tasks, so it is safe to SET (not Math.max) these directly.
       set(state => ({
         levelsByUser: { ...state.levelsByUser, [userId]: undoResult.level! },
+        couponsByUser: undoResult.revokedCouponId
+          ? {
+              ...state.couponsByUser,
+              [userId]: (state.couponsByUser[userId] ?? []).map(coupon =>
+                coupon.id === undoResult.revokedCouponId
+                  ? { ...coupon, status: 'revoked' as const, redeemedFor: undefined, redeemedAt: undefined }
+                  : coupon
+              ),
+            }
+          : state.couponsByUser,
         maxStreakByUser:     { ...state.maxStreakByUser,     [userId]: undoResult.maxStreak },
         longestStreakByUser: { ...state.longestStreakByUser, [userId]: undoResult.longestStreak },
         tasksByUser: {
@@ -1214,7 +1402,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         try {
           const actionAt = new Date(action.createdAt);
           if (action.type === 'complete') {
-            await processCompletion(action.userId, action.taskId, false, actionAt);
+            const completion = await processCompletion(action.userId, action.taskId, false, actionAt);
+            const coupon = completion.perfectDay.coupon;
+            if (completion.perfectDay.awarded && coupon) {
+              set(state => state.perfectDayQueue.some(item => item.coupon.id === coupon.id)
+                ? {}
+                : { perfectDayQueue: [...state.perfectDayQueue, { userId: action.userId, coupon }] });
+            }
           } else {
             await processUndo(action.userId, action.taskId, actionAt);
           }
@@ -1372,6 +1566,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     broadcastSync();
   },
 
+  redeemPerfectDayCoupon: async (couponId, userId, kind) => {
+    const { redeemPerfectDayCoupon } = await import('./gamification');
+    const redeemed = await redeemPerfectDayCoupon(couponId, userId, kind);
+    set(state => ({
+      couponsByUser: {
+        ...state.couponsByUser,
+        [userId]: (state.couponsByUser[userId] ?? []).map(coupon =>
+          coupon.id === redeemed.id ? redeemed : coupon
+        ),
+      },
+    }));
+    broadcastSync();
+  },
+
   updateMemberAvatar: (userId, avatarUrl) => {
     set(state => ({
       users: state.users.map(user =>
@@ -1407,6 +1615,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
   dismissInsigniaUnlock: () => set(state => ({ insigniaQueue: state.insigniaQueue.slice(1) })),
 
+  dismissPerfectDayAward: () => set(state => ({ perfectDayQueue: state.perfectDayQueue.slice(1) })),
+
   toggleSound: () => {
     const next = !get().soundEnabled;
     localStorage.setItem('sound_enabled', next ? '1' : '0');
@@ -1431,6 +1641,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       familyName: null,
       users: [],
       rewards: [],
+      automaticSaleConfig: defaultAutomaticSaleConfig(),
+      automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
       activeTaskCount: 0,
       currentMemberId: null,
       currentMemberCanAdmin: false,
@@ -1438,6 +1650,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       activitiesByUser: {},
       levelsByUser: {},
       todayCompletions: {},
+      todayCompletionsByWindow: {},
+      couponsByUser: {},
       maxStreakByUser: {},
       longestStreakByUser: {},
       bestDayByUser: {},
@@ -1449,6 +1663,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       harmony: null,
       celebration: null,
       insigniaQueue: [],
+      perfectDayQueue: [],
       hydrated: false,
       timeOfDay: getCurrentTimeOfDay(),
       lastHydrateAt: 0,

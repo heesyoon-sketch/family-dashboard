@@ -67,6 +67,42 @@ export interface Reward {
   sale_name?: string;
   is_hidden?: boolean;
   is_sold_out?: boolean;
+  automatic_sale_active?: boolean;
+  automatic_sale_percentage?: number;
+  automatic_sale_name?: string;
+  automatic_sale_reason?: AutomaticSaleStatus['reason'];
+}
+
+export interface AutomaticSaleConfig {
+  weekendEnabled: boolean;
+  holidayEnabled: boolean;
+  percentage: number;
+  countryCode: string;
+  subdivisionCode: string;
+  timezone: string;
+  holidayDates: string[];
+  generatedThrough: number;
+}
+
+export interface AutomaticSaleStatus {
+  active: boolean;
+  percentage: number;
+  reason: 'weekend' | 'holiday' | 'weekend_holiday' | null;
+  localDate: string;
+}
+
+export type PerfectDayCouponStatus = 'available' | 'redeemed' | 'revoked';
+export type PerfectDayCouponKind = 'game' | 'media';
+
+export interface PerfectDayCoupon {
+  id: string;
+  familyId: string;
+  userId: string;
+  earnedForDay: string;
+  status: PerfectDayCouponStatus;
+  redeemedFor?: PerfectDayCouponKind;
+  awardedAt: Date;
+  redeemedAt?: Date;
 }
 
 export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'REWARD_REFUNDED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';
