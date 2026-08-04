@@ -60,6 +60,7 @@ export default function Dashboard() {
   });
   const [now, setNow] = useState(() => new Date());
   const [currentPage, setCurrentPage] = useState(0);
+  const [activeMobileUserId, setActiveMobileUserId] = useState<string | null>(null);
   const dateLabel = formatDate(now, timeOfDay, lang);
 
   const resetAndHydrate = useCallback(async () => {
@@ -194,6 +195,7 @@ export default function Dashboard() {
   const activePage = Math.min(currentPage, pageCount - 1);
   const desktopPageUsers = orderedUsers.slice(activePage * 4, activePage * 4 + 4);
   const desktopSlots = Array.from({ length: 4 }, (_, index) => desktopPageUsers[index] ?? null);
+  const activeMobileUser = orderedUsers.find(user => user.id === activeMobileUserId) ?? orderedUsers[0] ?? null;
 
   const goToPrevPage = () => setCurrentPage(page => Math.max(0, page - 1));
   const goToNextPage = () => setCurrentPage(page => Math.min(pageCount - 1, page + 1));
@@ -318,14 +320,12 @@ export default function Dashboard() {
       <main className="flex flex-1 flex-col gap-3 bg-[#0D0E1C] p-3 md:hidden">
         <FamilyOnboardingChecklist />
         <FamilyQuestCard />
-        <MobileMemberTabs users={orderedUsers} />
-        <div className="grid grid-cols-1 gap-4">
-          {orderedUsers.map(user => (
-            <div key={user.id} id={`mobile-member-${user.id}`} style={{ scrollMarginTop: 100 }}>
-              <MemberPanel user={user} />
-            </div>
-          ))}
-        </div>
+        <MobileMemberTabs
+          users={orderedUsers}
+          activeUserId={activeMobileUser?.id ?? null}
+          onSelectUser={setActiveMobileUserId}
+        />
+        {activeMobileUser && <MemberPanel key={activeMobileUser.id} user={activeMobileUser} />}
       </main>
 
       <main className="hidden flex-1 min-h-0 flex-col gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:flex">

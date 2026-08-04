@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
+import { HeartHandshake, LockKeyhole, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -123,6 +123,10 @@ export function MemberPanel({ user }: { user: User }) {
   const currentTasks = tasks.filter(isTaskCurrent);
   const referenceWindow = timeOfDay === 'morning' ? 'evening' : 'morning';
   const referenceTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, referenceWindow));
+  const morningTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'morning'));
+  const eveningTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'evening'));
+  const morningDone = morningTasks.filter(task => completionsByWindow.morning.includes(task.id)).length;
+  const eveningDone = eveningTasks.filter(task => completionsByWindow.evening.includes(task.id)).length;
   // Tasks stay in their original position when completed — checking off a
   // habit shouldn't re-shuffle the layout. Only sort by time window so the
   // morning/afternoon/evening grouping stays stable.
@@ -133,6 +137,7 @@ export function MemberPanel({ user }: { user: User }) {
     return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
   });
   const visibleTasks = routineView === 'current' ? sortedTasks : sortedReferenceTasks;
+  const selectedWindow = routineView === 'current' ? timeOfDay : referenceWindow;
 
   const updateScrollHint = useCallback(() => {
     const el = scrollRef.current;
@@ -376,48 +381,58 @@ export function MemberPanel({ user }: { user: User }) {
           </div>
         </header>
 
+        <div className="mb-1.5 flex shrink-0 items-center justify-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)]/70 px-2 py-1 text-[10px] font-black text-[var(--fg-muted)]">
+          <span className="flex items-center gap-1">
+            <Sunrise size={12} className="text-amber-300" />
+            {lang === 'en' ? 'Morning' : '오전'} {morningDone}/{morningTasks.length}
+          </span>
+          <span className="h-3 w-px bg-[var(--border)]" aria-hidden />
+          <span className="flex items-center gap-1">
+            <MoonStar size={12} className="text-indigo-300" />
+            {lang === 'en' ? 'Evening' : '오후·저녁'} {eveningDone}/{eveningTasks.length}
+          </span>
+        </div>
+
         <div
-          className="mb-1.5 grid h-8 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
+          className="mb-1.5 grid h-11 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
           role="tablist"
           aria-label={lang === 'en' ? `${user.name}'s routine view` : `${user.name}의 루틴 보기`}
         >
           <button
             type="button"
             role="tab"
-            aria-selected={routineView === 'current'}
-            onClick={() => setRoutineView('current')}
+            aria-selected={selectedWindow === 'morning'}
+            onClick={() => setRoutineView(timeOfDay === 'morning' ? 'current' : 'reference')}
             className={[
               'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-black transition',
-              routineView === 'current'
+              selectedWindow === 'morning'
                 ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
                 : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
             ].join(' ')}
           >
-            {timeOfDay === 'morning' ? <Sunrise size={14} /> : <MoonStar size={14} />}
+            <Sunrise size={14} />
             <span className="truncate">
-              {lang === 'en'
-                ? `Now · ${timeOfDay === 'morning' ? 'Morning' : 'Afternoon / evening'}`
-                : `지금 · ${timeOfDay === 'morning' ? '오전' : '오후·저녁'}`}
+              {lang === 'en' ? 'Morning routines' : '오전 루틴'}
             </span>
+            {timeOfDay !== 'morning' && <LockKeyhole size={12} aria-label={lang === 'en' ? 'Reference only' : '보기 전용'} />}
           </button>
           <button
             type="button"
             role="tab"
-            aria-selected={routineView === 'reference'}
-            onClick={() => setRoutineView('reference')}
+            aria-selected={selectedWindow === 'evening'}
+            onClick={() => setRoutineView(timeOfDay === 'evening' ? 'current' : 'reference')}
             className={[
               'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-black transition',
-              routineView === 'reference'
-                ? 'bg-[var(--fg)] text-[var(--bg)] shadow-sm'
+              selectedWindow === 'evening'
+                ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
                 : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
             ].join(' ')}
           >
-            <Eye size={14} />
+            <MoonStar size={14} />
             <span className="truncate">
-              {lang === 'en'
-                ? `${referenceWindow === 'morning' ? 'Review' : 'Preview'} · ${referenceWindow === 'morning' ? 'Morning' : 'Afternoon / evening'}`
-                : `${referenceWindow === 'morning' ? '돌아보기' : '미리보기'} · ${referenceWindow === 'morning' ? '오전' : '오후·저녁'}`}
+              {lang === 'en' ? 'Evening routines' : '오후·저녁 루틴'}
             </span>
+            {timeOfDay !== 'evening' && <LockKeyhole size={12} aria-label={lang === 'en' ? 'Reference only' : '보기 전용'} />}
           </button>
         </div>
 

@@ -3,6 +3,7 @@ import * as Icons from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { AutomaticSaleConfig, Reward } from '@/lib/db';
 import { LucideIcon } from '@/components/admin/IconPicker';
+import { RewardEditModal } from '@/components/admin/RewardEditModal';
 import { RewardHistoryPanel } from '@/components/admin/RewardHistoryPanel';
 import type { RewardRedemption, SaveStatus } from '@/lib/admin/adminHelpers';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
@@ -11,6 +12,12 @@ import {
   holidaySubdivisions,
   publicHolidayDates,
 } from '@/lib/holidayCalendar';
+import {
+  automaticSaleLabel,
+  formatAutomaticSaleDate,
+  nextAutomaticSaleStatus,
+} from '@/lib/automaticSale';
+import { useFamilyStore } from '@/lib/store';
 
 interface AdminStorePanelProps {
   rewards: Reward[];
@@ -72,8 +79,6 @@ export function AdminStorePanel({
   setRewardIconPickerRewardId,
   saveRewardEdit,
   deleteReward,
-  updateRewardCost,
-  updateRewardSale,
   updateRewardFlags,
   newRewardIcon,
   setRewardIconPickerOpen,
@@ -91,6 +96,8 @@ export function AdminStorePanel({
 }: AdminStorePanelProps) {
   const { lang, t } = useLanguage();
   const adminCopy = buildAdminCopy(lang);
+  const savedAutomaticSaleConfig = useFamilyStore(state => state.automaticSaleConfig);
+  const savedAutomaticSaleStatus = useFamilyStore(state => state.automaticSaleStatus);
   const countryOptions = useMemo(() => holidayCountries(lang), [lang]);
   const subdivisionOptions = useMemo(
     () => holidaySubdivisions(automaticSaleConfig.countryCode, lang),
@@ -111,9 +118,41 @@ export function AdminStorePanel({
       return [];
     }
   }, [automaticSaleConfig.countryCode, automaticSaleConfig.subdivisionCode, lang]);
+  const nextSavedAutomaticSale = useMemo(
+    () => nextAutomaticSaleStatus(savedAutomaticSaleConfig),
+    [savedAutomaticSaleConfig],
+  );
+  const savedScheduleEnabled = savedAutomaticSaleConfig.weekendEnabled || savedAutomaticSaleConfig.holidayEnabled;
+  const editingReward = rewards.find(reward => reward.id === editingRewardId) ?? null;
+
+  const openRewardEditor = (reward: Reward) => {
+    setEditingRewardId(reward.id);
+    setEditingRewardTitle(reward.title);
+    setRewardCostDrafts(previous => ({ ...previous, [reward.id]: reward.cost_points }));
+    setRewardSalePercentageDrafts(previous => ({ ...previous, [reward.id]: reward.sale_percentage ?? 0 }));
+    setRewardSaleNameDrafts(previous => ({ ...previous, [reward.id]: reward.sale_name ?? '' }));
+  };
 
   return (
     <div className="space-y-5">
+      {editingReward && (
+        <RewardEditModal
+          reward={editingReward}
+          title={editingRewardTitle}
+          cost={rewardCostDrafts[editingReward.id] ?? editingReward.cost_points}
+          salePercentage={rewardSalePercentageDrafts[editingReward.id] ?? editingReward.sale_percentage ?? 0}
+          saleName={rewardSaleNameDrafts[editingReward.id] ?? editingReward.sale_name ?? ''}
+          saving={savingRewardId === editingReward.id || rewardSaveStatus[editingReward.id] === 'saving'}
+          onTitleChange={setEditingRewardTitle}
+          onCostChange={value => setRewardCostDrafts(previous => ({ ...previous, [editingReward.id]: value }))}
+          onSalePercentageChange={value => setRewardSalePercentageDrafts(previous => ({ ...previous, [editingReward.id]: value }))}
+          onSaleNameChange={value => setRewardSaleNameDrafts(previous => ({ ...previous, [editingReward.id]: value }))}
+          onChangeIcon={() => setRewardIconPickerRewardId(editingReward.id)}
+          onToggleSale={() => { void updateRewardFlags(editingReward.id, { sale_enabled: !editingReward.sale_enabled }); }}
+          onSave={() => { void saveRewardEdit(editingReward.id); }}
+          onClose={() => setEditingRewardId(null)}
+        />
+      )}
       <section className="rounded-lg border border-[#4EEDB0]/20 bg-[#101D22] p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
@@ -145,6 +184,31 @@ export function AdminStorePanel({
             />
             <span className="text-xs font-black text-[#FFB830]">%</span>
           </label>
+        </div>
+
+        <div className={`mb-3 flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 ${
+          savedAutomaticSaleStatus.active
+            ? 'border-[#4EEDB0]/35 bg-[#4EEDB0]/12'
+            : 'border-white/10 bg-white/[0.035]'
+        }`}>
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+            savedAutomaticSaleStatus.active ? 'bg-[#4EEDB0] shadow-[0_0_10px_rgba(78,237,176,0.8)]' : 'bg-white/24'
+          }`} />
+          <div className="min-w-0 flex-1">
+            <div className={`text-sm font-black ${savedAutomaticSaleStatus.active ? 'text-[#7BF4C7]' : 'text-white/70'}`}>
+              {savedAutomaticSaleStatus.active
+                ? `${automaticSaleLabel(savedAutomaticSaleStatus, lang)} · ${savedAutomaticSaleStatus.percentage}% ${lang === 'en' ? 'off now' : '현재 할인'}`
+                : savedScheduleEnabled
+                  ? (lang === 'en' ? 'No automatic sale today' : '오늘은 자동 세일이 없어요')
+                  : (lang === 'en' ? 'Automatic sales are off' : '자동 세일이 꺼져 있어요')}
+            </div>
+            {!savedAutomaticSaleStatus.active && nextSavedAutomaticSale && (
+              <div className="mt-0.5 truncate text-xs font-bold text-white/42">
+                {lang === 'en' ? 'Next' : '다음 세일'} · {formatAutomaticSaleDate(nextSavedAutomaticSale.localDate, lang)} · {nextSavedAutomaticSale.percentage}%
+              </div>
+            )}
+          </div>
+          <Icons.DatabaseZap size={16} className={savedAutomaticSaleStatus.active ? 'text-[#4EEDB0]' : 'text-white/28'} />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -280,263 +344,55 @@ export function AdminStorePanel({
         </div>
 
         <div className="space-y-2.5">
-          {rewards.map(r => {
-            const isEditing = editingRewardId === r.id;
-            const saveStatus = rewardSaveStatus[r.id];
-            const isSaving = savingRewardId === r.id || saveStatus === 'saving';
-            const salePct = rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0;
+          {rewards.map(reward => {
+            const saveStatus = rewardSaveStatus[reward.id];
             return (
               <div
-                key={r.id}
-                className="rounded-lg border border-white/10 bg-[#1A1B2E] p-3 transition-colors sm:p-4"
+                key={reward.id}
+                className="flex min-h-16 items-center gap-3 rounded-lg border border-white/10 bg-[#1A1B2E] p-3"
               >
-                {isEditing ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRewardIconPickerRewardId(r.id)}
-                        disabled={isSaving}
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16 disabled:opacity-50"
-                        title={t('icon_change')}
-                        aria-label={t('icon_change')}
-                      >
-                        <LucideIcon name={r.icon} size={21} />
-                      </button>
-                      <input
-                        type="text"
-                        value={editingRewardTitle}
-                        onChange={e => setEditingRewardTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveRewardEdit(r.id); if (e.key === 'Escape') setEditingRewardId(null); }}
-                        autoFocus
-                        className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#FF7BAC] bg-[#111224] px-3 text-base font-bold text-white outline-none"
-                      />
-                      <div className="flex shrink-0 gap-2">
-                        <button
-                          onClick={() => saveRewardEdit(r.id)}
-                          disabled={isSaving}
-                          className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#4EEDB0]/18 text-[#4EEDB0] transition-colors hover:bg-[#4EEDB0]/26 disabled:opacity-50"
-                          title={t('confirm')}
-                        >
-                          <Icons.Check size={18} />
-                        </button>
-                        <button
-                          onClick={() => setEditingRewardId(null)}
-                          className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                          title={adminCopy.cancel}
-                        >
-                          <Icons.X size={18} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="flex h-11 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-3">
-                        <Icons.Coins size={15} className="text-[#FFB830]" />
-                        <input
-                          type="number"
-                          value={rewardCostDrafts[r.id] ?? r.cost_points}
-                          onChange={e => setRewardCostDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') void saveRewardEdit(r.id);
-                            if (e.key === 'Escape') setEditingRewardId(null);
-                          }}
-                          min={1}
-                          className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                          aria-label={lang === 'en' ? 'Points' : '포인트'}
-                        />
-                        <span className="text-xs font-bold text-white/40">pt</span>
-                      </label>
-                      <label className="flex h-11 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-3">
-                        <Icons.BadgePercent size={15} className="text-[#FF7BAC]" />
-                        <input
-                          type="number"
-                          aria-label={lang === 'en' ? 'Discount %' : '할인율 %'}
-                          value={salePct}
-                          onChange={e => setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') void saveRewardEdit(r.id);
-                            if (e.key === 'Escape') setEditingRewardId(null);
-                          }}
-                          min={0}
-                          max={100}
-                          className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                        />
-                        <span className="text-xs font-bold text-white/40">%</span>
-                      </label>
-                    </div>
-                    <input
-                      type="text"
-                      aria-label={adminCopy.saleLabel}
-                      value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
-                      onChange={e => setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') void saveRewardEdit(r.id);
-                        if (e.key === 'Escape') setEditingRewardId(null);
-                      }}
-                      placeholder={adminCopy.saleLabel}
-                      className="min-h-11 w-full rounded-lg border border-white/10 bg-[#111224] px-3 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
-                    />
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#FF7BAC]/20 bg-[#FF7BAC]/10 text-[#FFB8CF]">
+                  <LucideIcon name={reward.icon} size={19} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-sm font-black text-white">{reward.title}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-black">
+                    <span className="inline-flex items-center gap-1 text-[#FFDB7A]">
+                      <Icons.Coins size={12} />{reward.cost_points}pt
+                    </span>
+                    {reward.sale_enabled && (reward.sale_percentage ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#FF7BAC]/14 px-2 py-0.5 text-[#FFB8CF]">
+                        <Icons.BadgePercent size={11} />
+                        {reward.sale_name?.trim() || `${reward.sale_percentage}% OFF`}
+                      </span>
+                    )}
+                    {saveStatus === 'saved' && (
+                      <span className="inline-flex items-center gap-1 text-[#4EEDB0]">
+                        <Icons.Check size={11} />{lang === 'en' ? 'Saved' : '저장됨'}
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                    <button
-                      type="button"
-                      onClick={() => setRewardIconPickerRewardId(r.id)}
-                      disabled={isSaving}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/24 bg-[#FF7BAC]/10 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/50 hover:bg-[#FF7BAC]/16 disabled:opacity-50"
-                      title={t('icon_change')}
-                      aria-label={t('icon_change')}
-                    >
-                      <LucideIcon name={r.icon} size={21} />
-                    </button>
-
-                    <div className="min-w-0 flex-1">
-                      {/* Title row + edit/delete actions */}
-                      <div className="flex min-w-0 items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="min-w-0 truncate text-base font-black text-white">{r.title}</h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {(r.sale_percentage ?? 0) > 0 && (
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ${
-                                r.sale_enabled
-                                  ? 'bg-[#FF7BAC]/16 text-[#FFB8CF]'
-                                  : 'bg-white/[0.06] text-white/45'
-                              }`}>
-                                <Icons.BadgePercent size={11} />
-                                {r.sale_enabled
-                                  ? (r.sale_name?.trim() || `${r.sale_percentage}% OFF`)
-                                  : `${adminCopy.saleOff} · ${r.sale_percentage}%`}
-                              </span>
-                            )}
-                            {saveStatus === 'saved' && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#4EEDB0]/14 px-2 py-0.5 text-[11px] font-black text-[#4EEDB0]">
-                                <Icons.Check size={11} />
-                                {lang === 'en' ? 'Saved' : '저장됨'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 gap-1.5">
-                          <button
-                            onClick={() => {
-                              setEditingRewardId(r.id);
-                              setEditingRewardTitle(r.title);
-                              setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
-                              setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
-                              setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
-                            }}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
-                            title={lang === 'en' ? 'Edit reward' : '보상 수정'}
-                            aria-label={lang === 'en' ? 'Edit reward' : '보상 수정'}
-                          >
-                            <Icons.Pencil size={16} />
-                          </button>
-                          <button
-                            onClick={() => deleteReward(r.id)}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF7BAC]/14 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/22"
-                            title={t('delete')}
-                            aria-label={t('delete')}
-                          >
-                            <Icons.Trash2 size={15} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Inline price + sale controls */}
-                      <div className="mt-3 grid gap-2 sm:grid-cols-[120px_120px_minmax(0,1fr)]">
-                        <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
-                          <Icons.Coins size={15} className="text-[#FFB830]" />
-                          <input
-                            type="number"
-                            value={rewardCostDrafts[r.id] ?? r.cost_points}
-                            onChange={e => setRewardCostDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                            onBlur={e => { void updateRewardCost(r.id, Number(e.target.value)); }}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                              if (e.key === 'Escape') {
-                                setRewardCostDrafts(prev => ({ ...prev, [r.id]: r.cost_points }));
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            min={1}
-                            disabled={isSaving}
-                            className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                            aria-label={lang === 'en' ? 'Points' : '포인트'}
-                          />
-                          <span className="text-xs font-bold text-white/40">pt</span>
-                        </label>
-                        <label className="flex h-10 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2">
-                          <Icons.BadgePercent size={15} className="text-[#FF7BAC]" />
-                          <input
-                            type="number"
-                            aria-label={lang === 'en' ? 'Discount %' : '할인율 %'}
-                            value={salePct}
-                            onChange={e => setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: Number(e.target.value) }))}
-                            onBlur={e => {
-                              void updateRewardSale(
-                                r.id,
-                                Number(e.target.value),
-                                rewardSaleNameDrafts[r.id] ?? r.sale_name ?? '',
-                              );
-                            }}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                              if (e.key === 'Escape') {
-                                setRewardSalePercentageDrafts(prev => ({ ...prev, [r.id]: r.sale_percentage ?? 0 }));
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            min={0}
-                            max={100}
-                            disabled={isSaving}
-                            className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                          />
-                          <span className="text-xs font-bold text-white/40">%</span>
-                        </label>
-                        <input
-                          type="text"
-                          aria-label={adminCopy.saleLabel}
-                          value={rewardSaleNameDrafts[r.id] ?? r.sale_name ?? ''}
-                          onChange={e => setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: e.target.value }))}
-                          onBlur={e => {
-                            void updateRewardSale(
-                              r.id,
-                              rewardSalePercentageDrafts[r.id] ?? r.sale_percentage ?? 0,
-                              e.target.value,
-                            );
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                            if (e.key === 'Escape') {
-                              setRewardSaleNameDrafts(prev => ({ ...prev, [r.id]: r.sale_name ?? '' }));
-                              (e.target as HTMLInputElement).blur();
-                            }
-                          }}
-                          placeholder={adminCopy.saleLabel}
-                          disabled={isSaving}
-                          className="min-h-10 rounded-lg border border-white/8 bg-[#111224] px-3 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#FF7BAC]"
-                        />
-                      </div>
-
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={() => { void updateRewardFlags(r.id, { sale_enabled: !r.sale_enabled }); }}
-                          disabled={isSaving}
-                          className={`flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-black transition-colors disabled:opacity-50 ${
-                            r.sale_enabled
-                              ? 'bg-[#FF7BAC] text-[#220610]'
-                              : 'bg-white/[0.045] text-white/54 hover:bg-white/[0.08] hover:text-white'
-                          }`}
-                        >
-                          <Icons.BadgePercent size={13} />
-                          {lang === 'en' ? 'Sale' : '세일'} {r.sale_enabled ? 'ON' : 'OFF'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => openRewardEditor(reward)}
+                    className="grid h-11 w-11 place-items-center rounded-lg bg-white/[0.045] text-white/58 transition-colors hover:bg-white/[0.08] hover:text-white"
+                    title={lang === 'en' ? 'Edit reward' : '보상 수정'}
+                    aria-label={lang === 'en' ? 'Edit reward' : '보상 수정'}
+                  >
+                    <Icons.Pencil size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteReward(reward.id)}
+                    className="grid h-11 w-11 place-items-center rounded-lg bg-[#FF7BAC]/12 text-[#FFB8CF] transition-colors hover:bg-[#FF7BAC]/20"
+                    title={t('delete')}
+                    aria-label={t('delete')}
+                  >
+                    <Icons.Trash2 size={15} />
+                  </button>
+                </div>
               </div>
             );
           })}

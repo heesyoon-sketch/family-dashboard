@@ -103,6 +103,31 @@ export function automaticSaleLabel(status: AutomaticSaleStatus, lang: 'en' | 'ko
   return lang === 'en' ? 'Weekend Sale' : '주말 세일';
 }
 
+export function nextAutomaticSaleStatus(
+  config: AutomaticSaleConfig,
+  date = new Date(),
+  maxDays = 366 * 11,
+): AutomaticSaleStatus | null {
+  if ((!config.weekendEnabled && !config.holidayEnabled) || config.percentage <= 0) return null;
+  for (let offset = 1; offset <= maxDays; offset++) {
+    const candidate = new Date(date.getTime() + offset * 24 * 60 * 60 * 1000);
+    const status = automaticSaleStatus(config, candidate);
+    if (status.active) return status;
+  }
+  return null;
+}
+
+export function formatAutomaticSaleDate(dateKey: string, lang: 'en' | 'ko'): string {
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-CA' : 'ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
 export function withAutomaticSale(
   reward: Reward,
   status: AutomaticSaleStatus,

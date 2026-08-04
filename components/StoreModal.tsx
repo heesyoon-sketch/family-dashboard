@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import {
+  automaticSaleLabel,
+  formatAutomaticSaleDate,
+  nextAutomaticSaleStatus,
   rewardEffectiveCost,
   rewardEffectiveSaleLabel,
   rewardHasEffectiveSale,
@@ -117,6 +120,8 @@ export function StoreModal({
     ),
   };
   const rewards = useFamilyStore(state => state.rewards);
+  const automaticSaleConfig = useFamilyStore(state => state.automaticSaleConfig);
+  const automaticSaleStatus = useFamilyStore(state => state.automaticSaleStatus);
   const users = useFamilyStore(state => state.users);
   const levelsByUser = useFamilyStore(state => state.levelsByUser);
   const hydrate = useFamilyStore(state => state.hydrate);
@@ -136,6 +141,11 @@ export function StoreModal({
   const [userShare, setUserShare] = useState(0);
   const [partnerShare, setPartnerShare] = useState(0);
   const redeemingRef = useRef(false);
+  const nextAutomaticSale = useMemo(
+    () => nextAutomaticSaleStatus(automaticSaleConfig),
+    [automaticSaleConfig],
+  );
+  const automaticScheduleEnabled = automaticSaleConfig.weekendEnabled || automaticSaleConfig.holidayEnabled;
 
   const refreshRewards = useCallback(async () => {
     setRefreshing(true);
@@ -323,6 +333,31 @@ export function StoreModal({
           {!loading && visibleRewards.length === 0 && (
             <div className="text-center text-[var(--fg-muted)] py-8 text-sm">
               {t('no_rewards')}
+            </div>
+          )}
+          {automaticScheduleEnabled && (
+            <div className={`mb-2 flex min-h-12 items-center gap-2.5 rounded-xl border px-3 py-2 ${
+              automaticSaleStatus.active
+                ? 'border-emerald-400/45 bg-emerald-400/12'
+                : 'border-[var(--border)] bg-[var(--bg-card)]'
+            }`}>
+              <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+                automaticSaleStatus.active ? 'bg-emerald-400 text-emerald-950' : 'bg-[var(--bg)] text-[var(--fg-muted)]'
+              }`}>
+                {automaticSaleStatus.active ? <Icons.BadgePercent size={17} /> : <Icons.CalendarClock size={17} />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={`truncate text-xs font-black ${automaticSaleStatus.active ? 'text-emerald-300' : 'text-[var(--fg)]'}`}>
+                  {automaticSaleStatus.active
+                    ? `${automaticSaleLabel(automaticSaleStatus, lang)} · ${automaticSaleStatus.percentage}% ${lang === 'en' ? 'off now' : '현재 할인'}`
+                    : (lang === 'en' ? 'No automatic sale today' : '오늘은 자동 세일이 없어요')}
+                </div>
+                {!automaticSaleStatus.active && nextAutomaticSale && (
+                  <div className="mt-0.5 truncate text-[10px] font-bold text-[var(--fg-muted)]">
+                    {lang === 'en' ? 'Next sale' : '다음 세일'} · {formatAutomaticSaleDate(nextAutomaticSale.localDate, lang)} · {nextAutomaticSale.percentage}%
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <button

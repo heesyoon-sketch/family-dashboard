@@ -5,6 +5,8 @@ import test from 'node:test';
 import type { AutomaticSaleConfig, Reward } from './db';
 import {
   automaticSaleStatus,
+  formatAutomaticSaleDate,
+  nextAutomaticSaleStatus,
   rewardEffectiveCost,
   rewardEffectiveSaleLabel,
   rewardHasEffectiveSale,
@@ -50,6 +52,16 @@ test('automatic holiday sale uses only stored local date keys', () => {
   }, new Date('2026-12-25T17:00:00Z'));
   assert.equal(status.reason, 'holiday');
   assert.equal(status.percentage, 25);
+});
+
+test('next automatic sale finds the next configured sale day', () => {
+  const next = nextAutomaticSaleStatus(
+    { ...baseConfig, weekendEnabled: true },
+    new Date('2026-08-03T16:00:00Z'),
+  );
+  assert.equal(next?.localDate, '2026-08-08');
+  assert.equal(next?.reason, 'weekend');
+  assert.equal(formatAutomaticSaleDate(next?.localDate ?? '', 'en'), 'Sat, Aug 8');
 });
 
 test('the lower manual or automatic sale price wins without stacking', () => {
