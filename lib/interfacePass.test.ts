@@ -81,3 +81,13 @@ test('reward rows are compact and editing lives in a focused modal', () => {
   assert.match(modal, /Save reward/);
   assert.match(modal, /Manual sale/);
 });
+
+test('task pricing is selected by duration instead of arbitrary point inputs', () => {
+  const panel = read('components/admin/AdminTasksPanel.tsx');
+  const migration = read('supabase/migrations/102_fixed_duration_task_points.sql');
+  assert.match(panel, /TASK_DURATION_OPTIONS/);
+  assert.match(panel, /Estimated task duration/);
+  assert.doesNotMatch(panel, /type="number"/);
+  assert.match(migration, /base_points in \(10, 15, 30, 50\)/);
+  assert.match(migration, /normalize_task_base_points/);
+});

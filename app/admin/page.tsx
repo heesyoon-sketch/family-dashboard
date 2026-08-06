@@ -23,6 +23,7 @@ import { createBrowserSupabase } from '@/lib/supabase';
 import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow, type TaskTimeWindow, type TimeWindow } from '@/lib/timeWindows';
+import { normalizeTaskPoints } from '@/lib/taskDurationPoints';
 import { IconPicker } from '@/components/admin/IconPicker';
 import { AdminHeader, AdminTabBar, type AdminTabKey } from '@/components/admin/AdminChrome';
 import { AdminPinGate } from '@/components/admin/AdminPinGate';
@@ -770,7 +771,7 @@ export default function AdminPage() {
         p_title: newTaskTitle.trim(),
         p_icon: 'check-circle',
         p_difficulty: 'MEDIUM',
-        p_base_points: newTaskPoints,
+        p_base_points: normalizeTaskPoints(newTaskPoints),
         p_recurrence: 'daily',
         p_days_of_week: ALL_DAYS,
         p_active: 1,
@@ -983,7 +984,7 @@ export default function AdminPage() {
   };
 
   const updateTaskPoints = async (taskId: string, rawValue: number) => {
-    const pts = Math.max(1, Math.round(rawValue) || 1);
+    const pts = normalizeTaskPoints(rawValue);
     const previous = tasks.find(task => task.id === taskId);
     if (!previous) return;
     const supabase = createBrowserSupabase();
@@ -1577,7 +1578,6 @@ export default function AdminPage() {
               selectedUser={selectedUser}
               sortedUsers={sortedUsers}
               tasks={tasks}
-              setTasks={setTasks}
               loadTasks={loadTasks}
               avatarVersion={avatarVersion}
               setIconPickerTaskId={setIconPickerTaskId}

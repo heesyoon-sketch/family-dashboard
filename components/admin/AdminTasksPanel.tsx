@@ -7,12 +7,12 @@ import type { TimeWindow } from '@/lib/timeWindows';
 import { LucideIcon } from '@/components/admin/IconPicker';
 import { DAY_LABELS, withAvatarCache } from '@/lib/admin/adminHelpers';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
+import { TASK_DURATION_OPTIONS, taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
 
 interface AdminTasksPanelProps {
   selectedUser: User | null;
   sortedUsers: User[];
   tasks: Task[];
-  setTasks: Dispatch<SetStateAction<Task[]>>;
   loadTasks: (user: User) => void;
   avatarVersion: number;
   setIconPickerTaskId: Dispatch<SetStateAction<string | null>>;
@@ -23,7 +23,7 @@ interface AdminTasksPanelProps {
   cancelEditTask: () => void;
   startEditTask: (task: Task) => void;
   moveTask: (index: number, direction: 'up' | 'down') => void;
-  updateTaskPoints: (taskId: string, rawValue: number) => void;
+  updateTaskPoints: (taskId: string, points: number) => void;
   toggleDay: (task: Task, day: DayOfWeek) => void;
   toggleTask: (task: Task) => void;
   deleteTask: (taskId: string) => void;
@@ -41,7 +41,6 @@ export function AdminTasksPanel({
   selectedUser,
   sortedUsers,
   tasks,
-  setTasks,
   loadTasks,
   avatarVersion,
   setIconPickerTaskId,
@@ -80,7 +79,7 @@ export function AdminTasksPanel({
               <h2 className="text-base font-black text-white">{adminCopy.tabs.tasks}</h2>
             </div>
             <p className="text-sm leading-6 text-white/54">
-              {lang === 'en' ? 'Choose a member and tune their daily rhythm.' : '멤버별로 매일의 습관, 요일, 시간대, 포인트를 조정합니다.'}
+              {lang === 'en' ? 'Choose a member and tune their daily rhythm.' : '멤버별로 매일의 습관, 요일, 시간대를 조정합니다.'}
             </p>
           </div>
           {selectedUser && (
@@ -231,20 +230,21 @@ export function AdminTasksPanel({
                           >
                             <Icons.ChevronDown size={17} />
                           </button>
-                          <label className="flex h-10 flex-1 items-center gap-2 rounded-lg border border-white/8 bg-[#111224] px-2 md:flex-initial md:w-28">
-                            <Icons.Coins size={15} className="text-[#FFB830]" />
-                            <input
-                              type="number"
-                              value={task.basePoints}
-                              onChange={e => setTasks(prev => prev.map(x => x.id === task.id ? { ...x, basePoints: Number(e.target.value) } : x))}
-                              onBlur={e => updateTaskPoints(task.id, Number(e.target.value))}
-                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                              min={1}
-                              max={999}
-                              className="min-w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
-                              aria-label={lang === 'en' ? 'Points' : '포인트'}
-                            />
-                            <span className="text-xs font-bold text-white/40">pt</span>
+                          <label className="relative flex h-10 flex-1 items-center gap-1.5 rounded-lg border border-white/8 bg-[#111224] px-2 md:flex-initial md:w-44">
+                            <Icons.Clock3 size={15} className="shrink-0 text-[#FFB830]" aria-hidden />
+                            <select
+                              value={taskDurationOptionForPoints(task.basePoints).points}
+                              onChange={event => { void updateTaskPoints(task.id, Number(event.target.value)); }}
+                              className="min-w-0 flex-1 appearance-none bg-transparent pr-4 text-xs font-black text-white outline-none"
+                              aria-label={lang === 'en' ? 'Estimated task duration' : '예상 소요 시간'}
+                            >
+                              {TASK_DURATION_OPTIONS.map(option => (
+                                <option key={option.tier} value={option.points} className="bg-[#111224] text-white">
+                                  {option.label[lang]} · {option.points}pt
+                                </option>
+                              ))}
+                            </select>
+                            <Icons.ChevronDown size={13} className="pointer-events-none absolute right-2 text-white/35" aria-hidden />
                           </label>
                         </div>
 
@@ -340,7 +340,7 @@ export function AdminTasksPanel({
               <Icons.PlusCircle size={17} className="text-[#4EEDB0]" />
               <h3 className="text-sm font-black text-white">{t('add_task')}</h3>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_88px_auto]">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <input
                 type="text"
                 value={newTaskTitle}
@@ -355,16 +355,6 @@ export function AdminTasksPanel({
                 placeholder={t('task_name_placeholder')}
                 className="min-h-[var(--touch-target)] min-w-0 rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-base font-bold text-white outline-none transition-colors placeholder:text-white/32 focus:border-[#4EEDB0]"
               />
-              <input
-                type="number"
-                value={newTaskPoints}
-                onChange={e => setNewTaskPoints(Number(e.target.value))}
-                min={1}
-                max={100}
-                disabled={isAddingTask}
-                aria-label={lang === 'en' ? 'Points' : '포인트'}
-                className="min-h-[var(--touch-target)] rounded-lg border border-white/10 bg-[#1A1B2E] px-3 text-center font-black text-white outline-none transition-colors focus:border-[#4EEDB0]"
-              />
               <button
                 type="button"
                 onClick={() => { void addTask(); }}
@@ -374,6 +364,31 @@ export function AdminTasksPanel({
                 {isAddingTask ? <Icons.Loader2 size={16} className="animate-spin" /> : <Icons.Plus size={16} />}
                 {t('add')}
               </button>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup" aria-label={lang === 'en' ? 'Estimated task duration' : '예상 소요 시간'}>
+              {TASK_DURATION_OPTIONS.map(option => {
+                const selected = newTaskPoints === option.points;
+                return (
+                  <button
+                    key={option.tier}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={isAddingTask}
+                    onClick={() => setNewTaskPoints(option.points)}
+                    className={`min-h-11 rounded-lg border px-2 py-2 text-left transition-colors ${
+                      selected
+                        ? 'border-[#4EEDB0]/55 bg-[#4EEDB0]/14 text-white'
+                        : 'border-white/8 bg-[#1A1B2E] text-white/50 hover:border-white/16 hover:text-white'
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2 text-xs font-black">
+                      <span>{option.label[lang]}</span>
+                      <span className={selected ? 'text-[#4EEDB0]' : 'text-[#FFB830]'}>{option.points}pt</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
