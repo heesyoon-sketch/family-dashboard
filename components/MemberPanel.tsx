@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
-import { ProgressRing } from './ProgressRing';
 import { MomentumAura } from './MomentumAura';
 import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
 import { useFamilyStore } from '@/lib/store';
@@ -78,7 +77,6 @@ export function MemberPanel({ user }: { user: User }) {
     s => s.todayCompletionsByWindow[user.id] ?? { morning: [], evening: [] },
   );
   const coupons        = useFamilyStore(s => s.couponsByUser[user.id] ?? []);
-  const bestDay        = useFamilyStore(s => s.bestDayByUser[user.id] ?? 0);
   const momentum       = useFamilyStore(s => s.momentumByUser[user.id]) ?? emptyMomentum();
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
@@ -165,24 +163,10 @@ export function MemberPanel({ user }: { user: User }) {
 
   const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = currentTasks.length;
-  const viewedDoneCount = selectedWindow === 'morning' ? morningDone : eveningDone;
-  const viewedTotalCount = selectedWindow === 'morning' ? morningTasks.length : eveningTasks.length;
-  const pct = viewedTotalCount ? Math.round((viewedDoneCount / viewedTotalCount) * 100) : 0;
+  const morningPct = morningTasks.length ? Math.round((morningDone / morningTasks.length) * 100) : 0;
+  const eveningPct = eveningTasks.length ? Math.round((eveningDone / eveningTasks.length) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
   const availableCouponCount = coupons.filter(coupon => coupon.status === 'available').length;
-
-  // Soft, no-pressure encouragement. We surface "best day so far" only and
-  // skip streak language entirely — the momentum aura already communicates
-  // rhythm without making any one missed day feel like a loss.
-  let motiveMsg: string | null = null;
-  if (bestDay > 0 && doneCount >= bestDay - 1) {
-    const gap = bestDay - doneCount;
-    motiveMsg = gap <= 0
-      ? `🏆 ${t('best_day')}`
-      : lang === 'en'
-        ? `🏆 ${gap} to go`
-        : `🏆 ${gap}개 남았어`;
-  }
 
   const totalXp        = level?.totalPoints ?? 0;
   const levelProgress  = computeLevelProgress(totalXp);
@@ -277,14 +261,7 @@ export function MemberPanel({ user }: { user: User }) {
               </div>
 
               <div className="min-w-0 flex-1 overflow-hidden pr-0.5">
-                <div className="flex min-w-0 items-center gap-1.5 max-[380px]:gap-1">
-                  <h2 className="min-w-0 truncate text-base font-bold leading-tight max-[380px]:text-sm">{user.name}</h2>
-                  {motiveMsg && (
-                    <span className="min-w-0 shrink truncate rounded-full bg-[var(--accent-glow)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-[var(--accent)] max-[380px]:px-1 max-[380px]:text-[9px]">
-                      {motiveMsg}
-                    </span>
-                  )}
-                </div>
+                <h2 className="min-w-0 truncate text-base font-bold leading-tight max-[380px]:text-sm">{user.name}</h2>
                 {/* Metadata row — Lv • XP • Momentum. The shield strip
                     moved out to the action button group so it can be the
                     same size as Store/Mail without growing the header. */}
@@ -319,26 +296,20 @@ export function MemberPanel({ user }: { user: User }) {
               </div>
             </div>
 
-            <ProgressRing pct={pct} size={34} />
-
             <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
               <EquippedInsigniaStrip userId={user.id} />
               <span className="mx-1 h-6 w-px bg-[var(--border)]" aria-hidden />
               <button
                 type="button"
                 onClick={() => setCouponOpen(true)}
-                className="relative grid h-8 w-8 place-items-center rounded-lg border border-[#E7C94B] bg-[#FFE56B] text-[#17151E] transition hover:bg-[#FFF09C] max-[380px]:h-7 max-[380px]:w-7"
+                className="relative flex h-8 min-w-8 items-center justify-center gap-1 rounded-lg border border-[#D8B72D] bg-[#FFE56B] px-2 text-[#17151E] shadow-[2px_2px_0_#FF7BAC] transition hover:-translate-y-px hover:bg-[#FFF09C] max-[420px]:px-1.5 max-[380px]:h-7"
                 title={lang === 'en' ? 'Perfect Day passes' : '퍼펙트 데이 이용권'}
                 aria-label={lang === 'en'
                   ? `${availableCouponCount} Perfect Day passes`
                   : `퍼펙트 데이 이용권 ${availableCouponCount}장`}
               >
                 <TicketCheck size={15} strokeWidth={2.5} />
-                {availableCouponCount > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF4F91] px-1 text-[9px] font-black leading-none text-white ring-2 ring-[var(--bg-card)]">
-                    {availableCouponCount > 9 ? '9+' : availableCouponCount}
-                  </span>
-                )}
+                <span className="text-[10px] font-black tabular-nums">{availableCouponCount}</span>
               </button>
               <button
                 type="button"
@@ -397,7 +368,7 @@ export function MemberPanel({ user }: { user: User }) {
               : `오전 ${morningDone}/${morningTasks.length}${timeOfDay !== 'morning' ? ', 보기 전용' : ''}`}
             onClick={() => setRoutineView(timeOfDay === 'morning' ? 'current' : 'reference')}
             className={[
-              'flex min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-black tabular-nums transition',
+              'relative flex min-w-0 items-center justify-center gap-1 overflow-hidden rounded-md px-2 pb-0.5 text-[10px] font-black tabular-nums transition',
               selectedWindow === 'morning'
                 ? timeOfDay === 'morning'
                   ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
@@ -409,6 +380,9 @@ export function MemberPanel({ user }: { user: User }) {
             <span>{lang === 'en' ? 'Morning' : '오전'}</span>
             <span>{morningDone}/{morningTasks.length}</span>
             {timeOfDay !== 'morning' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55" aria-hidden />}
+            <span className="absolute inset-x-2 bottom-0 h-0.5 overflow-hidden rounded-full bg-current/15" aria-hidden>
+              <span className="block h-full rounded-full bg-current transition-[width] duration-500" style={{ width: `${morningPct}%` }} />
+            </span>
           </button>
           <button
             type="button"
@@ -419,7 +393,7 @@ export function MemberPanel({ user }: { user: User }) {
               : `오후·저녁 ${eveningDone}/${eveningTasks.length}${timeOfDay !== 'evening' ? ', 보기 전용' : ''}`}
             onClick={() => setRoutineView(timeOfDay === 'evening' ? 'current' : 'reference')}
             className={[
-              'flex min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-black tabular-nums transition',
+              'relative flex min-w-0 items-center justify-center gap-1 overflow-hidden rounded-md px-2 pb-0.5 text-[10px] font-black tabular-nums transition',
               selectedWindow === 'evening'
                 ? timeOfDay === 'evening'
                   ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
@@ -431,6 +405,9 @@ export function MemberPanel({ user }: { user: User }) {
             <span>{lang === 'en' ? 'Evening' : '오후'}</span>
             <span>{eveningDone}/{eveningTasks.length}</span>
             {timeOfDay !== 'evening' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55" aria-hidden />}
+            <span className="absolute inset-x-2 bottom-0 h-0.5 overflow-hidden rounded-full bg-current/15" aria-hidden>
+              <span className="block h-full rounded-full bg-current transition-[width] duration-500" style={{ width: `${eveningPct}%` }} />
+            </span>
           </button>
         </div>
 

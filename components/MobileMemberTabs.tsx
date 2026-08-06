@@ -2,10 +2,11 @@
 
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { TicketCheck } from 'lucide-react';
+import { Flame, TicketCheck } from 'lucide-react';
 import type { User } from '@/lib/db';
 import { useFamilyStore } from '@/lib/store';
 import { isTaskActiveInTimeWindow } from '@/lib/timeWindows';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface MobileMemberTabsProps {
   users: User[];
@@ -14,6 +15,7 @@ interface MobileMemberTabsProps {
 }
 
 export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMemberTabsProps) {
+  const { lang } = useLanguage();
   const todayCompletions = useFamilyStore(s => s.todayCompletions);
   const tasksByUser = useFamilyStore(s => s.tasksByUser);
   const dailyStreakByUser = useFamilyStore(s => s.dailyStreakByUser);
@@ -33,14 +35,18 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
   return (
     <div
       ref={tabsRef}
-      className="sticky top-[52px] z-[5] -mx-3 mb-2 flex gap-1.5 overflow-x-auto bg-[#0D0E1C]/95 px-3 py-2 backdrop-blur-md md:hidden"
+      className="sticky top-[52px] z-[5] -mx-3 mb-1.5 flex gap-1 overflow-x-auto border-b border-white/8 bg-[#0D0E1C]/95 px-3 py-1.5 backdrop-blur-md md:hidden"
       style={{ scrollbarWidth: 'none' }}
+      role="tablist"
+      aria-label={lang === 'en' ? 'Family members' : '가족 구성원'}
     >
       {users.map(user => {
         const isActive = user.id === activeUserId;
-        const totalToday = (tasksByUser[user.id] ?? [])
-          .filter(task => isTaskActiveInTimeWindow(task.timeWindow, timeOfDay)).length;
-        const doneToday = (todayCompletions[user.id] ?? []).length;
+        const currentTaskIds = new Set((tasksByUser[user.id] ?? [])
+          .filter(task => isTaskActiveInTimeWindow(task.timeWindow, timeOfDay))
+          .map(task => task.id));
+        const totalToday = currentTaskIds.size;
+        const doneToday = (todayCompletions[user.id] ?? []).filter(taskId => currentTaskIds.has(taskId)).length;
         const streak = dailyStreakByUser[user.id] ?? 0;
         const couponCount = (couponsByUser[user.id] ?? [])
           .filter(coupon => coupon.status === 'available').length;
@@ -51,11 +57,12 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
             type="button"
             data-tab-user={user.id}
             onClick={() => onSelectUser(user.id)}
-            aria-pressed={isActive}
+            role="tab"
+            aria-selected={isActive}
             className={[
-              'flex shrink-0 items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors',
+              'relative flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-2 transition-colors',
               isActive
-                ? 'border-[#4EEDB0]/55 bg-[#4EEDB0]/12 text-white'
+                ? 'border-[#4EEDB0]/45 bg-[#4EEDB0]/10 text-white'
                 : 'border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/8',
             ].join(' ')}
           >
@@ -78,8 +85,11 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
               {doneToday}/{totalToday}
             </span>
             {streak > 0 && (
-              <span className="text-[10px] font-bold text-[#4EEDB0]">🔥{streak}</span>
+              <span className="flex items-center gap-0.5 text-[10px] font-bold text-[#4EEDB0]">
+                <Flame size={10} aria-hidden />{streak}
+              </span>
             )}
+            {isActive && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#4EEDB0]" aria-hidden />}
             {couponCount > 0 && (
               <span className="flex items-center gap-0.5 text-[10px] font-black text-[#FFE56B]">
                 <TicketCheck size={11} />{couponCount}

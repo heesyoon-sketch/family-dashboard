@@ -310,15 +310,25 @@ export function StoreModal({
     >
       <div
         data-theme={user.theme}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="store-modal-title"
         className="bg-[var(--bg)] rounded-2xl w-full max-w-xl flex flex-col border border-[var(--border)]"
         style={{ maxHeight: '82vh' }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0">
-          <span className="font-bold text-[var(--fg)] text-sm">🛒 {user.name}{t('user_store_suffix')}</span>
+          <span id="store-modal-title" className="flex min-w-0 items-center gap-2 font-bold text-[var(--fg)] text-sm">
+            <Icons.Store size={16} className="shrink-0 text-[var(--accent)]" />
+            <span className="truncate">{user.name}{t('user_store_suffix')}</span>
+          </span>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[var(--accent)]">💰 {balance}pt</span>
+            <span className="flex items-center gap-1 text-xs font-bold text-[var(--accent)]">
+              <Icons.Coins size={14} /> {balance}pt
+            </span>
             <button
+              type="button"
               onClick={onClose}
+              aria-label={lang === 'en' ? 'Close store' : '상점 닫기'}
               className="w-7 h-7 rounded-lg bg-[var(--bg-card)] text-[var(--fg-muted)] flex items-center justify-center border border-[var(--border)]"
             >
               <Icons.X size={15} />
@@ -336,27 +346,20 @@ export function StoreModal({
             </div>
           )}
           {automaticScheduleEnabled && (
-            <div className={`mb-2 flex min-h-12 items-center gap-2.5 rounded-xl border px-3 py-2 ${
+            <div className={`mb-2 flex h-10 items-center gap-2 rounded-lg border px-2.5 ${
               automaticSaleStatus.active
                 ? 'border-emerald-400/45 bg-emerald-400/12'
                 : 'border-[var(--border)] bg-[var(--bg-card)]'
             }`}>
-              <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-                automaticSaleStatus.active ? 'bg-emerald-400 text-emerald-950' : 'bg-[var(--bg)] text-[var(--fg-muted)]'
-              }`}>
-                {automaticSaleStatus.active ? <Icons.BadgePercent size={17} /> : <Icons.CalendarClock size={17} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className={`truncate text-xs font-black ${automaticSaleStatus.active ? 'text-emerald-300' : 'text-[var(--fg)]'}`}>
-                  {automaticSaleStatus.active
-                    ? `${automaticSaleLabel(automaticSaleStatus, lang)} · ${automaticSaleStatus.percentage}% ${lang === 'en' ? 'off now' : '현재 할인'}`
-                    : (lang === 'en' ? 'No automatic sale today' : '오늘은 자동 세일이 없어요')}
-                </div>
-                {!automaticSaleStatus.active && nextAutomaticSale && (
-                  <div className="mt-0.5 truncate text-[10px] font-bold text-[var(--fg-muted)]">
-                    {lang === 'en' ? 'Next sale' : '다음 세일'} · {formatAutomaticSaleDate(nextAutomaticSale.localDate, lang)} · {nextAutomaticSale.percentage}%
-                  </div>
-                )}
+              {automaticSaleStatus.active
+                ? <Icons.BadgePercent size={16} className="shrink-0 text-emerald-300" />
+                : <Icons.CalendarClock size={16} className="shrink-0 text-[var(--fg-muted)]" />}
+              <div className={`min-w-0 flex-1 truncate text-[11px] font-black ${automaticSaleStatus.active ? 'text-emerald-300' : 'text-[var(--fg-muted)]'}`}>
+                {automaticSaleStatus.active
+                  ? `${automaticSaleLabel(automaticSaleStatus, lang)} · ${automaticSaleStatus.percentage}% ${lang === 'en' ? 'off now' : '적용 중'}`
+                  : nextAutomaticSale
+                    ? `${lang === 'en' ? 'Next automatic sale' : '다음 자동 할인'} · ${formatAutomaticSaleDate(nextAutomaticSale.localDate, lang)} · ${nextAutomaticSale.percentage}%`
+                    : (lang === 'en' ? 'Regular prices today' : '오늘은 정상가')}
               </div>
             </div>
           )}

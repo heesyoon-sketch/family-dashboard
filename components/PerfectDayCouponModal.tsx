@@ -3,25 +3,17 @@
 import { useMemo, useState } from 'react';
 import {
   Check,
+  CheckCircle2,
   Clock3,
   Film,
   Gamepad2,
-  Sparkles,
   TicketCheck,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PerfectDayCoupon, PerfectDayCouponKind, User } from '@/lib/db';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-function formatDay(value: string, lang: 'en' | 'ko'): string {
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(year, Math.max(0, month - 1), day);
-  return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'ko-KR', {
-    month: 'short',
-    day: 'numeric',
-  });
-}
+import { formatPerfectDay, PerfectDayTicket } from './PerfectDayTicket';
 
 export function PerfectDayCouponModal({
   user,
@@ -37,6 +29,10 @@ export function PerfectDayCouponModal({
   const { lang } = useLanguage();
   const [selectedKind, setSelectedKind] = useState<PerfectDayCouponKind | null>(null);
   const [redeeming, setRedeeming] = useState(false);
+  const [justRedeemed, setJustRedeemed] = useState<{
+    coupon: PerfectDayCoupon;
+    kind: PerfectDayCouponKind;
+  } | null>(null);
   const available = useMemo(
     () => coupons.filter(coupon => coupon.status === 'available').sort(
       (a, b) => a.awardedAt.getTime() - b.awardedAt.getTime(),
@@ -53,7 +49,10 @@ export function PerfectDayCouponModal({
     if (!activeCoupon || !selectedKind || redeeming) return;
     setRedeeming(true);
     try {
-      await onRedeem(activeCoupon.id, selectedKind);
+      const redeemedCoupon = activeCoupon;
+      const redeemedKind = selectedKind;
+      await onRedeem(redeemedCoupon.id, redeemedKind);
+      setJustRedeemed({ coupon: redeemedCoupon, kind: redeemedKind });
       toast.success(
         lang === 'en' ? 'Your 30-minute pass is ready!' : '30분 이용권을 사용했어요!',
         {
@@ -78,14 +77,19 @@ export function PerfectDayCouponModal({
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
       onClick={event => { if (event.target === event.currentTarget) onClose(); }}
     >
-      <div className="flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-white/15 bg-[#12131D] text-white shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="perfect-day-wallet-title"
+        className="flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-white/15 bg-[#12131D] text-white shadow-2xl"
+      >
         <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#FFE56B] text-[#17151E]">
               <TicketCheck size={19} strokeWidth={2.6} />
             </span>
             <div>
-              <div className="text-sm font-black">
+              <div id="perfect-day-wallet-title" className="text-sm font-black">
                 {lang === 'en' ? `${user.name}'s Passes` : `${user.name}의 이용권`}
               </div>
               <div className="text-[11px] font-bold text-white/45">
@@ -104,29 +108,37 @@ export function PerfectDayCouponModal({
         </header>
 
         <div className="overflow-y-auto px-4 pb-5 pt-4">
-          {activeCoupon ? (
-            <>
-              <div className="relative overflow-hidden rounded-lg border-2 border-[#17151E] bg-[#FFE56B] px-5 py-5 text-[#17151E] shadow-[6px_6px_0_#FF7BAC]">
-                <span className="absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#12131D]" />
-                <span className="absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#12131D]" />
-                <div className="flex items-start justify-between gap-4 border-b-2 border-dashed border-[#17151E]/30 pb-4">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase">
-                      <Sparkles size={13} />
-                      Perfect Day Pass
-                    </div>
-                    <div className="mt-2 text-3xl font-black leading-none">30 MIN</div>
-                    <div className="mt-1 text-sm font-black">
-                      {lang === 'en' ? 'Choose your fun' : '원하는 즐거움을 골라요'}
-                    </div>
-                  </div>
-                  <TicketCheck size={43} strokeWidth={1.7} />
-                </div>
-                <div className="flex items-center justify-between pt-3 text-[10px] font-black uppercase">
-                  <span>{formatDay(activeCoupon.earnedForDay, lang)}</span>
-                  <span>NO. {activeCoupon.id.slice(0, 6).toUpperCase()}</span>
-                </div>
+          {justRedeemed ? (
+            <div className="py-1 text-center" aria-live="polite">
+              <CheckCircle2 size={30} className="mx-auto text-[#4EEDB0]" />
+              <div className="mt-2 text-lg font-black">
+                {lang === 'en' ? 'Pass activated' : '이용권을 사용했어요'}
               </div>
+              <div className="mt-1 text-sm text-white/55">
+                {justRedeemed.kind === 'game'
+                  ? (lang === 'en' ? '30 minutes of game time' : '게임 시간 30분')
+                  : (lang === 'en' ? '30 minutes of media time' : '미디어 시간 30분')}
+              </div>
+              <PerfectDayTicket
+                coupon={justRedeemed.coupon}
+                lang={lang}
+                state="redeemed"
+                redeemedFor={justRedeemed.kind}
+                className="mt-5"
+              />
+              <button
+                type="button"
+                onClick={() => setJustRedeemed(null)}
+                className="mt-5 h-11 w-full rounded-lg border border-white/15 bg-white/8 px-4 text-sm font-black transition hover:bg-white/12"
+              >
+                {available.length > 0
+                  ? (lang === 'en' ? 'Back to my passes' : '남은 이용권 보기')
+                  : (lang === 'en' ? 'Done' : '확인')}
+              </button>
+            </div>
+          ) : activeCoupon ? (
+            <>
+              <PerfectDayTicket coupon={activeCoupon} lang={lang} />
 
               <div className="mt-6 text-xs font-black uppercase text-white/55">
                 {lang === 'en' ? 'Pick one' : '하나를 골라요'}
@@ -206,7 +218,7 @@ export function PerfectDayCouponModal({
                         : (lang === 'en' ? 'Media Time' : '미디어 시간')}
                     </div>
                     <span className="flex items-center gap-1 text-[11px] font-bold text-[#58E6FF]">
-                      <Check size={12} /> {formatDay(coupon.earnedForDay, lang)}
+                      <Check size={12} /> {formatPerfectDay(coupon.earnedForDay, lang)}
                     </span>
                   </div>
                 ))}

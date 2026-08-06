@@ -3,10 +3,11 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { Sparkles, TicketCheck } from 'lucide-react';
+import { CheckCircle2, Sparkles } from 'lucide-react';
 import type { PerfectDayAward } from '@/lib/store';
 import type { User } from '@/lib/db';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { PerfectDayTicket } from './PerfectDayTicket';
 
 export function PerfectDayCelebrationOverlay({
   award,
@@ -20,6 +21,7 @@ export function PerfectDayCelebrationOverlay({
   const { lang } = useLanguage();
 
   useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const colors = ['#FFE56B', '#FF7BAC', '#58E6FF', '#4EEDB0'];
     confetti({ particleCount: 110, spread: 82, startVelocity: 34, colors, origin: { y: 0.62 } });
     const timer = window.setTimeout(() => {
@@ -32,6 +34,9 @@ export function PerfectDayCelebrationOverlay({
   return (
     <motion.div
       className="fixed inset-0 z-[90] grid place-items-center bg-[#090A12]/92 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="perfect-day-title"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -47,7 +52,7 @@ export function PerfectDayCelebrationOverlay({
           {lang === 'en' ? 'Every routine complete' : '모든 루틴 완료'}
         </div>
         <div className="mt-4 text-sm font-black text-[#58E6FF]">{user.name}</div>
-        <h2 className="mt-1 text-4xl font-black text-white">
+        <h2 id="perfect-day-title" className="mt-1 text-4xl font-black text-white">
           {lang === 'en' ? 'Perfect Day!' : '퍼펙트 데이!'}
         </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/58">
@@ -56,24 +61,30 @@ export function PerfectDayCelebrationOverlay({
             : '오전과 저녁 루틴을 전부 끝냈어요. 이 이용권은 당신의 거예요.'}
         </p>
 
+        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-black text-white/72">
+          <span className="flex items-center gap-1 rounded-lg border border-white/12 bg-white/6 px-2 py-1">
+            <CheckCircle2 size={13} className="text-[#4EEDB0]" />
+            {lang === 'en' ? 'Morning complete' : '오전 완료'}
+          </span>
+          <span className="flex items-center gap-1 rounded-lg border border-white/12 bg-white/6 px-2 py-1">
+            <CheckCircle2 size={13} className="text-[#4EEDB0]" />
+            {lang === 'en' ? 'Evening complete' : '오후 완료'}
+          </span>
+        </div>
+
         <motion.div
           initial={{ rotate: -3, y: 18 }}
           animate={{ rotate: 0, y: 0 }}
           transition={{ type: 'spring', stiffness: 170, damping: 14, delay: 0.12 }}
-          className="relative mx-auto mt-6 overflow-hidden rounded-lg border-2 border-[#17151E] bg-[#FFE56B] px-6 py-6 text-left text-[#17151E] shadow-[8px_8px_0_#FF7BAC]"
+          className="mx-auto mt-5"
         >
-          <span className="absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#090A12]" />
-          <span className="absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#090A12]" />
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[10px] font-black uppercase">Perfect Day Pass</div>
-              <div className="mt-2 text-4xl font-black leading-none">30 MIN</div>
-              <div className="mt-1 text-sm font-black">
-                {lang === 'en' ? 'Game or media time' : '게임 또는 미디어 시간'}
-              </div>
-            </div>
-            <TicketCheck size={54} strokeWidth={1.7} />
-          </div>
+          <PerfectDayTicket
+            coupon={award.coupon}
+            lang={lang}
+            state="awarded"
+            cutoutColor="#090A12"
+            className="px-6 py-6 shadow-[8px_8px_0_#FF7BAC]"
+          />
         </motion.div>
 
         <button

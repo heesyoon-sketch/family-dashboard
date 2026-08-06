@@ -13,6 +13,8 @@ test('mobile member tabs select one mounted member dashboard', () => {
   assert.match(dashboard, /activeMobileUser && <MemberPanel key=\{activeMobileUser\.id\}/);
   assert.match(tabs, /activeUserId: string \| null/);
   assert.match(tabs, /onSelectUser\(user\.id\)/);
+  assert.match(tabs, /currentTaskIds\.has\(taskId\)/);
+  assert.match(tabs, /role="tablist"/);
   assert.doesNotMatch(tabs, /IntersectionObserver|getElementById|scrollTo/);
 });
 
@@ -21,7 +23,10 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   assert.match(panel, /morningDone\}\/\{morningTasks\.length\}/);
   assert.match(panel, /eveningDone\}\/\{eveningTasks\.length\}/);
   assert.match(panel, /grid h-9 shrink-0 grid-cols-2/);
+  assert.match(panel, /morningPct/);
+  assert.match(panel, /eveningPct/);
   assert.match(panel, /reference only/);
+  assert.doesNotMatch(panel, /ProgressRing/);
   assert.doesNotMatch(panel, /Morning routines|Evening routines/);
 });
 
@@ -30,17 +35,31 @@ test('past completed reference routines use visual completion styling', () => {
   assert.match(card, /line-through decoration-2/);
   assert.match(card, /bg-\[var\(--bg-card\)\]\/35 opacity-55/);
   assert.match(card, /CheckCircle2/);
-  assert.match(card, /!completed &&/);
+  assert.match(card, /data-reference-state/);
+  assert.match(card, /visualState === 'missed'/);
+  assert.match(card, /: 'future'/);
+  assert.doesNotMatch(card, /LockKeyhole/);
 });
 
 test('automatic sale status appears in admin and family store', () => {
   const adminStore = read('components/admin/AdminStorePanel.tsx');
   const familyStore = read('components/StoreModal.tsx');
-  for (const source of [adminStore, familyStore]) {
-    assert.match(source, /No automatic sale today/);
-    assert.match(source, /nextAutomaticSaleStatus/);
-    assert.match(source, /formatAutomaticSaleDate/);
-  }
+  assert.match(adminStore, /No automatic sale today/);
+  assert.match(familyStore, /Next automatic sale/);
+  for (const source of [adminStore, familyStore]) assert.match(source, /nextAutomaticSaleStatus/);
+  for (const source of [adminStore, familyStore]) assert.match(source, /formatAutomaticSaleDate/);
+});
+
+test('perfect day reward uses one ticket design and shows a redeemed stamp', () => {
+  const ticket = read('components/PerfectDayTicket.tsx');
+  const wallet = read('components/PerfectDayCouponModal.tsx');
+  const celebration = read('components/PerfectDayCelebrationOverlay.tsx');
+  assert.match(ticket, /Perfect Day Pass/);
+  assert.match(ticket, /사용 완료/);
+  assert.match(wallet, /justRedeemed/);
+  assert.match(wallet, /state="redeemed"/);
+  assert.match(celebration, /state="awarded"/);
+  assert.match(celebration, /prefers-reduced-motion/);
 });
 
 test('reward rows are compact and editing lives in a focused modal', () => {
