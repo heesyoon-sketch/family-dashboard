@@ -16,13 +16,21 @@ test('mobile member tabs select one mounted member dashboard', () => {
   assert.doesNotMatch(tabs, /IntersectionObserver|getElementById|scrollTo/);
 });
 
-test('member panels expose fixed morning and evening tabs with whole-day counts', () => {
+test('member panels combine morning and evening counts into compact tabs', () => {
   const panel = read('components/MemberPanel.tsx');
-  assert.match(panel, /Morning routines/);
-  assert.match(panel, /Evening routines/);
   assert.match(panel, /morningDone\}\/\{morningTasks\.length\}/);
   assert.match(panel, /eveningDone\}\/\{eveningTasks\.length\}/);
-  assert.match(panel, /LockKeyhole/);
+  assert.match(panel, /grid h-9 shrink-0 grid-cols-2/);
+  assert.match(panel, /reference only/);
+  assert.doesNotMatch(panel, /Morning routines|Evening routines/);
+});
+
+test('past completed reference routines use visual completion styling', () => {
+  const card = read('components/RoutineReferenceCard.tsx');
+  assert.match(card, /line-through decoration-2/);
+  assert.match(card, /bg-\[var\(--bg-card\)\]\/35 opacity-55/);
+  assert.match(card, /CheckCircle2/);
+  assert.match(card, /!completed &&/);
 });
 
 test('automatic sale status appears in admin and family store', () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import * as Icons from 'lucide-react';
-import { Check, Clock3, Eye, LockKeyhole } from 'lucide-react';
+import { CheckCircle2, Clock3, Eye, LockKeyhole } from 'lucide-react';
 import type { Task, ThemeName } from '@/lib/db';
 import type { TimeWindow } from '@/lib/timeWindows';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
@@ -29,31 +29,46 @@ export function RoutineReferenceCard({
   >;
   const TaskIcon = CUSTOM_ICON_MAP[task.icon] ?? IconMap[pascalCase(task.icon)] ?? Eye;
   const isPastReference = referenceWindow === 'morning';
-  const status = completed
-    ? (lang === 'en' ? 'Completed' : '완료')
-    : isPastReference
-      ? (lang === 'en' ? 'Not completed' : '미완료')
-      : (lang === 'en' ? 'Later today' : '오늘 나중에');
+  const status = isPastReference
+    ? (lang === 'en' ? 'Not completed' : '미완료')
+    : (lang === 'en' ? 'Later today' : '오늘 나중에');
 
   return (
     <div
       data-theme={theme}
       aria-disabled="true"
-      className="pointer-events-none relative flex h-full w-full select-none items-center gap-2.5 overflow-hidden rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-card)]/60 px-3 py-2 opacity-80"
+      aria-label={completed
+        ? (lang === 'en' ? `${task.title}, completed` : `${task.title}, 완료`)
+        : `${task.title}, ${status}`}
+      className={`pointer-events-none relative flex h-full w-full select-none items-center gap-2.5 overflow-hidden rounded-lg border px-3 py-2 transition-opacity ${
+        completed
+          ? 'border-[var(--border)] bg-[var(--bg-card)]/35 opacity-55'
+          : 'border-dashed border-[var(--border)] bg-[var(--bg-card)]/60 opacity-80'
+      }`}
     >
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]">
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--border)] text-[var(--fg-muted)] ${
+        completed ? 'bg-transparent opacity-65' : 'bg-[var(--bg)]'
+      }`}>
         <TaskIcon size={18} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 text-sm font-bold leading-tight text-[var(--fg)]">
+        <div className={`line-clamp-2 text-sm font-bold leading-tight ${
+          completed
+            ? 'text-[var(--fg-muted)] line-through decoration-2 decoration-[var(--fg-muted)]/65'
+            : 'text-[var(--fg)]'
+        }`}>
           {task.title}
         </div>
-        <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[var(--fg-muted)]">
-          {completed ? <Check size={12} /> : isPastReference ? <Clock3 size={12} /> : <LockKeyhole size={12} />}
-          <span>{status}</span>
-        </div>
+        {!completed && (
+          <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[var(--fg-muted)]">
+            {isPastReference ? <Clock3 size={12} /> : <LockKeyhole size={12} />}
+            <span>{status}</span>
+          </div>
+        )}
       </div>
-      <Eye size={15} className="shrink-0 text-[var(--fg-muted)]" aria-hidden />
+      {completed
+        ? <CheckCircle2 size={17} className="shrink-0 text-[var(--fg-muted)] opacity-75" aria-hidden />
+        : <Eye size={15} className="shrink-0 text-[var(--fg-muted)]" aria-hidden />}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { HeartHandshake, LockKeyhole, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
+import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { ProgressRing } from './ProgressRing';
@@ -165,7 +165,9 @@ export function MemberPanel({ user }: { user: User }) {
 
   const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
   const totalCount = currentTasks.length;
-  const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+  const viewedDoneCount = selectedWindow === 'morning' ? morningDone : eveningDone;
+  const viewedTotalCount = selectedWindow === 'morning' ? morningTasks.length : eveningTasks.length;
+  const pct = viewedTotalCount ? Math.round((viewedDoneCount / viewedTotalCount) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
   const availableCouponCount = coupons.filter(coupon => coupon.status === 'available').length;
 
@@ -381,20 +383,8 @@ export function MemberPanel({ user }: { user: User }) {
           </div>
         </header>
 
-        <div className="mb-1.5 flex shrink-0 items-center justify-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)]/70 px-2 py-1 text-[10px] font-black text-[var(--fg-muted)]">
-          <span className="flex items-center gap-1">
-            <Sunrise size={12} className="text-amber-300" />
-            {lang === 'en' ? 'Morning' : '오전'} {morningDone}/{morningTasks.length}
-          </span>
-          <span className="h-3 w-px bg-[var(--border)]" aria-hidden />
-          <span className="flex items-center gap-1">
-            <MoonStar size={12} className="text-indigo-300" />
-            {lang === 'en' ? 'Evening' : '오후·저녁'} {eveningDone}/{eveningTasks.length}
-          </span>
-        </div>
-
         <div
-          className="mb-1.5 grid h-11 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
+          className="mb-1.5 grid h-9 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
           role="tablist"
           aria-label={lang === 'en' ? `${user.name}'s routine view` : `${user.name}의 루틴 보기`}
         >
@@ -402,37 +392,45 @@ export function MemberPanel({ user }: { user: User }) {
             type="button"
             role="tab"
             aria-selected={selectedWindow === 'morning'}
+            aria-label={lang === 'en'
+              ? `Morning ${morningDone} of ${morningTasks.length}${timeOfDay !== 'morning' ? ', reference only' : ''}`
+              : `오전 ${morningDone}/${morningTasks.length}${timeOfDay !== 'morning' ? ', 보기 전용' : ''}`}
             onClick={() => setRoutineView(timeOfDay === 'morning' ? 'current' : 'reference')}
             className={[
-              'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-black transition',
+              'flex min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-black tabular-nums transition',
               selectedWindow === 'morning'
-                ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
+                ? timeOfDay === 'morning'
+                  ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
+                  : 'bg-[var(--bg)] text-[var(--fg)] shadow-sm ring-1 ring-inset ring-[var(--border)]'
                 : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
             ].join(' ')}
           >
-            <Sunrise size={14} />
-            <span className="truncate">
-              {lang === 'en' ? 'Morning routines' : '오전 루틴'}
-            </span>
-            {timeOfDay !== 'morning' && <LockKeyhole size={12} aria-label={lang === 'en' ? 'Reference only' : '보기 전용'} />}
+            <Sunrise size={12} className="shrink-0" />
+            <span>{lang === 'en' ? 'Morning' : '오전'}</span>
+            <span>{morningDone}/{morningTasks.length}</span>
+            {timeOfDay !== 'morning' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55" aria-hidden />}
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={selectedWindow === 'evening'}
+            aria-label={lang === 'en'
+              ? `Evening ${eveningDone} of ${eveningTasks.length}${timeOfDay !== 'evening' ? ', reference only' : ''}`
+              : `오후·저녁 ${eveningDone}/${eveningTasks.length}${timeOfDay !== 'evening' ? ', 보기 전용' : ''}`}
             onClick={() => setRoutineView(timeOfDay === 'evening' ? 'current' : 'reference')}
             className={[
-              'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-black transition',
+              'flex min-w-0 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-black tabular-nums transition',
               selectedWindow === 'evening'
-                ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
+                ? timeOfDay === 'evening'
+                  ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
+                  : 'bg-[var(--bg)] text-[var(--fg)] shadow-sm ring-1 ring-inset ring-[var(--border)]'
                 : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
             ].join(' ')}
           >
-            <MoonStar size={14} />
-            <span className="truncate">
-              {lang === 'en' ? 'Evening routines' : '오후·저녁 루틴'}
-            </span>
-            {timeOfDay !== 'evening' && <LockKeyhole size={12} aria-label={lang === 'en' ? 'Reference only' : '보기 전용'} />}
+            <MoonStar size={12} className="shrink-0" />
+            <span>{lang === 'en' ? 'Evening' : '오후'}</span>
+            <span>{eveningDone}/{eveningTasks.length}</span>
+            {timeOfDay !== 'evening' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55" aria-hidden />}
           </button>
         </div>
 
@@ -448,7 +446,7 @@ export function MemberPanel({ user }: { user: User }) {
             <motion.div
               ref={listRef}
               layout
-              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-108px)/4),76px)] md:pb-6"
+              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-84px)/4),76px)] md:pb-6"
             >
               {visibleTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
