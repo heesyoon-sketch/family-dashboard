@@ -52,6 +52,7 @@ import {
   parseAutomaticSaleSetting,
   withAutomaticSale,
 } from './automaticSale';
+import { parseRewardGoals } from './rewardGoals';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -155,6 +156,7 @@ interface FamilyState {
   familyName: string | null;
   users: User[];
   rewards: Reward[];
+  rewardGoalByUser: Record<string, string>;
   automaticSaleConfig: AutomaticSaleConfig;
   automaticSaleStatus: AutomaticSaleStatus;
   activeTaskCount: number;
@@ -196,6 +198,7 @@ interface FamilyState {
   undoCompletion: (userId: string, taskId: string) => Promise<void>;
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
+  setRewardGoal: (userId: string, rewardId: string | null) => Promise<void>;
   tradeCashForPoints: (userId: string, priceCents: number, requestId?: string) => Promise<void>;
   purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
@@ -397,6 +400,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   familyName: null,
   users: [],
   rewards: [],
+  rewardGoalByUser: {},
   automaticSaleConfig: defaultAutomaticSaleConfig(),
   automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
   activeTaskCount: 0,
@@ -461,6 +465,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyName: null,
         users: [],
         rewards: [],
+        rewardGoalByUser: {},
         automaticSaleConfig: defaultAutomaticSaleConfig(),
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         activeTaskCount: 0,
@@ -508,6 +513,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         familyName: null,
         users: [],
         rewards: [],
+        rewardGoalByUser: {},
         automaticSaleConfig: defaultAutomaticSaleConfig(),
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         activeTaskCount: 0,
@@ -535,11 +541,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // .is('deleted_at', null) filters out soft-deleted rows. Migration 060
     // added the column with a default null and partial indexes scoped by
     // (family_id) where deleted_at is null, so this filter is cheap.
-    const [uRes, tRes, rRes, automaticSaleRes] = await Promise.all([
+    const [uRes, tRes, rRes, automaticSaleRes, rewardGoalRes] = await Promise.all([
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null),
       supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
       supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'automatic_reward_sale').maybeSingle(),
+      supabase.from('family_settings').select('key, value').eq('family_id', resolvedFamilyId).like('key', 'reward_goal:%'),
     ]);
     // Surface SELECT errors loudly. Previously these were silently swallowed
     // by `?? []` fallbacks, which meant a missing column or RLS regression
@@ -550,6 +557,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       { label: 'tasks',   error: tRes.error },
       { label: 'rewards', error: rRes.error },
       { label: 'automatic-sale', error: automaticSaleRes.error },
+      { label: 'reward-goals', error: rewardGoalRes.error },
     ], get().lastHydrateAt > 0);
 
     // If the core SELECTs all failed AND we already have a successful hydrate
@@ -618,6 +626,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       mapRewardRow(r as Record<string, unknown>),
       automaticSaleStatus,
     ));
+    const rewardGoalByUser = parseRewardGoals(
+      rewardGoalRes.data ?? [],
+      new Set(users.map(member => member.id)),
+      new Set(rewards.filter(reward => !reward.is_hidden).map(reward => reward.id)),
+    );
     const activeTaskCount = (tRes.data ?? []).filter(task => task.active === 1).length;
     const currentMember = users.find(u => u.authUserId === user.id) ?? null;
     const currentMemberId = currentMember?.id ?? null;
@@ -931,6 +944,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       familyName,
       users,
       rewards,
+      rewardGoalByUser,
       automaticSaleConfig,
       automaticSaleStatus,
       activeTaskCount,
@@ -1465,6 +1479,36 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     }
   },
 
+  setRewardGoal: async (userId, rewardId) => {
+    assertUuid(userId, 'userId');
+    if (rewardId) assertUuid(rewardId, 'rewardId');
+    const supabase = createBrowserSupabase();
+    await requireAuthSession(supabase);
+    const previous = get().rewardGoalByUser[userId] ?? null;
+    set(state => {
+      const next = { ...state.rewardGoalByUser };
+      if (rewardId) next[userId] = rewardId;
+      else delete next[userId];
+      return { rewardGoalByUser: next };
+    });
+    try {
+      const { error } = await supabase.rpc('set_member_reward_goal', {
+        p_user_id: userId,
+        p_reward_id: rewardId,
+      });
+      if (error) throw new Error(error.message);
+      broadcastSync();
+    } catch (error) {
+      set(state => {
+        const next = { ...state.rewardGoalByUser };
+        if (previous) next[userId] = previous;
+        else delete next[userId];
+        return { rewardGoalByUser: next };
+      });
+      throw error;
+    }
+  },
+
   redeemReward: async (userId, rewardId, cost) => {
     assertUuid(userId, 'userId');
     assertUuid(rewardId, 'rewardId');
@@ -1653,6 +1697,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       familyName: null,
       users: [],
       rewards: [],
+      rewardGoalByUser: {},
       automaticSaleConfig: defaultAutomaticSaleConfig(),
       automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
       activeTaskCount: 0,

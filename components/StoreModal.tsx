@@ -15,6 +15,7 @@ import {
 } from '@/lib/automaticSale';
 import { useFamilyStore } from '@/lib/store';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { rewardGoalProgress } from '@/lib/rewardGoals';
 
 // ── Icon renderer ─────────────────────────────────────────────────────────────
 
@@ -118,17 +119,27 @@ export function StoreModal({
         ? `💵 Paid ${points}pt for the $${price} item!`
         : `💵 $${price} 물건을 ${points}pt로 결제했어요!`
     ),
+    myGoal: lang === 'en' ? 'My goal' : '내 목표',
+    setGoal: lang === 'en' ? 'Set as my goal' : '내 목표로 정하기',
+    clearGoal: lang === 'en' ? 'Clear goal' : '목표 해제',
+    goalSaved: lang === 'en' ? 'Goal saved!' : '목표를 정했어요!',
+    goalCleared: lang === 'en' ? 'Goal cleared' : '목표를 해제했어요',
+    ready: lang === 'en' ? 'Ready now' : '지금 살 수 있어요',
+    pointsLeft: (points: number) => lang === 'en' ? `${points}pt left` : `${points}pt 남음`,
   };
   const rewards = useFamilyStore(state => state.rewards);
   const automaticSaleConfig = useFamilyStore(state => state.automaticSaleConfig);
   const automaticSaleStatus = useFamilyStore(state => state.automaticSaleStatus);
   const users = useFamilyStore(state => state.users);
   const levelsByUser = useFamilyStore(state => state.levelsByUser);
+  const rewardGoalId = useFamilyStore(state => state.rewardGoalByUser[user.id] ?? null);
+  const setRewardGoal = useFamilyStore(state => state.setRewardGoal);
   const hydrate = useFamilyStore(state => state.hydrate);
   const hydrated = useFamilyStore(state => state.hydrated);
   const purchaseRewardJoint = useFamilyStore(state => state.purchaseRewardJoint);
   const tradeCashForPoints = useFamilyStore(state => state.tradeCashForPoints);
   const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [goalSaving, setGoalSaving] = useState(false);
   const [cashOpen, setCashOpen] = useState(false);
   const [cashInput, setCashInput] = useState('');
   // One id per checkout session (not per attempt) so a retry after a lost
@@ -234,6 +245,20 @@ export function StoreModal({
     setCashOpen(false);
   };
 
+  const handleGoalToggle = async (reward: Reward) => {
+    if (goalSaving) return;
+    setGoalSaving(true);
+    const nextGoalId = rewardGoalId === reward.id ? null : reward.id;
+    try {
+      await setRewardGoal(user.id, nextGoalId);
+      toast.success(nextGoalId ? copy.goalSaved : copy.goalCleared);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('exchange_fail'));
+    } finally {
+      setGoalSaving(false);
+    }
+  };
+
   const handleCashTrade = async () => {
     if (redeemingRef.current || !cashValid) return;
     redeemingRef.current = true;
@@ -290,6 +315,9 @@ export function StoreModal({
 
   const loading = !hydrated || refreshing;
   const visibleRewards = rewards.filter(reward => !reward.is_hidden);
+  const goalReward = visibleRewards.find(reward => reward.id === rewardGoalId) ?? null;
+  const goalCost = goalReward ? rewardEffectiveCost(goalReward) : 0;
+  const goalProgress = goalReward ? rewardGoalProgress(balance, goalCost) : null;
   const checkoutCost = checkoutReward ? rewardEffectiveCost(checkoutReward) : 0;
   const checkoutSoldOut = Boolean(checkoutReward?.is_sold_out);
   const shareTotal = Math.max(0, Math.round(userShare) || 0) + Math.max(0, Math.round(partnerShare) || 0);
@@ -363,6 +391,37 @@ export function StoreModal({
               </div>
             </div>
           )}
+          {goalReward && goalProgress && (
+            <button
+              type="button"
+              onClick={() => openCheckout(goalReward)}
+              disabled={!!redeeming}
+              className="relative mb-2 w-full overflow-hidden rounded-xl border border-[var(--accent)]/55 bg-[var(--accent-glow)] p-3 text-left transition hover:brightness-105 disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--accent)] text-gray-950">
+                  <Icons.Target size={18} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[9px] font-black uppercase text-[var(--accent)]">{copy.myGoal}</span>
+                  <span className="block truncate text-sm font-black text-[var(--fg)]">{goalReward.title}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-xs font-black text-[var(--fg)]">{balance}/{goalCost}pt</span>
+                  <span className="block text-[10px] font-bold text-[var(--accent)]">
+                    {goalReward.is_sold_out
+                      ? copy.soldOut
+                      : goalProgress.reached
+                        ? copy.ready
+                        : copy.pointsLeft(goalProgress.remaining)}
+                  </span>
+                </span>
+              </div>
+              <span className="absolute inset-x-0 bottom-0 h-1 bg-[var(--border)]" aria-hidden>
+                <span className="block h-full bg-[var(--accent)] transition-[width]" style={{ width: `${goalProgress.percent}%` }} />
+              </span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -395,6 +454,7 @@ export function StoreModal({
               const soldOut = Boolean(r.is_sold_out);
               const canAfford = !soldOut && balance >= cost;
               const busy = redeeming === r.id;
+              const isGoal = rewardGoalId === r.id;
 
               return (
                 <motion.button
@@ -405,7 +465,7 @@ export function StoreModal({
                   className={[
                     'min-h-[92px] rounded-xl bg-[var(--bg-card)] border p-2 text-left transition-colors',
                     'flex flex-col justify-between gap-1 disabled:cursor-not-allowed',
-                    hasDeal ? 'border-rose-400/60' : 'border-[var(--border)]',
+                    isGoal ? 'border-[var(--accent)] ring-1 ring-inset ring-[var(--accent)]/35' : hasDeal ? 'border-rose-400/60' : 'border-[var(--border)]',
                   ].join(' ')}
                   style={{
                     opacity: soldOut ? 0.48 : 1,
@@ -427,6 +487,11 @@ export function StoreModal({
                       <div className="font-semibold text-xs text-[var(--fg)] leading-tight line-clamp-2">
                         {itemTitle}
                       </div>
+                      {isGoal && (
+                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--accent)]/16 px-1.5 py-0.5 text-[9px] font-black text-[var(--accent)]">
+                          <Icons.Target size={9} aria-hidden /> {copy.myGoal}
+                        </div>
+                      )}
                       {soldOut && (
                         <div className="inline-flex max-w-full rounded-full bg-zinc-500/20 px-1.5 py-0.5 text-[9px] font-bold text-zinc-300 leading-tight mt-1 truncate">
                           {copy.soldOut}
@@ -491,6 +556,20 @@ export function StoreModal({
                   <Icons.X size={15} />
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => { void handleGoalToggle(checkoutReward); }}
+                disabled={goalSaving || (Boolean(checkoutReward.is_sold_out) && rewardGoalId !== checkoutReward.id)}
+                className={`mb-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-3 text-xs font-black transition disabled:opacity-45 ${
+                  rewardGoalId === checkoutReward.id
+                    ? 'border-[var(--accent)]/35 bg-[var(--accent-glow)] text-[var(--accent)]'
+                    : 'border-[var(--accent)] bg-[var(--accent)] text-gray-950'
+                }`}
+              >
+                {goalSaving ? <Icons.Loader2 size={15} className="animate-spin" /> : <Icons.Target size={15} />}
+                {rewardGoalId === checkoutReward.id ? copy.clearGoal : copy.setGoal}
+              </button>
 
               <div className="mb-2 text-sm font-bold text-[var(--fg)]">{copy.checkoutPrompt}</div>
               <div className="mb-4 grid grid-cols-2 gap-2">

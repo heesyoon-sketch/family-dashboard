@@ -84,10 +84,28 @@ test('reward rows are compact and editing lives in a focused modal', () => {
 
 test('task pricing is selected by duration instead of arbitrary point inputs', () => {
   const panel = read('components/admin/AdminTasksPanel.tsx');
+  const card = read('components/TaskCard.tsx');
   const migration = read('supabase/migrations/102_fixed_duration_task_points.sql');
   assert.match(panel, /TASK_DURATION_OPTIONS/);
   assert.match(panel, /Estimated task duration/);
   assert.doesNotMatch(panel, /type="number"/);
+  assert.match(card, /taskDurationOptionForPoints/);
+  assert.match(card, /Icons\.Clock3/);
+  assert.match(card, /duration\.label\[lang\]/);
   assert.match(migration, /base_points in \(10, 15, 30, 50\)/);
   assert.match(migration, /normalize_task_base_points/);
+});
+
+test('store goals persist and drive child-facing point progress', () => {
+  const storeModal = read('components/StoreModal.tsx');
+  const memberPanel = read('components/MemberPanel.tsx');
+  const taskCard = read('components/TaskCard.tsx');
+
+  assert.match(storeModal, /setRewardGoal/);
+  assert.match(storeModal, /Set as my goal/);
+  assert.match(storeModal, /rewardGoalProgress/);
+  assert.match(memberPanel, /rewardGoalStatus\.remaining/);
+  assert.match(memberPanel, /rewardGoalStatus\.percent/);
+  assert.match(taskCard, /goalProgress\.remaining/);
+  assert.doesNotMatch(taskCard, /Momentum \$\{feedback\.bonus/);
 });

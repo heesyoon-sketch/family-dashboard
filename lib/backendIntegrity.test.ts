@@ -51,3 +51,13 @@ test('shield reads use an incremental completion cache and hydrated task data', 
   assert.match(storage, /new Map\(_completionCache!\.byId\)/);
   assert.match(storage, /Object\.prototype\.hasOwnProperty\.call\(fallback, id\)/);
 });
+
+test('member reward goals are family-scoped and least-privilege', () => {
+  const migration = read('supabase/migrations/103_member_reward_goals.sql');
+  assert.match(migration, /u\.family_id = v_family_id/);
+  assert.match(migration, /u\.auth_user_id = auth\.uid\(\) or public\.is_my_family_parent\(\)/);
+  assert.match(migration, /family_id = v_family_id/);
+  assert.match(migration, /not coalesce\(is_hidden, false\)/);
+  assert.match(migration, /revoke all on function public\.set_member_reward_goal\(text, text\) from public, anon/);
+  assert.match(migration, /grant execute on function public\.set_member_reward_goal\(text, text\) to authenticated/);
+});

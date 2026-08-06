@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
+import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, Target, TicketCheck } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
@@ -21,6 +21,8 @@ import {
   isTaskActiveInTimeWindow,
   taskWindowSortRank,
 } from '@/lib/timeWindows';
+import { rewardEffectiveCost } from '@/lib/automaticSale';
+import { rewardGoalProgress } from '@/lib/rewardGoals';
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE']);
 
@@ -83,6 +85,8 @@ export function MemberPanel({ user }: { user: User }) {
   const doRedeemCoupon = useFamilyStore(s => s.redeemPerfectDayCoupon);
   const allUsers       = useFamilyStore(s => s.users);
   const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? []);
+  const rewards        = useFamilyStore(s => s.rewards);
+  const rewardGoalId   = useFamilyStore(s => s.rewardGoalByUser[user.id] ?? null);
 
   const [storeOpen, setStoreOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
@@ -104,6 +108,9 @@ export function MemberPanel({ user }: { user: User }) {
   const [hasOverflow, setHasOverflow] = useState(false);
 
   const spendableBalance = level?.spendableBalance ?? 0;
+  const rewardGoal = rewards.find(reward => reward.id === rewardGoalId && !reward.is_hidden) ?? null;
+  const rewardGoalCost = rewardGoal ? rewardEffectiveCost(rewardGoal) : 0;
+  const rewardGoalStatus = rewardGoal ? rewardGoalProgress(spendableBalance, rewardGoalCost) : null;
   const mailboxActivities = activities.filter(activity =>
     MAILBOX_ACTIVITY_TYPES.has(activity.type) && !isObserverRewardActivity(activity)
   );
@@ -342,14 +349,34 @@ export function MemberPanel({ user }: { user: User }) {
                   <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
                 )}
               </button>
-              <div
-                className="flex h-8 min-w-[58px] items-center justify-end text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)] max-[380px]:h-7 max-[380px]:min-w-[48px] max-[380px]:text-[11px]"
-                title={lang === 'en' ? 'Current points' : '현재 포인트'}
-                aria-label={lang === 'en' ? 'Current points' : '현재 포인트'}
+              <button
+                type="button"
+                onClick={openStore}
+                className="relative flex h-8 min-w-[64px] max-w-[92px] flex-col items-end justify-center overflow-hidden rounded-md px-1 text-right tabular-nums transition hover:bg-[var(--accent-glow)] max-[380px]:h-7 max-[380px]:min-w-[56px]"
+                title={rewardGoal && rewardGoalStatus
+                  ? `${rewardGoal.title} · ${rewardGoalStatus.reached ? (lang === 'en' ? 'ready' : '달성') : `${rewardGoalStatus.remaining}pt ${lang === 'en' ? 'left' : '남음'}`}`
+                  : (lang === 'en' ? 'Current points' : '현재 포인트')}
+                aria-label={rewardGoal && rewardGoalStatus
+                  ? `${rewardGoal.title}, ${rewardGoalStatus.reached ? (lang === 'en' ? 'ready to redeem' : '교환 가능') : `${rewardGoalStatus.remaining}pt ${lang === 'en' ? 'left' : '남음'}`}`
+                  : (lang === 'en' ? `${spendableBalance} current points` : `현재 ${spendableBalance}포인트`)}
               >
-                <span>{spendableBalance}</span>
-                <span className="ml-0.5 text-[9px] font-bold text-[var(--fg-muted)]">pt</span>
-              </div>
+                <span className="text-[11px] font-black leading-none text-[var(--accent)] max-[380px]:text-[10px]">
+                  {spendableBalance}<span className="ml-0.5 text-[8px] text-[var(--fg-muted)]">pt</span>
+                </span>
+                {rewardGoalStatus && (
+                  <span className="mt-0.5 flex max-w-full items-center gap-0.5 truncate text-[8px] font-black leading-none text-[var(--fg-muted)]">
+                    <Target size={8} className="shrink-0 text-[var(--accent)]" aria-hidden />
+                    {rewardGoalStatus.reached
+                      ? (lang === 'en' ? 'READY' : '달성')
+                      : `${rewardGoalStatus.remaining}${lang === 'en' ? ' left' : ' 남음'}`}
+                  </span>
+                )}
+                {rewardGoalStatus && (
+                  <span className="absolute inset-x-1 bottom-0 h-0.5 overflow-hidden rounded-full bg-[var(--border)]" aria-hidden>
+                    <span className="block h-full rounded-full bg-[var(--accent)] transition-[width]" style={{ width: `${rewardGoalStatus.percent}%` }} />
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </header>

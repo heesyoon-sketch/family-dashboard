@@ -13,6 +13,9 @@ import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { rewardEffectiveCost } from '@/lib/automaticSale';
+import { rewardGoalProgress } from '@/lib/rewardGoals';
+import { taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
 
 const SWIPE_TRIGGER_PX = 54;
 const SWIPE_LIMIT_PX = 88;
@@ -102,13 +105,32 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         }
         if (feedback?.status === 'awarded') {
           const bonusPoints = Math.max(0, feedback.pointsAwarded - feedback.basePoints);
-          const detail = bonusPoints > 0
-            ? (lang === 'en'
-                ? `${feedback.basePoints} base + ${bonusPoints} bonus · Momentum ${feedback.bonus.momentumPercent}% · Harmony ${feedback.bonus.harmonyPercent}% · Shields ${feedback.bonus.loadoutPercent}%`
-                : `기본 ${feedback.basePoints} + 보너스 ${bonusPoints} · 모멘텀 ${feedback.bonus.momentumPercent}% · 하모니 ${feedback.bonus.harmonyPercent}% · 쉴드 ${feedback.bonus.loadoutPercent}%`)
-            : (lang === 'en'
-                ? `${feedback.basePoints} base points`
-                : `기본 ${feedback.basePoints}점`);
+          const state = useFamilyStore.getState();
+          const goalId = state.rewardGoalByUser[task.userId];
+          const goal = state.rewards.find(reward => reward.id === goalId);
+          const goalProgress = goal
+            ? rewardGoalProgress(
+                state.levelsByUser[task.userId]?.spendableBalance ?? 0,
+                rewardEffectiveCost(goal),
+              )
+            : null;
+          const detail = goal && goalProgress
+            ? goalProgress.reached
+              ? goal.is_sold_out
+                ? (lang === 'en'
+                    ? `You reached ${goal.title}. Waiting for restock!`
+                    : `${goal.title} 목표 달성! 재입고를 기다려요.`)
+                : (lang === 'en'
+                    ? `${goal.title} is ready in the store!`
+                    : `${goal.title} 목표 달성! 상점에서 사용할 수 있어요.`)
+              : (lang === 'en'
+                  ? `${goalProgress.remaining}pt left for ${goal.title}`
+                  : `${goal.title}까지 ${goalProgress.remaining}pt 남았어요`)
+            : bonusPoints > 0
+              ? (lang === 'en'
+                  ? `${feedback.basePoints} base + ${bonusPoints} bonus`
+                  : `기본 ${feedback.basePoints} + 보너스 ${bonusPoints}`)
+              : (lang === 'en' ? 'Points added to your balance' : '포인트가 차곡차곡 쌓였어요');
           toast.success(`+${feedback.pointsAwarded}pt`, { description: detail });
         }
       }
@@ -169,6 +191,7 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
   // tier glow. Momentum/harmony bonuses live on the dashboard HUD instead
   // of bleeding optimization pressure into individual habits.
   const displayPts = task.basePoints;
+  const duration = taskDurationOptionForPoints(task.basePoints);
   const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
   // Completed state: muted background, dimmed ring, washed-out colour, and
   // a strikethrough on the title — clearly readable as "done" at a glance.
@@ -254,7 +277,8 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
             {task.title}
           </div>
           <div className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
-            <span>+{displayPts}pt</span>
+            <span className="flex shrink-0 items-center gap-0.5"><Icons.Clock3 size={10} aria-hidden />{duration.label[lang]}</span>
+            <span className="shrink-0">· +{displayPts}pt</span>
             <span className="min-w-0 truncate">· {timeWindowDisplay}</span>
             {disabled && (
               <span className="shrink-0 rounded-full bg-[var(--border)]/70 px-1 py-0.5 text-[9px] font-bold leading-none">
