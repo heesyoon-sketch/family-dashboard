@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import type { AchievementProgress } from '@/lib/achievements/engine';
+import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
+import { achievementRemaining, selectNextAchievementGoals } from '@/lib/achievements/recommendations';
 import { useFamilyStore } from '@/lib/store';
 
 const RARITY_LABEL: Record<AchievementProgress['rarity'], string> = {
@@ -56,9 +58,19 @@ export function InsigniaUnlockOverlay() {
   const queue = useFamilyStore(s => s.insigniaQueue);
   const dismiss = useFamilyStore(s => s.dismissInsigniaUnlock);
   const users = useFamilyStore(s => s.users);
+  const familyId = useFamilyStore(s => s.familyId);
+  const snapshot = useShieldSnapshot(familyId);
 
   const current = queue[0] ?? null;
   const member = current ? users.find(u => u.id === current.childId) : null;
+  const nextGoal = current
+    ? selectNextAchievementGoals(
+        (snapshot?.achievementsByChild?.[current.childId] ?? []).filter(
+          achievement => achievement.achievementId !== current.achievementId,
+        ),
+        1,
+      )[0]
+    : undefined;
 
   // Auto-dismiss after a generous beat — enough time to read and tap.
   useEffect(() => {
@@ -184,6 +196,15 @@ export function InsigniaUnlockOverlay() {
                     <span className="text-xs font-black uppercase tracking-wider text-white/55">bonus pts</span>
                   </div>
                 ) : null}
+                {nextGoal && (
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-white/12 bg-white/[0.05] px-3 py-2 text-left">
+                    <span className="min-w-0">
+                      <span className="block text-[9px] font-black uppercase tracking-wider text-white/40">Next reachable goal</span>
+                      <span className="mt-0.5 block truncate text-xs font-black text-white/78">{nextGoal.title}</span>
+                    </span>
+                    <span className="shrink-0 text-xs font-black text-[#4EEDB0]">{achievementRemaining(nextGoal)} left</span>
+                  </div>
+                )}
               </motion.div>
 
               <div className="mt-6 grid gap-2">

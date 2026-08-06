@@ -2,6 +2,7 @@ import type { Task } from '@/lib/db';
 
 export type AchievementCategory =
   | 'First Steps'
+  | 'Momentum Trail'
   | 'Perfect Days'
   | 'Weekly Quests'
   | 'Monthly Quests'
@@ -43,6 +44,15 @@ export type RequirementType =
   | 'weeklyQuest'
   | 'monthlyQuest';
 
+export type QuestMetric =
+  | 'activeDays'
+  | 'total'
+  | 'category'
+  | 'improvement'
+  | 'comeback'
+  | 'combo'
+  | 'team';
+
 export interface AchievementDefinition {
   achievementId: string;
   title: string;
@@ -63,6 +73,11 @@ export interface AchievementDefinition {
   requirementCategory?: HabitCategory;
   habitKeyword?: string;
   comboCategories?: HabitCategory[];
+  /** Optional lower bound for a newly introduced journey. Progress before
+   *  this date is ignored so existing families begin the new path together
+   *  instead of receiving a wall of retroactive unlocks. */
+  availableFrom?: string;
+  questMetric?: QuestMetric;
 }
 
 export interface BadgeVisualStyleDefinition {
@@ -151,6 +166,24 @@ const firstSteps = [
   ['i-tried-today', 'I Tried Today', 'Complete at least one habit on any day.', 1, 'common', 'Bronze', '💛'],
 ] as const;
 
+export const MOMENTUM_TRAIL_START = '2026-08-05T00:00:00-04:00';
+
+const momentumTrail = [
+  ['momentum-spark-5', 'Momentum Spark', 'Finish 5 routines. Every small action counts.', 5, 'common', 'Bronze', 5],
+  ['momentum-start-15', 'Quick Start', 'Finish 15 routines. Pauses never erase this progress.', 15, 'common', 'Bronze', 7],
+  ['momentum-maker-30', 'Momentum Maker', 'Finish 30 routines on your own growing path.', 30, 'rare', 'Silver', 10],
+  ['momentum-hero-50', 'Fifty Win Hero', 'Collect 50 routine wins, one choice at a time.', 50, 'rare', 'Silver', 12],
+  ['momentum-power-75', 'Power Pack', 'Collect 75 routine wins.', 75, 'epic', 'Gold', 18],
+  ['momentum-century-100', 'Triple-Digit Star', 'Reach 100 routine wins.', 100, 'epic', 'Gold', 22],
+  ['momentum-drive-150', 'Legendary Drive', 'Reach 150 routine wins without needing a perfect streak.', 150, 'legendary', 'Legendary', 30],
+  ['momentum-goal-225', 'Goal Getter', 'Reach 225 routine wins.', 225, 'legendary', 'Legendary', 35],
+  ['momentum-mythic-325', 'Mythic Momentum', 'Reach 325 routine wins.', 325, 'mythic', 'Mythic', 45],
+  ['momentum-trailblazer-450', 'Trailblazer', 'Reach 450 routine wins.', 450, 'mythic', 'Mythic', 50],
+  ['momentum-champion-600', 'Momentum Champion', 'Reach 600 routine wins.', 600, 'mythic', 'Mythic', 60],
+  ['momentum-pilot-800', 'Point Pilot', 'Reach 800 routine wins.', 800, 'mythic', 'Mythic', 70],
+  ['momentum-crown-1000', 'Thousand-Win Crown', 'Reach 1,000 routine wins.', 1000, 'mythic', 'Mythic', 80],
+] as const;
+
 const habitGroups: Array<{
   category: AchievementCategory;
   habitCategory: HabitCategory;
@@ -230,6 +263,29 @@ function baseDefinitions(): AchievementDefinition[] {
       timeframe: 'lifetime',
       rarity,
       displayOrder: order++,
+    }));
+  }
+
+  for (const [id, title, description, value, rarity, tier, rewardPoints] of momentumTrail) {
+    defs.push(makeAchievement({
+      achievementId: id,
+      title,
+      description,
+      category: 'Momentum Trail',
+      tier,
+      icon: '⚡',
+      requirementType: 'totalCompletions',
+      requirementValue: value,
+      timeframe: 'lifetime',
+      rarity,
+      displayOrder: order++,
+      rewardPoints,
+      availableFrom: MOMENTUM_TRAIL_START,
+      unlocksVisualStyleIds: id === 'momentum-drive-150'
+        ? ['gold-shine']
+        : id === 'momentum-mythic-325'
+          ? ['mythic-aurora']
+          : undefined,
     }));
   }
 
@@ -345,19 +401,19 @@ function baseDefinitions(): AchievementDefinition[] {
   });
 
   const weekly = [
-    ['weekly-five-days', 'Five Day Week', 'Complete at least one habit on 5 days this week.', 5],
-    ['weekly-reading-3', 'Reading Week', 'Complete reading 3 times this week.', 3],
-    ['weekly-exercise-2', 'Energy Week', 'Complete exercise 2 times this week.', 2],
-    ['weekly-beat-last', 'Beat Last Week', 'Beat last week’s total by 1.', 1],
-    ['weekly-total-20', 'Twenty Habit Week', 'Complete 20 total habits this week.', 20],
-    ['weekly-comeback', 'Weekly Comeback', 'Make one comeback after missing a habit.', 1],
-    ['weekly-three-cats', 'Three Category Day', 'Complete 3 categories in one day.', 1],
-    ['weekly-team-three', 'Team Three Days', 'Both kids complete habits on 3 same days this week.', 3],
+    ['weekly-five-days', 'Five Day Week', 'Complete at least one habit on 5 days this week.', 5, 'activeDays', undefined],
+    ['weekly-reading-3', 'Reading Week', 'Complete reading 3 times this week.', 3, 'category', 'learning'],
+    ['weekly-exercise-2', 'Energy Week', 'Complete exercise 2 times this week.', 2, 'category', 'exercise'],
+    ['weekly-beat-last', 'Beat Last Week', 'Beat last week’s total.', 1, 'improvement', undefined],
+    ['weekly-total-20', 'Twenty Habit Week', 'Complete 20 total habits this week.', 20, 'total', undefined],
+    ['weekly-comeback', 'Weekly Comeback', 'Make one comeback after a quiet stretch.', 1, 'comeback', undefined],
+    ['weekly-three-cats', 'Three Category Day', 'Complete 3 categories in one day.', 1, 'combo', undefined],
+    ['weekly-team-three', 'Team Three Days', 'Both kids complete habits on 3 same days this week.', 3, 'team', undefined],
   ] as const;
   // Weekly quests reset every week, so a single productive week unlocks
   // them. That's a common-tier effort — calling them rare contradicted the
   // "rare = weeks of work" rule the rest of the wall follows.
-  weekly.forEach(([id, title, description, value]) => defs.push(makeAchievement({
+  weekly.forEach(([id, title, description, value, questMetric, requirementCategory]) => defs.push(makeAchievement({
     achievementId: id,
     title,
     description,
@@ -370,26 +426,24 @@ function baseDefinitions(): AchievementDefinition[] {
     rarity: 'common',
     displayOrder: order++,
     rewardPoints: 8,
+    questMetric,
+    requirementCategory,
   })));
 
-  // Monthly Quests are epic-tier — they should require a month of real
-  // commitment, not a single task. The underlying `monthlyQuest` metric
-  // returns max(monthActiveDays, monthTotal, monthlyImprovement,
-  // comebackCount), so target=1 unlocked on the first task of the month.
-  // Targets below all sit at 21+ so the easiest path through the metric
-  // (monthTotal) still demands ~3 weeks of consistent activity.
+  // Monthly quests now specify their own metric. Reading only counts reading,
+  // active-day goals count days, and total goals count completions.
   const monthly = [
-    ['monthly-days-20', 'Twenty Day Month', 'Complete habits on 20 different days this month.', 20],
-    ['monthly-total-80', 'Eighty Habit Month', 'Complete 80 total habits this month.', 80],
-    ['monthly-improve', 'Better Month', 'Beat last month’s totals across 21 days.', 21],
-    ['monthly-learning-20', 'Learning Month', 'Complete 20 learning habits.', 20],
-    ['monthly-health-20', 'Health Month', 'Complete 20 health habits.', 20],
-    ['monthly-responsibility-15', 'Helper Month', 'Complete 21 responsibility habits.', 21],
-    ['monthly-comeback-3', 'Comeback Month', 'Show up consistently across 21 days.', 21],
-    ['monthly-best', 'Best Month Spark', 'Hit personal-best pace across 21 days.', 21],
-    ['monthly-every-week', 'Every Week Spark', 'Stay active across 21 days of the month.', 21],
+    ['monthly-days-20', 'Twelve Day Month', 'Complete habits on 12 different days this month.', 12, 'activeDays', undefined],
+    ['monthly-total-80', 'Eighty Habit Month', 'Complete 80 total habits this month.', 80, 'total', undefined],
+    ['monthly-improve', 'Better Month', 'Beat a previous month’s total.', 1, 'improvement', undefined],
+    ['monthly-learning-20', 'Learning Month', 'Complete 20 learning habits this month.', 20, 'category', 'learning'],
+    ['monthly-health-20', 'Health Month', 'Complete 20 health habits this month.', 20, 'category', 'health'],
+    ['monthly-responsibility-15', 'Helper Month', 'Complete 15 responsibility habits this month.', 15, 'category', 'responsibility'],
+    ['monthly-comeback-3', 'Comeback Month', 'Make 3 comebacks after quiet stretches.', 3, 'comeback', undefined],
+    ['monthly-best', 'Best Month Spark', 'Complete 100 routines this month.', 100, 'total', undefined],
+    ['monthly-every-week', 'Every Week Spark', 'Stay active on 16 days this month.', 16, 'activeDays', undefined],
   ] as const;
-  monthly.forEach(([id, title, description, value]) => defs.push(makeAchievement({
+  monthly.forEach(([id, title, description, value, questMetric, requirementCategory]) => defs.push(makeAchievement({
     achievementId: id,
     title,
     description,
@@ -402,6 +456,8 @@ function baseDefinitions(): AchievementDefinition[] {
     rarity: 'epic',
     displayOrder: order++,
     rewardPoints: 35,
+    questMetric,
+    requirementCategory,
   })));
 
   return defs;

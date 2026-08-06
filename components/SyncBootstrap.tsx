@@ -44,7 +44,21 @@ export function SyncBootstrap() {
           children: state.users,
           tasksByUser: state.tasksByUser,
           levelsByUser: state.levelsByUser,
+          awardNew: true,
         });
+      })
+      .then(result => {
+        if (Object.keys(result.awardedLevelsByUser).length > 0) {
+          useFamilyStore.setState(current => ({
+            levelsByUser: {
+              ...current.levelsByUser,
+              ...result.awardedLevelsByUser,
+            },
+          }));
+        }
+        if (result.newlyUnlocked.length > 0) {
+          useFamilyStore.getState().enqueueInsigniaUnlocks(result.newlyUnlocked);
+        }
       })
       .catch(error => console.warn('[shields] bootstrap sync failed', error));
   }, [familyId, hydrated, memberSignature]);

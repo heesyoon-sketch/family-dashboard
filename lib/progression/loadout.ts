@@ -33,6 +33,7 @@ export const MAX_LOADOUT_SLOTS = 3;
 
 const ARCHETYPE_BY_CATEGORY: Record<AchievementCategory, LoadoutArchetype> = {
   'First Steps':                'consistency',
+  'Momentum Trail':             'consistency',
   'Perfect Days':               'challenge',
   'Weekly Quests':              'consistency',
   'Monthly Quests':             'challenge',

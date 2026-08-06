@@ -3,11 +3,10 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Award, Check, Flame, Medal, Pin, Search, Sparkles, Trophy } from 'lucide-react';
+import { ArrowRight, Check, Crown, Footprints, Medal, Pin, Search, Target, Trophy } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import {
-  ACHIEVEMENTS,
   VISUAL_STYLE_DEFINITIONS,
   type AchievementCategory,
   type AchievementRarity,
@@ -21,6 +20,10 @@ import {
 import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
 import type { AchievementProgress } from '@/lib/achievements/engine';
 import {
+  achievementRemaining,
+  selectNextAchievementGoals,
+} from '@/lib/achievements/recommendations';
+import {
   archetypeColor,
   archetypeFor,
   archetypeLabel,
@@ -32,6 +35,7 @@ import {
 const rarityOrder: AchievementRarity[] = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 const categoryFilters: Array<AchievementCategory | 'All'> = [
   'All',
+  'Momentum Trail',
   'Weekly Quests',
   'Monthly Quests',
   'Year Journey',
@@ -60,10 +64,6 @@ const rarityLabel: Record<AchievementRarity, string> = {
   legendary: 'Legendary',
   mythic: 'Mythic',
 };
-
-function pct(done: number, total: number): number {
-  return total > 0 ? Math.round((done / total) * 100) : 0;
-}
 
 function sortBadges(a: AchievementProgress, b: AchievementProgress) {
   if (a.isUnlocked !== b.isUnlocked) return a.isUnlocked ? -1 : 1;
@@ -151,7 +151,7 @@ function BadgeCard({
       </div>
       <div className="mt-2 flex items-center justify-between text-[11px] font-black text-white/65">
         <span>{badge.progressCurrent}/{badge.progressTarget}</span>
-        <span>{badge.isUnlocked ? 'Unlocked' : `${badge.progressPercent}%`}</span>
+        <span>{badge.isUnlocked ? 'Unlocked' : `${achievementRemaining(badge)} left`}</span>
       </div>
       {badge.isUnlocked && (
         <span className="absolute bottom-2 right-2 grid h-6 w-6 place-items-center rounded-full bg-emerald-400 text-slate-950">
@@ -336,13 +336,14 @@ export function InsigniaWall() {
     .filter(badge => !query.trim() || `${badge.title} ${badge.description}`.toLowerCase().includes(query.toLowerCase()))
     .sort(sortBadges);
   const unlocked = allBadges.filter(badge => badge.isUnlocked);
-  const almostThere = allBadges.filter(badge => !badge.isUnlocked && badge.progressPercent >= 70).sort((a, b) => b.progressPercent - a.progressPercent).slice(0, 6);
   const recent = unlocked.slice().sort((a, b) => (b.unlockedAt ?? '').localeCompare(a.unlockedAt ?? '')).slice(0, 6);
+  const nextGoals = selectNextAchievementGoals(allBadges);
+  const nextTrail = nextGoals.find(badge => badge.category === 'Momentum Trail')
+    ?? allBadges.find(badge => badge.category === 'Momentum Trail' && !badge.isUnlocked);
   const pinned = childState?.pinnedAchievementIds ?? [];
   const topBadges = pinned.length > 0
     ? pinned.map(id => allBadges.find(badge => badge.achievementId === id)).filter((badge): badge is AchievementProgress => Boolean(badge))
     : unlocked.slice().sort((a, b) => rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity)).slice(0, 5);
-  const activeDays = allBadges.find(badge => badge.achievementId === 'year-active-days-365')?.progressCurrent ?? 0;
   const memberLevel = selectedChild ? (levelsByUser[selectedChild.id]?.currentLevel ?? 1) : 1;
   const slotCapacity = insigniaSlotsForLevel(memberLevel);
   const equippedIds = childState?.equippedInsigniaIds ?? [];
@@ -388,14 +389,14 @@ export function InsigniaWall() {
               <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#FFD166]">
                 <Medal size={14} /> Shield Wall
               </div>
-              <h1 className="mt-1 truncate text-2xl font-black">Year-long growth and rare shields</h1>
+              <h1 className="mt-1 truncate text-2xl font-black">Small wins. A next goal you can reach.</h1>
               <p className="mt-1 max-w-3xl text-sm font-semibold leading-relaxed text-white/58">
-                Built for resilience: showing up day after day, helping each other, and collecting premium shield rewards without chasing perfect days.
+                Every routine counts. Your next milestone is already in reach.
               </p>
             </div>
             <div className="hidden rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right sm:block">
-              <div className="text-[10px] font-black uppercase text-white/40">Progress</div>
-              <div className="text-sm font-black">{unlocked.length}/{ACHIEVEMENTS.length}</div>
+              <div className="text-[10px] font-black uppercase text-white/40">Collected</div>
+              <div className="text-sm font-black">{unlocked.length} shields</div>
             </div>
           </div>
         </div>
@@ -496,10 +497,22 @@ export function InsigniaWall() {
 
           <section className="rounded-lg border border-white/10 bg-[#111224] p-3">
             <div className="grid grid-cols-2 gap-2">
-              <Metric icon={<Trophy size={16} />} label="Unlocked" value={`${unlocked.length}/${ACHIEVEMENTS.length}`} />
-              <Metric icon={<Sparkles size={16} />} label="Complete" value={`${pct(unlocked.length, ACHIEVEMENTS.length)}%`} />
-              <Metric icon={<Flame size={16} />} label="Perfect Days" value={`${allBadges.filter(b => b.category === 'Perfect Days' && b.isUnlocked).length}`} />
-              <Metric icon={<Award size={16} />} label="Year Days" value={`${activeDays}/365`} />
+              <Metric icon={<Trophy size={16} />} label="Collected" value={`${unlocked.length}`} />
+              <Metric
+                icon={<Target size={16} />}
+                label="Next reward"
+                value={nextTrail ? `${achievementRemaining(nextTrail)} left` : 'Done'}
+              />
+              <Metric
+                icon={<Footprints size={16} />}
+                label="Trail step"
+                value={nextTrail ? `${nextTrail.progressCurrent}/${nextTrail.progressTarget}` : 'Complete'}
+              />
+              <Metric
+                icon={<Crown size={16} />}
+                label="Legendary+"
+                value={`${unlocked.filter(badge => badge.rarity === 'legendary' || badge.rarity === 'mythic').length}`}
+              />
             </div>
           </section>
 
@@ -533,10 +546,8 @@ export function InsigniaWall() {
         </aside>
 
         <section className="min-w-0 space-y-4">
-          <div className="grid gap-3 xl:grid-cols-2">
-            <Panel title="Recently Unlocked" items={recent} onOpen={setDetail} />
-            <Panel title="Almost There" items={almostThere} onOpen={setDetail} />
-          </div>
+          <NextWinsPanel items={nextGoals} onOpen={setDetail} />
+          <Panel title="Recently Unlocked" items={recent} onOpen={setDetail} />
 
           <div className="rounded-lg border border-white/10 bg-[#111224] p-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -617,6 +628,67 @@ function BonusMeter({ label, value }: { label: string; value: number }) {
       <div className="text-[9px] font-black uppercase tracking-wider text-white/45">{label}</div>
       <div className={`mt-0.5 text-sm font-black tabular-nums ${dim ? 'text-white/35' : 'text-emerald-300'}`}>+{Math.round(value * 10) / 10}%</div>
     </div>
+  );
+}
+
+function NextWinsPanel({
+  items,
+  onOpen,
+}: {
+  items: AchievementProgress[];
+  onOpen: (badge: AchievementProgress) => void;
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-1.5 text-[11px] font-black uppercase text-[#4EEDB0]">
+            <Target size={14} /> Next wins
+          </div>
+          <h2 className="mt-0.5 text-lg font-black">Choose your next win</h2>
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {items.map((item, index) => {
+          const accent = rarityAccent[item.rarity];
+          return (
+            <button
+              key={item.achievementId}
+              type="button"
+              onClick={() => onOpen(item)}
+              className="group min-h-[126px] rounded-lg border bg-[#14172A] p-3 text-left transition hover:-translate-y-0.5 hover:bg-[#181B31]"
+              style={{
+                borderColor: index === 0 ? '#4EEDB080' : accent.ring,
+                boxShadow: index === 0 ? '0 10px 28px rgba(78,237,176,0.10)' : undefined,
+              }}
+            >
+              <div className="flex items-start gap-2.5">
+                <InsigniaBadge
+                  rarity={item.rarity}
+                  icon={item.icon}
+                  seed={item.achievementId}
+                  locked
+                  size={42}
+                  ariaLabel={item.title}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black">{item.title}</span>
+                  <span className="mt-0.5 block truncate text-[10px] font-bold text-white/45">{item.category}</span>
+                </span>
+                <ArrowRight size={15} className="shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/60" />
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/7">
+                <div className="h-full rounded-full" style={{ width: `${item.progressPercent}%`, background: accent.track }} />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[11px] font-black">
+                <span className="text-white/70">{achievementRemaining(item)} left</span>
+                <span className="text-amber-300">+{item.rewardPoints ?? 0}pt</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

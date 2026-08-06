@@ -1438,13 +1438,25 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         const users = get().users;
         if (familyId && users.length > 0) {
           const { syncAchievementsOnce } = await import('./achievements/storage');
-          await syncAchievementsOnce({
+          const achievementResult = await syncAchievementsOnce({
             familyId,
             children: users,
             tasksByUser: get().tasksByUser,
             levelsByUser: get().levelsByUser,
+            awardNew: true,
             force: true,
           });
+          if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
+            set(state => ({
+              levelsByUser: {
+                ...state.levelsByUser,
+                ...achievementResult.awardedLevelsByUser,
+              },
+            }));
+          }
+          if (achievementResult.newlyUnlocked.length > 0) {
+            get().enqueueInsigniaUnlocks(achievementResult.newlyUnlocked);
+          }
         }
       }
       broadcastSync();

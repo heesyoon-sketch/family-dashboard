@@ -55,6 +55,14 @@ export interface AchievementMetrics {
   currentWeekTotal: number;
   currentMonthActiveDays: number;
   currentMonthTotal: number;
+  currentWeekCategoryCompletions: Record<HabitCategory, number>;
+  currentMonthCategoryCompletions: Record<HabitCategory, number>;
+  currentWeekComboDaysByKey: Record<string, number>;
+  currentMonthComboDaysByKey: Record<string, number>;
+  currentWeekTeamSameDays: number;
+  currentMonthTeamSameDays: number;
+  currentWeekComebacks: number;
+  currentMonthComebacks: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -143,6 +151,23 @@ function countComebacks(completions: AchievementCompletion[]): number {
   for (const dates of byTask.values()) {
     const sorted = dates.map(startOfDay).sort((a, b) => a.getTime() - b.getTime());
     for (let i = 1; i < sorted.length; i++) {
+      const gap = Math.round((sorted[i].getTime() - sorted[i - 1].getTime()) / DAY_MS) - 1;
+      if (gap >= 3) count++;
+    }
+  }
+  return count;
+}
+
+function countComebacksSince(completions: AchievementCompletion[], since: Date): number {
+  const byTask = new Map<string, Date[]>();
+  for (const completion of completions) {
+    byTask.set(completion.taskId, [...(byTask.get(completion.taskId) ?? []), completion.completedAt]);
+  }
+  let count = 0;
+  for (const dates of byTask.values()) {
+    const sorted = dates.map(startOfDay).sort((a, b) => a.getTime() - b.getTime());
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].getTime() < since.getTime()) continue;
       const gap = Math.round((sorted[i].getTime() - sorted[i - 1].getTime()) / DAY_MS) - 1;
       if (gap >= 3) count++;
     }
@@ -270,8 +295,29 @@ export function calculateAchievementMetrics(
   const categoryData = buildCategoryData(sortedCompletions, tasks);
   const currentWeek = isoDay(weekStart(now));
   const currentMonth = monthKey(now);
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const currentWeekDays = Array.from(dayMap.keys()).filter(day => isoDay(weekStart(new Date(`${day}T12:00:00`))) === currentWeek).length;
   const currentMonthDays = Array.from(dayMap.keys()).filter(day => monthKey(new Date(`${day}T12:00:00`)) === currentMonth).length;
+  const currentWeekCompletions = sortedCompletions.filter(
+    completion => isoDay(weekStart(completion.completedAt)) === currentWeek,
+  );
+  const currentMonthCompletions = sortedCompletions.filter(
+    completion => monthKey(completion.completedAt) === currentMonth,
+  );
+  const currentWeekCategoryData = buildCategoryData(currentWeekCompletions, tasks);
+  const currentMonthCategoryData = buildCategoryData(currentMonthCompletions, tasks);
+  const currentWeekAllByChild = Object.fromEntries(
+    Object.entries(allCompletionsByChild).map(([id, items]) => [
+      id,
+      items.filter(completion => isoDay(weekStart(completion.completedAt)) === currentWeek),
+    ]),
+  );
+  const currentMonthAllByChild = Object.fromEntries(
+    Object.entries(allCompletionsByChild).map(([id, items]) => [
+      id,
+      items.filter(completion => monthKey(completion.completedAt) === currentMonth),
+    ]),
+  );
   const dailyBest = Math.max(0, ...Array.from(dayMap.values()).map(items => items.length));
   const weeklyBest = Math.max(0, ...Array.from(weekTotals.values()));
 
@@ -296,6 +342,14 @@ export function calculateAchievementMetrics(
     currentWeekTotal: weekTotals.get(currentWeek) ?? 0,
     currentMonthActiveDays: currentMonthDays,
     currentMonthTotal: monthTotals.get(currentMonth) ?? 0,
+    currentWeekCategoryCompletions: currentWeekCategoryData.categoryCompletions,
+    currentMonthCategoryCompletions: currentMonthCategoryData.categoryCompletions,
+    currentWeekComboDaysByKey: currentWeekCategoryData.comboDaysByKey,
+    currentMonthComboDaysByKey: currentMonthCategoryData.comboDaysByKey,
+    currentWeekTeamSameDays: countTeamSameDays(childId, currentWeekAllByChild),
+    currentMonthTeamSameDays: countTeamSameDays(childId, currentMonthAllByChild),
+    currentWeekComebacks: countComebacksSince(sortedCompletions, new Date(`${currentWeek}T00:00:00`)),
+    currentMonthComebacks: countComebacksSince(sortedCompletions, currentMonthStart),
   };
 }
 
@@ -343,9 +397,27 @@ function progressFor(definition: AchievementDefinition, metrics: AchievementMetr
     case 'teamSameDay':
       return metrics.teamSameDays;
     case 'weeklyQuest':
-      return Math.max(metrics.currentWeekActiveDays, metrics.currentWeekTotal, metrics.weeklyImprovement, metrics.comebackCount);
+      switch (definition.questMetric) {
+        case 'activeDays': return metrics.currentWeekActiveDays;
+        case 'category': return metrics.currentWeekCategoryCompletions[definition.requirementCategory ?? 'responsibility'] ?? 0;
+        case 'improvement': return metrics.weeklyImprovement;
+        case 'comeback': return metrics.currentWeekComebacks;
+        case 'combo': return metrics.currentWeekComboDaysByKey[comboKey(definition)] ?? 0;
+        case 'team': return metrics.currentWeekTeamSameDays;
+        case 'total':
+        default: return metrics.currentWeekTotal;
+      }
     case 'monthlyQuest':
-      return Math.max(metrics.currentMonthActiveDays, metrics.currentMonthTotal, metrics.monthlyImprovement, metrics.comebackCount);
+      switch (definition.questMetric) {
+        case 'activeDays': return metrics.currentMonthActiveDays;
+        case 'category': return metrics.currentMonthCategoryCompletions[definition.requirementCategory ?? 'responsibility'] ?? 0;
+        case 'improvement': return metrics.monthlyImprovement;
+        case 'comeback': return metrics.currentMonthComebacks;
+        case 'combo': return metrics.currentMonthComboDaysByKey[comboKey(definition)] ?? 0;
+        case 'team': return metrics.currentMonthTeamSameDays;
+        case 'total':
+        default: return metrics.currentMonthTotal;
+      }
     default:
       return 0;
   }
@@ -382,9 +454,36 @@ export function evaluateAchievementsForChild(params: {
     filteredAllByChild,
     params.now,
   );
+  const metricsByAvailableFrom = new Map<string, AchievementMetrics>();
+  const metricsForDefinition = (definition: AchievementDefinition): AchievementMetrics => {
+    if (!definition.availableFrom) return metrics;
+    const availableFromTime = new Date(definition.availableFrom).getTime();
+    if (!Number.isFinite(availableFromTime) || availableFromTime <= sinceTime) return metrics;
+    const cacheKey = String(availableFromTime);
+    const cached = metricsByAvailableFrom.get(cacheKey);
+    if (cached) return cached;
+    const releasedCompletions = filteredCompletions.filter(
+      completion => completion.completedAt.getTime() >= availableFromTime,
+    );
+    const releasedAllByChild = Object.fromEntries(
+      Object.entries(filteredAllByChild).map(([id, completions]) => [
+        id,
+        completions.filter(completion => completion.completedAt.getTime() >= availableFromTime),
+      ]),
+    );
+    const releasedMetrics = calculateAchievementMetrics(
+      params.child.id,
+      params.tasks,
+      releasedCompletions,
+      releasedAllByChild,
+      params.now,
+    );
+    metricsByAvailableFrom.set(cacheKey, releasedMetrics);
+    return releasedMetrics;
+  };
   const unlocked = params.unlockedAtByAchievementId ?? {};
   const achievements = ACHIEVEMENTS.map(definition => {
-    const progressCurrent = progressFor(definition, metrics);
+    const progressCurrent = progressFor(definition, metricsForDefinition(definition));
     // Progress bar is the unlock truth — never gate behind a hidden floor.
     // Per-badge requirementValue is what makes a tier feel earned.
     const isUnlocked = Boolean(unlocked[definition.achievementId]) || progressCurrent >= definition.progressTarget;

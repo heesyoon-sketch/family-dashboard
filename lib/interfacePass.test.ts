@@ -30,6 +30,15 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   assert.doesNotMatch(panel, /Morning routines|Evening routines/);
 });
 
+test('member panels show the next reachable shield instead of a static loadout', () => {
+  const panel = read('components/MemberPanel.tsx');
+  const nextGoal = read('components/NextAchievementChip.tsx');
+  assert.match(panel, /NextAchievementChip/);
+  assert.doesNotMatch(panel, /EquippedInsigniaStrip/);
+  assert.match(nextGoal, /selectNextAchievementGoals/);
+  assert.match(nextGoal, /achievementRemaining/);
+});
+
 test('past completed reference routines use visual completion styling', () => {
   const card = read('components/RoutineReferenceCard.tsx');
   assert.match(card, /line-through decoration-2/);

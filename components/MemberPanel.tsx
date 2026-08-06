@@ -7,7 +7,7 @@ import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
-import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
+import { NextAchievementChip } from './NextAchievementChip';
 import { useFamilyStore } from '@/lib/store';
 import { computeLevelProgress, emptyMomentum, formatXp } from '@/lib/progression';
 import { StoreModal } from './StoreModal';
@@ -297,7 +297,7 @@ export function MemberPanel({ user }: { user: User }) {
             </div>
 
             <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
-              <EquippedInsigniaStrip userId={user.id} />
+              <NextAchievementChip userId={user.id} />
               <span className="mx-1 h-6 w-px bg-[var(--border)]" aria-hidden />
               <button
                 type="button"

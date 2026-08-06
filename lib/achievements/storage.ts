@@ -1165,20 +1165,21 @@ export function syncAchievementsOnce(params: {
   children: User[];
   tasksByUser: Record<string, Task[]>;
   levelsByUser?: Record<string, Level>;
+  awardNew?: boolean;
   persist?: boolean;
   force?: boolean;
 }): Promise<FullAchievementSyncResult> {
   const memberKey = params.children.map(child => child.id).sort().join(',');
-  const key = `${params.familyId}:${memberKey}:${params.persist === false ? 'local' : 'remote'}`;
+  const key = `${params.familyId}:${memberKey}:${params.persist === false ? 'local' : 'remote'}:${params.awardNew ? 'award' : 'observe'}`;
   const current = _backgroundAchievementSyncs.get(key);
   if (current) return current;
   const cached = _backgroundAchievementResults.get(key);
   if (!params.force && cached && Date.now() - cached.completedAt < BACKGROUND_SYNC_FRESH_MS) {
-    return Promise.resolve(cached.result);
+    return Promise.resolve({ ...cached.result, newlyUnlocked: [], awardedLevelsByUser: {} });
   }
   const { force: _force, ...syncParams } = params;
   void _force;
-  const sync = syncAchievements({ ...syncParams, awardNew: false })
+  const sync = syncAchievements({ ...syncParams, awardNew: params.awardNew ?? false })
     .then(result => {
       _backgroundAchievementResults.set(key, { result, completedAt: Date.now() });
       return result;

@@ -83,6 +83,22 @@ export const SHIELD_ART_REGISTRY: Record<string, IconComponent> = {
   'getting-started': IconGettingStarted,
   'i-tried-today': IconITried,
 
+  // Momentum Trail — close-together milestones introduced as a fresh,
+  // non-streak journey. Existing art keeps every step visually premium.
+  'momentum-spark-5': IconFirstSpark,
+  'momentum-start-15': IconGettingStarted,
+  'momentum-maker-30': IconDayBuilder,
+  'momentum-hero-50': IconBrightSweep,
+  'momentum-power-75': IconEnergyChampion,
+  'momentum-century-100': Icon100DayBuilder,
+  'momentum-drive-150': IconYearChampion,
+  'momentum-goal-225': Icon150DayBuilder,
+  'momentum-mythic-325': IconPerfectSeasonSpark,
+  'momentum-trailblazer-450': Icon250DayBuilder,
+  'momentum-champion-600': Icon300DayBuilder,
+  'momentum-pilot-800': Icon365Legend,
+  'momentum-crown-1000': IconPerfectYear,
+
   // Habit groups — three tiers each
   'learning-1-reading-rookie': IconReadingWeek,
   'learning-2-book-explorer': IconBookExplorer,
