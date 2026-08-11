@@ -19,6 +19,7 @@ export function PerfectDayTicket({
   state = 'available',
   redeemedFor,
   cutoutColor = '#12131D',
+  quantity = 1,
   className = '',
 }: {
   coupon: PerfectDayCoupon;
@@ -26,6 +27,7 @@ export function PerfectDayTicket({
   state?: 'awarded' | 'available' | 'redeemed';
   redeemedFor?: PerfectDayCouponKind;
   cutoutColor?: string;
+  quantity?: 1 | 2;
   className?: string;
 }) {
   const isRedeemed = state === 'redeemed';
@@ -53,6 +55,11 @@ export function PerfectDayTicket({
     >
       <span className="absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[var(--ticket-cutout)]" aria-hidden />
       <span className="absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[var(--ticket-cutout)]" aria-hidden />
+      {quantity === 2 && !isRedeemed && (
+        <span className="absolute right-3 top-3 grid h-8 min-w-10 place-items-center rounded-full bg-[#FF7BAC] px-2 text-sm font-black shadow-[2px_2px_0_#17151E]">
+          x2
+        </span>
+      )}
       <div className="flex items-start justify-between gap-4 border-b-2 border-dashed border-current/25 pb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[10px] font-black uppercase">
@@ -62,7 +69,7 @@ export function PerfectDayTicket({
           <div className="mt-2 text-3xl font-black leading-none">30 MIN</div>
           <div className="mt-1 truncate text-sm font-black">{subtitle}</div>
         </div>
-        <KindIcon size={43} strokeWidth={1.7} className="shrink-0" aria-hidden />
+        <KindIcon size={43} strokeWidth={1.7} className={`shrink-0 ${quantity === 2 ? 'mt-8' : ''}`} aria-hidden />
       </div>
       <div className="flex items-center justify-between pt-3 text-[10px] font-black uppercase">
         <span>{formatPerfectDay(coupon.earnedForDay, lang)}</span>

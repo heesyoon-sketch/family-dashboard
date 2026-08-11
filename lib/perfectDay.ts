@@ -1,4 +1,4 @@
-import type { PerfectDayCoupon, Task } from './db';
+import type { PerfectDayCoupon, PerfectQuestProgress, Task } from './db';
 import {
   getCompletionWindowEnd,
   getCompletionWindowStart,
@@ -18,7 +18,12 @@ export interface WindowCompletions {
 
 export interface PerfectDayClaimResult {
   awarded: boolean;
-  coupon: PerfectDayCoupon | null;
+  coupons: PerfectDayCoupon[];
+  quest: (PerfectQuestProgress & { couponsAwarded: 1 | 2 }) | null;
+}
+
+export function perfectQuestRewardCount(day: number): 1 | 2 {
+  return day === 3 ? 2 : 1;
 }
 
 export function localDateKey(date: Date): string {
@@ -87,5 +92,41 @@ export function mapPerfectDayCoupon(raw: Record<string, unknown>): PerfectDayCou
     redeemedFor: redeemedFor === 'game' || redeemedFor === 'media' ? redeemedFor : undefined,
     awardedAt: new Date((raw.awardedAt ?? raw.awarded_at) as string),
     redeemedAt: redeemedAt ? new Date(redeemedAt as string) : undefined,
+    questDay: parseQuestDay(raw.questDay ?? raw.quest_day),
+    chainLength: positiveInteger(raw.chainLength ?? raw.chain_length),
+    rewardSlot: parseRewardSlot(raw.rewardSlot ?? raw.reward_slot),
   };
+}
+
+export function mapPerfectQuestProgress(raw: Record<string, unknown>): PerfectQuestProgress {
+  const currentDay = Number(raw.currentDay ?? raw.current_day);
+  return {
+    userId: String(raw.userId ?? raw.user_id),
+    currentDay: currentDay === 1 || currentDay === 2 || currentDay === 3 ? currentDay : 0,
+    currentStreak: nonNegativeInteger(raw.currentStreak ?? raw.current_streak),
+    bestStreak: nonNegativeInteger(raw.bestStreak ?? raw.best_streak),
+    completedQuests: nonNegativeInteger(raw.completedQuests ?? raw.completed_quests),
+    lastPerfectDay: String(raw.lastPerfectDay ?? raw.last_perfect_day ?? '') || undefined,
+    nextRewardCount: Number(raw.nextRewardCount ?? raw.next_reward_count) === 2 ? 2 : 1,
+  };
+}
+
+function parseQuestDay(value: unknown): 1 | 2 | 3 | undefined {
+  const day = Number(value);
+  return day === 1 || day === 2 || day === 3 ? day : undefined;
+}
+
+function parseRewardSlot(value: unknown): 1 | 2 | undefined {
+  const slot = Number(value);
+  return slot === 1 || slot === 2 ? slot : undefined;
+}
+
+function positiveInteger(value: unknown): number | undefined {
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function nonNegativeInteger(value: unknown): number {
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }

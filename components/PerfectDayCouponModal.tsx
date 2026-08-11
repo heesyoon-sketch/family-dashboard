@@ -6,23 +6,27 @@ import {
   CheckCircle2,
   Clock3,
   Film,
+  Flame,
   Gamepad2,
   TicketCheck,
+  Trophy,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { PerfectDayCoupon, PerfectDayCouponKind, User } from '@/lib/db';
+import type { PerfectDayCoupon, PerfectDayCouponKind, PerfectQuestProgress, User } from '@/lib/db';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatPerfectDay, PerfectDayTicket } from './PerfectDayTicket';
 
 export function PerfectDayCouponModal({
   user,
   coupons,
+  progress,
   onClose,
   onRedeem,
 }: {
   user: User;
   coupons: PerfectDayCoupon[];
+  progress: PerfectQuestProgress;
   onClose: () => void;
   onRedeem: (couponId: string, kind: PerfectDayCouponKind) => Promise<void>;
 }) {
@@ -108,6 +112,43 @@ export function PerfectDayCouponModal({
         </header>
 
         <div className="overflow-y-auto px-4 pb-5 pt-4">
+          <section className="mb-4 rounded-lg border border-[#FFE56B]/25 bg-[#FFE56B]/[0.06] px-3 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <Flame size={17} className="shrink-0 text-[#FFE56B]" />
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase text-[#FFE56B]">
+                    {lang === 'en' ? 'Perfect Quest' : '퍼펙트 퀘스트'}
+                  </div>
+                  <div className="truncate text-[11px] font-bold text-white/52">
+                    {lang === 'en'
+                      ? `${progress.currentStreak}-day streak · best ${progress.bestStreak}`
+                      : `${progress.currentStreak}일 연속 · 최고 ${progress.bestStreak}일`}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-black text-[#FF7BAC]">
+                <Trophy size={13} />
+                {lang === 'en' ? `${progress.completedQuests} finished` : `${progress.completedQuests}회 완주`}
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1.5">
+              {[1, 2, 3].map(day => (
+                <div
+                  key={day}
+                  className={`relative flex h-8 items-center justify-center rounded-md border text-[10px] font-black ${
+                    day <= progress.currentDay
+                      ? 'border-[#FFE56B] bg-[#FFE56B] text-[#17151E]'
+                      : 'border-white/10 bg-white/[0.035] text-white/40'
+                  }`}
+                >
+                  {day <= progress.currentDay ? <Check size={14} strokeWidth={3} /> : `DAY ${day}`}
+                  {day === 3 && <span className="absolute -right-1 -top-1 rounded-full bg-[#FF7BAC] px-1 text-[7px] text-[#17151E]">x2</span>}
+                </div>
+              ))}
+            </div>
+          </section>
+
           {justRedeemed ? (
             <div className="py-1 text-center" aria-live="polite">
               <CheckCircle2 size={30} className="mx-auto text-[#4EEDB0]" />
@@ -196,8 +237,8 @@ export function PerfectDayCouponModal({
               </div>
               <div className="mx-auto mt-1 max-w-xs text-sm leading-6 text-white/48">
                 {lang === 'en'
-                  ? 'Finish every morning and evening routine in one day to earn one.'
-                  : '하루의 오전과 저녁 루틴을 모두 끝내면 한 장을 받을 수 있어요.'}
+                  ? 'Complete every morning and evening routine. Quest days 1 and 2 earn one pass; day 3 earns two.'
+                  : '오전과 저녁 루틴을 모두 완료하세요. 1·2일차에는 1장, 3일차에는 2장을 받아요.'}
               </div>
             </div>
           )}

@@ -6,6 +6,9 @@ import type { Task } from './db';
 import {
   isPerfectRoutineDay,
   localDateKey,
+  mapPerfectDayCoupon,
+  mapPerfectQuestProgress,
+  perfectQuestRewardCount,
   splitCompletionsByWindow,
 } from './perfectDay';
 
@@ -93,7 +96,7 @@ test('local coupon day keys do not shift through UTC formatting', () => {
   assert.equal(localDateKey(new Date(2026, 0, 3, 23, 30)), '2026-01-03');
 });
 
-test('perfect-day migration is family-scoped, idempotent, and redemption-safe', () => {
+test('perfect-day coupon migration remains family-scoped and redemption-safe', () => {
   const migration = readFileSync(
     join(process.cwd(), 'supabase/migrations/099_perfect_day_coupons.sql'),
     'utf8',
@@ -105,6 +108,31 @@ test('perfect-day migration is family-scoped, idempotent, and redemption-safe', 
   assert.match(migration, /status = 'revoked'/);
   assert.match(migration, /revoke all on function public\.redeem_perfect_day_coupon/);
   assert.match(migration, /grant execute on function public\.redeem_perfect_day_coupon[^;]+to authenticated/);
+});
+
+test('perfect quests award one pass on days one and two, then two on day three', () => {
+  assert.equal(perfectQuestRewardCount(1), 1);
+  assert.equal(perfectQuestRewardCount(2), 1);
+  assert.equal(perfectQuestRewardCount(3), 2);
+});
+
+test('perfect quest metadata maps safely from RPC and database rows', () => {
+  const coupon = mapPerfectDayCoupon({
+    id: 'coupon', familyId: 'family', userId: 'user', earnedForDay: '2026-08-11',
+    status: 'available', awardedAt: '2026-08-11T23:00:00Z',
+    questDay: 3, chainLength: 6, rewardSlot: 2,
+  });
+  assert.equal(coupon.questDay, 3);
+  assert.equal(coupon.chainLength, 6);
+  assert.equal(coupon.rewardSlot, 2);
+
+  assert.deepEqual(mapPerfectQuestProgress({
+    userId: 'user', currentDay: 2, currentStreak: 5, bestStreak: 8,
+    completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 2,
+  }), {
+    userId: 'user', currentDay: 2, currentStreak: 5, bestStreak: 8,
+    completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 2,
+  });
 });
 
 test('reference routine cards expose no completion interaction', () => {

@@ -103,6 +103,19 @@ export interface PerfectDayCoupon {
   redeemedFor?: PerfectDayCouponKind;
   awardedAt: Date;
   redeemedAt?: Date;
+  questDay?: 1 | 2 | 3;
+  chainLength?: number;
+  rewardSlot?: 1 | 2;
+}
+
+export interface PerfectQuestProgress {
+  userId: string;
+  currentDay: 0 | 1 | 2 | 3;
+  currentStreak: number;
+  bestStreak: number;
+  completedQuests: number;
+  lastPerfectDay?: string;
+  nextRewardCount: 1 | 2;
 }
 
 export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'REWARD_REFUNDED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';

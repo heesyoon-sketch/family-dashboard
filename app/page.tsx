@@ -70,7 +70,7 @@ export default function Dashboard() {
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       activeTaskCount: 0,
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
-      todayCompletionsByWindow: {}, couponsByUser: {}, perfectDayQueue: [],
+      todayCompletionsByWindow: {}, couponsByUser: {}, perfectQuestByUser: {}, perfectDayQueue: [],
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     try {
@@ -125,7 +125,7 @@ export default function Dashboard() {
       hydrated: false, familyId: null, familyName: null, users: [], rewards: [],
       activeTaskCount: 0,
       tasksByUser: {}, activitiesByUser: {}, levelsByUser: {}, todayCompletions: {},
-      todayCompletionsByWindow: {}, couponsByUser: {}, perfectDayQueue: [],
+      todayCompletionsByWindow: {}, couponsByUser: {}, perfectQuestByUser: {}, perfectDayQueue: [],
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     router.replace('/login');

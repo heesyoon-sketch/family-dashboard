@@ -29,7 +29,10 @@ export function PerfectDayCelebrationOverlay({
       confetti({ particleCount: 55, angle: 120, spread: 55, colors, origin: { x: 1, y: 0.7 } });
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [award.coupon.id]);
+  }, [award.coupons]);
+
+  const rewardCount = award.quest.couponsAwarded;
+  const questComplete = award.quest.currentDay === 3;
 
   return (
     <motion.div
@@ -49,16 +52,20 @@ export function PerfectDayCelebrationOverlay({
       >
         <div className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-[#FFE56B]/40 bg-[#FFE56B]/10 px-3 py-1 text-xs font-black uppercase text-[#FFE56B]">
           <Sparkles size={14} />
-          {lang === 'en' ? 'Every routine complete' : '모든 루틴 완료'}
+          {lang === 'en'
+            ? `Perfect Quest · Day ${award.quest.currentDay}`
+            : `퍼펙트 퀘스트 · ${award.quest.currentDay}일차`}
         </div>
         <div className="mt-4 text-sm font-black text-[#58E6FF]">{user.name}</div>
         <h2 id="perfect-day-title" className="mt-1 text-4xl font-black text-white">
-          {lang === 'en' ? 'Perfect Day!' : '퍼펙트 데이!'}
+          {questComplete
+            ? (lang === 'en' ? '3-Day Quest Complete!' : '3일 퀘스트 완주!')
+            : (lang === 'en' ? 'Perfect Day!' : '퍼펙트 데이!')}
         </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/58">
           {lang === 'en'
-            ? 'You finished every morning and evening routine. This pass is yours.'
-            : '오전과 저녁 루틴을 전부 끝냈어요. 이 이용권은 당신의 거예요.'}
+            ? `Every routine is complete. You earned ${rewardCount} new 30-minute pass${rewardCount === 2 ? 'es' : ''}.`
+            : `모든 오전·저녁 루틴을 완료했어요. 30분 이용권 ${rewardCount}장을 받았어요.`}
         </p>
 
         <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-black text-white/72">
@@ -72,6 +79,22 @@ export function PerfectDayCelebrationOverlay({
           </span>
         </div>
 
+        <div className="mt-3 flex items-center justify-center gap-2" aria-label={`${award.quest.currentDay} of 3 quest days complete`}>
+          {[1, 2, 3].map(day => (
+            <span
+              key={day}
+              className={`grid h-7 w-7 place-items-center rounded-md border text-[10px] font-black ${
+                day <= award.quest.currentDay
+                  ? 'border-[#FFE56B] bg-[#FFE56B] text-[#17151E]'
+                  : 'border-white/16 bg-white/5 text-white/38'
+              }`}
+            >
+              {day <= award.quest.currentDay ? <CheckCircle2 size={14} /> : day}
+            </span>
+          ))}
+          <span className="ml-1 text-[10px] font-black text-[#FF7BAC]">DAY 3 = x2</span>
+        </div>
+
         <motion.div
           initial={{ rotate: -3, y: 18 }}
           animate={{ rotate: 0, y: 0 }}
@@ -79,9 +102,10 @@ export function PerfectDayCelebrationOverlay({
           className="mx-auto mt-5"
         >
           <PerfectDayTicket
-            coupon={award.coupon}
+            coupon={award.coupons[0]}
             lang={lang}
             state="awarded"
+            quantity={rewardCount}
             cutoutColor="#090A12"
             className="px-6 py-6 shadow-[8px_8px_0_#FF7BAC]"
           />

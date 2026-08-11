@@ -12,6 +12,7 @@ import { getCurrentTimeWindow, type TimeWindow } from '../timeWindows';
 import {
   localDateKey,
   mapPerfectDayCoupon,
+  mapPerfectQuestProgress,
   type PerfectDayClaimResult,
 } from '../perfectDay';
 
@@ -55,7 +56,7 @@ export interface UndoResult {
   longestStreak: number;
   taskStreakCount: number;
   taskLastCompletedAt: Date | null;
-  revokedCouponId: string | null;
+  revokedCouponIds: string[];
 }
 
 interface RpcLevel {
@@ -123,10 +124,18 @@ export async function claimPerfectDayCoupon(
   });
   if (error) throwRpcError(error);
 
-  const raw = data as { awarded?: boolean; coupon?: Record<string, unknown> | null } | null;
+  const raw = data as {
+    awarded?: boolean;
+    coupons?: Record<string, unknown>[];
+    quest?: (Record<string, unknown> & { couponsAwarded?: number }) | null;
+  } | null;
+  const quest = raw?.quest ? mapPerfectQuestProgress(raw.quest) : null;
   return {
     awarded: Boolean(raw?.awarded),
-    coupon: raw?.coupon ? mapPerfectDayCoupon(raw.coupon) : null,
+    coupons: (raw?.coupons ?? []).map(mapPerfectDayCoupon),
+    quest: quest
+      ? { ...quest, couponsAwarded: Number(raw?.quest?.couponsAwarded) === 2 ? 2 : 1 }
+      : null,
   };
 }
 
@@ -171,7 +180,7 @@ export async function processCompletion(
     taskLastCompletedAt: string | null;
   };
 
-  let perfectDay: PerfectDayClaimResult = { awarded: false, coupon: null };
+  let perfectDay: PerfectDayClaimResult = { awarded: false, coupons: [], quest: null };
   try {
     perfectDay = await claimPerfectDayCoupon(userId, dayStart, now);
   } catch (error) {
@@ -229,7 +238,7 @@ export async function processUndo(
     longestStreak: number;
     taskStreakCount: number;
     taskLastCompletedAt: string | null;
-    revokedCouponId?: string | null;
+    revokedCouponIds?: string[] | null;
   };
 
   return {
@@ -238,7 +247,7 @@ export async function processUndo(
     longestStreak: raw.longestStreak,
     taskStreakCount: raw.taskStreakCount,
     taskLastCompletedAt: raw.taskLastCompletedAt ? new Date(raw.taskLastCompletedAt) : null,
-    revokedCouponId: raw.revokedCouponId ?? null,
+    revokedCouponIds: Array.isArray(raw.revokedCouponIds) ? raw.revokedCouponIds : [],
   };
 }
 

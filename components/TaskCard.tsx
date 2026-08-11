@@ -13,8 +13,6 @@ import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { rewardEffectiveCost } from '@/lib/automaticSale';
-import { rewardGoalProgress } from '@/lib/rewardGoals';
 import { taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
 
 const SWIPE_TRIGGER_PX = 54;
@@ -105,27 +103,10 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         }
         if (feedback?.status === 'awarded') {
           const bonusPoints = Math.max(0, feedback.pointsAwarded - feedback.basePoints);
-          const state = useFamilyStore.getState();
-          const goalId = state.rewardGoalByUser[task.userId];
-          const goal = state.rewards.find(reward => reward.id === goalId);
-          const goalProgress = goal
-            ? rewardGoalProgress(
-                state.levelsByUser[task.userId]?.spendableBalance ?? 0,
-                rewardEffectiveCost(goal),
-              )
-            : null;
-          const detail = goal && goalProgress
-            ? goalProgress.reached
-              ? goal.is_sold_out
-                ? (lang === 'en'
-                    ? `You reached ${goal.title}. Waiting for restock!`
-                    : `${goal.title} 목표 달성! 재입고를 기다려요.`)
-                : (lang === 'en'
-                    ? `${goal.title} is ready in the store!`
-                    : `${goal.title} 목표 달성! 상점에서 사용할 수 있어요.`)
-              : (lang === 'en'
-                  ? `${goalProgress.remaining}pt left for ${goal.title}`
-                  : `${goal.title}까지 ${goalProgress.remaining}pt 남았어요`)
+          const detail = feedback.perfectQuestAwarded && feedback.perfectQuest
+            ? (lang === 'en'
+                ? `Perfect Quest day ${feedback.perfectQuest.currentDay} complete · ${feedback.perfectQuest.couponsAwarded} pass${feedback.perfectQuest.couponsAwarded === 2 ? 'es' : ''} earned!`
+                : `퍼펙트 퀘스트 ${feedback.perfectQuest.currentDay}일차 완료 · 이용권 ${feedback.perfectQuest.couponsAwarded}장 획득!`)
             : bonusPoints > 0
               ? (lang === 'en'
                   ? `${feedback.basePoints} base + ${bonusPoints} bonus`

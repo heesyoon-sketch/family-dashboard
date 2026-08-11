@@ -96,16 +96,18 @@ test('task pricing is selected by duration instead of arbitrary point inputs', (
   assert.match(migration, /normalize_task_base_points/);
 });
 
-test('store goals persist and drive child-facing point progress', () => {
+test('perfect quests replace passive store goals with visible three-day progress', () => {
   const storeModal = read('components/StoreModal.tsx');
   const memberPanel = read('components/MemberPanel.tsx');
+  const questStrip = read('components/PerfectQuestStrip.tsx');
   const taskCard = read('components/TaskCard.tsx');
 
-  assert.match(storeModal, /setRewardGoal/);
-  assert.match(storeModal, /Set as my goal/);
-  assert.match(storeModal, /rewardGoalProgress/);
-  assert.match(memberPanel, /rewardGoalStatus\.remaining/);
-  assert.match(memberPanel, /rewardGoalStatus\.percent/);
-  assert.match(taskCard, /goalProgress\.remaining/);
+  assert.doesNotMatch(storeModal, /setRewardGoal|Set as my goal|rewardGoalProgress/);
+  assert.match(memberPanel, /PerfectQuestStrip/);
+  assert.match(questStrip, /morningComplete/);
+  assert.match(questStrip, /eveningComplete/);
+  assert.match(questStrip, /x2/);
+  assert.match(questStrip, /completedQuests/);
+  assert.match(taskCard, /perfectQuest\.couponsAwarded/);
   assert.doesNotMatch(taskCard, /Momentum \$\{feedback\.bonus/);
 });

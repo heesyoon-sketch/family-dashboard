@@ -52,12 +52,13 @@ test('shield reads use an incremental completion cache and hydrated task data', 
   assert.match(storage, /Object\.prototype\.hasOwnProperty\.call\(fallback, id\)/);
 });
 
-test('member reward goals are family-scoped and least-privilege', () => {
-  const migration = read('supabase/migrations/103_member_reward_goals.sql');
-  assert.match(migration, /u\.family_id = v_family_id/);
-  assert.match(migration, /u\.auth_user_id = auth\.uid\(\) or public\.is_my_family_parent\(\)/);
-  assert.match(migration, /family_id = v_family_id/);
-  assert.match(migration, /not coalesce\(is_hidden, false\)/);
-  assert.match(migration, /revoke all on function public\.set_member_reward_goal\(text, text\) from public, anon/);
-  assert.match(migration, /grant execute on function public\.set_member_reward_goal\(text, text\) to authenticated/);
+test('perfect quests are family-scoped, idempotent, and revoke all daily passes', () => {
+  const migration = read('supabase/migrations/104_three_day_perfect_quests.sql');
+  assert.match(migration, /unique \(user_id, day_started_at, reward_slot\)/);
+  assert.match(migration, /case when v_quest_day = 3 then 2 else 1 end/);
+  assert.match(migration, /perfect_quest_chain_continues/);
+  assert.match(migration, /status = 'redeemed'/);
+  assert.match(migration, /where id = any\(v_revoked_coupon_ids\)/);
+  assert.match(migration, /drop function if exists public\.set_member_reward_goal/);
+  assert.match(migration, /grant execute on function public\.get_perfect_quest_progress\(date\) to authenticated/);
 });
