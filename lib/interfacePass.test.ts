@@ -99,15 +99,17 @@ test('task pricing is selected by duration instead of arbitrary point inputs', (
 test('perfect quests replace passive store goals with visible three-day progress', () => {
   const storeModal = read('components/StoreModal.tsx');
   const memberPanel = read('components/MemberPanel.tsx');
-  const questStrip = read('components/PerfectQuestStrip.tsx');
+  const questChip = read('components/PerfectQuestChip.tsx');
   const taskCard = read('components/TaskCard.tsx');
 
   assert.doesNotMatch(storeModal, /setRewardGoal|Set as my goal|rewardGoalProgress/);
-  assert.match(memberPanel, /PerfectQuestStrip/);
-  assert.match(questStrip, /morningComplete/);
-  assert.match(questStrip, /eveningComplete/);
-  assert.match(questStrip, /x2/);
-  assert.match(questStrip, /completedQuests/);
+  assert.match(memberPanel, /PerfectQuestChip/);
+  assert.equal((memberPanel.match(/<PerfectQuestChip/g) ?? []).length, 1);
+  assert.doesNotMatch(memberPanel, /PerfectQuestStrip/);
+  assert.match(questChip, /h-8 shrink-0/);
+  assert.match(questChip, /morningComplete/);
+  assert.match(questChip, /eveningComplete/);
+  assert.match(questChip, /availableCouponCount/);
   assert.match(taskCard, /perfectQuest\.couponsAwarded/);
   assert.doesNotMatch(taskCard, /Momentum \$\{feedback\.bonus/);
 });

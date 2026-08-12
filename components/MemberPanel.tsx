@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise, TicketCheck } from 'lucide-react';
+import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
@@ -15,7 +15,7 @@ import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
 import { PerfectDayCouponModal } from './PerfectDayCouponModal';
 import { RoutineReferenceCard } from './RoutineReferenceCard';
-import { PerfectQuestStrip } from './PerfectQuestStrip';
+import { PerfectQuestChip } from './PerfectQuestChip';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getTimeWindowDisplay,
@@ -309,18 +309,20 @@ export function MemberPanel({ user }: { user: User }) {
             <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
               <NextAchievementChip userId={user.id} />
               <span className="mx-1 h-6 w-px bg-[var(--border)]" aria-hidden />
-              <button
-                type="button"
-                onClick={() => setCouponOpen(true)}
-                className="relative flex h-8 min-w-8 items-center justify-center gap-1 rounded-lg border border-[#D8B72D] bg-[#FFE56B] px-2 text-[#17151E] shadow-[2px_2px_0_#FF7BAC] transition hover:-translate-y-px hover:bg-[#FFF09C] max-[420px]:px-1.5 max-[380px]:h-7"
-                title={lang === 'en' ? 'Perfect Day passes' : '퍼펙트 데이 이용권'}
-                aria-label={lang === 'en'
-                  ? `${availableCouponCount} Perfect Day passes`
-                  : `퍼펙트 데이 이용권 ${availableCouponCount}장`}
-              >
-                <TicketCheck size={15} strokeWidth={2.5} />
-                <span className="text-[10px] font-black tabular-nums">{availableCouponCount}</span>
-              </button>
+              <PerfectQuestChip
+                progress={perfectQuest ?? {
+                  userId: user.id,
+                  currentDay: 0,
+                  currentStreak: 0,
+                  bestStreak: 0,
+                  completedQuests: 0,
+                  nextRewardCount: 1,
+                }}
+                morningComplete={morningTasks.length > 0 && morningDone === morningTasks.length}
+                eveningComplete={eveningTasks.length > 0 && eveningDone === eveningTasks.length}
+                availableCouponCount={availableCouponCount}
+                onOpenWallet={() => setCouponOpen(true)}
+              />
               <button
                 type="button"
                 onClick={() => setGiftOpen(true)}
@@ -364,20 +366,6 @@ export function MemberPanel({ user }: { user: User }) {
             </div>
           </div>
         </header>
-
-        <PerfectQuestStrip
-          progress={perfectQuest ?? {
-            userId: user.id,
-            currentDay: 0,
-            currentStreak: 0,
-            bestStreak: 0,
-            completedQuests: 0,
-            nextRewardCount: 1,
-          }}
-          morningComplete={morningTasks.length > 0 && morningDone === morningTasks.length}
-          eveningComplete={eveningTasks.length > 0 && eveningDone === eveningTasks.length}
-          onOpenWallet={() => setCouponOpen(true)}
-        />
 
         <div
           className="mb-1.5 grid h-9 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
