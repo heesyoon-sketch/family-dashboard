@@ -33,7 +33,7 @@ export function PerfectQuestChip({
       title={label}
       aria-label={label}
     >
-      <Flame size={13} strokeWidth={2.8} className="shrink-0" aria-hidden />
+      <Flame size={13} strokeWidth={2.8} className="shrink-0 max-[380px]:hidden" aria-hidden />
 
       <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
         {[1, 2, 3].map(day => {
@@ -64,9 +64,9 @@ export function PerfectQuestChip({
         })}
       </span>
 
-      <span className="ml-0.5 h-4 w-px bg-[#17151E]/20" aria-hidden />
+      <span className="ml-0.5 h-4 w-px bg-[#17151E]/20 max-[380px]:hidden" aria-hidden />
       <span className="flex items-center gap-0.5 text-[9px] font-black tabular-nums">
-        <TicketCheck size={11} strokeWidth={2.7} aria-hidden />
+        <TicketCheck size={11} strokeWidth={2.7} className="max-[380px]:hidden" aria-hidden />
         {availableCouponCount}
       </span>
     </button>

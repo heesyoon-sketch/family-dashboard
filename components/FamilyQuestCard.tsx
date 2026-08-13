@@ -64,7 +64,13 @@ export function FamilyQuestCard() {
   );
 }
 
-export function FamilyQuestChip({ className }: { className?: string }) {
+export function FamilyQuestChip({
+  className,
+  mobileTab = false,
+}: {
+  className?: string;
+  mobileTab?: boolean;
+}) {
   const { lang } = useLanguage();
   const quest = useFamilyQuest();
 
@@ -81,7 +87,7 @@ export function FamilyQuestChip({ className }: { className?: string }) {
     <div
       title={title}
       className={[
-        'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full border px-2 text-[10px] font-black',
+        `inline-flex ${mobileTab ? 'h-9 shrink-0 rounded-lg' : 'h-7 rounded-full'} min-w-0 items-center gap-1.5 border px-2 text-[10px] font-black`,
         complete
           ? 'border-[#4EEDB0]/34 bg-[#4EEDB0]/14 text-[#4EEDB0]'
           : 'border-white/10 bg-white/[0.045] text-white/70',

@@ -251,9 +251,9 @@ export function MemberPanel({ user }: { user: User }) {
       >
         {/* ── Header ── */}
         <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5 max-[380px]:px-1.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-            <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:basis-[calc(100%-42px)]">
-              <div className="relative h-9 w-9 shrink-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 max-[380px]:flex-nowrap max-[380px]:gap-x-1">
+            <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:w-[64px] max-[380px]:flex-none max-[380px]:gap-1">
+              <div className="relative h-9 w-9 shrink-0 max-[380px]:h-7 max-[380px]:w-7">
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
@@ -261,10 +261,10 @@ export function MemberPanel({ user }: { user: User }) {
                     width={36}
                     height={36}
                     referrerPolicy="no-referrer"
-                    className="h-9 w-9 rounded-lg object-cover"
+                    className="h-9 w-9 rounded-lg object-cover max-[380px]:h-7 max-[380px]:w-7"
                   />
                 ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none max-[380px]:h-7 max-[380px]:w-7 max-[380px]:text-sm">
                     {user.name[0]}
                   </div>
                 )}
@@ -275,27 +275,29 @@ export function MemberPanel({ user }: { user: User }) {
                 {/* Metadata row — Lv • XP • Momentum. The shield strip
                     moved out to the action button group so it can be the
                     same size as Store/Mail without growing the header. */}
-                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[9px]">
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[8px]">
                   <span
                     className="shrink-0"
                     title={`Level — long-term identity tier. Unlocks shield slots and profile frames.`}
                   >
                     Lv.{displayLevel}
                   </span>
-                  <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
+                  <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40 max-[380px]:hidden" />
                   <span
-                    className="min-w-0 truncate"
+                    className="min-w-0 truncate max-[380px]:hidden"
                     title={`XP earned. ${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} to Lv.${displayLevel + 1}`}
                   >
                     {formatXp(totalXp)}xp
                   </span>
-                  <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40" />
-                  <MomentumAura momentum={momentum} size={14} showLabel />
+                  <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40 max-[380px]:hidden" />
+                  <div className="max-[380px]:hidden">
+                    <MomentumAura momentum={momentum} size={14} showLabel />
+                  </div>
                 </div>
 
                 {/* Thin XP-to-next-level bar. Title attribute is the tooltip. */}
                 <div
-                  className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)]"
+                  className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)] max-[380px]:mt-0.5"
                   title={`${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} XP to Lv.${displayLevel + 1}`}
                 >
                   <div
@@ -306,9 +308,8 @@ export function MemberPanel({ user }: { user: User }) {
               </div>
             </div>
 
-            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:w-full">
+            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
               <NextAchievementChip userId={user.id} />
-              <span className="mx-1 h-6 w-px bg-[var(--border)]" aria-hidden />
               <PerfectQuestChip
                 progress={perfectQuest ?? {
                   userId: user.id,
@@ -335,15 +336,6 @@ export function MemberPanel({ user }: { user: User }) {
               </button>
               <button
                 type="button"
-                onClick={openStore}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-gray-950 transition hover:brightness-95 max-[380px]:h-7 max-[380px]:w-7"
-                title={t('store')}
-                aria-label={t('store')}
-              >
-                <Store size={15} />
-              </button>
-              <button
-                type="button"
                 onClick={openActivityFeed}
                 className="relative grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 max-[380px]:h-7 max-[380px]:w-7"
                 title={t('mailbox_history')}
@@ -357,10 +349,11 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openStore}
-                className="flex h-8 min-w-[58px] items-center justify-end rounded-md px-1 text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)] transition hover:bg-[var(--accent-glow)] max-[380px]:h-7 max-[380px]:min-w-[48px] max-[380px]:text-[11px]"
-                title={lang === 'en' ? 'Current points' : '현재 포인트'}
-                aria-label={lang === 'en' ? `${spendableBalance} current points` : `현재 ${spendableBalance}포인트`}
+                className="flex h-8 min-w-[58px] items-center justify-end gap-1 rounded-md px-1 text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)] transition hover:bg-[var(--accent-glow)] max-[380px]:h-7 max-[380px]:min-w-[50px] max-[380px]:text-[10px]"
+                title={`${t('store')} · ${lang === 'en' ? 'Current points' : '현재 포인트'}`}
+                aria-label={lang === 'en' ? `Open store, ${spendableBalance} current points` : `상점 열기, 현재 ${spendableBalance}포인트`}
               >
+                <Store size={13} className="shrink-0" aria-hidden />
                 {spendableBalance}<span className="ml-0.5 text-[8px] text-[var(--fg-muted)]">pt</span>
               </button>
             </div>
@@ -436,7 +429,7 @@ export function MemberPanel({ user }: { user: User }) {
             <motion.div
               ref={listRef}
               layout
-              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[clamp(60px,calc((60vh-84px)/4),76px)] md:pb-6"
+              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[60px] md:pb-6"
             >
               {visibleTasks.length === 0 && (
                 <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">

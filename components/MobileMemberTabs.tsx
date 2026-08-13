@@ -7,6 +7,7 @@ import type { User } from '@/lib/db';
 import { useFamilyStore } from '@/lib/store';
 import { isTaskActiveInTimeWindow } from '@/lib/timeWindows';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { FamilyQuestChip } from './FamilyQuestCard';
 
 interface MobileMemberTabsProps {
   users: User[];
@@ -37,67 +38,68 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
       ref={tabsRef}
       className="sticky top-[52px] z-[5] -mx-3 mb-1.5 flex gap-1 overflow-x-auto border-b border-white/8 bg-[#0D0E1C]/95 px-3 py-1.5 backdrop-blur-md md:hidden"
       style={{ scrollbarWidth: 'none' }}
-      role="tablist"
-      aria-label={lang === 'en' ? 'Family members' : '가족 구성원'}
     >
-      {users.map(user => {
-        const isActive = user.id === activeUserId;
-        const currentTaskIds = new Set((tasksByUser[user.id] ?? [])
-          .filter(task => isTaskActiveInTimeWindow(task.timeWindow, timeOfDay))
-          .map(task => task.id));
-        const totalToday = currentTaskIds.size;
-        const doneToday = (todayCompletions[user.id] ?? []).filter(taskId => currentTaskIds.has(taskId)).length;
-        const streak = dailyStreakByUser[user.id] ?? 0;
-        const couponCount = (couponsByUser[user.id] ?? [])
-          .filter(coupon => coupon.status === 'available').length;
+      <FamilyQuestChip mobileTab className="max-w-[136px]" />
+      <div className="contents" role="tablist" aria-label={lang === 'en' ? 'Family members' : '가족 구성원'}>
+        {users.map(user => {
+          const isActive = user.id === activeUserId;
+          const currentTaskIds = new Set((tasksByUser[user.id] ?? [])
+            .filter(task => isTaskActiveInTimeWindow(task.timeWindow, timeOfDay))
+            .map(task => task.id));
+          const totalToday = currentTaskIds.size;
+          const doneToday = (todayCompletions[user.id] ?? []).filter(taskId => currentTaskIds.has(taskId)).length;
+          const streak = dailyStreakByUser[user.id] ?? 0;
+          const couponCount = (couponsByUser[user.id] ?? [])
+            .filter(coupon => coupon.status === 'available').length;
 
-        return (
-          <button
-            key={user.id}
-            type="button"
-            data-tab-user={user.id}
-            onClick={() => onSelectUser(user.id)}
-            role="tab"
-            aria-selected={isActive}
-            className={[
-              'relative flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-2 transition-colors',
-              isActive
-                ? 'border-[#4EEDB0]/45 bg-[#4EEDB0]/10 text-white'
-                : 'border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/8',
-            ].join(' ')}
-          >
-            {user.avatarUrl ? (
-              <Image
-                src={user.avatarUrl}
-                alt=""
-                width={22}
-                height={22}
-                referrerPolicy="no-referrer"
-                className="h-5.5 w-5.5 rounded-full object-cover"
-              />
-            ) : (
-              <span className="grid h-5 w-5 place-items-center rounded-full bg-white/15 text-[10px] font-black">
-                {user.name.charAt(0).toUpperCase()}
+          return (
+            <button
+              key={user.id}
+              type="button"
+              data-tab-user={user.id}
+              onClick={() => onSelectUser(user.id)}
+              role="tab"
+              aria-selected={isActive}
+              className={[
+                'relative flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-2 transition-colors',
+                isActive
+                  ? 'border-[#4EEDB0]/45 bg-[#4EEDB0]/10 text-white'
+                  : 'border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/8',
+              ].join(' ')}
+            >
+              {user.avatarUrl ? (
+                <Image
+                  src={user.avatarUrl}
+                  alt=""
+                  width={22}
+                  height={22}
+                  referrerPolicy="no-referrer"
+                  className="h-5.5 w-5.5 rounded-full object-cover"
+                />
+              ) : (
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-white/15 text-[10px] font-black">
+                  {user.name.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span className="max-w-[90px] truncate text-[12px] font-bold">{user.name}</span>
+              <span className="text-[10px] font-bold tabular-nums text-white/55">
+                {doneToday}/{totalToday}
               </span>
-            )}
-            <span className="max-w-[90px] truncate text-[12px] font-bold">{user.name}</span>
-            <span className="text-[10px] font-bold tabular-nums text-white/55">
-              {doneToday}/{totalToday}
-            </span>
-            {streak > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] font-bold text-[#4EEDB0]">
-                <Flame size={10} aria-hidden />{streak}
-              </span>
-            )}
-            {isActive && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#4EEDB0]" aria-hidden />}
-            {couponCount > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] font-black text-[#FFE56B]">
-                <TicketCheck size={11} />{couponCount}
-              </span>
-            )}
-          </button>
-        );
-      })}
+              {streak > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] font-bold text-[#4EEDB0]">
+                  <Flame size={10} aria-hidden />{streak}
+                </span>
+              )}
+              {isActive && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#4EEDB0]" aria-hidden />}
+              {couponCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] font-black text-[#FFE56B]">
+                  <TicketCheck size={11} />{couponCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

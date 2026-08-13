@@ -16,7 +16,7 @@ import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { FamBitWordmark } from '@/components/FamBitLogo';
 import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
 import { FamilyOnboardingChecklist } from '@/components/FamilyOnboardingChecklist';
-import { FamilyQuestCard, FamilyQuestChip } from '@/components/FamilyQuestCard';
+import { FamilyQuestChip } from '@/components/FamilyQuestCard';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
@@ -319,7 +319,6 @@ export default function Dashboard() {
 
       <main className="flex flex-1 flex-col gap-3 bg-[#0D0E1C] p-3 md:hidden">
         <FamilyOnboardingChecklist />
-        <FamilyQuestCard />
         <MobileMemberTabs
           users={orderedUsers}
           activeUserId={activeMobileUser?.id ?? null}

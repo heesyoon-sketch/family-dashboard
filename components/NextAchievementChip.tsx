@@ -23,7 +23,7 @@ export function NextAchievementChip({ userId }: { userId: string }) {
   return (
     <Link
       href={`/stats?view=shield&member=${userId}`}
-      className="flex h-8 min-w-0 max-w-[104px] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-1.5 transition hover:border-[var(--accent)]/55 hover:bg-[var(--accent-glow)] max-[420px]:max-w-[74px] max-[380px]:h-7"
+      className="flex h-8 min-w-0 max-w-[104px] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-1.5 transition hover:border-[var(--accent)]/55 hover:bg-[var(--accent-glow)] max-[420px]:max-w-[74px] max-[380px]:h-7 max-[380px]:w-7 max-[380px]:justify-center max-[380px]:p-0"
       title={next
         ? `${next.title}: ${achievementRemaining(next)} ${lang === 'en' ? 'to go' : '개 남음'}`
         : (lang === 'en' ? 'All current goals complete' : '현재 목표 모두 완료')}
@@ -45,7 +45,7 @@ export function NextAchievementChip({ userId }: { userId: string }) {
           <Trophy size={13} aria-hidden />
         </span>
       )}
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 max-[380px]:hidden">
         <span className="block truncate text-[8px] font-bold leading-none text-[var(--fg-muted)]">
           {lang === 'en' ? 'NEXT' : '다음'}
         </span>

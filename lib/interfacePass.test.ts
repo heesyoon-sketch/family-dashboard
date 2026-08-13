@@ -113,3 +113,19 @@ test('perfect quests replace passive store goals with visible three-day progress
   assert.match(taskCard, /perfectQuest\.couponsAwarded/);
   assert.doesNotMatch(taskCard, /Momentum \$\{feedback\.bonus/);
 });
+
+test('member dashboards prioritize three visible habit rows', () => {
+  const panel = read('components/MemberPanel.tsx');
+  const achievement = read('components/NextAchievementChip.tsx');
+  const mobileTabs = read('components/MobileMemberTabs.tsx');
+  const dashboard = read('app/page.tsx');
+
+  assert.match(panel, /md:auto-rows-\[60px\]/);
+  assert.match(panel, /Open store, \$\{spendableBalance\} current points/);
+  assert.doesNotMatch(panel, /<Store size=\{15\}/);
+  assert.doesNotMatch(panel, /max-\[380px\]:w-full/);
+  assert.match(achievement, /max-\[380px\]:w-7/);
+  assert.match(achievement, /max-\[380px\]:hidden/);
+  assert.match(mobileTabs, /<FamilyQuestChip mobileTab/);
+  assert.doesNotMatch(dashboard, /<FamilyQuestCard/);
+});
