@@ -344,7 +344,7 @@ test('routine shield sync never revokes or unequips stored shields', () => {
 });
 
 test('shield UI components consume the central snapshot instead of starting family syncs', () => {
-  for (const file of ['components/EquippedInsigniaStrip.tsx', 'components/NextAchievementChip.tsx', 'components/InsigniaWall.tsx']) {
+  for (const file of ['components/EquippedInsigniaStrip.tsx', 'components/InsigniaWall.tsx']) {
     const source = readFileSync(join(process.cwd(), file), 'utf8');
     assert.doesNotMatch(source, /syncAchievements(?:Once)?\s*\(/, `${file} must not start a network sync`);
     assert.match(source, /useShieldSnapshot/);

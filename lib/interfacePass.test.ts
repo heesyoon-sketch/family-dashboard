@@ -30,13 +30,15 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   assert.doesNotMatch(panel, /Morning routines|Evening routines/);
 });
 
-test('member panels show the next reachable shield instead of a static loadout', () => {
+test('member panels show equipped shields as a compact horizontal stack', () => {
   const panel = read('components/MemberPanel.tsx');
-  const nextGoal = read('components/NextAchievementChip.tsx');
-  assert.match(panel, /NextAchievementChip/);
-  assert.doesNotMatch(panel, /EquippedInsigniaStrip/);
-  assert.match(nextGoal, /selectNextAchievementGoals/);
-  assert.match(nextGoal, /achievementRemaining/);
+  const equippedShields = read('components/EquippedInsigniaStrip.tsx');
+  assert.match(panel, /EquippedInsigniaStrip/);
+  assert.doesNotMatch(panel, /NextAchievementChip/);
+  assert.match(equippedShields, /equippedInsigniaIds/);
+  assert.match(equippedShields, /-ml-\[14px\]/);
+  assert.match(equippedShields, /SHIELD_FAN_CLASSES/);
+  assert.match(equippedShields, /SHIELD_PX = 26/);
 });
 
 test('past completed reference routines use visual completion styling', () => {
@@ -116,7 +118,7 @@ test('perfect quests replace passive store goals with visible three-day progress
 
 test('member dashboards prioritize three visible habit rows', () => {
   const panel = read('components/MemberPanel.tsx');
-  const achievement = read('components/NextAchievementChip.tsx');
+  const equippedShields = read('components/EquippedInsigniaStrip.tsx');
   const mobileTabs = read('components/MobileMemberTabs.tsx');
   const dashboard = read('app/page.tsx');
 
@@ -124,8 +126,8 @@ test('member dashboards prioritize three visible habit rows', () => {
   assert.match(panel, /Open store, \$\{spendableBalance\} current points/);
   assert.doesNotMatch(panel, /<Store size=\{15\}/);
   assert.doesNotMatch(panel, /max-\[380px\]:w-full/);
-  assert.match(achievement, /max-\[380px\]:w-7/);
-  assert.match(achievement, /max-\[380px\]:hidden/);
+  assert.match(equippedShields, /h-8 shrink-0/);
+  assert.match(equippedShields, /max-\[380px\]:h-7/);
   assert.match(mobileTabs, /<FamilyQuestChip mobileTab/);
   assert.doesNotMatch(dashboard, /<FamilyQuestCard/);
 });

@@ -7,7 +7,7 @@ import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise } from 'lucide-reac
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
-import { NextAchievementChip } from './NextAchievementChip';
+import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
 import { useFamilyStore } from '@/lib/store';
 import { computeLevelProgress, emptyMomentum, formatXp } from '@/lib/progression';
 import { StoreModal } from './StoreModal';
@@ -250,9 +250,9 @@ export function MemberPanel({ user }: { user: User }) {
         }}
       >
         {/* ── Header ── */}
-        <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5 max-[380px]:px-1.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 max-[380px]:flex-nowrap max-[380px]:gap-x-1">
-            <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:w-[64px] max-[380px]:flex-none max-[380px]:gap-1">
+        <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5 max-[380px]:px-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 max-[380px]:flex-nowrap max-[380px]:gap-x-0.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:w-[60px] max-[380px]:flex-none max-[380px]:gap-1">
               <div className="relative h-9 w-9 shrink-0 max-[380px]:h-7 max-[380px]:w-7">
                 {avatarSrc ? (
                   <Image
@@ -308,8 +308,8 @@ export function MemberPanel({ user }: { user: User }) {
               </div>
             </div>
 
-            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
-              <NextAchievementChip userId={user.id} />
+            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:gap-0.5">
+              <EquippedInsigniaStrip userId={user.id} />
               <PerfectQuestChip
                 progress={perfectQuest ?? {
                   userId: user.id,
