@@ -10,6 +10,7 @@ import {
   mapPerfectQuestProgress,
   schoolWeekRewardCount,
   splitCompletionsByWindow,
+  weekendRewardCount,
 } from './perfectDay';
 
 function task(id: string, timeWindow: Task['timeWindow']): Task {
@@ -117,6 +118,12 @@ test('school week quests award one pass after three perfect weekdays', () => {
   assert.equal(schoolWeekRewardCount(5), 1);
 });
 
+test('weekend quests award one bonus pass only after both weekend days', () => {
+  assert.equal(weekendRewardCount(0), 0);
+  assert.equal(weekendRewardCount(1), 0);
+  assert.equal(weekendRewardCount(2), 1);
+});
+
 test('perfect quest metadata maps safely from RPC and database rows', () => {
   const coupon = mapPerfectDayCoupon({
     id: 'coupon', familyId: 'family', userId: 'user', earnedForDay: '2026-08-11',
@@ -132,11 +139,15 @@ test('perfect quest metadata maps safely from RPC and database rows', () => {
     completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 1,
     weekPerfectDays: 2, weekdayGoal: 3, weekdayTotal: 5,
     rewardEarnedThisWeek: false,
+    weekendPerfectDays: 1, weekendGoal: 2, weekendTotal: 2,
+    weekendRewardEarnedThisWeek: false,
   }), {
     userId: 'user', currentDay: 2, currentStreak: 5, bestStreak: 8,
     completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 1,
     weekPerfectDays: 2, weekdayGoal: 3, weekdayTotal: 5,
     rewardEarnedThisWeek: false,
+    weekendPerfectDays: 1, weekendGoal: 2, weekendTotal: 2,
+    weekendRewardEarnedThisWeek: false,
   });
 });
 

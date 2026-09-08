@@ -118,33 +118,35 @@ export function PerfectDayCouponModal({
                 <Flame size={17} className="shrink-0 text-[#FFE56B]" />
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase text-[#FFE56B]">
-                    {lang === 'en' ? 'School Week Quest' : '이번 주 루틴 챌린지'}
+                    {lang === 'en' ? 'Weekly Routine Quest' : '주간 루틴 챌린지'}
                   </div>
                   <div className="truncate text-[11px] font-bold text-white/52">
                     {lang === 'en'
-                      ? `${progress.weekPerfectDays} of ${progress.weekdayTotal} weekdays · ${progress.weekdayGoal} needed`
-                      : `평일 ${progress.weekdayTotal}일 중 ${progress.weekPerfectDays}일 완료 · ${progress.weekdayGoal}일 필요`}
+                      ? `${progress.completedQuests} passes earned from weekly quests`
+                      : `주간 챌린지 이용권 ${progress.completedQuests}장 획득`}
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-1 text-[10px] font-black text-[#FF7BAC]">
                 <Trophy size={13} />
-                {lang === 'en' ? `${progress.completedQuests} finished` : `${progress.completedQuests}회 완주`}
+                {lang === 'en' ? 'Up to 2 / week' : '주 최대 2장'}
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-1.5">
-              {[1, 2, 3].map(day => (
-                <div
-                  key={day}
-                  className={`relative flex h-8 items-center justify-center rounded-md border text-[10px] font-black ${
-                    day <= progress.currentDay
-                      ? 'border-[#FFE56B] bg-[#FFE56B] text-[#17151E]'
-                      : 'border-white/10 bg-white/[0.035] text-white/40'
-                  }`}
-                >
-                  {day <= progress.currentDay ? <Check size={14} strokeWidth={3} /> : `MARK ${day}`}
-                </div>
-              ))}
+            <div className="mt-3 space-y-2">
+              <QuestProgressRow
+                label={lang === 'en' ? 'Weekdays · 3 of 5' : '평일 · 5일 중 3일'}
+                count={progress.currentDay}
+                goal={progress.weekdayGoal}
+                complete={progress.rewardEarnedThisWeek}
+                tone="weekday"
+              />
+              <QuestProgressRow
+                label={lang === 'en' ? 'Weekend bonus · Sat + Sun' : '주말 보너스 · 토 + 일'}
+                count={progress.weekendPerfectDays}
+                goal={progress.weekendGoal}
+                complete={progress.weekendRewardEarnedThisWeek}
+                tone="weekend"
+              />
             </div>
           </section>
 
@@ -236,8 +238,8 @@ export function PerfectDayCouponModal({
               </div>
               <div className="mx-auto mt-1 max-w-xs text-sm leading-6 text-white/48">
                 {lang === 'en'
-                  ? 'Complete every morning and evening routine on 3 of 5 weekdays to earn one 30-minute pass.'
-                  : '평일 5일 중 3일 동안 오전과 저녁 루틴을 모두 완료하면 30분 이용권 1장을 받아요.'}
+                  ? 'Earn one pass for 3 of 5 perfect weekdays, plus one bonus pass when both Saturday and Sunday are perfect.'
+                  : '평일 5일 중 3일을 완전 완료하면 1장, 토요일과 일요일을 모두 완전 완료하면 보너스 1장을 받아요.'}
               </div>
             </div>
           )}
@@ -267,6 +269,48 @@ export function PerfectDayCouponModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function QuestProgressRow({
+  label,
+  count,
+  goal,
+  complete,
+  tone,
+}: {
+  label: string;
+  count: number;
+  goal: number;
+  complete: boolean;
+  tone: 'weekday' | 'weekend';
+}) {
+  const activeClass = tone === 'weekday'
+    ? 'border-[#FFE56B] bg-[#FFE56B] text-[#17151E]'
+    : 'border-[#B78BFF] bg-[#B78BFF] text-[#17151E]';
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-white/55">{label}</span>
+      <div className="flex shrink-0 items-center gap-1">
+        {Array.from({ length: goal }, (_, index) => {
+          const filled = index < count;
+          return (
+            <span
+              key={index}
+              className={`grid h-7 w-7 place-items-center border text-[9px] font-black ${
+                tone === 'weekend' ? 'rounded-full' : 'rounded-md'
+              } ${filled ? activeClass : 'border-white/10 bg-white/[0.035] text-white/40'}`}
+            >
+              {filled ? <Check size={13} strokeWidth={3} /> : index + 1}
+            </span>
+          );
+        })}
+      </div>
+      <span className={`w-11 text-right text-[9px] font-black ${complete ? 'text-[#4EEDB0]' : 'text-white/38'}`}>
+        {complete ? 'DONE' : `${Math.min(count, goal)}/${goal}`}
+      </span>
     </div>
   );
 }

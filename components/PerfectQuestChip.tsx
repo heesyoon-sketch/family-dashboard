@@ -19,10 +19,14 @@ export function PerfectQuestChip({
 }) {
   const { lang } = useLanguage();
   const questCompleteThisWeek = progress.rewardEarnedThisWeek;
+  const weekendCompleteThisWeek = progress.weekendRewardEarnedThisWeek;
+  const today = new Date().getDay();
+  const isWeekendToday = today === 0 || today === 6;
   const nextMark = Math.min(progress.currentDay + 1, progress.weekdayGoal);
+  const nextWeekendMark = Math.min(progress.weekendPerfectDays + 1, progress.weekendGoal);
   const label = lang === 'en'
-    ? `School Week Quest: ${progress.weekPerfectDays} of 5 weekdays complete. Three perfect weekdays earn one 30-minute pass. ${availableCouponCount} passes available.`
-    : `이번 주 루틴 챌린지: 평일 5일 중 ${progress.weekPerfectDays}일 완료. 3일을 모두 완료하면 30분 이용권 1장을 받아요. 사용 가능한 이용권 ${availableCouponCount}장.`;
+    ? `Weekly Routine Quest: ${progress.weekPerfectDays} of 5 weekdays and ${progress.weekendPerfectDays} of 2 weekend days complete. Three perfect weekdays earn one pass; completing both Saturday and Sunday earns one bonus pass. ${availableCouponCount} passes available.`
+    : `주간 루틴 챌린지: 평일 5일 중 ${progress.weekPerfectDays}일, 주말 2일 중 ${progress.weekendPerfectDays}일 완료. 평일 3일이면 1장, 토·일을 모두 완료하면 보너스 1장을 받아요. 사용 가능한 이용권 ${availableCouponCount}장.`;
 
   return (
     <button
@@ -37,7 +41,7 @@ export function PerfectQuestChip({
       <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
         {[1, 2, 3].map(day => {
           const complete = day <= progress.currentDay;
-          const active = !questCompleteThisWeek && day === nextMark;
+          const active = !isWeekendToday && !questCompleteThisWeek && day === nextMark;
           return (
             <span
               key={day}
@@ -53,6 +57,28 @@ export function PerfectQuestChip({
                 {complete ? <Check size={9} strokeWidth={3.2} /> : day}
               </span>
               {complete && <span className="absolute inset-0 rounded-[2px] bg-white/75" />}
+            </span>
+          );
+        })}
+        <span className="mx-0.5 h-3 w-px bg-[#17151E]/25" />
+        {[1, 2].map(day => {
+          const complete = day <= progress.weekendPerfectDays;
+          const active = isWeekendToday && !weekendCompleteThisWeek && day === nextWeekendMark;
+          return (
+            <span
+              key={`weekend-${day}`}
+              className="relative grid h-3.5 w-3.5 place-items-center overflow-hidden rounded-full border border-[#17151E]/25 bg-[#B78BFF]/22"
+            >
+              {active && (
+                <span className="absolute inset-0 overflow-hidden rounded-full">
+                  {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#58BFD6]" />}
+                  {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#E85E96]" />}
+                </span>
+              )}
+              <span className="relative z-10 text-[7px] font-black leading-none">
+                {complete ? <Check size={9} strokeWidth={3.2} /> : day}
+              </span>
+              {complete && <span className="absolute inset-0 bg-[#B78BFF]/75" />}
             </span>
           );
         })}

@@ -765,6 +765,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         weekdayGoal: 3,
         weekdayTotal: 5,
         rewardEarnedThisWeek: false,
+        weekendPerfectDays: 0,
+        weekendGoal: 2,
+        weekendTotal: 2,
+        weekendRewardEarnedThisWeek: false,
       };
 
       const userStreaks = (sRes.data ?? []).filter(s => s.user_id === u.id);

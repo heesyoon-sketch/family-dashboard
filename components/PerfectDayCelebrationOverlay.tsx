@@ -19,6 +19,7 @@ export function PerfectDayCelebrationOverlay({
   onDismiss: () => void;
 }) {
   const { lang } = useLanguage();
+  const isWeekendReward = award.quest.rewardKind === 'weekend';
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -49,16 +50,24 @@ export function PerfectDayCelebrationOverlay({
       >
         <div className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-[#FFE56B]/40 bg-[#FFE56B]/10 px-3 py-1 text-xs font-black uppercase text-[#FFE56B]">
           <Sparkles size={14} />
-          {lang === 'en' ? 'School Week Quest' : '이번 주 루틴 챌린지'}
+          {isWeekendReward
+            ? (lang === 'en' ? 'Weekend Bonus' : '주말 보너스')
+            : (lang === 'en' ? 'Weekday Quest' : '평일 루틴 챌린지')}
         </div>
         <div className="mt-4 text-sm font-black text-[#58E6FF]">{user.name}</div>
         <h2 id="perfect-day-title" className="mt-1 text-4xl font-black text-white">
-          {lang === 'en' ? 'Week Quest Complete!' : '주간 챌린지 완주!'}
+          {isWeekendReward
+            ? (lang === 'en' ? 'Weekend Bonus Complete!' : '주말 보너스 완주!')
+            : (lang === 'en' ? 'Weekday Quest Complete!' : '평일 챌린지 완주!')}
         </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/58">
-          {lang === 'en'
-            ? 'You completed every routine on 3 weekdays. You earned one 30-minute pass.'
-            : '평일 3일의 오전·저녁 루틴을 모두 완료했어요. 30분 이용권 1장을 받았어요.'}
+          {isWeekendReward
+            ? (lang === 'en'
+                ? 'You completed every routine on both Saturday and Sunday. You earned one bonus 30-minute pass.'
+                : '토요일과 일요일의 오전·저녁 루틴을 모두 완료했어요. 보너스 30분 이용권 1장을 받았어요.')
+            : (lang === 'en'
+                ? 'You completed every routine on 3 weekdays. You earned one 30-minute pass.'
+                : '평일 3일의 오전·저녁 루틴을 모두 완료했어요. 30분 이용권 1장을 받았어요.')}
         </p>
 
         <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-black text-white/72">
@@ -72,20 +81,23 @@ export function PerfectDayCelebrationOverlay({
           </span>
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-2" aria-label="3 of 5 weekdays complete">
-          {[1, 2, 3].map(day => (
+        <div
+          className="mt-3 flex items-center justify-center gap-2"
+          aria-label={isWeekendReward ? 'Saturday and Sunday complete' : '3 of 5 weekdays complete'}
+        >
+          {Array.from({ length: isWeekendReward ? 2 : 3 }, (_, index) => index + 1).map(day => (
             <span
               key={day}
-              className={`grid h-7 w-7 place-items-center rounded-md border text-[10px] font-black ${
-                day <= award.quest.currentDay
-                  ? 'border-[#FFE56B] bg-[#FFE56B] text-[#17151E]'
-                  : 'border-white/16 bg-white/5 text-white/38'
-              }`}
+              className={`grid h-7 w-7 place-items-center border text-[10px] font-black ${
+                isWeekendReward ? 'rounded-full border-[#B78BFF] bg-[#B78BFF]' : 'rounded-md border-[#FFE56B] bg-[#FFE56B]'
+              } text-[#17151E]`}
             >
-              {day <= award.quest.currentDay ? <CheckCircle2 size={14} /> : day}
+              <CheckCircle2 size={14} />
             </span>
           ))}
-          <span className="ml-1 text-[10px] font-black text-[#FF7BAC]">3 OF 5 WEEKDAYS</span>
+          <span className="ml-1 text-[10px] font-black text-[#FF7BAC]">
+            {isWeekendReward ? 'SAT + SUN' : '3 OF 5 WEEKDAYS'}
+          </span>
         </div>
 
         <motion.div

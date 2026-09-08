@@ -19,11 +19,18 @@ export interface WindowCompletions {
 export interface PerfectDayClaimResult {
   awarded: boolean;
   coupons: PerfectDayCoupon[];
-  quest: (PerfectQuestProgress & { couponsAwarded: 0 | 1 | 2 }) | null;
+  quest: (PerfectQuestProgress & {
+    couponsAwarded: 0 | 1 | 2;
+    rewardKind?: 'weekday' | 'weekend' | 'both';
+  }) | null;
 }
 
 export function schoolWeekRewardCount(perfectWeekdays: number): 0 | 1 {
   return perfectWeekdays >= 3 ? 1 : 0;
+}
+
+export function weekendRewardCount(perfectWeekendDays: number): 0 | 1 {
+  return perfectWeekendDays >= 2 ? 1 : 0;
 }
 
 export function localDateKey(date: Date): string {
@@ -116,6 +123,14 @@ export function mapPerfectQuestProgress(raw: Record<string, unknown>): PerfectQu
     weekdayTotal: 5,
     rewardEarnedThisWeek: Boolean(
       raw.rewardEarnedThisWeek ?? raw.reward_earned_this_week ?? safeCurrentDay === 3,
+    ),
+    weekendPerfectDays: nonNegativeInteger(
+      raw.weekendPerfectDays ?? raw.weekend_perfect_days,
+    ),
+    weekendGoal: 2,
+    weekendTotal: 2,
+    weekendRewardEarnedThisWeek: Boolean(
+      raw.weekendRewardEarnedThisWeek ?? raw.weekend_reward_earned_this_week,
     ),
   };
 }

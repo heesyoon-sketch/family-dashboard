@@ -237,6 +237,10 @@ export function MemberPanel({ user }: { user: User }) {
             weekdayGoal: 3,
             weekdayTotal: 5,
             rewardEarnedThisWeek: false,
+            weekendPerfectDays: 0,
+            weekendGoal: 2,
+            weekendTotal: 2,
+            weekendRewardEarnedThisWeek: false,
           }}
           onClose={() => setCouponOpen(false)}
           onRedeem={(couponId, kind) => doRedeemCoupon(couponId, user.id, kind)}
@@ -326,6 +330,10 @@ export function MemberPanel({ user }: { user: User }) {
                   weekdayGoal: 3,
                   weekdayTotal: 5,
                   rewardEarnedThisWeek: false,
+                  weekendPerfectDays: 0,
+                  weekendGoal: 2,
+                  weekendTotal: 2,
+                  weekendRewardEarnedThisWeek: false,
                 }}
                 morningComplete={morningTasks.length > 0 && morningDone === morningTasks.length}
                 eveningComplete={eveningTasks.length > 0 && eveningDone === eveningTasks.length}

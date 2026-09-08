@@ -64,3 +64,14 @@ test('school week quests are family-scoped, weekly-idempotent, and award one pas
   assert.match(migration, /school_week_quest_marks_family_select/);
   assert.match(migration, /grant execute on function public\.get_perfect_quest_progress\(date\) to authenticated/);
 });
+
+test('weekend quest bonus requires both days and uses a separate weekly reward slot', () => {
+  const migration = read('supabase/migrations/106_weekend_quest_bonus.sql');
+  assert.match(migration, /week_start, reward_slot/);
+  assert.match(migration, /v_reward_slot := 2/);
+  assert.match(migration, /v_required_days := 2/);
+  assert.match(migration, /between 6 and 7/);
+  assert.match(migration, /weekendRewardEarnedThisWeek/);
+  assert.match(migration, /and c\.reward_slot = v_reward_slot/);
+  assert.match(migration, /reconcile_school_week_mark_on_completion_delete/);
+});

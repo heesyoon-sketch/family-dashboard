@@ -65,7 +65,7 @@ test('perfect day reward uses one ticket design and shows a redeemed stamp', () 
   const ticket = read('components/PerfectDayTicket.tsx');
   const wallet = read('components/PerfectDayCouponModal.tsx');
   const celebration = read('components/PerfectDayCelebrationOverlay.tsx');
-  assert.match(ticket, /School Week Pass/);
+  assert.match(ticket, /Weekly Routine Pass/);
   assert.match(ticket, /사용 완료/);
   assert.match(wallet, /justRedeemed/);
   assert.match(wallet, /state="redeemed"/);
@@ -98,7 +98,7 @@ test('task pricing is selected by duration instead of arbitrary point inputs', (
   assert.match(migration, /normalize_task_base_points/);
 });
 
-test('school week quests replace passive store goals with visible three-mark progress', () => {
+test('weekly routine quests show weekday and weekend progress', () => {
   const storeModal = read('components/StoreModal.tsx');
   const memberPanel = read('components/MemberPanel.tsx');
   const questChip = read('components/PerfectQuestChip.tsx');
@@ -112,9 +112,10 @@ test('school week quests replace passive store goals with visible three-mark pro
   assert.match(questChip, /morningComplete/);
   assert.match(questChip, /eveningComplete/);
   assert.match(questChip, /availableCouponCount/);
-  assert.match(questChip, /3일을 모두 완료하면 30분 이용권 1장/);
+  assert.match(questChip, /토·일을 모두 완료하면 보너스 1장/);
   assert.doesNotMatch(questChip, /day === 3.*2/s);
-  assert.match(taskCard, /School Week Quest complete/);
+  assert.match(taskCard, /Weekend bonus complete/);
+  assert.match(read('components/PerfectDayCouponModal.tsx'), /주말 보너스 · 토 \+ 일/);
   assert.doesNotMatch(taskCard, /Momentum \$\{feedback\.bonus/);
 });
 

@@ -130,6 +130,7 @@ export async function claimPerfectDayCoupon(
     quest?: (Record<string, unknown> & { couponsAwarded?: number }) | null;
   } | null;
   const quest = raw?.quest ? mapPerfectQuestProgress(raw.quest) : null;
+  const rewardKind = raw?.quest?.rewardKind ?? raw?.quest?.reward_kind;
   return {
     awarded: Boolean(raw?.awarded),
     coupons: (raw?.coupons ?? []).map(mapPerfectDayCoupon),
@@ -139,6 +140,9 @@ export async function claimPerfectDayCoupon(
           couponsAwarded: Number(raw?.quest?.couponsAwarded) === 2
             ? 2
             : Number(raw?.quest?.couponsAwarded) === 1 ? 1 : 0,
+          rewardKind: rewardKind === 'weekday' || rewardKind === 'weekend' || rewardKind === 'both'
+            ? rewardKind
+            : undefined,
         }
       : null,
   };

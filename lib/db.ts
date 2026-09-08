@@ -120,6 +120,10 @@ export interface PerfectQuestProgress {
   weekdayGoal: 3;
   weekdayTotal: 5;
   rewardEarnedThisWeek: boolean;
+  weekendPerfectDays: number;
+  weekendGoal: 2;
+  weekendTotal: 2;
+  weekendRewardEarnedThisWeek: boolean;
 }
 
 export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'REWARD_REFUNDED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';
