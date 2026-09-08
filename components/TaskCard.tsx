@@ -105,8 +105,8 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
           const bonusPoints = Math.max(0, feedback.pointsAwarded - feedback.basePoints);
           const detail = feedback.perfectQuestAwarded && feedback.perfectQuest
             ? (lang === 'en'
-                ? `Perfect Quest day ${feedback.perfectQuest.currentDay} complete · ${feedback.perfectQuest.couponsAwarded} pass${feedback.perfectQuest.couponsAwarded === 2 ? 'es' : ''} earned!`
-                : `퍼펙트 퀘스트 ${feedback.perfectQuest.currentDay}일차 완료 · 이용권 ${feedback.perfectQuest.couponsAwarded}장 획득!`)
+                ? 'School Week Quest complete · one 30-minute pass earned!'
+                : '이번 주 루틴 챌린지 완주 · 30분 이용권 1장 획득!')
             : bonusPoints > 0
               ? (lang === 'en'
                   ? `${feedback.basePoints} base + ${bonusPoints} bonus`

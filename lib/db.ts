@@ -115,7 +115,11 @@ export interface PerfectQuestProgress {
   bestStreak: number;
   completedQuests: number;
   lastPerfectDay?: string;
-  nextRewardCount: 1 | 2;
+  nextRewardCount: 1;
+  weekPerfectDays: number;
+  weekdayGoal: 3;
+  weekdayTotal: 5;
+  rewardEarnedThisWeek: boolean;
 }
 
 export type FamilyActivityType = 'GIFT_RECEIVED' | 'GIFT_SENT' | 'REWARD_PURCHASED' | 'REWARD_REFUNDED' | 'TASK_COMPLETED' | 'SYSTEM_MESSAGE';

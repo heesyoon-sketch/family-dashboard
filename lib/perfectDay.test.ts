@@ -8,7 +8,7 @@ import {
   localDateKey,
   mapPerfectDayCoupon,
   mapPerfectQuestProgress,
-  perfectQuestRewardCount,
+  schoolWeekRewardCount,
   splitCompletionsByWindow,
 } from './perfectDay';
 
@@ -110,10 +110,11 @@ test('perfect-day coupon migration remains family-scoped and redemption-safe', (
   assert.match(migration, /grant execute on function public\.redeem_perfect_day_coupon[^;]+to authenticated/);
 });
 
-test('perfect quests award one pass on days one and two, then two on day three', () => {
-  assert.equal(perfectQuestRewardCount(1), 1);
-  assert.equal(perfectQuestRewardCount(2), 1);
-  assert.equal(perfectQuestRewardCount(3), 2);
+test('school week quests award one pass after three perfect weekdays', () => {
+  assert.equal(schoolWeekRewardCount(1), 0);
+  assert.equal(schoolWeekRewardCount(2), 0);
+  assert.equal(schoolWeekRewardCount(3), 1);
+  assert.equal(schoolWeekRewardCount(5), 1);
 });
 
 test('perfect quest metadata maps safely from RPC and database rows', () => {
@@ -128,10 +129,14 @@ test('perfect quest metadata maps safely from RPC and database rows', () => {
 
   assert.deepEqual(mapPerfectQuestProgress({
     userId: 'user', currentDay: 2, currentStreak: 5, bestStreak: 8,
-    completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 2,
+    completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 1,
+    weekPerfectDays: 2, weekdayGoal: 3, weekdayTotal: 5,
+    rewardEarnedThisWeek: false,
   }), {
     userId: 'user', currentDay: 2, currentStreak: 5, bestStreak: 8,
-    completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 2,
+    completedQuests: 2, lastPerfectDay: '2026-08-10', nextRewardCount: 1,
+    weekPerfectDays: 2, weekdayGoal: 3, weekdayTotal: 5,
+    rewardEarnedThisWeek: false,
   });
 });
 

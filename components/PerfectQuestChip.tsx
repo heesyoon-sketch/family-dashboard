@@ -18,12 +18,11 @@ export function PerfectQuestChip({
   onOpenWallet: () => void;
 }) {
   const { lang } = useLanguage();
-  const questCompleteToday = progress.currentDay === 3;
-  const nextDay = questCompleteToday ? 3 : progress.currentDay + 1;
-  const rewardCount = questCompleteToday ? 2 : progress.nextRewardCount;
+  const questCompleteThisWeek = progress.rewardEarnedThisWeek;
+  const nextMark = Math.min(progress.currentDay + 1, progress.weekdayGoal);
   const label = lang === 'en'
-    ? `Perfect Quest: ${progress.currentDay} of 3 days complete. Day ${nextDay} earns ${rewardCount} pass${rewardCount === 2 ? 'es' : ''}. ${availableCouponCount} passes available.`
-    : `퍼펙트 퀘스트: 3일 중 ${progress.currentDay}일 완료. ${nextDay}일차 보상 이용권 ${rewardCount}장. 사용 가능한 이용권 ${availableCouponCount}장.`;
+    ? `School Week Quest: ${progress.weekPerfectDays} of 5 weekdays complete. Three perfect weekdays earn one 30-minute pass. ${availableCouponCount} passes available.`
+    : `이번 주 루틴 챌린지: 평일 5일 중 ${progress.weekPerfectDays}일 완료. 3일을 모두 완료하면 30분 이용권 1장을 받아요. 사용 가능한 이용권 ${availableCouponCount}장.`;
 
   return (
     <button
@@ -38,7 +37,7 @@ export function PerfectQuestChip({
       <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
         {[1, 2, 3].map(day => {
           const complete = day <= progress.currentDay;
-          const active = !questCompleteToday && day === nextDay;
+          const active = !questCompleteThisWeek && day === nextMark;
           return (
             <span
               key={day}
@@ -54,11 +53,6 @@ export function PerfectQuestChip({
                 {complete ? <Check size={9} strokeWidth={3.2} /> : day}
               </span>
               {complete && <span className="absolute inset-0 rounded-[2px] bg-white/75" />}
-              {day === 3 && (
-                <span className="absolute -right-1.5 -top-1.5 z-20 rounded-full bg-[#FF7BAC] px-0.5 text-[6px] font-black leading-3">
-                  2
-                </span>
-              )}
             </span>
           );
         })}

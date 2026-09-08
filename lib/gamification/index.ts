@@ -134,7 +134,12 @@ export async function claimPerfectDayCoupon(
     awarded: Boolean(raw?.awarded),
     coupons: (raw?.coupons ?? []).map(mapPerfectDayCoupon),
     quest: quest
-      ? { ...quest, couponsAwarded: Number(raw?.quest?.couponsAwarded) === 2 ? 2 : 1 }
+      ? {
+          ...quest,
+          couponsAwarded: Number(raw?.quest?.couponsAwarded) === 2
+            ? 2
+            : Number(raw?.quest?.couponsAwarded) === 1 ? 1 : 0,
+        }
       : null,
   };
 }

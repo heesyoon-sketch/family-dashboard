@@ -118,12 +118,12 @@ export function PerfectDayCouponModal({
                 <Flame size={17} className="shrink-0 text-[#FFE56B]" />
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase text-[#FFE56B]">
-                    {lang === 'en' ? 'Perfect Quest' : '퍼펙트 퀘스트'}
+                    {lang === 'en' ? 'School Week Quest' : '이번 주 루틴 챌린지'}
                   </div>
                   <div className="truncate text-[11px] font-bold text-white/52">
                     {lang === 'en'
-                      ? `${progress.currentStreak}-day streak · best ${progress.bestStreak}`
-                      : `${progress.currentStreak}일 연속 · 최고 ${progress.bestStreak}일`}
+                      ? `${progress.weekPerfectDays} of ${progress.weekdayTotal} weekdays · ${progress.weekdayGoal} needed`
+                      : `평일 ${progress.weekdayTotal}일 중 ${progress.weekPerfectDays}일 완료 · ${progress.weekdayGoal}일 필요`}
                   </div>
                 </div>
               </div>
@@ -142,8 +142,7 @@ export function PerfectDayCouponModal({
                       : 'border-white/10 bg-white/[0.035] text-white/40'
                   }`}
                 >
-                  {day <= progress.currentDay ? <Check size={14} strokeWidth={3} /> : `DAY ${day}`}
-                  {day === 3 && <span className="absolute -right-1 -top-1 rounded-full bg-[#FF7BAC] px-1 text-[7px] text-[#17151E]">x2</span>}
+                  {day <= progress.currentDay ? <Check size={14} strokeWidth={3} /> : `MARK ${day}`}
                 </div>
               ))}
             </div>
@@ -237,8 +236,8 @@ export function PerfectDayCouponModal({
               </div>
               <div className="mx-auto mt-1 max-w-xs text-sm leading-6 text-white/48">
                 {lang === 'en'
-                  ? 'Complete every morning and evening routine. Quest days 1 and 2 earn one pass; day 3 earns two.'
-                  : '오전과 저녁 루틴을 모두 완료하세요. 1·2일차에는 1장, 3일차에는 2장을 받아요.'}
+                  ? 'Complete every morning and evening routine on 3 of 5 weekdays to earn one 30-minute pass.'
+                  : '평일 5일 중 3일 동안 오전과 저녁 루틴을 모두 완료하면 30분 이용권 1장을 받아요.'}
               </div>
             </div>
           )}

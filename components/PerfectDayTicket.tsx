@@ -64,7 +64,7 @@ export function PerfectDayTicket({
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[10px] font-black uppercase">
             <Sparkles size={13} aria-hidden />
-            Perfect Day Pass
+            School Week Pass
           </div>
           <div className="mt-2 text-3xl font-black leading-none">30 MIN</div>
           <div className="mt-1 truncate text-sm font-black">{subtitle}</div>

@@ -19,11 +19,11 @@ export interface WindowCompletions {
 export interface PerfectDayClaimResult {
   awarded: boolean;
   coupons: PerfectDayCoupon[];
-  quest: (PerfectQuestProgress & { couponsAwarded: 1 | 2 }) | null;
+  quest: (PerfectQuestProgress & { couponsAwarded: 0 | 1 | 2 }) | null;
 }
 
-export function perfectQuestRewardCount(day: number): 1 | 2 {
-  return day === 3 ? 2 : 1;
+export function schoolWeekRewardCount(perfectWeekdays: number): 0 | 1 {
+  return perfectWeekdays >= 3 ? 1 : 0;
 }
 
 export function localDateKey(date: Date): string {
@@ -100,14 +100,23 @@ export function mapPerfectDayCoupon(raw: Record<string, unknown>): PerfectDayCou
 
 export function mapPerfectQuestProgress(raw: Record<string, unknown>): PerfectQuestProgress {
   const currentDay = Number(raw.currentDay ?? raw.current_day);
+  const safeCurrentDay = currentDay === 1 || currentDay === 2 || currentDay === 3 ? currentDay : 0;
   return {
     userId: String(raw.userId ?? raw.user_id),
-    currentDay: currentDay === 1 || currentDay === 2 || currentDay === 3 ? currentDay : 0,
+    currentDay: safeCurrentDay,
     currentStreak: nonNegativeInteger(raw.currentStreak ?? raw.current_streak),
     bestStreak: nonNegativeInteger(raw.bestStreak ?? raw.best_streak),
     completedQuests: nonNegativeInteger(raw.completedQuests ?? raw.completed_quests),
     lastPerfectDay: String(raw.lastPerfectDay ?? raw.last_perfect_day ?? '') || undefined,
-    nextRewardCount: Number(raw.nextRewardCount ?? raw.next_reward_count) === 2 ? 2 : 1,
+    nextRewardCount: 1,
+    weekPerfectDays: nonNegativeInteger(
+      raw.weekPerfectDays ?? raw.week_perfect_days ?? raw.currentStreak ?? raw.current_streak,
+    ),
+    weekdayGoal: 3,
+    weekdayTotal: 5,
+    rewardEarnedThisWeek: Boolean(
+      raw.rewardEarnedThisWeek ?? raw.reward_earned_this_week ?? safeCurrentDay === 3,
+    ),
   };
 }
 

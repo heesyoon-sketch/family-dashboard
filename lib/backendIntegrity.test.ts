@@ -52,13 +52,15 @@ test('shield reads use an incremental completion cache and hydrated task data', 
   assert.match(storage, /Object\.prototype\.hasOwnProperty\.call\(fallback, id\)/);
 });
 
-test('perfect quests are family-scoped, idempotent, and revoke all daily passes', () => {
-  const migration = read('supabase/migrations/104_three_day_perfect_quests.sql');
-  assert.match(migration, /unique \(user_id, day_started_at, reward_slot\)/);
-  assert.match(migration, /case when v_quest_day = 3 then 2 else 1 end/);
-  assert.match(migration, /perfect_quest_chain_continues/);
+test('school week quests are family-scoped, weekly-idempotent, and award one pass for three weekdays', () => {
+  const migration = read('supabase/migrations/105_school_week_quest.sql');
+  assert.match(migration, /unique \(user_id, earned_for_day\)/);
+  assert.match(migration, /perfect_day_coupons_user_school_week_key/);
+  assert.match(migration, /extract\(isodow from p_earned_for_day\) > 5/);
+  assert.match(migration, /if v_week_perfect_days >= 3 then/);
+  assert.doesNotMatch(migration, /v_reward_count/);
+  assert.match(migration, /reconcile_school_week_mark_before_completion_delete/);
   assert.match(migration, /status = 'redeemed'/);
-  assert.match(migration, /where id = any\(v_revoked_coupon_ids\)/);
-  assert.match(migration, /drop function if exists public\.set_member_reward_goal/);
+  assert.match(migration, /school_week_quest_marks_family_select/);
   assert.match(migration, /grant execute on function public\.get_perfect_quest_progress\(date\) to authenticated/);
 });
