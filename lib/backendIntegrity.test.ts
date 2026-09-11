@@ -75,3 +75,17 @@ test('weekend quest bonus requires both days and uses a separate weekly reward s
   assert.match(migration, /and c\.reward_slot = v_reward_slot/);
   assert.match(migration, /reconcile_school_week_mark_on_completion_delete/);
 });
+
+test('child routine deadlines are server-enforced and morning penalties are idempotent', () => {
+  const migration = read('supabase/migrations/107_child_routine_deadlines.sql');
+  assert.match(migration, /interval '12 hours'/);
+  assert.match(migration, /v_role = 'CHILD'/);
+  assert.match(migration, /interval '9 hours'/);
+  assert.match(migration, /interval '21 hours'/);
+  assert.match(migration, /unique \(user_id, penalty_date\)/);
+  assert.match(migration, /least\(50, v_balance\)/);
+  assert.match(migration, /set spendable_balance = v_balance - v_deducted/);
+  assert.doesNotMatch(migration, /set total_points = total_points -/);
+  assert.match(migration, /MORNING_ROUTINE_PENALTY:/);
+  assert.match(migration, /grant execute on function public\.apply_morning_routine_penalties/);
+});

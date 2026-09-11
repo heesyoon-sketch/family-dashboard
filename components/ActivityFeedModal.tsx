@@ -132,6 +132,20 @@ function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { ico
     };
   }
   if (activity.type === 'SYSTEM_MESSAGE') {
+    if (activity.message?.startsWith('MORNING_ROUTINE_PENALTY:')) {
+      const deducted = Math.max(0, -activity.amount);
+      return {
+        icon: '⏰',
+        text: deducted > 0
+          ? (lang === 'en'
+              ? `The morning routine was not finished by 9:00 AM, so ${deducted} points were deducted.`
+              : `모닝 루틴을 오전 9시까지 마치지 못해 ${deducted}포인트가 차감됐어요.`)
+          : (lang === 'en'
+              ? 'The morning routine was not finished by 9:00 AM. There were no points available to deduct.'
+              : '모닝 루틴을 오전 9시까지 마치지 못했지만 차감할 포인트가 없었어요.'),
+        amount: deducted > 0 ? `-${deducted}pt` : '',
+      };
+    }
     if (activity.message?.startsWith('PERFECT_DAY_COUPON:')) {
       const kind = activity.message.split(':')[1];
       const reward = kind === 'game'

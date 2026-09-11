@@ -1,6 +1,11 @@
 export type TimeWindow = 'morning' | 'evening';
 export type TaskTimeWindow = TimeWindow | 'both';
 export type TimeWindowLang = 'ko' | 'en';
+export type RoutineAvailability = Record<TimeWindow, boolean>;
+
+export const AFTERNOON_START_HOUR = 12;
+export const CHILD_MORNING_DEADLINE_HOUR = 9;
+export const CHILD_EVENING_DEADLINE_HOUR = 21;
 
 export const TIME_WINDOW_ORDER: Record<TaskTimeWindow, number> = {
   morning: 0,
@@ -10,8 +15,16 @@ export const TIME_WINDOW_ORDER: Record<TaskTimeWindow, number> = {
 
 export function getCurrentTimeWindow(date = new Date()): TimeWindow {
   const hour = date.getHours();
-  if (hour < 13) return 'morning';
+  if (hour < AFTERNOON_START_HOUR) return 'morning';
   return 'evening';
+}
+
+export function getChildRoutineAvailability(date = new Date()): RoutineAvailability {
+  const hour = date.getHours();
+  return {
+    morning: hour < CHILD_MORNING_DEADLINE_HOUR,
+    evening: hour >= AFTERNOON_START_HOUR && hour < CHILD_EVENING_DEADLINE_HOUR,
+  };
 }
 
 export function normalizeTimeWindow(taskWindow: string | null | undefined): TaskTimeWindow {
@@ -42,7 +55,7 @@ export function getCompletionWindowStart(
   const normalized = normalizeTimeWindow(taskWindow);
   const effectiveWindow = normalized === 'both' ? currentWindow ?? getCurrentTimeWindow() : normalized;
   if (effectiveWindow === 'evening') {
-    start.setHours(13, 0, 0, 0);
+    start.setHours(AFTERNOON_START_HOUR, 0, 0, 0);
   }
   return start;
 }
@@ -56,7 +69,7 @@ export function getCompletionWindowEnd(
   const normalized = normalizeTimeWindow(taskWindow);
   const effectiveWindow = normalized === 'both' ? currentWindow ?? getCurrentTimeWindow() : normalized;
   if (effectiveWindow === 'morning') {
-    end.setHours(13, 0, 0, 0);
+    end.setHours(AFTERNOON_START_HOUR, 0, 0, 0);
   } else {
     end.setDate(end.getDate() + 1);
   }
@@ -76,15 +89,21 @@ export function getTimeWindowLabel(
     : (lang === 'en' ? 'Afternoon / evening' : '오후·저녁');
 }
 
-export function getTimeWindowRange(taskWindow: TaskTimeWindow | null | undefined): string {
+export function getTimeWindowRange(
+  taskWindow: TaskTimeWindow | null | undefined,
+  childDeadlines = false,
+): string {
   const normalized = normalizeTimeWindow(taskWindow);
-  if (normalized === 'both') return '00:00-12:59 + 13:00-23:59';
-  return normalized === 'morning' ? '00:00-12:59' : '13:00-23:59';
+  const morning = childDeadlines ? '00:00-08:59' : '00:00-11:59';
+  const evening = childDeadlines ? '12:00-20:59' : '12:00-23:59';
+  if (normalized === 'both') return `${morning} + ${evening}`;
+  return normalized === 'morning' ? morning : evening;
 }
 
 export function getTimeWindowDisplay(
   taskWindow: TaskTimeWindow | null | undefined,
   lang: TimeWindowLang,
+  childDeadlines = false,
 ): string {
-  return `${getTimeWindowLabel(taskWindow, lang)} ${getTimeWindowRange(taskWindow)}`;
+  return `${getTimeWindowLabel(taskWindow, lang)} ${getTimeWindowRange(taskWindow, childDeadlines)}`;
 }

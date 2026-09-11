@@ -80,6 +80,7 @@ export function MemberPanel({ user }: { user: User }) {
   const coupons        = useFamilyStore(s => s.couponsByUser[user.id] ?? []);
   const momentum       = useFamilyStore(s => s.momentumByUser[user.id]) ?? emptyMomentum();
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
+  const routineAvailability = useFamilyStore(s => s.routineAvailability);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const doRedeemCoupon = useFamilyStore(s => s.redeemPerfectDayCoupon);
   const allUsers       = useFamilyStore(s => s.users);
@@ -138,6 +139,7 @@ export function MemberPanel({ user }: { user: User }) {
   });
   const visibleTasks = routineView === 'current' ? sortedTasks : sortedReferenceTasks;
   const selectedWindow = routineView === 'current' ? timeOfDay : referenceWindow;
+  const childDeadlinePassed = user.role === 'CHILD' && !routineAvailability[timeOfDay];
 
   const updateScrollHint = useCallback(() => {
     const el = scrollRef.current;
@@ -466,8 +468,9 @@ export function MemberPanel({ user }: { user: User }) {
                       task={task}
                       completed={completed.includes(task.id)}
                       theme={user.theme}
-                      disabled={!isTaskCurrent(task)}
-                      timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang)}
+                      disabled={!isTaskCurrent(task) || childDeadlinePassed}
+                      disabledReason={childDeadlinePassed ? 'deadline' : undefined}
+                      timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang, user.role === 'CHILD')}
                     />
                   ) : (
                     <RoutineReferenceCard

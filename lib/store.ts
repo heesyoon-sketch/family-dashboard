@@ -36,9 +36,11 @@ import {
 import {
   getCompletionWindowEnd,
   getCompletionWindowStart,
+  getChildRoutineAvailability,
   getCurrentTimeWindow,
   isTaskActiveInTimeWindow,
   normalizeTimeWindow,
+  type RoutineAvailability,
   type TimeWindow,
 } from './timeWindows';
 import {
@@ -193,6 +195,7 @@ interface FamilyState {
   hydrated: boolean;
   soundEnabled: boolean;
   timeOfDay: TimeOfDay;
+  routineAvailability: RoutineAvailability;
   // ms since epoch of the last successful hydrate. Used by SyncBootstrap to
   // skip wake-up refetches when data is still fresh — realtime keeps state
   // up-to-date between hydrates, so we only need to refetch on stale wakes.
@@ -228,6 +231,7 @@ function loadSoundPref(): boolean {
 let _timeIntervalStarted = false;
 let _offlineSyncListenersStarted = false;
 let _syncInFlight = false;
+let _morningPenaltyCheckedFor: string | null = null;
 const _taskMutationsInFlight = new Set<string>();
 
 let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
@@ -236,6 +240,39 @@ let _hydrateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _shieldSyncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _hydrateInFlight: Promise<void> | null = null;
 let _hydrateQueued = false;
+
+function morningPenaltyIsDue(now: Date): boolean {
+  return now.getHours() >= 9 && _morningPenaltyCheckedFor !== localDateKey(now);
+}
+
+async function applyMorningRoutinePenaltiesIfDue(
+  supabase: ReturnType<typeof createBrowserSupabase>,
+  now: Date,
+): Promise<void> {
+  if (!morningPenaltyIsDue(now) || !isProbablyOnline()) return;
+
+  // A completion or undo recorded offline before 09:00 must reach the server
+  // before the server decides whether the morning was complete. Leaving the
+  // date unchecked makes the minute timer retry after the offline queue drains.
+  const pendingActions = await listTaskActions().catch(() => []);
+  const dateKey = localDateKey(now);
+  const hasPendingMorningAction = pendingActions.some(action => {
+    const actionAt = new Date(action.createdAt);
+    return !Number.isNaN(actionAt.getTime())
+      && localDateKey(actionAt) === dateKey
+      && getCurrentTimeWindow(actionAt) === 'morning';
+  });
+  if (hasPendingMorningAction) return;
+
+  const dayStart = startOfDayLocal(now);
+  const { error } = await supabase.rpc('apply_morning_routine_penalties', {
+    p_day_start: dayStart.toISOString(),
+    p_day_key: DOW_INDEX[dayStart.getDay()],
+    p_penalty_date: dateKey,
+  });
+  if (error) throw error;
+  _morningPenaltyCheckedFor = dateKey;
+}
 
 function broadcastSync() {
   const ch = new BroadcastChannel('habit_sync');
@@ -432,6 +469,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   hydrated: false,
   soundEnabled: loadSoundPref(),
   timeOfDay: getCurrentTimeOfDay(),
+  routineAvailability: getChildRoutineAvailability(),
   lastHydrateAt: 0,
 
   hydrate: async () => {
@@ -538,6 +576,15 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const now = new Date();
     const todayStart = startOfDayLocal(now);
     const timeOfDay = getCurrentTimeOfDay();
+    const routineAvailability = getChildRoutineAvailability(now);
+
+    try {
+      await applyMorningRoutinePenaltiesIfDue(supabase, now);
+    } catch (error) {
+      // Keep the dashboard usable if the check is temporarily unavailable.
+      // The minute timer retries until the server confirms today's check.
+      console.warn('[morning-penalty] check failed', error);
+    }
     // Recap window needs three trailing weeks (current week-in-progress so we can show
     // a daily streak that extends into today, plus the two completed weeks we compare).
     const thirtyDaysAgo = addDays(todayStart, -29);
@@ -996,22 +1043,28 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       perfectDayQueue: [...get().perfectDayQueue, ...freshPerfectDayAwards],
       hydrated: true,
       timeOfDay,
+      routineAvailability,
       lastHydrateAt: Date.now(),
     });
 
     if (!_timeIntervalStarted && typeof window !== 'undefined') {
       _timeIntervalStarted = true;
       setInterval(() => {
+        const now = new Date();
         const newTOD = getCurrentTimeOfDay();
+        const newRoutineAvailability = getChildRoutineAvailability(now);
         useFamilyStore.setState(state => {
           const nextAutomaticSaleStatus = getAutomaticSaleStatus(state.automaticSaleConfig);
           const timeChanged = state.timeOfDay !== newTOD;
+          const routineAvailabilityChanged =
+            state.routineAvailability.morning !== newRoutineAvailability.morning
+            || state.routineAvailability.evening !== newRoutineAvailability.evening;
           const saleChanged =
             state.automaticSaleStatus.active !== nextAutomaticSaleStatus.active ||
             state.automaticSaleStatus.percentage !== nextAutomaticSaleStatus.percentage ||
             state.automaticSaleStatus.reason !== nextAutomaticSaleStatus.reason ||
             state.automaticSaleStatus.localDate !== nextAutomaticSaleStatus.localDate;
-          if (!timeChanged && !saleChanged) return {};
+          if (!timeChanged && !routineAvailabilityChanged && !saleChanged) return {};
           return {
             ...(timeChanged ? {
               timeOfDay: newTOD,
@@ -1022,12 +1075,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
                 ]),
               ),
             } : {}),
+            ...(routineAvailabilityChanged ? { routineAvailability: newRoutineAvailability } : {}),
             ...(saleChanged ? {
               automaticSaleStatus: nextAutomaticSaleStatus,
               rewards: state.rewards.map(reward => withAutomaticSale(reward, nextAutomaticSaleStatus)),
             } : {}),
           };
         });
+        if (morningPenaltyIsDue(now) && isProbablyOnline()) {
+          useFamilyStore.getState().hydrate().catch(error => {
+            console.warn('[morning-penalty] scheduled check failed', error);
+          });
+        }
       }, 60_000);
     }
 
@@ -1749,7 +1808,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       perfectDayQueue: [],
       hydrated: false,
       timeOfDay: getCurrentTimeOfDay(),
+      routineAvailability: getChildRoutineAvailability(),
       lastHydrateAt: 0,
     });
+    _morningPenaltyCheckedFor = null;
   },
 }));

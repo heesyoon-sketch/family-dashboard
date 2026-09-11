@@ -27,10 +27,18 @@ interface TaskCardProps {
   completed: boolean;
   theme: ThemeName;
   disabled?: boolean;
+  disabledReason?: 'deadline';
   timeWindowDisplay: string;
 }
 
-export function TaskCard({ task, completed, theme, disabled = false, timeWindowDisplay }: TaskCardProps) {
+export function TaskCard({
+  task,
+  completed,
+  theme,
+  disabled = false,
+  disabledReason,
+  timeWindowDisplay,
+}: TaskCardProps) {
   const { lang } = useLanguage();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
@@ -188,6 +196,9 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
   const toggleLabel = completed
     ? (lang === 'en' ? `Undo ${task.title}` : `${task.title} 취소`)
     : (lang === 'en' ? `Complete ${task.title}` : `${task.title} 완료`);
+  const accessibleLabel = disabledReason === 'deadline'
+    ? (lang === 'en' ? `${task.title}, deadline passed` : `${task.title}, 마감됨`)
+    : toggleLabel;
 
   return (
     <div className="relative h-full w-full">
@@ -238,7 +249,7 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
         aria-pressed={completed}
-        aria-label={toggleLabel}
+        aria-label={accessibleLabel}
         style={{ x, rotate: cardRotate, scale: cardScale, touchAction: 'pan-y', ...glowStyle }}
         whileTap={disabled ? undefined : { scale: 0.97 }}
         className={[
@@ -267,7 +278,9 @@ export function TaskCard({ task, completed, theme, disabled = false, timeWindowD
             <span className="min-w-0 truncate">· {timeWindowDisplay}</span>
             {disabled && (
               <span className="shrink-0 rounded-full bg-[var(--border)]/70 px-1 py-0.5 text-[9px] font-bold leading-none">
-                {lang === 'en' ? 'Locked' : '대기'}
+                {disabledReason === 'deadline'
+                  ? (lang === 'en' ? 'Closed' : '마감')
+                  : (lang === 'en' ? 'Locked' : '대기')}
               </span>
             )}
           </div>
