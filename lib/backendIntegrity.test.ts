@@ -89,3 +89,13 @@ test('child routine deadlines are server-enforced and morning penalties are idem
   assert.match(migration, /MORNING_ROUTINE_PENALTY:/);
   assert.match(migration, /grant execute on function public\.apply_morning_routine_penalties/);
 });
+
+test('automatic weekend and holiday sale days skip only the morning point penalty', () => {
+  const migration = read('supabase/migrations/108_sale_day_morning_penalty_exemption.sql');
+  assert.match(migration, /automatic_reward_sale_context\(v_family_id, v_now\)/);
+  assert.match(migration, /v_sale_context->>'localDate' = p_penalty_date::text/);
+  assert.match(migration, /'exempt', true/);
+  assert.match(migration, /'exemptionReason', v_sale_context->>'reason'/);
+  assert.doesNotMatch(migration, /process_task_completion_atomic|process_task_undo_atomic/);
+  assert.match(migration, /apply_morning_routine_penalties_before_sale_exemption/);
+});
