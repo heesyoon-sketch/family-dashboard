@@ -99,3 +99,16 @@ test('automatic weekend and holiday sale days skip only the morning point penalt
   assert.doesNotMatch(migration, /process_task_completion_atomic|process_task_undo_atomic/);
   assert.match(migration, /apply_morning_routine_penalties_before_sale_exemption/);
 });
+
+test('automatic weekend and holiday sale days also relax child completion deadlines', () => {
+  const migration = read('supabase/migrations/109_sale_day_child_deadline_exemption.sql');
+  assert.match(migration, /routine_automatic_sale_context_at\(v_family_id, p_now\)/);
+  assert.match(migration, /not v_sale_day/);
+  assert.match(migration, /process_task_completion_atomic_before_routine_deadlines/);
+  assert.match(migration, /process_task_undo_atomic_before_routine_deadlines/);
+  assert.doesNotMatch(migration, /task_completion_window_end/);
+
+  const panel = read('components/MemberPanel.tsx');
+  assert.match(panel, /strictChildDeadline = user\.role === 'CHILD' && !automaticSaleActive/);
+  assert.match(panel, /childDeadlinePassed = strictChildDeadline/);
+});
