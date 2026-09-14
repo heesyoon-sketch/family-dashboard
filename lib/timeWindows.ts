@@ -4,7 +4,11 @@ export type TimeWindowLang = 'ko' | 'en';
 export type RoutineAvailability = Record<TimeWindow, boolean>;
 
 export const AFTERNOON_START_HOUR = 12;
-export const CHILD_MORNING_DEADLINE_HOUR = 9;
+// The morning routine deadline now matches the normal morning/afternoon
+// switch: finishing any time before noon avoids the penalty, for every
+// family member. Only the evening deadline still cuts off earlier than the
+// natural midnight window end (and only for children).
+export const CHILD_MORNING_DEADLINE_HOUR = AFTERNOON_START_HOUR;
 export const CHILD_EVENING_DEADLINE_HOUR = 21;
 
 export const TIME_WINDOW_ORDER: Record<TaskTimeWindow, number> = {
@@ -94,7 +98,7 @@ export function getTimeWindowRange(
   childDeadlines = false,
 ): string {
   const normalized = normalizeTimeWindow(taskWindow);
-  const morning = childDeadlines ? '00:00-08:59' : '00:00-11:59';
+  const morning = '00:00-11:59';
   const evening = childDeadlines ? '12:00-20:59' : '12:00-23:59';
   if (normalized === 'both') return `${morning} + ${evening}`;
   return normalized === 'morning' ? morning : evening;
