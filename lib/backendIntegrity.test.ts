@@ -132,3 +132,21 @@ test('automatic weekend and holiday sale days also relax child completion deadli
   assert.match(panel, /strictChildDeadline = user\.role === 'CHILD' && !automaticSaleActive/);
   assert.match(panel, /childDeadlinePassed = strictChildDeadline/);
 });
+
+test('the joint purchase checkout is removed from the client and its RPC is revoked', () => {
+  const migration = read('supabase/migrations/111_remove_joint_purchase_checkout.sql');
+  assert.match(migration, /revoke execute on function public\.purchase_reward_joint\(text, text, int, text, int\)\s+from authenticated;/);
+
+  const storeModal = read('components/StoreModal.tsx');
+  assert.doesNotMatch(storeModal, /purchaseRewardJoint|checkoutMode|jointPartner/);
+
+  const store = read('lib/store.ts');
+  assert.doesNotMatch(store, /purchaseRewardJoint|purchase_reward_joint/);
+
+  // Historical joint purchases must still render in the activity feed and
+  // admin reward history -- this migration only blocks creating new ones.
+  const activityFeed = read('components/ActivityFeedModal.tsx');
+  assert.match(activityFeed, /parseJointPurchaseInfo/);
+  const historyPanel = read('components/admin/RewardHistoryPanel.tsx');
+  assert.match(historyPanel, /is_joint_purchase/);
+});

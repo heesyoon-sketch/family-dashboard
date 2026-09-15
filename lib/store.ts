@@ -208,7 +208,6 @@ interface FamilyState {
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
   tradeCashForPoints: (userId: string, priceCents: number, requestId?: string) => Promise<void>;
-  purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   redeemPerfectDayCoupon: (couponId: string, userId: string, kind: PerfectDayCouponKind) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
@@ -1657,46 +1656,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         [userId]: state.levelsByUser[userId]
           ? { ...state.levelsByUser[userId], spendableBalance: newBalance }
           : state.levelsByUser[userId],
-      },
-    }));
-    await get().hydrate();
-    broadcastSync();
-  },
-
-  purchaseRewardJoint: async (rewardId, user1Id, user1Amount, user2Id, user2Amount) => {
-    assertUuid(rewardId, 'rewardId');
-    assertUuid(user1Id, 'user1Id');
-    assertUuid(user2Id, 'user2Id');
-    const supabase = createBrowserSupabase();
-    await requireAuthSession(supabase);
-    const payload = {
-      p_reward_id: rewardId,
-      p_user1_id: user1Id,
-      p_user1_amount: Math.max(0, Math.round(user1Amount)),
-      p_user2_id: user2Id,
-      p_user2_amount: Math.max(0, Math.round(user2Amount)),
-    };
-    const { data, error } = await supabase.rpc('purchase_reward_joint', payload);
-    if (error) {
-      console.error('[shop:purchase_reward_joint] rpc error', error);
-      throw new Error(error.message);
-    }
-
-    const result = data as {
-      user1Id: string;
-      user1Balance: number;
-      user2Id: string;
-      user2Balance: number;
-    };
-    set(state => ({
-      levelsByUser: {
-        ...state.levelsByUser,
-        [result.user1Id]: state.levelsByUser[result.user1Id]
-          ? { ...state.levelsByUser[result.user1Id], spendableBalance: result.user1Balance }
-          : state.levelsByUser[result.user1Id],
-        [result.user2Id]: state.levelsByUser[result.user2Id]
-          ? { ...state.levelsByUser[result.user2Id], spendableBalance: result.user2Balance }
-          : state.levelsByUser[result.user2Id],
       },
     }));
     await get().hydrate();
