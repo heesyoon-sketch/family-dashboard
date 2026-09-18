@@ -150,3 +150,22 @@ test('the joint purchase checkout is removed from the client and its RPC is revo
   const historyPanel = read('components/admin/RewardHistoryPanel.tsx');
   assert.match(historyPanel, /is_joint_purchase/);
 });
+
+test('a family-wide penalty pause skips both routine penalties and is parent-only to set', () => {
+  const migration = read('supabase/migrations/112_vacation_penalty_pause.sql');
+  assert.match(migration, /create or replace function public\.penalty_pause_active\(p_family_id uuid\)/);
+  assert.match(migration, /v_family_id uuid := public\.assert_parent_admin\(\)/);
+  assert.match(migration, /'penalty_pause', jsonb_build_object\('enabled', v_enabled\)::text/);
+  assert.match(migration, /if public\.penalty_pause_active\(v_family_id\) then/);
+  assert.match(migration, /'exemptionReason', 'vacation'/);
+  assert.match(migration, /grant execute on function public\.admin_set_penalty_pause\(boolean\) to authenticated;/);
+  assert.match(migration, /revoke all on function public\.penalty_pause_active\(uuid\) from public, anon, authenticated;/);
+
+  const store = read('lib/store.ts');
+  assert.match(store, /supabase\.rpc\('admin_set_penalty_pause', \{ p_enabled: next \}\)/);
+  assert.match(store, /key', 'penalty_pause'\)/);
+
+  const page = read('app/page.tsx');
+  assert.match(page, /currentMemberCanAdmin && \(/);
+  assert.match(page, /aria-pressed=\{penaltyPauseEnabled\}/);
+});

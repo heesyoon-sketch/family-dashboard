@@ -58,6 +58,7 @@ import {
   parseAutomaticSaleSetting,
   withAutomaticSale,
 } from './automaticSale';
+import { parsePenaltyPauseSetting } from './penaltyPause';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -166,6 +167,8 @@ interface FamilyState {
   rewards: Reward[];
   automaticSaleConfig: AutomaticSaleConfig;
   automaticSaleStatus: AutomaticSaleStatus;
+  /** Family-wide "vacation mode": while true, missed routines never deduct points. */
+  penaltyPauseEnabled: boolean;
   activeTaskCount: number;
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
@@ -218,6 +221,7 @@ interface FamilyState {
   dismissInsigniaUnlock: () => void;
   dismissPerfectDayAward: () => void;
   toggleSound: () => void;
+  togglePenaltyPause: () => Promise<void>;
   reset: () => void;
 }
 
@@ -477,6 +481,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   rewards: [],
   automaticSaleConfig: defaultAutomaticSaleConfig(),
   automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
+  penaltyPauseEnabled: false,
   activeTaskCount: 0,
   currentMemberId: null,
   currentMemberCanAdmin: false,
@@ -543,6 +548,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         rewards: [],
         automaticSaleConfig: defaultAutomaticSaleConfig(),
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
+        penaltyPauseEnabled: false,
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -591,6 +597,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         rewards: [],
         automaticSaleConfig: defaultAutomaticSaleConfig(),
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
+        penaltyPauseEnabled: false,
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -631,11 +638,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // .is('deleted_at', null) filters out soft-deleted rows. Migration 060
     // added the column with a default null and partial indexes scoped by
     // (family_id) where deleted_at is null, so this filter is cheap.
-    const [uRes, tRes, rRes, automaticSaleRes] = await Promise.all([
+    const [uRes, tRes, rRes, automaticSaleRes, penaltyPauseRes] = await Promise.all([
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null),
       supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
       supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'automatic_reward_sale').maybeSingle(),
+      supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'penalty_pause').maybeSingle(),
     ]);
     // Surface SELECT errors loudly. Previously these were silently swallowed
     // by `?? []` fallbacks, which meant a missing column or RLS regression
@@ -646,6 +654,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       { label: 'tasks',   error: tRes.error },
       { label: 'rewards', error: rRes.error },
       { label: 'automatic-sale', error: automaticSaleRes.error },
+      { label: 'penalty-pause', error: penaltyPauseRes.error },
     ], get().lastHydrateAt > 0);
 
     // If the core SELECTs all failed AND we already have a successful hydrate
@@ -714,6 +723,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     }));
     const automaticSaleConfig = parseAutomaticSaleSetting(automaticSaleRes.data?.value);
     const automaticSaleStatus = getAutomaticSaleStatus(automaticSaleConfig, now);
+    const penaltyPauseEnabled = parsePenaltyPauseSetting(penaltyPauseRes.data?.value);
     const rewards: Reward[] = (rRes.data ?? []).map(r => withAutomaticSale(
       mapRewardRow(r as Record<string, unknown>),
       automaticSaleStatus,
@@ -1059,6 +1069,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       rewards,
       automaticSaleConfig,
       automaticSaleStatus,
+      penaltyPauseEnabled,
       activeTaskCount,
       currentMemberId,
       currentMemberCanAdmin,
@@ -1762,6 +1773,15 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     set({ soundEnabled: next });
   },
 
+  togglePenaltyPause: async () => {
+    const supabase = createBrowserSupabase();
+    const next = !get().penaltyPauseEnabled;
+    const { error } = await supabase.rpc('admin_set_penalty_pause', { p_enabled: next });
+    if (error) throw error;
+    set({ penaltyPauseEnabled: next });
+    broadcastSync();
+  },
+
   reset: () => {
     if (_realtimeChannel) {
       // Fire-and-forget is fine here: reset() runs on logout and we don't
@@ -1782,6 +1802,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       rewards: [],
       automaticSaleConfig: defaultAutomaticSaleConfig(),
       automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
+      penaltyPauseEnabled: false,
       activeTaskCount: 0,
       currentMemberId: null,
       currentMemberCanAdmin: false,

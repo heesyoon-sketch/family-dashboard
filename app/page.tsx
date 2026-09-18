@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart2, CalendarDays, ChevronLeft, ChevronRight, LogOut, Settings, Volume2, VolumeX } from 'lucide-react';
+import { BarChart2, CalendarDays, ChevronLeft, ChevronRight, LogOut, Palmtree, Settings, Volume2, VolumeX } from 'lucide-react';
+import { toast } from 'sonner';
 import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
@@ -41,15 +42,20 @@ function formatDate(d: Date, timeOfDay: TimeWindow, lang: Lang): string {
 export default function Dashboard() {
   const router = useRouter();
   const { lang, t } = useLanguage();
-  const { users, hydrate, celebration, dismissCelebration, soundEnabled, toggleSound } = useFamilyStore();
+  const {
+    users, hydrate, celebration, dismissCelebration, soundEnabled, toggleSound,
+    penaltyPauseEnabled, togglePenaltyPause,
+  } = useFamilyStore();
   const timeOfDay = useFamilyStore(s => s.timeOfDay);
   const hydrated  = useFamilyStore(s => s.hydrated);
+  const currentMemberCanAdmin = useFamilyStore(s => s.currentMemberCanAdmin);
   const familyId  = useFamilyStore(s => s.familyId);
   const familyName = useFamilyStore(s => s.familyName);
   const weeklyRecapByUser = useFamilyStore(s => s.weeklyRecapByUser);
   const perfectDayAward = useFamilyStore(s => s.perfectDayQueue[0] ?? null);
   const dismissPerfectDayAward = useFamilyStore(s => s.dismissPerfectDayAward);
   const [recapDismissedKey, setRecapDismissedKey] = useState<string | null>(null);
+  const [penaltyPauseToggling, setPenaltyPauseToggling] = useState(false);
   // authReady starts as false on every mount — the blank screen is shown until
   // hydrate() finishes verifying the session. This is the primary guard against
   // stale Zustand state flashing on Back-button or cross-user navigation.
@@ -129,6 +135,19 @@ export default function Dashboard() {
       dailyStreakByUser: {}, dailyStreakAtRiskByUser: {}, weeklyRecapByUser: {},
     });
     router.replace('/login');
+  };
+
+  const handleTogglePenaltyPause = async () => {
+    if (penaltyPauseToggling) return;
+    setPenaltyPauseToggling(true);
+    try {
+      await togglePenaltyPause();
+    } catch (error) {
+      console.error('Failed to toggle penalty pause', error);
+      toast.error(t('vacation_mode_update_failed'));
+    } finally {
+      setPenaltyPauseToggling(false);
+    }
   };
 
   useEffect(() => {
@@ -284,6 +303,23 @@ export default function Dashboard() {
                 <ChevronRight size={16} />
               </button>
             </div>
+          )}
+          {currentMemberCanAdmin && (
+            <button
+              onClick={() => { void handleTogglePenaltyPause(); }}
+              disabled={penaltyPauseToggling}
+              aria-pressed={penaltyPauseEnabled}
+              aria-label={penaltyPauseEnabled ? t('vacation_mode_off') : t('vacation_mode_on')}
+              title={penaltyPauseEnabled ? t('vacation_mode_off') : t('vacation_mode_on')}
+              className={[
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:pointer-events-none disabled:opacity-50',
+                penaltyPauseEnabled
+                  ? 'border-[#4EEDB0]/45 bg-[#4EEDB0]/16 text-[#4EEDB0]'
+                  : 'border-white/10 bg-white/[0.045] text-white/56 hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0]',
+              ].join(' ')}
+            >
+              <Palmtree size={17} />
+            </button>
           )}
           <button
             onClick={toggleSound}
