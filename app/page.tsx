@@ -142,6 +142,8 @@ export default function Dashboard() {
     setPenaltyPauseToggling(true);
     try {
       await togglePenaltyPause();
+      const nowEnabled = useFamilyStore.getState().penaltyPauseEnabled;
+      toast.success(nowEnabled ? t('vacation_mode_on_toast') : t('vacation_mode_off_toast'));
     } catch (error) {
       console.error('Failed to toggle penalty pause', error);
       toast.error(t('vacation_mode_update_failed'));
