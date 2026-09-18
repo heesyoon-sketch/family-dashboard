@@ -138,11 +138,25 @@ function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { ico
         icon: '⏰',
         text: deducted > 0
           ? (lang === 'en'
-              ? `The morning routine was not finished by 9:00 AM, so ${deducted} points were deducted.`
-              : `모닝 루틴을 오전 9시까지 마치지 못해 ${deducted}포인트가 차감됐어요.`)
+              ? `The morning routine was not finished by noon, so ${deducted} points were deducted.`
+              : `모닝 루틴을 낮 12시까지 마치지 못해 ${deducted}포인트가 차감됐어요.`)
           : (lang === 'en'
-              ? 'The morning routine was not finished by 9:00 AM. There were no points available to deduct.'
-              : '모닝 루틴을 오전 9시까지 마치지 못했지만 차감할 포인트가 없었어요.'),
+              ? 'The morning routine was not finished by noon. There were no points available to deduct.'
+              : '모닝 루틴을 낮 12시까지 마치지 못했지만 차감할 포인트가 없었어요.'),
+        amount: deducted > 0 ? `-${deducted}pt` : '',
+      };
+    }
+    if (activity.message?.startsWith('EVENING_ROUTINE_PENALTY:')) {
+      const deducted = Math.max(0, -activity.amount);
+      return {
+        icon: '⏰',
+        text: deducted > 0
+          ? (lang === 'en'
+              ? `The evening routine was not finished by 9:00 PM, so ${deducted} points were deducted.`
+              : `저녁 루틴을 오후 9시까지 마치지 못해 ${deducted}포인트가 차감됐어요.`)
+          : (lang === 'en'
+              ? 'The evening routine was not finished by 9:00 PM. There were no points available to deduct.'
+              : '저녁 루틴을 오후 9시까지 마치지 못했지만 차감할 포인트가 없었어요.'),
         amount: deducted > 0 ? `-${deducted}pt` : '',
       };
     }

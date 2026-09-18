@@ -208,7 +208,6 @@ interface FamilyState {
   syncOfflineActions: () => Promise<void>;
   redeemReward: (userId: string, rewardId: string, cost: number) => Promise<void>;
   tradeCashForPoints: (userId: string, priceCents: number, requestId?: string) => Promise<void>;
-  purchaseRewardJoint: (rewardId: string, user1Id: string, user1Amount: number, user2Id: string, user2Amount: number) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   redeemPerfectDayCoupon: (couponId: string, userId: string, kind: PerfectDayCouponKind) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
@@ -232,6 +231,7 @@ let _timeIntervalStarted = false;
 let _offlineSyncListenersStarted = false;
 let _syncInFlight = false;
 let _morningPenaltyCheckedFor: string | null = null;
+let _eveningPenaltyCheckedFor: string | null = null;
 const _taskMutationsInFlight = new Set<string>();
 
 let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
@@ -242,7 +242,11 @@ let _hydrateInFlight: Promise<void> | null = null;
 let _hydrateQueued = false;
 
 function morningPenaltyIsDue(now: Date): boolean {
-  return now.getHours() >= 9 && _morningPenaltyCheckedFor !== localDateKey(now);
+  return now.getHours() >= 12 && _morningPenaltyCheckedFor !== localDateKey(now);
+}
+
+function eveningPenaltyIsDue(now: Date): boolean {
+  return now.getHours() >= 21 && _eveningPenaltyCheckedFor !== localDateKey(now);
 }
 
 async function applyMorningRoutinePenaltiesIfDue(
@@ -251,7 +255,7 @@ async function applyMorningRoutinePenaltiesIfDue(
 ): Promise<void> {
   if (!morningPenaltyIsDue(now) || !isProbablyOnline()) return;
 
-  // A completion or undo recorded offline before 09:00 must reach the server
+  // A completion or undo recorded offline before noon must reach the server
   // before the server decides whether the morning was complete. Leaving the
   // date unchecked makes the minute timer retry after the offline queue drains.
   const pendingActions = await listTaskActions().catch(() => []);
@@ -272,6 +276,35 @@ async function applyMorningRoutinePenaltiesIfDue(
   });
   if (error) throw error;
   _morningPenaltyCheckedFor = dateKey;
+}
+
+async function applyEveningRoutinePenaltiesIfDue(
+  supabase: ReturnType<typeof createBrowserSupabase>,
+  now: Date,
+): Promise<void> {
+  if (!eveningPenaltyIsDue(now) || !isProbablyOnline()) return;
+
+  // Same reasoning as the morning check: a completion or undo recorded
+  // offline before 21:00 must reach the server before it decides whether the
+  // evening routine was complete.
+  const pendingActions = await listTaskActions().catch(() => []);
+  const dateKey = localDateKey(now);
+  const hasPendingEveningAction = pendingActions.some(action => {
+    const actionAt = new Date(action.createdAt);
+    return !Number.isNaN(actionAt.getTime())
+      && localDateKey(actionAt) === dateKey
+      && getCurrentTimeWindow(actionAt) === 'evening';
+  });
+  if (hasPendingEveningAction) return;
+
+  const dayStart = startOfDayLocal(now);
+  const { error } = await supabase.rpc('apply_evening_routine_penalties', {
+    p_day_start: dayStart.toISOString(),
+    p_day_key: DOW_INDEX[dayStart.getDay()],
+    p_penalty_date: dateKey,
+  });
+  if (error) throw error;
+  _eveningPenaltyCheckedFor = dateKey;
 }
 
 function broadcastSync() {
@@ -584,6 +617,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       // Keep the dashboard usable if the check is temporarily unavailable.
       // The minute timer retries until the server confirms today's check.
       console.warn('[morning-penalty] check failed', error);
+    }
+    try {
+      await applyEveningRoutinePenaltiesIfDue(supabase, now);
+    } catch (error) {
+      console.warn('[evening-penalty] check failed', error);
     }
     // Recap window needs three trailing weeks (current week-in-progress so we can show
     // a daily streak that extends into today, plus the two completed weeks we compare).
@@ -1082,9 +1120,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             } : {}),
           };
         });
-        if (morningPenaltyIsDue(now) && isProbablyOnline()) {
+        if ((morningPenaltyIsDue(now) || eveningPenaltyIsDue(now)) && isProbablyOnline()) {
           useFamilyStore.getState().hydrate().catch(error => {
-            console.warn('[morning-penalty] scheduled check failed', error);
+            console.warn('[routine-penalty] scheduled check failed', error);
           });
         }
       }, 60_000);
@@ -1624,46 +1662,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     broadcastSync();
   },
 
-  purchaseRewardJoint: async (rewardId, user1Id, user1Amount, user2Id, user2Amount) => {
-    assertUuid(rewardId, 'rewardId');
-    assertUuid(user1Id, 'user1Id');
-    assertUuid(user2Id, 'user2Id');
-    const supabase = createBrowserSupabase();
-    await requireAuthSession(supabase);
-    const payload = {
-      p_reward_id: rewardId,
-      p_user1_id: user1Id,
-      p_user1_amount: Math.max(0, Math.round(user1Amount)),
-      p_user2_id: user2Id,
-      p_user2_amount: Math.max(0, Math.round(user2Amount)),
-    };
-    const { data, error } = await supabase.rpc('purchase_reward_joint', payload);
-    if (error) {
-      console.error('[shop:purchase_reward_joint] rpc error', error);
-      throw new Error(error.message);
-    }
-
-    const result = data as {
-      user1Id: string;
-      user1Balance: number;
-      user2Id: string;
-      user2Balance: number;
-    };
-    set(state => ({
-      levelsByUser: {
-        ...state.levelsByUser,
-        [result.user1Id]: state.levelsByUser[result.user1Id]
-          ? { ...state.levelsByUser[result.user1Id], spendableBalance: result.user1Balance }
-          : state.levelsByUser[result.user1Id],
-        [result.user2Id]: state.levelsByUser[result.user2Id]
-          ? { ...state.levelsByUser[result.user2Id], spendableBalance: result.user2Balance }
-          : state.levelsByUser[result.user2Id],
-      },
-    }));
-    await get().hydrate();
-    broadcastSync();
-  },
-
   transferPointsWithMessage: async (senderId, receiverId, amount, message) => {
     assertUuid(senderId, 'senderId');
     assertUuid(receiverId, 'receiverId');
@@ -1812,5 +1810,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       lastHydrateAt: 0,
     });
     _morningPenaltyCheckedFor = null;
+    _eveningPenaltyCheckedFor = null;
   },
 }));

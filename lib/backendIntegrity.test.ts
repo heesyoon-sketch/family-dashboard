@@ -100,6 +100,26 @@ test('automatic weekend and holiday sale days skip only the morning point penalt
   assert.match(migration, /apply_morning_routine_penalties_before_sale_exemption/);
 });
 
+test('the morning penalty deadline moves to noon and covers every family member; a matching evening penalty is added', () => {
+  const migration = read('supabase/migrations/110_evening_penalty_and_noon_deadline.sql');
+  assert.doesNotMatch(migration, /interval '9 hours'/);
+  assert.match(migration, /v_now < p_day_start \+ interval '12 hours'/);
+  assert.match(migration, /v_now < p_day_start \+ interval '21 hours'/);
+  assert.doesNotMatch(migration, /u\.role = 'CHILD'/);
+  assert.match(migration, /create table public\.evening_routine_penalties/);
+  assert.match(migration, /unique \(user_id, penalty_date\)/);
+  assert.match(migration, /least\(50, v_balance\)/);
+  assert.match(migration, /EVENING_ROUTINE_PENALTY:/);
+  assert.match(migration, /apply_evening_routine_penalties_before_sale_exemption/);
+  assert.match(migration, /grant execute on function public\.apply_evening_routine_penalties/);
+  assert.match(migration, /grant execute on function public\.apply_morning_routine_penalties/);
+
+  const store = read('lib/store.ts');
+  assert.match(store, /now\.getHours\(\) >= 12 && _morningPenaltyCheckedFor/);
+  assert.match(store, /now\.getHours\(\) >= 21 && _eveningPenaltyCheckedFor/);
+  assert.match(store, /supabase\.rpc\('apply_evening_routine_penalties'/);
+});
+
 test('automatic weekend and holiday sale days also relax child completion deadlines', () => {
   const migration = read('supabase/migrations/109_sale_day_child_deadline_exemption.sql');
   assert.match(migration, /routine_automatic_sale_context_at\(v_family_id, p_now\)/);
@@ -111,4 +131,22 @@ test('automatic weekend and holiday sale days also relax child completion deadli
   const panel = read('components/MemberPanel.tsx');
   assert.match(panel, /strictChildDeadline = user\.role === 'CHILD' && !automaticSaleActive/);
   assert.match(panel, /childDeadlinePassed = strictChildDeadline/);
+});
+
+test('the joint purchase checkout is removed from the client and its RPC is revoked', () => {
+  const migration = read('supabase/migrations/111_remove_joint_purchase_checkout.sql');
+  assert.match(migration, /revoke execute on function public\.purchase_reward_joint\(text, text, int, text, int\)\s+from authenticated;/);
+
+  const storeModal = read('components/StoreModal.tsx');
+  assert.doesNotMatch(storeModal, /purchaseRewardJoint|checkoutMode|jointPartner/);
+
+  const store = read('lib/store.ts');
+  assert.doesNotMatch(store, /purchaseRewardJoint|purchase_reward_joint/);
+
+  // Historical joint purchases must still render in the activity feed and
+  // admin reward history -- this migration only blocks creating new ones.
+  const activityFeed = read('components/ActivityFeedModal.tsx');
+  assert.match(activityFeed, /parseJointPurchaseInfo/);
+  const historyPanel = read('components/admin/RewardHistoryPanel.tsx');
+  assert.match(historyPanel, /is_joint_purchase/);
 });

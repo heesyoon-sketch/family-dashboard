@@ -72,28 +72,16 @@ export function StoreModal({
   const copy = {
     soldOut: lang === 'en' ? 'Sold out' : '품절',
     totalCost: lang === 'en' ? 'Total cost' : '총 비용',
-    checkoutPrompt: lang === 'en' ? 'How do you want to pay?' : '어떻게 결제할까요?',
-    payAlone: lang === 'en' ? 'Pay alone' : '혼자 결제하기',
-    payTogether: lang === 'en' ? 'Pay together' : '같이 결제하기',
+    checkoutPrompt: lang === 'en' ? 'Confirm purchase' : '구매를 확인해주세요',
     aloneSummary: (name: string, cost: number, currentBalance: number) => (
       lang === 'en'
-        ? `${name} will pay ${cost}pt alone. Current balance is ${currentBalance}pt.`
-        : `${name} 혼자 ${cost}pt를 결제합니다. 현재 잔액은 ${currentBalance}pt예요.`
+        ? `${name} will pay ${cost}pt. Current balance is ${currentBalance}pt.`
+        : `${name}님이 ${cost}pt를 결제합니다. 현재 잔액은 ${currentBalance}pt예요.`
     ),
     insufficientPoints: lang === 'en' ? 'Not enough points' : '포인트가 부족해요',
-    jointPartner: lang === 'en' ? 'Family member to pay with' : '같이 결제할 가족',
-    family: lang === 'en' ? 'Family' : '가족',
     balance: lang === 'en' ? 'Balance' : '잔액',
-    splitSummary: (shareTotal: number, cost: number) => (
-      lang === 'en' ? `Total ${shareTotal}pt / Need ${cost}pt` : `합계 ${shareTotal}pt / 필요 ${cost}pt`
-    ),
-    splitMismatch: lang === 'en' ? 'Total must match' : '합계가 맞아야 해요',
-    balanceShortage: (name: string) => (
-      lang === 'en' ? `${name} needs more points` : `${name} 잔액 부족`
-    ),
     paying: lang === 'en' ? 'Paying...' : '결제 중…',
     payComplete: lang === 'en' ? 'Complete payment' : '결제 완료',
-    jointSuccess: lang === 'en' ? 'Joint purchase complete!' : '합동 구매 성공!',
     cashTitle: lang === 'en' ? 'Buy something at a store' : '가게에서 사고 싶은 게 있어요',
     cashRate: '$1 = 100pt',
     cashHint: lang === 'en'
@@ -122,11 +110,8 @@ export function StoreModal({
   const rewards = useFamilyStore(state => state.rewards);
   const automaticSaleConfig = useFamilyStore(state => state.automaticSaleConfig);
   const automaticSaleStatus = useFamilyStore(state => state.automaticSaleStatus);
-  const users = useFamilyStore(state => state.users);
-  const levelsByUser = useFamilyStore(state => state.levelsByUser);
   const hydrate = useFamilyStore(state => state.hydrate);
   const hydrated = useFamilyStore(state => state.hydrated);
-  const purchaseRewardJoint = useFamilyStore(state => state.purchaseRewardJoint);
   const tradeCashForPoints = useFamilyStore(state => state.tradeCashForPoints);
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [cashOpen, setCashOpen] = useState(false);
@@ -136,10 +121,6 @@ export function StoreModal({
   const cashRequestIdRef = useRef('');
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutReward, setCheckoutReward] = useState<Reward | null>(null);
-  const [checkoutMode, setCheckoutMode] = useState<'alone' | 'together'>('alone');
-  const [jointUserId, setJointUserId] = useState('');
-  const [userShare, setUserShare] = useState(0);
-  const [partnerShare, setPartnerShare] = useState(0);
   const redeemingRef = useRef(false);
   const nextAutomaticSale = useMemo(
     () => nextAutomaticSaleStatus(automaticSaleConfig),
@@ -172,17 +153,8 @@ export function StoreModal({
     };
   }, [refreshRewards]);
 
-  const jointPartners = users.filter(member => member.id !== user.id);
-  const jointPartner = jointPartners.find(member => member.id === jointUserId) ?? null;
-  const jointPartnerBalance = jointPartner ? (levelsByUser[jointPartner.id]?.spendableBalance ?? 0) : 0;
-
   const openCheckout = (reward: Reward) => {
-    const cost = rewardEffectiveCost(reward);
     setCheckoutReward(reward);
-    setCheckoutMode('alone');
-    setJointUserId(jointPartners[0]?.id ?? '');
-    setUserShare(Math.floor(cost / 2));
-    setPartnerShare(cost - Math.floor(cost / 2));
   };
 
   const closeCheckout = () => {
@@ -252,55 +224,10 @@ export function StoreModal({
     }
   };
 
-  const handleJointRedeem = async (reward: Reward) => {
-    if (redeemingRef.current || !jointPartner) return;
-    redeemingRef.current = true;
-    setRedeeming(reward.id);
-
-    try {
-      await refreshRewards().catch(error => {
-        console.warn('Failed to refresh rewards before joint redeem', error);
-      });
-
-      const latestReward = useFamilyStore.getState().rewards.find(r => r.id === reward.id) ?? reward;
-      if (latestReward.is_hidden || latestReward.is_sold_out) {
-        toast.error(latestReward.is_sold_out ? copy.soldOut : t('exchange_fail'));
-        return;
-      }
-
-      const cost = rewardEffectiveCost(latestReward);
-      const share1 = Math.max(0, Math.round(userShare) || 0);
-      const share2 = Math.max(0, Math.round(partnerShare) || 0);
-      const latestLevels = useFamilyStore.getState().levelsByUser;
-      const latestUserBalance = latestLevels[user.id]?.spendableBalance ?? balance;
-      const latestPartnerBalance = latestLevels[jointPartner.id]?.spendableBalance ?? jointPartnerBalance;
-      if (share1 + share2 !== cost) return;
-      if (latestUserBalance < share1 || latestPartnerBalance < share2) return;
-
-      await purchaseRewardJoint(latestReward.id, user.id, share1, jointPartner.id, share2);
-      toast.success(copy.jointSuccess);
-      setCheckoutReward(null);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('exchange_fail'));
-    } finally {
-      redeemingRef.current = false;
-      setRedeeming(null);
-    }
-  };
-
   const loading = !hydrated || refreshing;
   const visibleRewards = rewards.filter(reward => !reward.is_hidden);
   const checkoutCost = checkoutReward ? rewardEffectiveCost(checkoutReward) : 0;
   const checkoutSoldOut = Boolean(checkoutReward?.is_sold_out);
-  const shareTotal = Math.max(0, Math.round(userShare) || 0) + Math.max(0, Math.round(partnerShare) || 0);
-  const jointInvalid =
-    !jointPartner ||
-    shareTotal !== checkoutCost ||
-    userShare < 0 ||
-    partnerShare < 0 ||
-    balance < userShare ||
-    jointPartnerBalance < partnerShare ||
-    checkoutSoldOut;
 
   return (
     <div
@@ -493,119 +420,24 @@ export function StoreModal({
               </div>
 
               <div className="mb-2 text-sm font-bold text-[var(--fg)]">{copy.checkoutPrompt}</div>
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCheckoutMode('alone')}
-                  className={[
-                    'min-h-14 rounded-xl border px-3 py-2 text-xs font-bold transition-colors',
-                    checkoutMode === 'alone'
-                      ? 'border-[var(--accent)] bg-[var(--accent)] text-gray-950'
-                      : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
-                  ].join(' ')}
-                >
-                  {copy.payAlone}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCheckoutMode('together')}
-                  disabled={jointPartners.length === 0}
-                  className={[
-                    'min-h-14 rounded-xl border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-40',
-                    checkoutMode === 'together'
-                      ? 'border-rose-400 bg-rose-400 text-black'
-                      : 'border-[var(--border)] bg-[var(--bg)] text-[var(--fg-muted)]',
-                  ].join(' ')}
-                >
-                  🤝 {copy.payTogether}
-                </button>
+              <div className="space-y-3">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--fg-muted)]">
+                  {copy.aloneSummary(user.name, checkoutCost, balance)}
+                  {balance < checkoutCost && (
+                    <span className="ml-2 font-semibold text-rose-300">{copy.insufficientPoints}</span>
+                  )}
+                </div>
               </div>
-
-              {checkoutMode === 'alone' ? (
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--fg-muted)]">
-                    {copy.aloneSummary(user.name, checkoutCost, balance)}
-                    {balance < checkoutCost && (
-                      <span className="ml-2 font-semibold text-rose-300">{copy.insufficientPoints}</span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <label className="block">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">{copy.jointPartner}</span>
-                    <select
-                      value={jointUserId}
-                      onChange={e => setJointUserId(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-500"
-                    >
-                      {jointPartners.map(member => (
-                        <option key={member.id} value={member.id}>{member.name}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">{user.name}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={checkoutCost}
-                        value={userShare}
-                        onChange={e => setUserShare(Number(e.target.value))}
-                        className="h-10 w-full rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-bold text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
-                      />
-                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">{copy.balance} {balance}pt</span>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--fg-muted)]">
-                        {jointPartner?.name ?? copy.family}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={checkoutCost}
-                        value={partnerShare}
-                        onChange={e => setPartnerShare(Number(e.target.value))}
-                        className="h-10 w-full rounded-xl border border-gray-300 bg-white px-2 text-center text-sm font-bold text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
-                      />
-                      <span className="mt-1 block text-[10px] text-[var(--fg-muted)]">{copy.balance} {jointPartnerBalance}pt</span>
-                    </label>
-                  </div>
-
-                  <div className={[
-                    'rounded-xl border px-3 py-2 text-xs',
-                    shareTotal === checkoutCost && !jointInvalid
-                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-                      : 'border-rose-400/30 bg-rose-400/10 text-rose-300',
-                  ].join(' ')}>
-                    {copy.splitSummary(shareTotal, checkoutCost)}
-                    {shareTotal !== checkoutCost && <span className="ml-2">{copy.splitMismatch}</span>}
-                    {balance < userShare && <span className="ml-2">{copy.balanceShortage(user.name)}</span>}
-                    {jointPartner && jointPartnerBalance < partnerShare && <span className="ml-2">{copy.balanceShortage(jointPartner.name)}</span>}
-                  </div>
-
-                </div>
-              )}
 
               <button
                 type="button"
-                onClick={() => {
-                  if (checkoutMode === 'alone') void handleRedeem(checkoutReward);
-                  else void handleJointRedeem(checkoutReward);
-                }}
+                onClick={() => void handleRedeem(checkoutReward)}
                 disabled={
                   redeeming === checkoutReward.id ||
                   checkoutSoldOut ||
-                  (checkoutMode === 'alone' ? balance < checkoutCost : jointInvalid)
+                  balance < checkoutCost
                 }
-                className={[
-                  'mt-4 h-12 w-full rounded-xl text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40',
-                  checkoutMode === 'alone'
-                    ? 'bg-[var(--accent)] text-gray-950'
-                    : 'bg-rose-400 text-black',
-                ].join(' ')}
+                className="mt-4 h-12 w-full rounded-xl bg-[var(--accent)] text-sm font-bold text-gray-950 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {redeeming === checkoutReward.id ? copy.paying : copy.payComplete}
               </button>
