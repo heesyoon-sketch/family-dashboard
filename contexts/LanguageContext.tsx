@@ -82,6 +82,8 @@ export type TranslationKey =
   | 'sound_unmute'
   | 'vacation_mode_on'
   | 'vacation_mode_off'
+  | 'vacation_mode_on_toast'
+  | 'vacation_mode_off_toast'
   | 'vacation_mode_update_failed'
   | 'weekdays_all'
   | 'weekends_all'
@@ -207,6 +209,8 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     gift: '선물',
     vacation_mode_on: '특별한 날 모드 켜기 (포인트 차감 없음)',
     vacation_mode_off: '특별한 날 모드 끄기 (포인트 차감 다시 시작)',
+    vacation_mode_on_toast: '오늘은 FamBit을 쉬는 날이에요',
+    vacation_mode_off_toast: '특별한 날 모드를 껐어요. 평소처럼 진행돼요.',
     vacation_mode_update_failed: '설정을 변경하지 못했어요. 다시 시도해주세요.',
   },
   en: {
@@ -309,6 +313,8 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     gift: 'Gift',
     vacation_mode_on: 'Turn on Special Day Mode (no point deductions)',
     vacation_mode_off: 'Turn off Special Day Mode (deductions resume)',
+    vacation_mode_on_toast: "Today's a rest day from FamBit.",
+    vacation_mode_off_toast: 'Special Day Mode is off. Back to normal.',
     vacation_mode_update_failed: 'Could not update the setting. Please try again.',
   },
 };
