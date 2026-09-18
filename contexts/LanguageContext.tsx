@@ -80,6 +80,9 @@ export type TranslationKey =
   | 'no_rewards_registered'
   | 'sound_mute'
   | 'sound_unmute'
+  | 'vacation_mode_on'
+  | 'vacation_mode_off'
+  | 'vacation_mode_update_failed'
   | 'weekdays_all'
   | 'weekends_all'
   | 'min_one_day'
@@ -202,6 +205,9 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     feedback_subtitle: '한 줄 후기로 더 좋은 FamBit을 만들어요',
     mailbox_history: '편지함 및 기록',
     gift: '선물',
+    vacation_mode_on: '특별한 날 모드 켜기 (포인트 차감 없음)',
+    vacation_mode_off: '특별한 날 모드 끄기 (포인트 차감 다시 시작)',
+    vacation_mode_update_failed: '설정을 변경하지 못했어요. 다시 시도해주세요.',
   },
   en: {
     new_record: 'New Record!',
@@ -301,6 +307,9 @@ const DICT: Record<Lang, Record<TranslationKey, string>> = {
     feedback_subtitle: 'Help us shape FamBit — share a thought',
     mailbox_history: 'Mailbox & History',
     gift: 'Gift',
+    vacation_mode_on: 'Turn on Special Day Mode (no point deductions)',
+    vacation_mode_off: 'Turn off Special Day Mode (deductions resume)',
+    vacation_mode_update_failed: 'Could not update the setting. Please try again.',
   },
 };
 
