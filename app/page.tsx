@@ -355,6 +355,13 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {penaltyPauseEnabled && (
+        <div className="flex shrink-0 items-center justify-center gap-1.5 border-b border-[#4EEDB0]/25 bg-[#4EEDB0]/12 px-3 py-1.5 text-center text-[11px] font-bold text-[#4EEDB0] md:text-[12px]">
+          <Palmtree size={14} className="shrink-0" />
+          <span>{t('vacation_mode_banner')}</span>
+        </div>
+      )}
+
       <main className="flex flex-1 flex-col gap-3 bg-[#0D0E1C] p-3 md:hidden">
         <FamilyOnboardingChecklist />
         <MobileMemberTabs
