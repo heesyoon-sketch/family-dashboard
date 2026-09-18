@@ -168,4 +168,10 @@ test('a family-wide penalty pause skips both routine penalties and is parent-onl
   const page = read('app/page.tsx');
   assert.match(page, /currentMemberCanAdmin && \(/);
   assert.match(page, /aria-pressed=\{penaltyPauseEnabled\}/);
+
+  // The pause state is visible to every family member, not just the parent
+  // who set it -- a shared kiosk needs a standing banner, not just a toast
+  // only the toggler saw.
+  assert.match(page, /\{penaltyPauseEnabled && \(/);
+  assert.match(page, /t\('vacation_mode_banner'\)/);
 });
