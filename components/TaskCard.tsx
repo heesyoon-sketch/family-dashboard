@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, useReducedMotion, animate } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { Task } from '@/lib/db';
@@ -40,6 +40,7 @@ export function TaskCard({
   timeWindowDisplay,
 }: TaskCardProps) {
   const { lang } = useLanguage();
+  const reducedMotion = useReducedMotion();
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
@@ -57,10 +58,13 @@ export function TaskCard({
   const [busy, setBusy]           = useState(false);
   const [particles, setParticles] = useState<ParticleData[] | null>(null);
   const [rippleKey, setRippleKey] = useState(0);
+  const busyRef = useRef(false);
+  const gesture = useRef({ x: 0, y: 0, moved: false });
   const particleTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerEffects = (clientX?: number, clientY?: number) => {
     if (soundEnabled) playCompletionSound(task.id);
+    if (reducedMotion) return;
     if (particleTimer.current) clearTimeout(particleTimer.current);
     setParticles(buildParticles(theme));
     particleTimer.current = setTimeout(() => setParticles(null), 1000);
@@ -89,11 +93,12 @@ export function TaskCard({
     if (navigator.vibrate) navigator.vibrate(20);
     // Bumping the key remounts the ripple element so it replays even
     // when the user undoes several cards in quick succession.
-    setRippleKey(k => k + 1);
+    if (!reducedMotion) setRippleKey(k => k + 1);
   };
 
   const fireComplete = async (clientX?: number, clientY?: number) => {
-    if (busy || disabled) return;
+    if (busyRef.current || disabled) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       if (completed) {
@@ -127,10 +132,18 @@ export function TaskCard({
           toast.success(`+${feedback.pointsAwarded}pt`, { description: detail });
         }
       }
+    } catch (error) {
+      console.error('Task update failed', error);
+      toast.error(lang === 'en' ? 'Could not save. Please try again.' : '저장하지 못했어요. 다시 눌러주세요.');
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
+
+  useEffect(() => () => {
+    if (particleTimer.current) clearTimeout(particleTimer.current);
+  }, []);
 
   // Soft, bouncy spring — feels alive without overshooting awkwardly.
   const snapBack = () => animate(x, 0, { type: 'spring', stiffness: 380, damping: 26, restDelta: 0.5 });
@@ -186,13 +199,11 @@ export function TaskCard({
   const displayPts = task.basePoints;
   const duration = taskDurationOptionForPoints(task.basePoints);
   const isLightTheme = theme === 'warm_minimal' || theme === 'pastel_cute';
-  // Completed state: muted background, dimmed ring, washed-out colour, and
-  // a strikethrough on the title — clearly readable as "done" at a glance.
+  // Keep completed titles readable; the filled check and strike distinguish them.
   const ringClass = completed
-    ? 'ring-[var(--accent)]/40'
+    ? 'ring-[var(--success)]/35'
     : 'ring-[var(--task-card-border)]';
-  const completedClass = completed ? 'opacity-60 saturate-50 grayscale-[0.35]' : '';
-  const glowStyle: React.CSSProperties = {};
+  const completedClass = completed ? 'bg-[var(--bg-card)]' : '';
   const toggleLabel = completed
     ? (lang === 'en' ? `Undo ${task.title}` : `${task.title} 취소`)
     : (lang === 'en' ? `Complete ${task.title}` : `${task.title} 완료`);
@@ -230,32 +241,42 @@ export function TaskCard({
       {/* Card — absolute inset-0 + overflow-hidden: content is ALWAYS clipped to CARD_H.
           ring-1 ring-inset paints inside the border-box → zero layout contribution.
           Both states (active/completed) carry a ring, so box-model is always identical. */}
-      <motion.div
-        drag={disabled ? false : 'x'}
+      <motion.button
+        type="button"
+        disabled={disabled}
+        drag={disabled || busy ? false : 'x'}
         dragConstraints={completed ? { left: -SWIPE_LIMIT_PX, right: 0 } : { left: 0, right: SWIPE_LIMIT_PX }}
         dragDirectionLock
         dragElastic={0.18}
         dragMomentum={false}
         dragTransition={{ bounceStiffness: 380, bounceDamping: 26 }}
         onDragEnd={handleDragEnd}
-        onKeyDown={event => {
-          if (disabled || busy) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            void fireComplete();
-          }
+        onPointerDownCapture={event => {
+          gesture.current = { x: event.clientX, y: event.clientY, moved: false };
         }}
-        role="button"
-        tabIndex={disabled ? -1 : 0}
-        aria-disabled={disabled}
+        onPointerMoveCapture={event => {
+          if (Math.abs(event.clientX - gesture.current.x) > 8 || Math.abs(event.clientY - gesture.current.y) > 8) gesture.current.moved = true;
+        }}
+        onPointerCancel={() => { gesture.current.moved = true; }}
+        onDragStart={() => { gesture.current.moved = true; }}
+        onClick={event => {
+          // A scroll or swipe must never also count as a tap. Keyboard clicks
+          // have detail=0 and use the button's native Enter/Space behavior.
+          if (event.detail !== 0 && gesture.current.moved) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          void fireComplete(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        }}
+        aria-busy={busy}
+        aria-disabled={disabled || busy}
         aria-pressed={completed}
         aria-label={accessibleLabel}
-        style={{ x, rotate: cardRotate, scale: cardScale, touchAction: 'pan-y', ...glowStyle }}
-        whileTap={disabled ? undefined : { scale: 0.97 }}
+        aria-description={timeWindowDisplay}
+        style={{ x, rotate: reducedMotion ? 0 : cardRotate, scale: reducedMotion ? 1 : cardScale, touchAction: 'pan-y' }}
+        whileTap={disabled || reducedMotion ? undefined : { scale: 0.97 }}
         className={[
-          'absolute inset-0 overflow-hidden rounded-2xl bg-[var(--task-card-bg)]',
-          'px-3.5 py-2.5 flex items-center gap-3 md:px-2.5 md:py-2 md:gap-2',
-          disabled ? 'cursor-not-allowed opacity-50 saturate-75' : 'cursor-grab active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
+          'absolute inset-0 w-full overflow-hidden rounded-xl bg-[var(--task-card-bg)] text-left',
+          'px-3 py-2.5 flex items-center gap-2.5 md:px-2.5 md:py-2 md:gap-2',
+          disabled ? 'cursor-not-allowed opacity-50 saturate-75' : 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]',
           'ring-1 ring-inset shadow-[var(--task-card-shadow)] transition-[opacity,filter] duration-200',
           isLightTheme ? 'backdrop-blur-sm' : '',
           ringClass,
@@ -263,16 +284,16 @@ export function TaskCard({
         ].join(' ')}
       >
         {/* Icon — 40px, readable and comfortable on touch screens */}
-        <div className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
+        <span aria-hidden className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
           <LucideIcon size={19} className="text-[var(--accent)]" />
-        </div>
+        </span>
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
-        <div className="flex-1 min-w-0">
-          <div className={`text-base font-semibold leading-tight line-clamp-2 md:text-sm ${completed ? 'line-through decoration-2 text-[var(--fg-muted)]' : ''}`}>
+        <span className="flex-1 min-w-0">
+          <span className={`block text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'line-through decoration-2 text-[var(--fg-muted)]' : ''}`}>
             {task.title}
-          </div>
-          <div className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
+          </span>
+          <span className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
             <span className="flex shrink-0 items-center gap-0.5"><Icons.Clock3 size={10} aria-hidden />{duration.label[lang]}</span>
             <span className="shrink-0">· +{displayPts}pt</span>
             <span className="min-w-0 truncate">· {timeWindowDisplay}</span>
@@ -283,16 +304,15 @@ export function TaskCard({
                   : (lang === 'en' ? 'Locked' : '대기')}
               </span>
             )}
-          </div>
-        </div>
+          </span>
+        </span>
 
-        {/* Completed toggle — 48px touch target, shrink-0 */}
-        {completed && (
-          <div className="w-12 h-12 flex items-center justify-center shrink-0 md:h-9 md:w-9">
-            <Icons.CheckCircle2 size={26} className="text-[var(--success)]" />
-          </div>
-        )}
-      </motion.div>
+        <span aria-hidden className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 transition-colors ${completed ? 'border-[var(--success)] bg-[var(--success)] text-[var(--completion-fg)]' : 'border-[var(--fg-muted)]/40 text-[var(--fg-muted)]'}`}>
+          {busy ? <Icons.LoaderCircle size={18} className="animate-spin" />
+            : disabled && !completed ? <Icons.LockKeyhole size={14} />
+              : completed ? <Icons.Check size={20} strokeWidth={3} /> : <Icons.Check size={17} className="opacity-25" />}
+        </span>
+      </motion.button>
 
       {/* Particles render outside card overflow, free to animate anywhere */}
       <Particles particles={particles} theme={theme} />

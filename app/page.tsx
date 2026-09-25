@@ -1,33 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart2, CalendarDays, ChevronLeft, ChevronRight, LogOut, Palmtree, Settings, Volume2, VolumeX } from 'lucide-react';
+import { Palmtree } from 'lucide-react';
+import { DashboardHeader } from '@/components/DashboardHeader';
 import { toast } from 'sonner';
 import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { InsigniaUnlockOverlay } from '@/components/InsigniaUnlockOverlay';
 import { PerfectDayCelebrationOverlay } from '@/components/PerfectDayCelebrationOverlay';
-import { HarmonyChip } from '@/components/HarmonyChip';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
-import { AuthProfileAvatar } from '@/components/AuthProfileAvatar';
 import { FamBitWordmark } from '@/components/FamBitLogo';
-import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
 import { FamilyOnboardingChecklist } from '@/components/FamilyOnboardingChecklist';
-import { FamilyQuestChip } from '@/components/FamilyQuestCard';
 import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 import { getTimeWindowDisplay, type TimeWindow } from '@/lib/timeWindows';
-
-const iconBtnClass =
-  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/56 transition-colors hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0]';
-
 
 function formatDate(d: Date, timeOfDay: TimeWindow, lang: Lang): string {
   const locale = lang === 'en' ? 'en-US' : 'ko-KR';
@@ -228,132 +220,24 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col bg-[#0D0E1C] min-h-screen md:fixed md:inset-0 md:h-screen md:overflow-hidden">
+    <div className="dashboard-shell flex min-h-dvh flex-col bg-[#0D0E1C] md:fixed md:inset-0 md:h-dvh md:overflow-hidden">
 
-      {/* Header — sticky on mobile scroll, static on desktop */}
-      <header
-        className="sticky top-0 z-10 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-white/8 bg-[#0D0E1C]/95 px-2.5 backdrop-blur-md md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:px-3"
-        style={{ minHeight: 52, paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        <div className="flex min-w-0 items-center gap-2 pl-0.5">
-          <span className="shrink-0 md:hidden">
-            <FamBitWordmark markSize={30} showText={false} />
-          </span>
-          <span className="min-w-0 truncate text-[12px] font-semibold text-white/42 md:text-[13px]">
-            {dateLabel}
-          </span>
-        </div>
-
-        <div className="hidden min-w-0 justify-center md:flex">
-          <div className="flex h-10 max-w-full items-center gap-2 rounded-xl border border-white/9 bg-[#111224] px-2.5 shadow-[0_6px_22px_rgba(0,0,0,0.22)] md:h-11 md:px-3">
-            <FamBitWordmark
-              compact
-              markSize={30}
-              textClassName="hidden text-[18px] font-black text-white sm:inline"
-            />
-            <div className="h-4 w-px bg-white/10" />
-            {familyName ? (
-              <span
-                title={familyName}
-                className="min-w-0 max-w-[46vw] truncate text-[12px] font-black text-white/78 md:max-w-[210px]"
-              >
-                {familyName}
-              </span>
-            ) : (
-              <span className="text-[12px] font-black text-white/52">Family Dashboard</span>
-            )}
-            <FamilyQuestChip className="max-w-[170px]" />
-            <ConnectionStatusChip className="hidden md:inline-flex" />
-            <div className="hidden h-4 w-px bg-white/10 md:block" />
-            <HarmonyChip className="hidden md:inline-flex" />
-          </div>
-        </div>
-
-        <div className="flex min-w-0 items-center justify-end gap-1.5">
-          {pageCount > 1 && (
-            <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1 md:flex">
-              <button
-                type="button"
-                onClick={goToPrevPage}
-                disabled={activePage === 0}
-                aria-label="Previous members page"
-                className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div className="flex items-center gap-1 px-1">
-                {Array.from({ length: pageCount }, (_, page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    aria-label={`Members page ${page + 1}`}
-                    className={[
-                      'h-1.5 rounded-full transition-all',
-                      page === activePage ? 'w-4 bg-[#4EEDB0]' : 'w-1.5 bg-white/25 hover:bg-white/45',
-                    ].join(' ')}
-                  />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={goToNextPage}
-                disabled={activePage === pageCount - 1}
-                aria-label="Next members page"
-                className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
-          {currentMemberCanAdmin && (
-            <button
-              onClick={() => { void handleTogglePenaltyPause(); }}
-              disabled={penaltyPauseToggling}
-              aria-pressed={penaltyPauseEnabled}
-              aria-label={penaltyPauseEnabled ? t('vacation_mode_off') : t('vacation_mode_on')}
-              title={penaltyPauseEnabled ? t('vacation_mode_off') : t('vacation_mode_on')}
-              className={[
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:pointer-events-none disabled:opacity-50',
-                penaltyPauseEnabled
-                  ? 'border-[#4EEDB0]/45 bg-[#4EEDB0]/16 text-[#4EEDB0]'
-                  : 'border-white/10 bg-white/[0.045] text-white/56 hover:border-[#4EEDB0]/40 hover:bg-[#4EEDB0]/10 hover:text-[#4EEDB0]',
-              ].join(' ')}
-            >
-              <Palmtree size={17} />
-            </button>
-          )}
-          <button
-            onClick={toggleSound}
-            aria-label={soundEnabled ? t('sound_mute') : t('sound_unmute')}
-            className={iconBtnClass}
-          >
-            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
-          </button>
-          <Link href="/stats" aria-label={t('weekly_completions')} className={`${iconBtnClass} hover:border-[#5B8EFF]/40 hover:bg-[#5B8EFF]/10 hover:text-[#8EAFFF]`}>
-            <BarChart2 size={17} />
-          </Link>
-          <button
-            onClick={() => { void handleLogout(); }}
-            aria-label={t('logout')}
-            title={t('logout')}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#FF7BAC]/28 bg-[#FF7BAC]/8 text-[#FFB8CF] transition-colors hover:border-[#FF7BAC]/55 hover:bg-[#FF7BAC]/14"
-          >
-            <LogOut size={17} />
-          </button>
-          <Link
-            href="/calendar"
-            aria-label="Family calendar"
-            className={`${iconBtnClass} hover:border-[#FFB830]/40 hover:bg-[#FFB830]/10 hover:text-[#FFDB7A]`}
-          >
-            <CalendarDays size={17} />
-          </Link>
-          <Link href="/admin" aria-label={t('admin_mode')} className={iconBtnClass}>
-            <Settings size={17} />
-          </Link>
-          <AuthProfileAvatar email={authProfile.email} avatarUrl={authProfile.avatarUrl} size={32} />
-        </div>
-      </header>
+      <DashboardHeader
+        familyName={familyName}
+        dateLabel={dateLabel}
+        authProfile={authProfile}
+        soundEnabled={soundEnabled}
+        toggleSound={toggleSound}
+        canAdmin={currentMemberCanAdmin}
+        penaltyPauseEnabled={penaltyPauseEnabled}
+        penaltyPauseToggling={penaltyPauseToggling}
+        onTogglePenaltyPause={() => { void handleTogglePenaltyPause(); }}
+        onLogout={() => { void handleLogout(); }}
+        activePage={activePage}
+        pageCount={pageCount}
+        onPreviousPage={goToPrevPage}
+        onNextPage={goToNextPage}
+      />
 
       {penaltyPauseEnabled && (
         <div className="flex shrink-0 items-center justify-center gap-1.5 border-b border-[#4EEDB0]/25 bg-[#4EEDB0]/12 px-3 py-1.5 text-center text-[11px] font-bold text-[#4EEDB0] md:text-[12px]">
@@ -362,19 +246,24 @@ export default function Dashboard() {
         </div>
       )}
 
-      <main className="flex flex-1 flex-col gap-3 bg-[#0D0E1C] p-3 md:hidden">
-        <FamilyOnboardingChecklist />
+      <main className="flex flex-1 flex-col gap-3 px-3 pb-[max(16px,env(safe-area-inset-bottom))] md:hidden">
         <MobileMemberTabs
           users={orderedUsers}
           activeUserId={activeMobileUser?.id ?? null}
-          onSelectUser={setActiveMobileUserId}
+          onSelectUser={userId => {
+            setActiveMobileUserId(userId);
+            window.scrollTo({ top: 0, behavior: 'instant' });
+          }}
         />
-        {activeMobileUser && <MemberPanel key={activeMobileUser.id} user={activeMobileUser} />}
+        <FamilyOnboardingChecklist />
+        <div id="mobile-member-panel" role="tabpanel" aria-labelledby={activeMobileUser ? `mobile-member-${activeMobileUser.id}` : undefined}>
+          {activeMobileUser && <MemberPanel key={activeMobileUser.id} user={activeMobileUser} />}
+        </div>
       </main>
 
       <main className="hidden flex-1 min-h-0 flex-col gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:flex">
         <FamilyOnboardingChecklist />
-        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden">
+        <div className="dashboard-grid grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden">
           {desktopSlots.map((user, index) =>
             user ? (
               <MemberPanel key={user.id} user={user} />

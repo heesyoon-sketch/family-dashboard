@@ -15,14 +15,14 @@ test('mobile member tabs select one mounted member dashboard', () => {
   assert.match(tabs, /onSelectUser\(user\.id\)/);
   assert.match(tabs, /currentTaskIds\.has\(taskId\)/);
   assert.match(tabs, /role="tablist"/);
-  assert.doesNotMatch(tabs, /IntersectionObserver|getElementById|scrollTo/);
+  assert.doesNotMatch(tabs, /IntersectionObserver|getElementById|scrollIntoView/);
 });
 
 test('member panels combine morning and evening counts into compact tabs', () => {
   const panel = read('components/MemberPanel.tsx');
   assert.match(panel, /morningDone\}\/\{morningTasks\.length\}/);
   assert.match(panel, /eveningDone\}\/\{eveningTasks\.length\}/);
-  assert.match(panel, /grid h-9 shrink-0 grid-cols-2/);
+  assert.match(panel, /grid h-11 shrink-0 grid-cols-2/);
   assert.match(panel, /morningPct/);
   assert.match(panel, /eveningPct/);
   assert.match(panel, /reference only/);
@@ -125,12 +125,12 @@ test('member dashboards prioritize three visible habit rows', () => {
   const mobileTabs = read('components/MobileMemberTabs.tsx');
   const dashboard = read('app/page.tsx');
 
-  assert.match(panel, /md:auto-rows-\[60px\]/);
+  assert.match(panel, /md:auto-rows-\[64px\]/);
   assert.match(panel, /Open store, \$\{spendableBalance\} current points/);
   assert.doesNotMatch(panel, /<Store size=\{15\}/);
   assert.doesNotMatch(panel, /max-\[380px\]:w-full/);
   assert.match(equippedShields, /h-8 shrink-0/);
   assert.match(equippedShields, /max-\[380px\]:h-7/);
-  assert.match(mobileTabs, /<FamilyQuestChip mobileTab/);
+  assert.match(mobileTabs, /<FamilyQuestChip/);
   assert.doesNotMatch(dashboard, /<FamilyQuestCard/);
 });

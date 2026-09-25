@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise } from 'lucide-react';
+import { ArrowDown, CheckCircle2, Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise } from 'lucide-react';
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
@@ -22,6 +22,9 @@ import {
   isTaskActiveInTimeWindow,
   taskWindowSortRank,
 } from '@/lib/timeWindows';
+
+const EMPTY_ITEMS: never[] = [];
+const EMPTY_WINDOWS = { morning: EMPTY_ITEMS, evening: EMPTY_ITEMS };
 
 const MAILBOX_ACTIVITY_TYPES = new Set(['GIFT_SENT', 'GIFT_RECEIVED', 'REWARD_PURCHASED', 'REWARD_REFUNDED', 'SYSTEM_MESSAGE']);
 
@@ -70,14 +73,15 @@ function PanelSkeleton({ theme }: { theme: string }) {
 
 export function MemberPanel({ user }: { user: User }) {
   const { lang, t } = useLanguage();
+  const routineId = useId();
   const hydrated       = useFamilyStore(s => s.hydrated);
-  const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? []);
+  const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? EMPTY_ITEMS);
   const level          = useFamilyStore(s => s.levelsByUser[user.id]);
-  const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? []);
+  const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? EMPTY_ITEMS);
   const completionsByWindow = useFamilyStore(
-    s => s.todayCompletionsByWindow[user.id] ?? { morning: [], evening: [] },
+    s => s.todayCompletionsByWindow[user.id] ?? EMPTY_WINDOWS,
   );
-  const coupons        = useFamilyStore(s => s.couponsByUser[user.id] ?? []);
+  const coupons        = useFamilyStore(s => s.couponsByUser[user.id] ?? EMPTY_ITEMS);
   const momentum       = useFamilyStore(s => s.momentumByUser[user.id]) ?? emptyMomentum();
   const timeOfDay      = useFamilyStore(s => s.timeOfDay);
   const routineAvailability = useFamilyStore(s => s.routineAvailability);
@@ -85,7 +89,7 @@ export function MemberPanel({ user }: { user: User }) {
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const doRedeemCoupon = useFamilyStore(s => s.redeemPerfectDayCoupon);
   const allUsers       = useFamilyStore(s => s.users);
-  const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? []);
+  const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? EMPTY_ITEMS);
   const perfectQuest   = useFamilyStore(s => s.perfectQuestByUser[user.id]);
 
   const [storeOpen, setStoreOpen] = useState(false);
@@ -143,6 +147,11 @@ export function MemberPanel({ user }: { user: User }) {
   const strictChildDeadline = user.role === 'CHILD' && !automaticSaleActive;
   const childDeadlinePassed = strictChildDeadline && !routineAvailability[timeOfDay];
 
+  const selectRoutine = (window: 'morning' | 'evening') => {
+    setRoutineView(timeOfDay === window ? 'current' : 'reference');
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const updateScrollHint = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -164,7 +173,6 @@ export function MemberPanel({ user }: { user: User }) {
 
   if (!hydrated) return <PanelSkeleton theme={user.theme} />;
 
-  const moreCount = Math.max(0, visibleTasks.length - 8);
   const showMore  = hasOverflow && !atBottom;
 
   const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
@@ -252,41 +260,40 @@ export function MemberPanel({ user }: { user: User }) {
       )}
       <section
         data-theme={user.theme}
-        className="bg-[var(--bg)] text-[var(--fg)] flex flex-col min-h-[520px] md:min-h-0 md:h-full overflow-hidden"
+        aria-label={user.name}
+        className="member-panel flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] md:min-h-0 md:h-full"
         style={{
-          padding: 8,
+          padding: 10,
           boxShadow: allDone
-            ? 'var(--shadow), inset 0 0 0 3px var(--success-ring), 0 0 32px var(--success-glow, var(--accent-glow))'
+            ? 'var(--shadow), inset 0 0 0 2px var(--success)'
             : 'var(--shadow)',
           transition: 'box-shadow 0.8s ease',
         }}
       >
         {/* ── Header ── */}
-        <header className="mb-2 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]/80 px-2 py-1.5 max-[380px]:px-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 max-[380px]:flex-nowrap max-[380px]:gap-x-0.5">
-            <div className="flex min-w-0 flex-1 items-center gap-2 max-[380px]:w-[60px] max-[380px]:flex-none max-[380px]:gap-1">
-              <div className="relative h-9 w-9 shrink-0 max-[380px]:h-7 max-[380px]:w-7">
+        <header className="member-header mb-2 shrink-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+            <div className="flex min-w-0 basis-full items-center gap-2.5 md:min-w-[100px] md:flex-1 md:basis-0">
+              <div className="relative h-10 w-10 shrink-0">
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
                     alt={user.name}
-                    width={36}
-                    height={36}
+                    width={40}
+                    height={40}
                     referrerPolicy="no-referrer"
-                    className="h-9 w-9 rounded-lg object-cover max-[380px]:h-7 max-[380px]:w-7"
+                    className="h-10 w-10 rounded-xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none max-[380px]:h-7 max-[380px]:w-7 max-[380px]:text-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-glow)] text-base font-bold text-[var(--accent)] select-none">
                     {user.name[0]}
                   </div>
                 )}
               </div>
 
               <div className="min-w-0 flex-1 overflow-hidden pr-0.5">
-                <h2 className="min-w-0 truncate text-base font-bold leading-tight max-[380px]:text-sm">{user.name}</h2>
-                {/* Metadata row — Lv • XP • Momentum. The shield strip
-                    moved out to the action button group so it can be the
-                    same size as Store/Mail without growing the header. */}
+                <h2 className="min-w-0 truncate text-lg font-bold leading-tight md:text-base">{user.name}</h2>
+                {/* Keep progression secondary to the member name and tasks. */}
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[8px]">
                   <span
                     className="shrink-0"
@@ -318,10 +325,10 @@ export function MemberPanel({ user }: { user: User }) {
                   />
                 </div>
               </div>
+              <span className="member-shields shrink-0"><EquippedInsigniaStrip userId={user.id} /></span>
             </div>
 
-            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 max-[380px]:gap-0.5">
-              <EquippedInsigniaStrip userId={user.id} />
+            <div className="member-actions flex w-full shrink-0 items-center justify-between gap-1.5 md:w-auto md:justify-end">
               <PerfectQuestChip
                 progress={perfectQuest ?? {
                   userId: user.id,
@@ -348,20 +355,20 @@ export function MemberPanel({ user }: { user: User }) {
                 type="button"
                 onClick={() => setGiftOpen(true)}
                 disabled={giftReceivers.length === 0}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 disabled:opacity-35 max-[380px]:h-7 max-[380px]:w-7"
+                className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--fg)] transition hover:bg-[var(--accent-glow)] active:scale-95 disabled:opacity-35"
                 title={t('gift')}
                 aria-label={t('gift')}
               >
-                <HeartHandshake size={15} className="text-rose-300" />
+                <HeartHandshake size={18} className="text-[var(--accent)]" />
               </button>
               <button
                 type="button"
                 onClick={openActivityFeed}
-                className="relative grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] transition hover:brightness-105 max-[380px]:h-7 max-[380px]:w-7"
+                className="relative grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-[var(--fg)] transition hover:bg-[var(--accent-glow)] active:scale-95"
                 title={t('mailbox_history')}
                 aria-label={t('mailbox_history')}
               >
-                <Mail size={15} className="text-[var(--accent)]" />
+                <Mail size={18} className="text-[var(--accent)]" />
                 {hasRecentUnreadActivity && (
                   <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
                 )}
@@ -369,32 +376,45 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openStore}
-                className="flex h-8 min-w-[58px] items-center justify-end gap-1 rounded-md px-1 text-right text-[12px] font-black leading-none tabular-nums text-[var(--accent)] transition hover:bg-[var(--accent-glow)] max-[380px]:h-7 max-[380px]:min-w-[50px] max-[380px]:text-[10px]"
+                className="flex h-11 min-w-[78px] items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--accent-glow)] px-2 text-[var(--fg)] transition hover:brightness-110 active:scale-95"
                 title={`${t('store')} · ${lang === 'en' ? 'Current points' : '현재 포인트'}`}
                 aria-label={lang === 'en' ? `Open store, ${spendableBalance} current points` : `상점 열기, 현재 ${spendableBalance}포인트`}
               >
-                <Store size={13} className="shrink-0" aria-hidden />
-                {spendableBalance}<span className="ml-0.5 text-[8px] text-[var(--fg-muted)]">pt</span>
+                <Store size={18} className="shrink-0 text-[var(--accent)]" aria-hidden />
+                <span className="text-left leading-tight">
+                  <span className="block text-[10px] font-semibold text-[var(--fg)]">{t('store')}</span>
+                  <span className="block text-sm font-bold tabular-nums">{spendableBalance}<span className="ml-0.5 text-[10px] font-medium">pt</span></span>
+                </span>
               </button>
             </div>
           </div>
         </header>
 
         <div
-          className="mb-1.5 grid h-9 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
+          className="mb-1.5 grid h-11 shrink-0 grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
           role="tablist"
+          onKeyDown={event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const window = event.key === 'Home' ? 'morning' : event.key === 'End' ? 'evening' : selectedWindow === 'morning' ? 'evening' : 'morning';
+            selectRoutine(window);
+            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[window === 'morning' ? 0 : 1]?.focus();
+          }}
           aria-label={lang === 'en' ? `${user.name}'s routine view` : `${user.name}의 루틴 보기`}
         >
           <button
             type="button"
             role="tab"
+            id={`${routineId}-morning`}
+            aria-controls={`${routineId}-tasks`}
+            tabIndex={selectedWindow === 'morning' ? 0 : -1}
             aria-selected={selectedWindow === 'morning'}
             aria-label={lang === 'en'
               ? `Morning ${morningDone} of ${morningTasks.length}${timeOfDay !== 'morning' ? ', reference only' : ''}`
               : `오전 ${morningDone}/${morningTasks.length}${timeOfDay !== 'morning' ? ', 보기 전용' : ''}`}
-            onClick={() => setRoutineView(timeOfDay === 'morning' ? 'current' : 'reference')}
+            onClick={() => selectRoutine('morning')}
             className={[
-              'relative flex min-w-0 items-center justify-center gap-1 overflow-hidden rounded-md px-2 pb-0.5 text-[10px] font-black tabular-nums transition',
+              'relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 pb-0.5 text-xs font-bold max-[380px]:gap-1 max-[380px]:text-[11px] tabular-nums transition',
               selectedWindow === 'morning'
                 ? timeOfDay === 'morning'
                   ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
@@ -402,10 +422,10 @@ export function MemberPanel({ user }: { user: User }) {
                 : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
             ].join(' ')}
           >
-            <Sunrise size={12} className="shrink-0" />
-            <span>{lang === 'en' ? 'Morning' : '오전'}</span>
+            <Sunrise size={15} className="shrink-0" />
+            <span className="whitespace-nowrap">{lang === 'en' ? 'Morning' : '오전'}</span>
             <span>{morningDone}/{morningTasks.length}</span>
-            {timeOfDay !== 'morning' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55" aria-hidden />}
+            {timeOfDay !== 'morning' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55 max-[380px]:hidden" aria-hidden />}
             <span className="absolute inset-x-2 bottom-0 h-0.5 overflow-hidden rounded-full bg-current/15" aria-hidden>
               <span className="block h-full rounded-full bg-current transition-[width] duration-500" style={{ width: `${morningPct}%` }} />
             </span>
@@ -413,13 +433,16 @@ export function MemberPanel({ user }: { user: User }) {
           <button
             type="button"
             role="tab"
+            id={`${routineId}-evening`}
+            aria-controls={`${routineId}-tasks`}
+            tabIndex={selectedWindow === 'evening' ? 0 : -1}
             aria-selected={selectedWindow === 'evening'}
             aria-label={lang === 'en'
               ? `Evening ${eveningDone} of ${eveningTasks.length}${timeOfDay !== 'evening' ? ', reference only' : ''}`
               : `오후·저녁 ${eveningDone}/${eveningTasks.length}${timeOfDay !== 'evening' ? ', 보기 전용' : ''}`}
-            onClick={() => setRoutineView(timeOfDay === 'evening' ? 'current' : 'reference')}
+            onClick={() => selectRoutine('evening')}
             className={[
-              'relative flex min-w-0 items-center justify-center gap-1 overflow-hidden rounded-md px-2 pb-0.5 text-[10px] font-black tabular-nums transition',
+              'relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 pb-0.5 text-xs font-bold max-[380px]:gap-1 max-[380px]:text-[11px] tabular-nums transition',
               selectedWindow === 'evening'
                 ? timeOfDay === 'evening'
                   ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
@@ -427,32 +450,48 @@ export function MemberPanel({ user }: { user: User }) {
                 : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
             ].join(' ')}
           >
-            <MoonStar size={12} className="shrink-0" />
-            <span>{lang === 'en' ? 'Evening' : '오후'}</span>
+            <MoonStar size={15} className="shrink-0" />
+            <span className="whitespace-nowrap">{lang === 'en' ? 'Evening' : '오후·저녁'}</span>
             <span>{eveningDone}/{eveningTasks.length}</span>
-            {timeOfDay !== 'evening' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55" aria-hidden />}
+            {timeOfDay !== 'evening' && <Eye size={11} className="ml-0.5 shrink-0 opacity-55 max-[380px]:hidden" aria-hidden />}
             <span className="absolute inset-x-2 bottom-0 h-0.5 overflow-hidden rounded-full bg-current/15" aria-hidden>
               <span className="block h-full rounded-full bg-current transition-[width] duration-500" style={{ width: `${eveningPct}%` }} />
             </span>
           </button>
         </div>
 
-        {/* Positioning context for gradient + badge overlays */}
-        <div className="relative flex-1" style={{ minHeight: 0 }}>
+        <div className="mb-2 flex min-h-5 shrink-0 items-center justify-between gap-2 text-[11px] font-medium text-[var(--fg-muted)]" aria-live="polite">
+          <span className="flex items-center gap-1">
+            {routineView === 'reference' ? <Eye size={13} /> : allDone ? <CheckCircle2 size={13} className="text-[var(--success)]" /> : null}
+            {routineView === 'reference'
+              ? (lang === 'en' ? 'View only' : '보기 전용')
+              : allDone ? (lang === 'en' ? 'All done. Well done!' : '모두 완료했어요. 멋져요!')
+                : childDeadlinePassed ? (lang === 'en' ? 'This routine has closed' : '이번 루틴이 마감됐어요')
+                  : (lang === 'en' ? 'Tap a task to complete' : '할 일을 누르면 완료돼요')}
+          </span>
+          {routineView === 'current' && totalCount > 0 && <span className="shrink-0 font-bold tabular-nums">{doneCount}/{totalCount} {lang === 'en' ? 'done' : '완료'}</span>}
+        </div>
+
+        {/* Mobile uses page scrolling; the shared screen scrolls inside each panel. */}
+        <div className="relative md:min-h-0 md:flex-1">
 
           {/* Scrollable task list */}
           <div
             ref={scrollRef}
+            id={`${routineId}-tasks`}
+            role="tabpanel"
+            aria-labelledby={`${routineId}-${selectedWindow}`}
+            tabIndex={0}
             onScroll={updateScrollHint}
-            className="absolute inset-0 overflow-y-auto"
+            className="member-task-scroll md:absolute md:inset-0 md:overflow-y-auto"
           >
             <motion.div
               ref={listRef}
               layout
-              className="grid grid-cols-2 gap-1.5 auto-rows-[clamp(66px,17vh,76px)] pb-12 md:auto-rows-[60px] md:pb-6"
+              className="member-task-grid grid auto-rows-[80px] grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:auto-rows-[64px] md:gap-1.5 md:pb-12"
             >
               {visibleTasks.length === 0 && (
-                <div className="col-span-2 text-center text-[var(--fg-muted)] py-8 text-sm">
+                <div className="col-span-full text-center text-[var(--fg-muted)] py-8 text-sm">
                   {routineView === 'current'
                     ? t('no_tasks_today')
                     : (lang === 'en' ? 'No routines scheduled in this window' : '이 시간대에 예정된 루틴이 없어요')}
@@ -463,7 +502,7 @@ export function MemberPanel({ user }: { user: User }) {
                   key={task.id}
                   layout
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-2' : ''}
+                  className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-full' : ''}
                 >
                   {routineView === 'current' ? (
                     <TaskCard
@@ -492,26 +531,21 @@ export function MemberPanel({ user }: { user: User }) {
             initial={false}
             animate={{ opacity: showMore ? 1 : 0 }}
             transition={{ duration: 0.3 }}
-            className="absolute inset-x-0 bottom-0 h-16 pointer-events-none bg-gradient-to-t from-[var(--bg)] to-transparent md:h-10"
+            className="absolute inset-x-0 bottom-0 hidden h-8 pointer-events-none md:block bg-gradient-to-t from-[var(--bg)] to-transparent md:h-8"
           />
 
-          {/* Bouncing pill badge */}
+          {/* Small non-blocking hint keeps the task cards tappable. */}
           <AnimatePresence>
             {showMore && (
               <motion.div
                 key="more-badge"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1, y: [0, 4, 0] }}
+                animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{
-                  opacity: { duration: 0.2 },
-                  y: { duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: 0.4 },
-                }}
-                className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-card)] ring-1 ring-[var(--border)] text-[11px] font-semibold text-[var(--fg-muted)] whitespace-nowrap md:bottom-1"
+                className="pointer-events-none absolute bottom-0 left-1/2 hidden -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 text-[10px] font-semibold text-[var(--fg-muted)] md:flex"
               >
-                {moreCount > 0
-                  ? (lang === 'en' ? `↓ ${moreCount} more` : `↓ ${moreCount}개 더 있어요`)
-                  : (lang === 'en' ? '↓ more' : '↓ 더 있어요')}
+                <ArrowDown size={12} aria-hidden />
+                {lang === 'en' ? 'Scroll for more' : '아래로 내려 더 보기'}
               </motion.div>
             )}
           </AnimatePresence>
