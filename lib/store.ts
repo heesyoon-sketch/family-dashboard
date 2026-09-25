@@ -1776,7 +1776,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   togglePenaltyPause: async () => {
     const supabase = createBrowserSupabase();
     const next = !get().penaltyPauseEnabled;
-    const { error } = await supabase.rpc('admin_set_penalty_pause', { p_enabled: next });
+    const now = new Date();
+    const dayStart = startOfDayLocal(now);
+    // Turning it on also grants everyone one perfect-day coupon for today
+    // (idempotent server-side, so flipping the toggle repeatedly never
+    // awards more than one per member per day). Turning it off passes no
+    // day params -- the RPC only grants when enabling.
+    const { error } = await supabase.rpc('admin_set_penalty_pause', {
+      p_enabled: next,
+      p_day_start: next ? dayStart.toISOString() : null,
+      p_day_key: next ? DOW_INDEX[dayStart.getDay()] : null,
+      p_earned_for_day: next ? localDateKey(now) : null,
+    });
     if (error) throw error;
     set({ penaltyPauseEnabled: next });
     broadcastSync();
