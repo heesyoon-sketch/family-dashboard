@@ -8,6 +8,7 @@ import { FamilyQuestChip } from './FamilyQuestCard';
 import { HarmonyChip } from './HarmonyChip';
 import { ConnectionStatusChip } from './ConnectionStatusChip';
 import { AuthProfileAvatar } from './AuthProfileAvatar';
+import { CalendarPeekChip } from './CalendarPeekChip';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const iconButton = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-white/75 transition hover:bg-white/10 active:scale-95';
@@ -63,6 +64,8 @@ export function DashboardHeader(props: DashboardHeaderProps) {
           <p className="truncate text-[10px] leading-tight text-white/45 sm:shrink-0 sm:text-xs">{props.dateLabel}</p>
         </div>
       </div>
+
+      <CalendarPeekChip />
 
       <div className="hidden shrink-0 items-center gap-2 xl:flex">
         <FamilyQuestChip />

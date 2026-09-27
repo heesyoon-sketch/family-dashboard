@@ -9,6 +9,27 @@ const ENV_KEY = 'FAMILY_CALENDAR_ICS_URLS';
 
 const WINDOW_PAST_DAYS = 1;
 const WINDOW_FUTURE_DAYS = 60;
+// Month view asks for ~6 weeks; cap custom ranges so one request stays cheap.
+const MAX_WINDOW_DAYS = 120;
+const DAY_PARAM = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `?from=YYYY-MM-DD&to=YYYY-MM-DD` (to exclusive), padded a day each side for timezones. */
+function requestedWindow(request: Request): { windowStart: Date; windowEnd: Date } {
+  const now = Date.now();
+  const fallback = {
+    windowStart: new Date(now - WINDOW_PAST_DAYS * 86400000),
+    windowEnd: new Date(now + WINDOW_FUTURE_DAYS * 86400000),
+  };
+  const params = new URL(request.url).searchParams;
+  const from = params.get('from');
+  const to = params.get('to');
+  if (!from || !to || !DAY_PARAM.test(from) || !DAY_PARAM.test(to)) return fallback;
+  const start = Date.parse(`${from}T00:00:00Z`) - 86400000;
+  const end = Date.parse(`${to}T00:00:00Z`) + 86400000;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return fallback;
+  if (end - start > MAX_WINDOW_DAYS * 86400000) return fallback;
+  return { windowStart: new Date(start), windowEnd: new Date(end) };
+}
 
 function feedUrls(): string[] {
   return (process.env[ENV_KEY] ?? '')
@@ -17,7 +38,7 @@ function feedUrls(): string[] {
     .filter(url => /^https?:\/\//i.test(url));
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   // Calendar contents are family-private: require the kiosk's login session.
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -40,9 +61,7 @@ export async function GET() {
     return NextResponse.json({ configured: false, events: [] });
   }
 
-  const now = Date.now();
-  const windowStart = new Date(now - WINDOW_PAST_DAYS * 86400000);
-  const windowEnd = new Date(now + WINDOW_FUTURE_DAYS * 86400000);
+  const { windowStart, windowEnd } = requestedWindow(request);
 
   const results = await Promise.allSettled(urls.map(async (url, index) => {
     const response = await fetch(url, {
