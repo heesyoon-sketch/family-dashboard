@@ -22,7 +22,7 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   const panel = read('components/MemberPanel.tsx');
   assert.match(panel, /morningDone\}\/\{morningTasks\.length\}/);
   assert.match(panel, /eveningDone\}\/\{eveningTasks\.length\}/);
-  assert.match(panel, /grid h-6 shrink-0 grid-cols-2/);
+  assert.match(panel, /grid h-8 shrink-0 grid-cols-2/);
   assert.match(panel, /morningPct/);
   assert.match(panel, /eveningPct/);
   assert.match(panel, /reference only/);

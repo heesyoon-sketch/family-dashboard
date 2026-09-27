@@ -391,7 +391,7 @@ export function MemberPanel({ user }: { user: User }) {
         </header>
 
         <div
-          className="mb-1.5 grid h-6 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-px"
+          className="mb-1.5 grid h-8 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-px"
           role="tablist"
           onKeyDown={event => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
