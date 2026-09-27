@@ -18,27 +18,15 @@ import { useFamilyStore } from '@/lib/store';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { familyHasAdminPin } from '@/lib/adminPin';
-import { useLanguage, type Lang } from '@/contexts/LanguageContext';
-import { getTimeWindowDisplay, type TimeWindow } from '@/lib/timeWindows';
-
-function formatDate(d: Date, timeOfDay: TimeWindow, lang: Lang): string {
-  const locale = lang === 'en' ? 'en-US' : 'ko-KR';
-  const dayName = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d);
-  const dateStr = lang === 'en'
-    ? `${new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(d)}  ·  ${dayName}`
-    : `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}  ·  ${dayName}`;
-  const icon = timeOfDay === 'morning' ? '🌅' : '🌙';
-  return `${dateStr}  ·  ${icon} ${getTimeWindowDisplay(timeOfDay, lang)}`;
-}
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { lang, t } = useLanguage();
+  const { t } = useLanguage();
   const {
     users, hydrate, celebration, dismissCelebration, soundEnabled, toggleSound,
     penaltyPauseEnabled, togglePenaltyPause,
   } = useFamilyStore();
-  const timeOfDay = useFamilyStore(s => s.timeOfDay);
   const hydrated  = useFamilyStore(s => s.hydrated);
   const currentMemberCanAdmin = useFamilyStore(s => s.currentMemberCanAdmin);
   const familyId  = useFamilyStore(s => s.familyId);
@@ -59,7 +47,6 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const [currentPage, setCurrentPage] = useState(0);
   const [activeMobileUserId, setActiveMobileUserId] = useState<string | null>(null);
-  const dateLabel = formatDate(now, timeOfDay, lang);
 
   const resetAndHydrate = useCallback(async () => {
     setAuthReady(false);
@@ -224,7 +211,6 @@ export default function Dashboard() {
 
       <DashboardHeader
         familyName={familyName}
-        dateLabel={dateLabel}
         authProfile={authProfile}
         soundEnabled={soundEnabled}
         toggleSound={toggleSound}
