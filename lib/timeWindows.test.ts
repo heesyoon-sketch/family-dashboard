@@ -17,13 +17,13 @@ test('the dashboard switches from morning to afternoon at noon', () => {
   assert.equal(getCurrentTimeWindow(at(12)), 'evening');
 });
 
-test('child morning routines follow the normal noon switch; evening still locks at 21:00', () => {
+test('child morning routines follow the normal noon switch; evening still locks at 22:00', () => {
   assert.deepEqual(getChildRoutineAvailability(at(8, 59)), { morning: true, evening: false });
   assert.deepEqual(getChildRoutineAvailability(at(9)), { morning: true, evening: false });
   assert.deepEqual(getChildRoutineAvailability(at(11, 59)), { morning: true, evening: false });
   assert.deepEqual(getChildRoutineAvailability(at(12)), { morning: false, evening: true });
-  assert.deepEqual(getChildRoutineAvailability(at(20, 59)), { morning: false, evening: true });
-  assert.deepEqual(getChildRoutineAvailability(at(21)), { morning: false, evening: false });
+  assert.deepEqual(getChildRoutineAvailability(at(21, 59)), { morning: false, evening: true });
+  assert.deepEqual(getChildRoutineAvailability(at(22)), { morning: false, evening: false });
 });
 
 test('completion windows split at noon', () => {
@@ -34,6 +34,6 @@ test('completion windows split at noon', () => {
 
 test('child-facing ranges show the stricter evening deadline only', () => {
   assert.equal(getTimeWindowRange('morning', true), '00:00-11:59');
-  assert.equal(getTimeWindowRange('evening', true), '12:00-20:59');
-  assert.equal(getTimeWindowRange('both', true), '00:00-11:59 + 12:00-20:59');
+  assert.equal(getTimeWindowRange('evening', true), '12:00-21:59');
+  assert.equal(getTimeWindowRange('both', true), '00:00-11:59 + 12:00-21:59');
 });

@@ -190,7 +190,7 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
     stats: [
       { value: '10 · 15 · 30 · 50', label: 'points by how long a task takes' },
       { value: '3 of 5', label: 'perfect weekdays earn a 30-min pass' },
-      { value: '12:00 · 21:00', label: 'two daily deadlines, no nagging' },
+      { value: '12:00 · 22:00', label: 'two daily deadlines, no nagging' },
       { value: '$1 = 100pt', label: 'trade points for real price tags' },
     ],
     mock: {
@@ -254,8 +254,8 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
       steps: [
         { time: 'Wake – 12:00', title: 'Morning routine', body: 'Brush, dress, pack the bag. Each task shows its points up front.', accent: AMBER, icon: Sunrise },
         { time: '12:00', title: 'Noon deadline', body: 'An unfinished morning routine costs 50 spendable points. Lifetime XP is never touched.', accent: PINK, icon: LockKeyhole },
-        { time: '12:00 – 21:00', title: 'Afternoon & evening', body: 'Homework, chores, reading, and the evening routine.', accent: BLUE, icon: Moon },
-        { time: '21:00', title: 'Evening deadline', body: 'Same rule at night: finish the evening routine or lose 50 points.', accent: VIOLET, icon: LockKeyhole },
+        { time: '12:00 – 22:00', title: 'Afternoon & evening', body: 'Homework, chores, reading, and the evening routine.', accent: BLUE, icon: Moon },
+        { time: '22:00', title: 'Evening deadline', body: 'Same rule at night: finish the evening routine or lose 50 points.', accent: VIOLET, icon: LockKeyhole },
         { time: 'Every day', title: 'Perfect day', body: 'Morning and evening both complete? That day earns a mark on the weekly quest.', accent: MINT, icon: Trophy },
       ],
       specialDay: {
@@ -289,9 +289,9 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
       tiersLabel: 'Task points by duration',
       tiers: [
         { minutes: '≤5 min', points: 10 },
-        { minutes: '≤15 min', points: 15 },
-        { minutes: '≤30 min', points: 30 },
-        { minutes: '30+ min', points: 50 },
+        { minutes: '6–10 min', points: 15 },
+        { minutes: '11–20 min', points: 30 },
+        { minutes: '21+ min', points: 50 },
       ],
     },
     calendar: {
@@ -393,7 +393,7 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
     stats: [
       { value: '10 · 15 · 30 · 50', label: '걸리는 시간에 따라 정해지는 포인트' },
       { value: '5일 중 3일', label: '퍼펙트 데이면 30분 이용권' },
-      { value: '12:00 · 21:00', label: '하루 두 번의 마감, 잔소리는 없음' },
+      { value: '12:00 · 22:00', label: '하루 두 번의 마감, 잔소리는 없음' },
       { value: '$1 = 100점', label: '실제 가격표도 포인트로 교환' },
     ],
     mock: {
@@ -457,8 +457,8 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
       steps: [
         { time: '기상 – 12:00', title: '아침 루틴', body: '양치, 옷 입기, 가방 챙기기. 할 일마다 포인트가 먼저 보입니다.', accent: AMBER, icon: Sunrise },
         { time: '12:00', title: '정오 마감', body: '아침 루틴을 다 못 하면 사용 가능 포인트 50점 차감. 누적 XP는 그대로입니다.', accent: PINK, icon: LockKeyhole },
-        { time: '12:00 – 21:00', title: '오후 · 저녁', body: '숙제, 집안일, 독서, 그리고 저녁 루틴.', accent: BLUE, icon: Moon },
-        { time: '21:00', title: '저녁 마감', body: '밤에도 같은 규칙. 저녁 루틴을 못 끝내면 50점 차감.', accent: VIOLET, icon: LockKeyhole },
+        { time: '12:00 – 22:00', title: '오후 · 저녁', body: '숙제, 집안일, 독서, 그리고 저녁 루틴.', accent: BLUE, icon: Moon },
+        { time: '22:00', title: '저녁 마감', body: '밤에도 같은 규칙. 저녁 루틴을 못 끝내면 50점 차감.', accent: VIOLET, icon: LockKeyhole },
         { time: '매일', title: '퍼펙트 데이', body: '아침과 저녁 루틴을 모두 끝낸 날은 주간 퀘스트에 한 칸이 채워집니다.', accent: MINT, icon: Trophy },
       ],
       specialDay: {
@@ -492,9 +492,9 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
       tiersLabel: '걸리는 시간별 포인트',
       tiers: [
         { minutes: '5분 이하', points: 10 },
-        { minutes: '15분 이하', points: 15 },
-        { minutes: '30분 이하', points: 30 },
-        { minutes: '30분 이상', points: 50 },
+        { minutes: '6~10분', points: 15 },
+        { minutes: '11~20분', points: 30 },
+        { minutes: '21분 이상', points: 50 },
       ],
     },
     calendar: {

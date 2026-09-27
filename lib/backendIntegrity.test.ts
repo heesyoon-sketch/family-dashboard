@@ -116,8 +116,17 @@ test('the morning penalty deadline moves to noon and covers every family member;
 
   const store = read('lib/store.ts');
   assert.match(store, /now\.getHours\(\) >= 12 && _morningPenaltyCheckedFor/);
-  assert.match(store, /now\.getHours\(\) >= 21 && _eveningPenaltyCheckedFor/);
+  assert.match(store, /now\.getHours\(\) >= 22 && _eveningPenaltyCheckedFor/);
   assert.match(store, /supabase\.rpc\('apply_evening_routine_penalties'/);
+});
+
+test('the evening deadline moves to 22:00 for the penalty and the child lock', () => {
+  const migration = read('supabase/migrations/20260927015013_evening_deadline_22.sql');
+  assert.match(migration, /apply_evening_routine_penalties\(timestamptz, text, date\)/);
+  assert.match(migration, /apply_evening_routine_penalties_before_sale_exemption/);
+  assert.match(migration, /process_task_completion_atomic/);
+  assert.match(migration, /process_task_undo_atomic/);
+  assert.match(migration, /replace\(v_def, 'interval ''21 hours''', 'interval ''22 hours'''\)/);
 });
 
 test('automatic weekend and holiday sale days also relax child completion deadlines', () => {

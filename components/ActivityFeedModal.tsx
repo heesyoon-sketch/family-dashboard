@@ -152,11 +152,11 @@ function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { ico
         icon: '⏰',
         text: deducted > 0
           ? (lang === 'en'
-              ? `The evening routine was not finished by 9:00 PM, so ${deducted} points were deducted.`
-              : `저녁 루틴을 오후 9시까지 마치지 못해 ${deducted}포인트가 차감됐어요.`)
+              ? `The evening routine was not finished by 10:00 PM, so ${deducted} points were deducted.`
+              : `저녁 루틴을 오후 10시까지 마치지 못해 ${deducted}포인트가 차감됐어요.`)
           : (lang === 'en'
-              ? 'The evening routine was not finished by 9:00 PM. There were no points available to deduct.'
-              : '저녁 루틴을 오후 9시까지 마치지 못했지만 차감할 포인트가 없었어요.'),
+              ? 'The evening routine was not finished by 10:00 PM. There were no points available to deduct.'
+              : '저녁 루틴을 오후 10시까지 마치지 못했지만 차감할 포인트가 없었어요.'),
         amount: deducted > 0 ? `-${deducted}pt` : '',
       };
     }

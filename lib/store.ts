@@ -250,7 +250,7 @@ function morningPenaltyIsDue(now: Date): boolean {
 }
 
 function eveningPenaltyIsDue(now: Date): boolean {
-  return now.getHours() >= 21 && _eveningPenaltyCheckedFor !== localDateKey(now);
+  return now.getHours() >= 22 && _eveningPenaltyCheckedFor !== localDateKey(now);
 }
 
 async function applyMorningRoutinePenaltiesIfDue(
@@ -289,7 +289,7 @@ async function applyEveningRoutinePenaltiesIfDue(
   if (!eveningPenaltyIsDue(now) || !isProbablyOnline()) return;
 
   // Same reasoning as the morning check: a completion or undo recorded
-  // offline before 21:00 must reach the server before it decides whether the
+  // offline before 22:00 must reach the server before it decides whether the
   // evening routine was complete.
   const pendingActions = await listTaskActions().catch(() => []);
   const dateKey = localDateKey(now);

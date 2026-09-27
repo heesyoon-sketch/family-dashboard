@@ -9,7 +9,7 @@ export const AFTERNOON_START_HOUR = 12;
 // family member. Only the evening deadline still cuts off earlier than the
 // natural midnight window end (and only for children).
 export const CHILD_MORNING_DEADLINE_HOUR = AFTERNOON_START_HOUR;
-export const CHILD_EVENING_DEADLINE_HOUR = 21;
+export const CHILD_EVENING_DEADLINE_HOUR = 22;
 
 export const TIME_WINDOW_ORDER: Record<TaskTimeWindow, number> = {
   morning: 0,
@@ -99,7 +99,7 @@ export function getTimeWindowRange(
 ): string {
   const normalized = normalizeTimeWindow(taskWindow);
   const morning = '00:00-11:59';
-  const evening = childDeadlines ? '12:00-20:59' : '12:00-23:59';
+  const evening = childDeadlines ? '12:00-21:59' : '12:00-23:59';
   if (normalized === 'both') return `${morning} + ${evening}`;
   return normalized === 'morning' ? morning : evening;
 }
