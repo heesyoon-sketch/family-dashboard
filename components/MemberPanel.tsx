@@ -391,7 +391,7 @@ export function MemberPanel({ user }: { user: User }) {
         </header>
 
         <div
-          className="mb-1.5 grid h-11 shrink-0 grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-0.5"
+          className="mb-1.5 grid h-6 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-px"
           role="tablist"
           onKeyDown={event => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -460,16 +460,15 @@ export function MemberPanel({ user }: { user: User }) {
           </button>
         </div>
 
-        <div className="mb-2 flex min-h-5 shrink-0 items-center justify-between gap-2 text-[11px] font-medium text-[var(--fg-muted)]" aria-live="polite">
+        <div className={routineView === 'reference' || childDeadlinePassed ? 'mb-1.5 flex shrink-0 items-center text-[10px] font-medium text-[var(--fg-muted)]' : 'sr-only'} aria-live="polite">
           <span className="flex items-center gap-1">
             {routineView === 'reference' ? <Eye size={13} /> : allDone ? <CheckCircle2 size={13} className="text-[var(--success)]" /> : null}
             {routineView === 'reference'
               ? (lang === 'en' ? 'View only' : '보기 전용')
               : allDone ? (lang === 'en' ? 'All done. Well done!' : '모두 완료했어요. 멋져요!')
                 : childDeadlinePassed ? (lang === 'en' ? 'This routine has closed' : '이번 루틴이 마감됐어요')
-                  : (lang === 'en' ? 'Tap a task to complete' : '할 일을 누르면 완료돼요')}
+                  : ''}
           </span>
-          {routineView === 'current' && totalCount > 0 && <span className="shrink-0 font-bold tabular-nums">{doneCount}/{totalCount} {lang === 'en' ? 'done' : '완료'}</span>}
         </div>
 
         {/* Mobile uses page scrolling; the shared screen scrolls inside each panel. */}

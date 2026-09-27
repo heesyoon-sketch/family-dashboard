@@ -52,7 +52,7 @@ body {
 
 /* Shared touch dashboard: preserve four panels, expand with screen height. */
 .dashboard-shell {
-  --dashboard-header-height: calc(64px + env(safe-area-inset-top, 0px));
+  --dashboard-header-height: calc(48px + env(safe-area-inset-top, 0px));
 }
 
 .dashboard-header {

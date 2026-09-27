@@ -10,7 +10,7 @@ import { ConnectionStatusChip } from './ConnectionStatusChip';
 import { AuthProfileAvatar } from './AuthProfileAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const iconButton = 'grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/75 transition hover:bg-white/10 active:scale-95';
+const iconButton = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-white/75 transition hover:bg-white/10 active:scale-95';
 const menuItem = 'flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-white/85 transition hover:bg-white/8';
 
 interface DashboardHeaderProps {
@@ -57,10 +57,10 @@ export function DashboardHeader(props: DashboardHeaderProps) {
   return (
     <header className="dashboard-header sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b border-white/8 bg-[#0D0E1C]/95 px-3 backdrop-blur-md md:px-4">
       <div className="flex min-w-0 items-center gap-2.5">
-        <FamBitWordmark markSize={32} showText={false} />
-        <div className="min-w-0">
+        <FamBitWordmark markSize={28} showText={false} />
+        <div className="flex min-w-0 flex-col justify-center gap-x-3 sm:flex-row sm:items-baseline">
           <h1 className="truncate text-sm font-bold tracking-tight text-white md:text-base">{props.familyName || 'FamBit'}</h1>
-          <p className="mt-0.5 truncate text-[11px] text-white/55 md:text-xs">{props.dateLabel}</p>
+          <p className="truncate text-[10px] leading-tight text-white/45 sm:shrink-0 sm:text-xs">{props.dateLabel}</p>
         </div>
       </div>
 
