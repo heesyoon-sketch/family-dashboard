@@ -179,11 +179,10 @@ test('a family-wide penalty pause skips both routine penalties and is parent-onl
 });
 
 test('turning on the penalty pause grants one coupon per member, idempotent per day', () => {
-  const migration = read('supabase/migrations/113_vacation_day_coupon.sql');
-  assert.match(migration, /drop function if exists public\.admin_set_penalty_pause\(boolean\);/);
+  const migration = read('supabase/migrations/20260927005953_fix_special_day_coupon_conflict.sql');
   assert.match(migration, /p_day_start timestamptz default null,/);
   assert.match(migration, /p_earned_for_day date default null/);
-  assert.match(migration, /on conflict \(user_id, day_started_at\) do nothing;/);
+  assert.match(migration, /on conflict \(user_id, day_started_at, reward_slot\) do nothing;/);
   assert.match(migration, /if found then\s+v_coupons_awarded := v_coupons_awarded \+ 1;/);
   assert.match(migration, /grant execute on function public\.admin_set_penalty_pause\(boolean, timestamptz, text, date\) to authenticated;/);
 
