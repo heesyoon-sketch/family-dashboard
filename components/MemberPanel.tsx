@@ -43,8 +43,7 @@ function PanelSkeleton({ theme }: { theme: string }) {
   return (
     <section
       data-theme={theme}
-      className="bg-[var(--bg)] text-[var(--fg)] flex flex-col min-h-[480px] md:min-h-0 md:h-full overflow-hidden"
-      style={{ padding: 12 }}
+      className="member-panel bg-[var(--bg)] text-[var(--fg)] flex flex-col min-h-[480px] md:min-h-0 md:h-full overflow-hidden"
     >
       <header className="flex items-center gap-2 mb-2.5 shrink-0">
         <motion.div {...pulse} className="w-10 h-10 rounded-xl bg-[var(--bg-card)] shrink-0" />
@@ -265,19 +264,12 @@ export function MemberPanel({ user }: { user: User }) {
         data-theme={user.theme}
         aria-label={user.name}
         className="member-panel flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg)] text-[var(--fg)] md:min-h-0 md:h-full"
-        style={{
-          padding: 10,
-          boxShadow: allDone
-            ? 'var(--shadow), inset 0 0 0 2px var(--success)'
-            : 'var(--shadow)',
-          transition: 'box-shadow 0.8s ease',
-        }}
       >
         {/* ── Header ── */}
-        <header className="member-header mb-2 shrink-0">
+        <header className="member-header mb-3 shrink-0">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
             <div className="flex min-w-0 basis-full items-center gap-2.5 md:min-w-[100px] md:flex-1 md:basis-0">
-              <div className="relative h-10 w-10 shrink-0">
+              <div className="member-avatar relative h-10 w-10 shrink-0">
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
@@ -295,7 +287,10 @@ export function MemberPanel({ user }: { user: User }) {
               </div>
 
               <div className="min-w-0 flex-1 overflow-hidden pr-0.5">
-                <h2 className="min-w-0 truncate text-lg font-bold leading-tight md:text-base">{user.name}</h2>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <h2 className="min-w-0 truncate text-lg font-bold leading-tight tracking-tight">{user.name}</h2>
+                  {allDone && <CheckCircle2 size={15} className="shrink-0 text-[var(--accent)]" aria-label={lang === 'en' ? 'All routines complete' : '루틴 모두 완료'} />}
+                </div>
                 {/* Keep progression secondary to the member name and tasks. */}
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[8px]">
                   <span
@@ -394,7 +389,7 @@ export function MemberPanel({ user }: { user: User }) {
         </header>
 
         <div
-          className="mb-1.5 grid h-8 shrink-0 grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-px"
+          className="member-routine-tabs mb-2 grid h-9 shrink-0 grid-cols-2 gap-1 rounded-xl border border-[var(--border)] p-1"
           role="tablist"
           onKeyDown={event => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -419,10 +414,8 @@ export function MemberPanel({ user }: { user: User }) {
             className={[
               'relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 pb-0.5 text-xs font-bold max-[380px]:gap-1 max-[380px]:text-[11px] tabular-nums transition',
               selectedWindow === 'morning'
-                ? timeOfDay === 'morning'
-                  ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
-                  : 'bg-[var(--bg)] text-[var(--fg)] shadow-sm ring-1 ring-inset ring-[var(--border)]'
-                : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
+                ? 'text-[var(--accent)]'
+                : 'text-[var(--fg-muted)] hover:bg-[var(--bg-card)]',
             ].join(' ')}
           >
             <Sunrise size={15} className="shrink-0" />
@@ -447,10 +440,8 @@ export function MemberPanel({ user }: { user: User }) {
             className={[
               'relative flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 pb-0.5 text-xs font-bold max-[380px]:gap-1 max-[380px]:text-[11px] tabular-nums transition',
               selectedWindow === 'evening'
-                ? timeOfDay === 'evening'
-                  ? 'bg-[var(--accent)] text-gray-950 shadow-sm'
-                  : 'bg-[var(--bg)] text-[var(--fg)] shadow-sm ring-1 ring-inset ring-[var(--border)]'
-                : 'text-[var(--fg-muted)] hover:bg-[var(--bg)]',
+                ? 'text-[var(--accent)]'
+                : 'text-[var(--fg-muted)] hover:bg-[var(--bg-card)]',
             ].join(' ')}
           >
             <MoonStar size={15} className="shrink-0" />
@@ -462,6 +453,13 @@ export function MemberPanel({ user }: { user: User }) {
             </span>
           </button>
         </div>
+
+        {routineView === 'current' && !childDeadlinePassed && (
+          <p className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[10px] font-medium text-[var(--fg-muted)]">
+            <span>{lang === 'en' ? '← Drag to undo' : '← 드래그하여 취소'}</span>
+            <span>{lang === 'en' ? 'Drag to complete →' : '드래그하여 완료 →'}</span>
+          </p>
+        )}
 
         <div className={routineView === 'reference' || childDeadlinePassed ? 'mb-1.5 flex shrink-0 items-center text-[10px] font-medium text-[var(--fg-muted)]' : 'sr-only'} aria-live="polite">
           <span className="flex items-center gap-1">
@@ -490,7 +488,7 @@ export function MemberPanel({ user }: { user: User }) {
             <motion.div
               ref={listRef}
               layout
-              className="member-task-grid grid auto-rows-[80px] grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:auto-rows-[64px] md:gap-1.5 md:pb-12"
+              className="member-task-grid grid auto-rows-[80px] grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:auto-rows-[66px] md:gap-2 md:pb-12"
             >
               {visibleTasks.length === 0 && (
                 <div className="col-span-full text-center text-[var(--fg-muted)] py-8 text-sm">
@@ -536,7 +534,7 @@ export function MemberPanel({ user }: { user: User }) {
             className="absolute inset-x-0 bottom-0 hidden h-8 pointer-events-none md:block bg-gradient-to-t from-[var(--bg)] to-transparent md:h-8"
           />
 
-          {/* Small non-blocking hint keeps the task cards tappable. */}
+          {/* Small non-blocking hint leaves room for task gestures. */}
           <AnimatePresence>
             {showMore && (
               <motion.div

@@ -53,16 +53,67 @@ body {
 /* Shared touch dashboard: preserve four panels, expand with screen height. */
 .dashboard-shell {
   --dashboard-header-height: calc(48px + env(safe-area-inset-top, 0px));
+  background: #0b1018;
 }
+
+.dashboard-shell > main { background: transparent; }
 
 .dashboard-header {
   height: var(--dashboard-header-height);
   padding-top: env(safe-area-inset-top, 0px);
+  background: #0b1018f5;
 }
 
 .mobile-member-nav {
   top: var(--dashboard-header-height);
+  background: #0b1018f5;
 }
+
+.member-panel {
+  position: relative;
+  padding: 14px;
+  border-color: var(--panel-border);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px #00000020, inset 0 1px 0 #ffffff05;
+}
+
+.member-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 22px;
+  right: 22px;
+  height: 2px;
+  background: var(--accent);
+  opacity: .65;
+  border-radius: 0 0 2px 2px;
+}
+
+.member-avatar {
+  outline: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+.member-routine-tabs {
+  background: color-mix(in srgb, var(--bg) 75%, #000);
+}
+
+.member-routine-tabs [aria-selected="true"] {
+  background: var(--accent-glow);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.member-task-card:not(:disabled):hover {
+  background: color-mix(in srgb, var(--task-card-bg) 93%, var(--accent));
+}
+
+.member-task-card[data-completed="true"] {
+  background: color-mix(in srgb, var(--task-card-bg) 55%, var(--bg));
+}
+
+.member-task-card:disabled { cursor: default; }
 
 .member-actions > button,
 .member-actions > a,
@@ -92,6 +143,12 @@ body {
   }
 }
 
+@media (min-width: 768px) and (max-height: 850px) {
+  .member-panel { padding: 12px; }
+  .member-header { margin-bottom: 10px; }
+  .member-task-grid { grid-auto-rows: 62px; gap: 6px; }
+}
+
 
 /* 패널 내부 task 스크롤 영역 */
 .task-scroll {
@@ -111,74 +168,75 @@ body {
 }
 .modal-scroll::-webkit-scrollbar { display: none; }
 
-/* 아빠 — Dark Minimal */
+/* Four coordinated night palettes. Legacy keys remain compatible with saved profiles. */
 [data-theme="dark_minimal"] {
-  --bg: #0b0d12;
-  --bg-card: #141821;
-  --task-card-bg: #141821;
-  --task-card-border: #232831;
-  --task-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.34);
-  --fg: #e8eaed;
-  --fg-muted: #8a8f99;
-  --accent: #4f9cff;
-  --accent-glow: rgba(79, 156, 255, 0.22);
-  --success: #3ddc97;
-  --success-ring: #3ddc97;
-  --border: #232831;
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --bg: #141e2d;
+  --bg-card: #1c293b;
+  --task-card-bg: #1c293b;
+  --task-card-border: #2b3a50;
+  --panel-border: #354762;
+  --fg: #eaf1fc;
+  --fg-muted: #a0b1c9;
+  --accent: #91b9f5;
+  --accent-glow: #91b9f51a;
+  --success: #91b9f5;
+  --success-ring: #91b9f5;
+  --border: #2b3a50;
 }
 
-/* 엄마 — Warm Minimal */
+/* Amber / warm graphite */
 [data-theme="warm_minimal"] {
-  --bg: #fcf9f6;
-  --bg-card: rgba(255, 255, 255, 0.72);
-  --task-card-bg: rgba(255, 255, 255, 0.68);
-  --task-card-border: rgba(255, 255, 255, 0.74);
-  --task-card-shadow: 0 8px 22px rgba(120, 73, 45, 0.08);
-  --fg: #1f2937;
-  --fg-muted: #64748b;
-  --accent: #c86a45;
-  --accent-glow: rgba(200, 106, 69, 0.16);
-  --success: #7cb342;
-  --success-ring: #ff1744;
-  --success-glow: rgba(255, 23, 68, 0.28);
-  --border: rgba(218, 202, 185, 0.54);
-  --shadow: 0 8px 24px rgba(86, 64, 45, 0.06);
+  --bg: #241e18;
+  --bg-card: #30281f;
+  --task-card-bg: #30281f;
+  --task-card-border: #45392b;
+  --panel-border: #5a4733;
+  --fg: #faf0e2;
+  --fg-muted: #c1ad94;
+  --accent: #e4b87c;
+  --accent-glow: #e4b87c1a;
+  --success: #e4b87c;
+  --success-ring: #e4b87c;
+  --border: #45392b;
 }
 
-/* 윤준서 — Robot / Neon */
+/* Teal / deep evergreen */
 [data-theme="robot_neon"] {
-  --bg: #0a0e27;
-  --bg-card: #131a3e;
-  --task-card-bg: #131a3e;
-  --task-card-border: #1e2a55;
-  --task-card-shadow: 0 0 18px rgba(0, 229, 255, 0.14);
-  --fg: #e8f4ff;
-  --fg-muted: #8fb3d9;
-  --accent: #00e5ff;
-  --accent-glow: rgba(0, 229, 255, 0.35);
-  --success: #39ff88;
-  --success-ring: #39ff88;
-  --border: #1e2a55;
-  --shadow: 0 0 24px rgba(0, 229, 255, 0.25);
+  --bg: #142521;
+  --bg-card: #1c312c;
+  --task-card-bg: #1c312c;
+  --task-card-border: #2a453d;
+  --panel-border: #34594e;
+  --fg: #e5f5ef;
+  --fg-muted: #9ebfb2;
+  --accent: #7dccb4;
+  --accent-glow: #7dccb41a;
+  --success: #7dccb4;
+  --success-ring: #7dccb4;
+  --border: #2a453d;
 }
 
-/* 윤지우 — Pastel / Cute */
+/* Lilac / smoked plum */
 [data-theme="pastel_cute"] {
-  --bg: #fdf8f9;
-  --bg-card: rgba(255, 255, 255, 0.70);
-  --task-card-bg: rgba(255, 255, 255, 0.66);
-  --task-card-border: rgba(255, 255, 255, 0.76);
-  --task-card-shadow: 0 8px 22px rgba(190, 77, 113, 0.09);
-  --fg: #1f2937;
-  --fg-muted: #64748b;
-  --accent: #f47295;
-  --accent-glow: rgba(244, 114, 149, 0.16);
-  --success: #a0e7c5;
-  --success-ring: #ff1744;
-  --success-glow: rgba(255, 23, 68, 0.28);
-  --border: rgba(244, 194, 209, 0.55);
-  --shadow: 0 8px 24px rgba(190, 77, 113, 0.07);
+  --bg: #241c2e;
+  --bg-card: #30263c;
+  --task-card-bg: #30263c;
+  --task-card-border: #44354f;
+  --panel-border: #584367;
+  --fg: #f3eafa;
+  --fg-muted: #bca8ca;
+  --accent: #c6a2e8;
+  --accent-glow: #c6a2e81a;
+  --success: #c6a2e8;
+  --success-ring: #c6a2e8;
+  --border: #44354f;
+}
+
+[data-theme] {
+  color-scheme: dark;
+  --task-card-shadow: 0 2px 4px #0000000a;
+  --shadow: 0 8px 24px #00000020;
+  --success-glow: var(--accent-glow);
 }
 
 @keyframes burst {

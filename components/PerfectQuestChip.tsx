@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Flame, TicketCheck } from 'lucide-react';
+import { Check, TicketCheck } from 'lucide-react';
 import type { PerfectQuestProgress } from '@/lib/db';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -32,62 +32,63 @@ export function PerfectQuestChip({
     <button
       type="button"
       onClick={onOpenWallet}
-      className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-[#D8B72D] bg-[#FFE56B] px-1.5 text-[#17151E] shadow-[2px_2px_0_#FF7BAC] transition hover:-translate-y-px hover:bg-[#FFF09C] max-[380px]:h-7 max-[380px]:px-1"
+      className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-[#DFC48C]/20 bg-[#DFC48C]/[0.06] px-2.5 text-[#E2C997] transition-colors hover:bg-[#DFC48C]/12 max-[380px]:gap-1.5 max-[380px]:px-2"
       title={label}
       aria-label={label}
     >
-      <Flame size={13} strokeWidth={2.8} className="shrink-0 max-[380px]:hidden" aria-hidden />
+      <TicketCheck size={17} className="shrink-0" aria-hidden />
+      <span className="flex flex-col gap-1">
+        <span className="flex items-center justify-between gap-2 text-[10px] font-semibold leading-none">
+          <span>{lang === 'en' ? 'Passes' : '이용권'}</span>
+          <span className="text-xs font-bold tabular-nums">{availableCouponCount}</span>
+        </span>
 
-      <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
-        {[1, 2, 3].map(day => {
-          const complete = day <= progress.currentDay;
-          const active = !isWeekendToday && !questCompleteThisWeek && day === nextMark;
-          return (
-            <span
-              key={day}
-              className="relative grid h-3.5 w-3.5 place-items-center overflow-visible rounded-[3px] border border-[#17151E]/25 bg-[#17151E]/8"
-            >
-              {active && (
-                <span className="absolute inset-0 overflow-hidden rounded-[2px]">
-                  {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#58BFD6]" />}
-                  {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#E85E96]" />}
+        <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
+          {[1, 2, 3].map(day => {
+            const complete = day <= progress.currentDay;
+            const active = !isWeekendToday && !questCompleteThisWeek && day === nextMark;
+            return (
+              <span
+                key={day}
+                className="relative grid h-2 w-2 place-items-center overflow-visible rounded-[3px] border border-[#DFC48C]/25 bg-[#DFC48C]/5"
+              >
+                {active && (
+                  <span className="absolute inset-0 overflow-hidden rounded-[2px]">
+                    {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#DFC48C]/70" />}
+                    {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#DFC48C]" />}
+                  </span>
+                )}
+                <span className="relative z-10 leading-none">
+                  {complete ? <Check size={7} strokeWidth={3} className="text-[#171b24]" /> : null}
                 </span>
-              )}
-              <span className="relative z-10 text-[7px] font-black leading-none">
-                {complete ? <Check size={9} strokeWidth={3.2} /> : day}
+                {complete && <span className="absolute inset-0 rounded-[2px] bg-[#DFC48C]" />}
               </span>
-              {complete && <span className="absolute inset-0 rounded-[2px] bg-white/75" />}
-            </span>
-          );
-        })}
-        <span className="mx-0.5 h-3 w-px bg-[#17151E]/25" />
-        {[1, 2].map(day => {
-          const complete = day <= progress.weekendPerfectDays;
-          const active = isWeekendToday && !weekendCompleteThisWeek && day === nextWeekendMark;
-          return (
-            <span
-              key={`weekend-${day}`}
-              className="relative grid h-3.5 w-3.5 place-items-center overflow-hidden rounded-full border border-[#17151E]/25 bg-[#B78BFF]/22"
-            >
-              {active && (
-                <span className="absolute inset-0 overflow-hidden rounded-full">
-                  {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#58BFD6]" />}
-                  {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#E85E96]" />}
+            );
+          })}
+          <span className="mx-0.5 h-2 w-px bg-[#DFC48C]/25" />
+          {[1, 2].map(day => {
+            const complete = day <= progress.weekendPerfectDays;
+            const active = isWeekendToday && !weekendCompleteThisWeek && day === nextWeekendMark;
+            return (
+              <span
+                key={`weekend-${day}`}
+                className="relative grid h-2 w-2 place-items-center overflow-hidden rounded-full border border-[#DFC48C]/25 bg-[#DFC48C]/5"
+              >
+                {active && (
+                  <span className="absolute inset-0 overflow-hidden rounded-full">
+                    {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#DFC48C]/70" />}
+                    {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#DFC48C]" />}
+                  </span>
+                )}
+                <span className="relative z-10 leading-none">
+                  {complete ? <Check size={7} strokeWidth={3} className="text-[#171b24]" /> : null}
                 </span>
-              )}
-              <span className="relative z-10 text-[7px] font-black leading-none">
-                {complete ? <Check size={9} strokeWidth={3.2} /> : day}
+                {complete && <span className="absolute inset-0 bg-[#DFC48C]" />}
               </span>
-              {complete && <span className="absolute inset-0 bg-[#B78BFF]/75" />}
-            </span>
-          );
-        })}
-      </span>
+            );
+          })}
+        </span>
 
-      <span className="ml-0.5 h-4 w-px bg-[#17151E]/20 max-[380px]:hidden" aria-hidden />
-      <span className="flex items-center gap-0.5 text-[9px] font-black tabular-nums">
-        <TicketCheck size={11} strokeWidth={2.7} className="max-[380px]:hidden" aria-hidden />
-        {availableCouponCount}
       </span>
     </button>
   );

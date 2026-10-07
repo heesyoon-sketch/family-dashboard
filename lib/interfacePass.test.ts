@@ -22,7 +22,9 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   const panel = read('components/MemberPanel.tsx');
   assert.match(panel, /morningDone\}\/\{morningTasks\.length\}/);
   assert.match(panel, /eveningDone\}\/\{eveningTasks\.length\}/);
-  assert.match(panel, /grid h-8 shrink-0 grid-cols-2/);
+  assert.match(panel, /role="tablist"/);
+  assert.match(panel, /aria-selected=\{selectedWindow === 'morning'\}/);
+  assert.match(panel, /aria-selected=\{selectedWindow === 'evening'\}/);
   assert.match(panel, /morningPct/);
   assert.match(panel, /eveningPct/);
   assert.match(panel, /reference only/);
@@ -43,8 +45,8 @@ test('member panels show equipped shields as a compact horizontal stack', () => 
 
 test('past completed reference routines use visual completion styling', () => {
   const card = read('components/RoutineReferenceCard.tsx');
-  assert.match(card, /line-through decoration-2/);
-  assert.match(card, /bg-\[var\(--bg-card\)\]\/35 opacity-55/);
+  assert.match(card, /completed\s*\? 'text-\[var\(--fg-muted\)\]'/);
+  assert.doesNotMatch(card, /line-through|opacity-55/);
   assert.match(card, /CheckCircle2/);
   assert.match(card, /data-reference-state/);
   assert.match(card, /visualState === 'missed'/);
@@ -108,7 +110,8 @@ test('weekly routine quests show weekday and weekend progress', () => {
   assert.match(memberPanel, /PerfectQuestChip/);
   assert.equal((memberPanel.match(/<PerfectQuestChip/g) ?? []).length, 1);
   assert.doesNotMatch(memberPanel, /PerfectQuestStrip/);
-  assert.match(questChip, /h-8 shrink-0/);
+  assert.match(questChip, /onClick=\{onOpenWallet\}/);
+  assert.match(questChip, /aria-label=\{label\}/);
   assert.match(questChip, /morningComplete/);
   assert.match(questChip, /eveningComplete/);
   assert.match(questChip, /availableCouponCount/);
@@ -125,7 +128,8 @@ test('member dashboards prioritize three visible habit rows', () => {
   const mobileTabs = read('components/MobileMemberTabs.tsx');
   const dashboard = read('app/page.tsx');
 
-  assert.match(panel, /md:auto-rows-\[64px\]/);
+  assert.match(panel, /member-task-grid/);
+  assert.match(panel, /member-task-scroll md:absolute md:inset-0 md:overflow-y-auto/);
   assert.match(panel, /Open store, \$\{spendableBalance\} current points/);
   assert.doesNotMatch(panel, /<Store size=\{15\}/);
   assert.doesNotMatch(panel, /max-\[380px\]:w-full/);

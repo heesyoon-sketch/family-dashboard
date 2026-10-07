@@ -44,10 +44,10 @@ export function RoutineReferenceCard({
         : `${task.title}, ${status}`}
       className={`pointer-events-none relative flex h-full w-full cursor-default select-none items-center gap-2.5 overflow-hidden rounded-lg border px-3 py-2 ${
         visualState === 'completed'
-          ? 'border-[var(--border)] bg-[var(--bg-card)]/35 opacity-55'
+          ? 'border-[var(--border)] bg-[var(--bg-card)]/35'
           : visualState === 'missed'
-            ? 'border-amber-500/30 bg-amber-500/[0.055] opacity-80'
-            : 'border-[var(--border)] bg-[var(--bg-card)]/45 opacity-60'
+            ? 'border-amber-500/30 bg-amber-500/[0.055]'
+            : 'border-[var(--border)] bg-[var(--bg-card)]/45'
       }`}
     >
       <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--border)] text-[var(--fg-muted)] ${
@@ -58,7 +58,7 @@ export function RoutineReferenceCard({
       <div className="min-w-0 flex-1">
         <div className={`line-clamp-2 text-sm font-bold leading-tight ${
           completed
-            ? 'text-[var(--fg-muted)] line-through decoration-2 decoration-[var(--fg-muted)]/65'
+            ? 'text-[var(--fg-muted)]'
             : 'text-[var(--fg)]'
         }`}>
           {task.title}

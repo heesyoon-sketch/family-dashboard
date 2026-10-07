@@ -16,7 +16,7 @@ export interface ParticleData {
 
 export function buildParticles(theme: ThemeName): ParticleData[] {
   if (theme === 'robot_neon') {
-    const colors = ['#00e5ff', '#4f9cff', '#39ff88', '#ffffff', '#00e5ff', '#4f9cff', '#39ff88', '#00e5ff', '#ffffff', '#4f9cff'];
+    const colors = ['#7dccb4', '#a4dfcc', '#d4f1e7', '#ffffff', '#7dccb4', '#a4dfcc', '#d4f1e7', '#7dccb4', '#ffffff', '#a4dfcc'];
     return Array.from({ length: 10 }, (_, i) => {
       const angle = (i / 10) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
       const dist = 55 + Math.random() * 45;
@@ -34,7 +34,7 @@ export function buildParticles(theme: ThemeName): ParticleData[] {
 
   if (theme === 'pastel_cute') {
     const symbols = ['♡', '★', '✦', '♡', '★', '✦', '♡', '★'];
-    const colors = ['#ff8fab', '#ff69b4', '#ffb3c6', '#ffd6e0', '#ff8fab', '#ff69b4', '#ffb3c6', '#ffd6e0'];
+    const colors = ['#c6a2e8', '#dcc4f1', '#ae8bcd', '#f3eafa', '#c6a2e8', '#dcc4f1', '#ae8bcd', '#f3eafa'];
     return Array.from({ length: 8 }, (_, i) => ({
       id: i,
       dx: -45 + Math.random() * 90,
@@ -49,8 +49,8 @@ export function buildParticles(theme: ThemeName): ParticleData[] {
 
   // dark_minimal / warm_minimal
   const colors = theme === 'warm_minimal'
-    ? ['#d97757', '#e8a990', '#c4906a', '#f0c4a8', '#d97757']
-    : ['#ffffff', '#e8eaed', '#8a8f99', '#ffffff', '#e8eaed'];
+    ? ['#e4b87c', '#efd0a4', '#cba06a', '#faf0e2', '#e4b87c']
+    : ['#91b9f5', '#bdd5f9', '#6e93c8', '#eaf1fc', '#91b9f5'];
   return Array.from({ length: 5 }, (_, i) => {
     const angle = (i / 5) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
     const dist = 28 + Math.random() * 28;

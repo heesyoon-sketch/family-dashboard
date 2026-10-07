@@ -34,10 +34,10 @@ import { loadPersistedAchievementState } from '@/lib/achievements/storage';
 import { buildCoachingInsight } from '@/lib/coaching';
 
 const THEME_ACCENT: Record<string, string> = {
-  dark_minimal: '#4f9cff',
-  warm_minimal: '#d97757',
-  robot_neon:   '#00e5ff',
-  pastel_cute:  '#ff8fab',
+  dark_minimal: '#91b9f5',
+  warm_minimal: '#e4b87c',
+  robot_neon:   '#7dccb4',
+  pastel_cute:  '#c6a2e8',
 };
 
 const DOW_LABELS_KO = ['월', '화', '수', '목', '금', '토', '일'];
