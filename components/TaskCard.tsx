@@ -288,7 +288,7 @@ export function TaskCard({
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <span className="flex-1 min-w-0">
-          <span className={`block text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'text-[var(--fg-muted)]' : 'text-[var(--fg)]'}`}>
+          <span className={`block text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'text-[#D5E9E1] line-through decoration-[var(--success)]/60' : 'text-[var(--fg)]'}`}>
             {task.title}
           </span>
           <span className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
@@ -304,10 +304,13 @@ export function TaskCard({
           </span>
         </span>
 
-        <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors ${completed ? 'border-[var(--accent)]/25 bg-[var(--accent-glow)] text-[var(--accent)]' : 'border-[var(--fg-muted)]/40 text-[var(--fg-muted)]'}`}>
-          {busy ? <Icons.LoaderCircle size={18} className="animate-spin" />
-            : disabled && !completed ? <Icons.LockKeyhole size={14} />
-              : completed ? <><Icons.ArrowLeft size={10} /><Icons.Check size={12} strokeWidth={3} /></> : <Icons.ArrowRight size={16} />}
+        <span aria-hidden className="flex w-8 shrink-0 flex-col items-center gap-0.5">
+          <span className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${completed ? 'border-[var(--success)] bg-[var(--success)] text-[var(--completion-fg)]' : 'border-[var(--fg-muted)]/40 text-[var(--fg-muted)]'}`}>
+            {busy ? <Icons.LoaderCircle size={18} className="animate-spin" />
+              : disabled && !completed ? <Icons.LockKeyhole size={14} />
+                : completed ? <Icons.Check size={19} strokeWidth={3} /> : <Icons.ArrowRight size={16} />}
+          </span>
+          {completed && <span className="text-[9px] font-bold leading-none text-[var(--success)]">{lang === 'en' ? 'Done' : '완료'}</span>}
         </span>
       </motion.button>
 

@@ -53,7 +53,7 @@ body {
 /* Shared touch dashboard: preserve four panels, expand with screen height. */
 .dashboard-shell {
   --dashboard-header-height: calc(48px + env(safe-area-inset-top, 0px));
-  background: #0b1018;
+  background: #0D0E1C;
 }
 
 .dashboard-shell > main { background: transparent; }
@@ -61,12 +61,12 @@ body {
 .dashboard-header {
   height: var(--dashboard-header-height);
   padding-top: env(safe-area-inset-top, 0px);
-  background: #0b1018f5;
+  background: #0D0E1Cf5;
 }
 
 .mobile-member-nav {
   top: var(--dashboard-header-height);
-  background: #0b1018f5;
+  background: #0D0E1Cf5;
 }
 
 .member-panel {
@@ -84,13 +84,13 @@ body {
   left: 22px;
   right: 22px;
   height: 2px;
-  background: var(--accent);
-  opacity: .65;
+  background: var(--member-accent);
+  opacity: .85;
   border-radius: 0 0 2px 2px;
 }
 
 .member-avatar {
-  outline: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--member-accent) 45%, transparent);
   outline-offset: 3px;
   border-radius: 12px;
 }
@@ -110,8 +110,23 @@ body {
 }
 
 .member-task-card[data-completed="true"] {
-  background: color-mix(in srgb, var(--task-card-bg) 55%, var(--bg));
+  background: var(--task-completed-bg);
+  --tw-ring-color: var(--success-ring);
+  box-shadow: inset 4px 0 0 var(--success), inset 0 0 0 1px var(--success-ring);
 }
+
+.member-task-card[data-completed="true"]:not(:disabled):hover {
+  background: #193631;
+}
+
+.routine-reference-card[data-reference-state="completed"] {
+  background: var(--task-completed-bg);
+  border-color: var(--success-ring);
+  box-shadow: inset 4px 0 0 var(--success);
+}
+
+.member-avatar { background: color-mix(in srgb, var(--member-accent) 12%, var(--bg)); }
+.member-avatar > div { background: transparent; color: var(--member-accent); }
 
 .member-task-card:disabled { cursor: default; }
 
@@ -168,75 +183,33 @@ body {
 }
 .modal-scroll::-webkit-scrollbar { display: none; }
 
-/* Four coordinated night palettes. Legacy keys remain compatible with saved profiles. */
-[data-theme="dark_minimal"] {
-  --bg: #141e2d;
-  --bg-card: #1c293b;
-  --task-card-bg: #1c293b;
-  --task-card-border: #2b3a50;
-  --panel-border: #354762;
-  --fg: #eaf1fc;
-  --fg-muted: #a0b1c9;
-  --accent: #91b9f5;
-  --accent-glow: #91b9f51a;
-  --success: #91b9f5;
-  --success-ring: #91b9f5;
-  --border: #2b3a50;
+/* FamBit brand: one midnight surface, mint actions, blue/pink member markers.
+   Keep stored theme keys compatible while sharing the same dark design. */
+[data-theme="dark_minimal"], [data-theme="pastel_cute"] {
+  --member-accent: #5B8EFF;
 }
-
-/* Amber / warm graphite */
-[data-theme="warm_minimal"] {
-  --bg: #241e18;
-  --bg-card: #30281f;
-  --task-card-bg: #30281f;
-  --task-card-border: #45392b;
-  --panel-border: #5a4733;
-  --fg: #faf0e2;
-  --fg-muted: #c1ad94;
-  --accent: #e4b87c;
-  --accent-glow: #e4b87c1a;
-  --success: #e4b87c;
-  --success-ring: #e4b87c;
-  --border: #45392b;
-}
-
-/* Teal / deep evergreen */
-[data-theme="robot_neon"] {
-  --bg: #142521;
-  --bg-card: #1c312c;
-  --task-card-bg: #1c312c;
-  --task-card-border: #2a453d;
-  --panel-border: #34594e;
-  --fg: #e5f5ef;
-  --fg-muted: #9ebfb2;
-  --accent: #7dccb4;
-  --accent-glow: #7dccb41a;
-  --success: #7dccb4;
-  --success-ring: #7dccb4;
-  --border: #2a453d;
-}
-
-/* Lilac / smoked plum */
-[data-theme="pastel_cute"] {
-  --bg: #241c2e;
-  --bg-card: #30263c;
-  --task-card-bg: #30263c;
-  --task-card-border: #44354f;
-  --panel-border: #584367;
-  --fg: #f3eafa;
-  --fg-muted: #bca8ca;
-  --accent: #c6a2e8;
-  --accent-glow: #c6a2e81a;
-  --success: #c6a2e8;
-  --success-ring: #c6a2e8;
-  --border: #44354f;
+[data-theme="warm_minimal"], [data-theme="robot_neon"] {
+  --member-accent: #FF7BAC;
 }
 
 [data-theme] {
   color-scheme: dark;
-  --task-card-shadow: 0 2px 4px #0000000a;
-  --shadow: 0 8px 24px #00000020;
-  --success-glow: var(--accent-glow);
+  --bg: #14162A;
+  --bg-card: #1C1F36;
+  --task-card-bg: #1C1F36;
+  --task-card-border: #30344E;
+  --task-completed-bg: #142B29;
+  --panel-border: #30344E;
+  --fg: #F3F5FF;
+  --fg-muted: #A6ABC4;
+  --accent: #4EEDB0;
+  --accent-glow: #4EEDB014;
+  --success: #4EEDB0;
+  --success-ring: #4EEDB080;
+  --border: #30344E;
+  --task-card-shadow: 0 2px 6px #00000014;
+  --shadow: 0 8px 24px #00000028;
+  --success-glow: #4EEDB026;
 }
 
 @keyframes burst {

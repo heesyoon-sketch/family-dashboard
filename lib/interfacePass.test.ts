@@ -45,8 +45,9 @@ test('member panels show equipped shields as a compact horizontal stack', () => 
 
 test('past completed reference routines use visual completion styling', () => {
   const card = read('components/RoutineReferenceCard.tsx');
-  assert.match(card, /completed\s*\? 'text-\[var\(--fg-muted\)\]'/);
-  assert.doesNotMatch(card, /line-through|opacity-55/);
+  assert.match(card, /line-through decoration-\[var\(--success\)\]\/60/);
+  assert.match(card, /lang === 'en' \? 'Done' : '완료'/);
+  assert.doesNotMatch(card, /opacity-55/);
   assert.match(card, /CheckCircle2/);
   assert.match(card, /data-reference-state/);
   assert.match(card, /visualState === 'missed'/);

@@ -206,10 +206,10 @@ export default function WelcomePage() {
 
 function themeAccent(theme: string): string {
   switch (theme) {
-    case 'dark_minimal': return '#91b9f5';
-    case 'warm_minimal': return '#e4b87c';
-    case 'robot_neon':   return '#7dccb4';
-    case 'pastel_cute':  return '#c6a2e8';
+    case 'dark_minimal': return '#5B8EFF';
+    case 'warm_minimal': return '#FF7BAC';
+    case 'robot_neon':   return '#FF7BAC';
+    case 'pastel_cute':  return '#5B8EFF';
     default:             return '#4EEDB0';
   }
 }
