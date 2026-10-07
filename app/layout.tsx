@@ -4,8 +4,10 @@ import { Toaster } from 'sonner';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { SyncBootstrap } from '@/components/SyncBootstrap';
 import { ServiceWorkerUpdate } from '@/components/ServiceWorkerUpdate';
+import { SITE_ORIGIN } from '@/lib/site';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_ORIGIN),
   title: 'FamBit',
   description: 'A family habit dashboard for tasks, rewards, XP, and coins.',
   applicationName: 'FamBit',

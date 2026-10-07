@@ -19,6 +19,18 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+Production is hosted at `https://fambit.vercel.app`; the public landing page is
+`/home` (English) or `/home/ko` (Korean). Signed-out visits to `/` open `/home`.
+
+When changing the production domain, update Supabase Authentication → URL
+Configuration: set Site URL to the new origin and allow its `/auth/callback`
+URL, including `/auth/callback?next=**` for returning to a specific app page.
+Set `NEXT_PUBLIC_SITE_URL` on Vercel to the same origin before redeploying. Keep
+OAuth initiation and its callback on the same origin so the PKCE cookie is
+available. Supabase's Google provider callback remains the Supabase project
+URL, independent of the app's domain. Installed apps and cookies belong to
+their original domain; open the new address and sign in again after migration.
+
 ## Verification
 
 ```bash

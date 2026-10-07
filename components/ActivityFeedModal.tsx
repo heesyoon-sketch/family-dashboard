@@ -132,6 +132,18 @@ function formatActivity(activity: FamilyActivity, lang: Lang, user: User): { ico
     };
   }
   if (activity.type === 'SYSTEM_MESSAGE') {
+    if (activity.message?.startsWith('COUPON_GIFT_SENT:') || activity.message?.startsWith('COUPON_GIFT_RECEIVED:')) {
+      const sent = activity.message.startsWith('COUPON_GIFT_SENT:');
+      const note = activity.message.slice(activity.message.indexOf(':') + 1);
+      const name = activity.relatedUserName ?? family;
+      return {
+        icon: sent ? '💝' : '🎟️',
+        text: (lang === 'en'
+          ? (sent ? `You sent a 30-minute pass to ${name}.` : `${name} sent you a 30-minute pass.`)
+          : (sent ? `${name}에게 30분 이용권을 보냈어요.` : `${name}에게 30분 이용권을 받았어요.`)) + (note ? ` ${note}` : ''),
+        amount: sent ? (lang === 'en' ? '-1 pass' : '-1장') : (lang === 'en' ? '+1 pass' : '+1장'),
+      };
+    }
     if (activity.message?.startsWith('MORNING_ROUTINE_PENALTY:')) {
       const deducted = Math.max(0, -activity.amount);
       return {

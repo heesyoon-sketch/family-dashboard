@@ -88,6 +88,7 @@ export function MemberPanel({ user }: { user: User }) {
   const automaticSaleActive = useFamilyStore(s => s.automaticSaleStatus.active);
   const doRedeemReward = useFamilyStore(s => s.redeemReward);
   const doRedeemCoupon = useFamilyStore(s => s.redeemPerfectDayCoupon);
+  const doTransferCoupon = useFamilyStore(s => s.transferPerfectDayCoupon);
   const allUsers       = useFamilyStore(s => s.users);
   const activities     = useFamilyStore(s => s.activitiesByUser[user.id] ?? EMPTY_ITEMS);
   const perfectQuest   = useFamilyStore(s => s.perfectQuestByUser[user.id]);
@@ -238,6 +239,7 @@ export function MemberPanel({ user }: { user: User }) {
         <PerfectDayCouponModal
           user={user}
           coupons={coupons}
+          recipients={allUsers.filter(member => member.id !== user.id)}
           progress={perfectQuest ?? {
             userId: user.id,
             currentDay: 0,
@@ -256,6 +258,7 @@ export function MemberPanel({ user }: { user: User }) {
           }}
           onClose={() => setCouponOpen(false)}
           onRedeem={(couponId, kind) => doRedeemCoupon(couponId, user.id, kind)}
+          onTransfer={(couponId, recipientId, message) => doTransferCoupon(couponId, user.id, recipientId, message)}
         />
       )}
       <section

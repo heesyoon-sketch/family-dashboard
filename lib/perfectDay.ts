@@ -93,7 +93,8 @@ export function mapPerfectDayCoupon(raw: Record<string, unknown>): PerfectDayCou
   return {
     id: raw.id as string,
     familyId: (raw.familyId ?? raw.family_id) as string,
-    userId: (raw.userId ?? raw.user_id) as string,
+    userId: (raw.ownerId ?? raw.owner_id ?? raw.userId ?? raw.user_id) as string,
+    earnedByUserId: (raw.userId ?? raw.user_id) as string,
     earnedForDay: String(raw.earnedForDay ?? raw.earned_for_day),
     status: raw.status as PerfectDayCoupon['status'],
     redeemedFor: redeemedFor === 'game' || redeemedFor === 'media' ? redeemedFor : undefined,
@@ -103,6 +104,21 @@ export function mapPerfectDayCoupon(raw: Record<string, unknown>): PerfectDayCou
     chainLength: positiveInteger(raw.chainLength ?? raw.chain_length),
     rewardSlot: parseRewardSlot(raw.rewardSlot ?? raw.reward_slot),
   };
+}
+
+/** Merge server coupons into their current owners' wallets, removing stale copies. */
+export function mergeCouponWallets(
+  wallets: Record<string, PerfectDayCoupon[]>,
+  incoming: PerfectDayCoupon[],
+): Record<string, PerfectDayCoupon[]> {
+  const ids = new Set(incoming.map(coupon => coupon.id));
+  const result = Object.fromEntries(Object.entries(wallets).map(([userId, coupons]) =>
+    [userId, coupons.filter(coupon => !ids.has(coupon.id))],
+  ));
+  for (const coupon of incoming) {
+    result[coupon.userId] = [...(result[coupon.userId] ?? []), coupon];
+  }
+  return result;
 }
 
 export function mapPerfectQuestProgress(raw: Record<string, unknown>): PerfectQuestProgress {

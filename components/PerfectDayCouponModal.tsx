@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Check,
   CheckCircle2,
@@ -8,6 +8,7 @@ import {
   Film,
   Flame,
   Gamepad2,
+  Gift,
   TicketCheck,
   Trophy,
   X,
@@ -20,19 +21,28 @@ import { formatPerfectDay, PerfectDayTicket } from './PerfectDayTicket';
 export function PerfectDayCouponModal({
   user,
   coupons,
+  recipients,
   progress,
   onClose,
   onRedeem,
+  onTransfer,
 }: {
   user: User;
   coupons: PerfectDayCoupon[];
+  recipients: User[];
   progress: PerfectQuestProgress;
   onClose: () => void;
   onRedeem: (couponId: string, kind: PerfectDayCouponKind) => Promise<void>;
+  onTransfer: (couponId: string, recipientId: string, message: string) => Promise<void>;
 }) {
   const { lang } = useLanguage();
   const [selectedKind, setSelectedKind] = useState<PerfectDayCouponKind | null>(null);
   const [redeeming, setRedeeming] = useState(false);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [recipientId, setRecipientId] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const busyRef = useRef(false);
   const [justRedeemed, setJustRedeemed] = useState<{
     coupon: PerfectDayCoupon;
     kind: PerfectDayCouponKind;
@@ -50,7 +60,8 @@ export function PerfectDayCouponModal({
   const activeCoupon = available[0] ?? null;
 
   const redeem = async () => {
-    if (!activeCoupon || !selectedKind || redeeming) return;
+    if (!activeCoupon || !selectedKind || busyRef.current) return;
+    busyRef.current = true;
     setRedeeming(true);
     try {
       const redeemedCoupon = activeCoupon;
@@ -72,7 +83,30 @@ export function PerfectDayCouponModal({
         { description: error instanceof Error ? error.message : undefined },
       );
     } finally {
+      busyRef.current = false;
       setRedeeming(false);
+    }
+  };
+
+  const transfer = async () => {
+    const recipient = recipients.find(member => member.id === recipientId);
+    if (!activeCoupon || !recipient || busyRef.current) return;
+    busyRef.current = true;
+    setSending(true);
+    try {
+      await onTransfer(activeCoupon.id, recipient.id, message.trim());
+      toast.success(lang === 'en' ? `Pass sent to ${recipient.name}!` : `${recipient.name}에게 이용권을 보냈어요!`);
+      setGiftOpen(false);
+      setRecipientId('');
+      setMessage('');
+      setSelectedKind(null);
+    } catch (error) {
+      toast.error(lang === 'en' ? 'Could not send this pass' : '이용권을 보낼 수 없어요', {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      busyRef.current = false;
+      setSending(false);
     }
   };
 
@@ -220,7 +254,7 @@ export function PerfectDayCouponModal({
 
               <button
                 type="button"
-                disabled={!selectedKind || redeeming}
+                disabled={!selectedKind || redeeming || sending || giftOpen}
                 onClick={() => { void redeem(); }}
                 className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#FFE56B] px-4 text-sm font-black text-[#17151E] transition hover:bg-[#FFF09C] disabled:cursor-not-allowed disabled:opacity-35"
               >
@@ -229,6 +263,60 @@ export function PerfectDayCouponModal({
                   ? (lang === 'en' ? 'Using pass...' : '이용권 사용 중...')
                   : (lang === 'en' ? 'Use this 30-minute pass' : '30분 이용권 사용하기')}
               </button>
+
+              {recipients.length > 0 && (
+                <section className="mt-4 border-t border-white/10 pt-4">
+                  <button
+                    type="button"
+                    disabled={redeeming || sending}
+                    aria-expanded={giftOpen}
+                    onClick={() => setGiftOpen(open => !open)}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#FF7BAC]/40 bg-[#FF7BAC]/10 px-3 text-sm font-black text-[#FFC0D7] disabled:opacity-40"
+                  >
+                    <Gift size={17} />
+                    {lang === 'en' ? 'Transfer or gift this pass' : '이용권 양도 · 선물하기'}
+                  </button>
+                  {giftOpen && (
+                    <div className="mt-3 space-y-3">
+                      <p className="text-xs leading-5 text-white/55">
+                        {lang === 'en' ? 'Send one unused pass. Your family member can choose game or media time.' : '미사용 이용권 1장을 보내요. 받는 가족이 게임 또는 미디어 시간을 선택할 수 있어요.'}
+                      </p>
+                      <label className="block text-xs font-bold text-white/70">
+                        {lang === 'en' ? 'Recipient' : '받는 가족'}
+                        <select
+                          value={recipientId}
+                          disabled={sending}
+                          onChange={event => setRecipientId(event.target.value)}
+                          className="mt-1.5 h-11 w-full rounded-lg border border-white/15 bg-[#1E2030] px-3 text-sm text-white"
+                        >
+                          <option value="">{lang === 'en' ? 'Choose a family member' : '가족을 선택해 주세요'}</option>
+                          {recipients.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="block text-xs font-bold text-white/70">
+                        {lang === 'en' ? 'Message (optional)' : '메시지 (선택)'}
+                        <textarea
+                          value={message}
+                          disabled={sending}
+                          maxLength={200}
+                          rows={2}
+                          onChange={event => setMessage(event.target.value)}
+                          className="mt-1.5 w-full resize-none rounded-lg border border-white/15 bg-[#1E2030] px-3 py-2 text-sm text-white"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={!recipientId || sending || redeeming}
+                        onClick={() => { void transfer(); }}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#FF7BAC] px-3 text-sm font-black text-[#17151E] disabled:opacity-35"
+                      >
+                        <Gift size={17} />
+                        {sending ? (lang === 'en' ? 'Sending...' : '보내는 중...') : (lang === 'en' ? 'Send one pass' : '이용권 1장 보내기')}
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
             </>
           ) : (
             <div className="border-y border-dashed border-white/15 py-10 text-center">

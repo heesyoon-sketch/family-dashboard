@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Ticket } from 'lucide-react';
 import { FamBitAuthShell } from '@/components/FamBitAuthShell';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { authCallbackUrl } from '@/lib/site';
 
 function GoogleMark() {
   return (
@@ -23,6 +24,9 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const deleted = searchParams.get('deleted') === '1';
   const [loginError, setLoginError] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const signingInRef = useRef(false);
+  const callbackError = searchParams.get('error');
   const { lang } = useLanguage();
 
   const copy = lang === 'en'
@@ -31,6 +35,9 @@ function LoginContent() {
         description: 'Use a Google account to create or manage a family space, or join with an invite code.',
         deletedNotice: 'All family data has been permanently deleted.',
         loginErr: "Couldn't start Google sign-in. Please try again in a moment.",
+        callbackErr: 'Sign-in did not finish. Please start Google sign-in again from this page.',
+        familyErr: 'You signed in, but your family could not be loaded. Please try again.',
+        signingIn: 'Opening Google sign-in...',
         google: 'Sign in with Google',
         join: 'Join family with invite code',
       }
@@ -39,11 +46,17 @@ function LoginContent() {
         description: 'Google 계정으로 가족 공간을 만들고 관리하거나, 초대 코드를 받은 가족은 바로 참여할 수 있습니다.',
         deletedNotice: '가족 데이터가 영구 삭제되었습니다.',
         loginErr: 'Google 로그인을 시작할 수 없습니다. 잠시 후 다시 시도하세요.',
+        callbackErr: '로그인이 완료되지 않았어요. 이 화면에서 Google 로그인을 다시 시작해 주세요.',
+        familyErr: '로그인했지만 가족 정보를 불러오지 못했어요. 다시 시도해 주세요.',
+        signingIn: 'Google 로그인으로 이동 중...',
         google: 'Google로 로그인',
         join: '초대 코드로 가족 참여',
       };
 
   const handleGoogleLogin = async () => {
+    if (signingInRef.current) return;
+    signingInRef.current = true;
+    setSigningIn(true);
     setLoginError('');
     try {
       const supabase = createBrowserSupabase();
@@ -55,14 +68,17 @@ function LoginContent() {
             prompt: 'select_account',
             access_type: 'offline',
           },
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: authCallbackUrl(window.location.origin, searchParams.get('next')),
         },
       });
       if (error) throw error;
-      if (data.url) window.location.assign(data.url);
+      if (!data.url) throw new Error('OAuth URL missing');
+      window.location.assign(data.url);
     } catch (error) {
       console.error(error);
       setLoginError(copy.loginErr);
+      signingInRef.current = false;
+      setSigningIn(false);
     }
   };
 
@@ -79,18 +95,20 @@ function LoginContent() {
           </div>
         )}
 
-        {loginError && (
-          <div className="rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/10 px-4 py-3 text-sm leading-6 text-[#FFB8CF]">
-            {loginError}
+        {(loginError || callbackError) && (
+          <div role="alert" className="rounded-lg border border-[#FF7BAC]/35 bg-[#FF7BAC]/10 px-4 py-3 text-sm leading-6 text-[#FFB8CF]">
+            {loginError || (callbackError === 'family_lookup_failed' ? copy.familyErr : copy.callbackErr)}
           </div>
         )}
 
         <button
+          disabled={signingIn}
+          aria-busy={signingIn}
           onClick={() => { void handleGoogleLogin(); }}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-[#111224] transition-colors hover:bg-[#F4F7FB]"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-[#111224] transition-colors hover:bg-[#F4F7FB] disabled:opacity-60"
         >
           <GoogleMark />
-          {copy.google}
+          {signingIn ? copy.signingIn : copy.google}
         </button>
 
         <Link

@@ -6,6 +6,24 @@ const withPWA = withPWAInit({
   skipWaiting: true,
   cacheStartUrl: false,
   dynamicStartUrl: false,
+  extendDefaultRuntimeCaching: true,
+  workboxOptions: {
+    runtimeCaching: [
+      {
+        // Login and session redirects must never be replayed from a PWA cache.
+        urlPattern: ({ sameOrigin, url }) => sameOrigin && (
+          url.pathname === '/' || /^\/(auth|login|join|setup|admin|stats|calendar|api)(\/|$)/.test(url.pathname)
+        ),
+        handler: 'NetworkOnly',
+        method: 'GET',
+      },
+      {
+        urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/auth/'),
+        handler: 'NetworkOnly',
+        method: 'GET',
+      },
+    ],
+  },
 });
 
 /** @type {import('next').NextConfig} */
@@ -16,6 +34,10 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/auth/:path*',
+        headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+      },
       {
         source: '/sw.js',
         headers: [

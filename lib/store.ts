@@ -47,6 +47,7 @@ import {
   isPerfectRoutineDay,
   localDateKey,
   mapPerfectDayCoupon,
+  mergeCouponWallets,
   mapPerfectQuestProgress,
   splitCompletionsByWindow,
   type PerfectDayClaimResult,
@@ -213,6 +214,7 @@ interface FamilyState {
   tradeCashForPoints: (userId: string, priceCents: number, requestId?: string) => Promise<void>;
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   redeemPerfectDayCoupon: (couponId: string, userId: string, kind: PerfectDayCouponKind) => Promise<void>;
+  transferPerfectDayCoupon: (couponId: string, senderId: string, recipientId: string, message: string) => Promise<void>;
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
   applyBalance: (userId: string, newBalance: number) => void;
@@ -696,7 +698,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       supabase.from('perfect_day_coupons')
         .select('*')
         .eq('family_id', resolvedFamilyId)
-        .in('user_id', safeIds)
         .order('awarded_at', { ascending: false }),
       supabase.rpc('get_perfect_quest_progress', {
         p_today: localDateKey(todayStart),
@@ -847,7 +848,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       todayCompletionsByWindow[u.id] = windowCompletions;
       todayCompletions[u.id] = windowCompletions[timeOfDay];
       couponsByUser[u.id] = (couponRes.data ?? [])
-        .filter(row => row.user_id === u.id)
+        .filter(row => (row.owner_id ?? row.user_id) === u.id)
         .map(row => mapPerfectDayCoupon(row as Record<string, unknown>));
       perfectQuestByUser[u.id] ??= {
         userId: u.id,
@@ -1039,12 +1040,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         try {
           const claim = await claimPerfectDayCoupon(member.id, todayStart, now);
           if (!claim.quest || claim.coupons.length === 0) continue;
-          const current = couponsByUser[member.id] ?? [];
-          const claimedIds = new Set(claim.coupons.map(coupon => coupon.id));
-          couponsByUser[member.id] = [
-            ...claim.coupons,
-            ...current.filter(coupon => !claimedIds.has(coupon.id)),
-          ];
+          Object.assign(couponsByUser, mergeCouponWallets(couponsByUser, claim.coupons));
           perfectQuestByUser[member.id] = claim.quest;
           if (claim.awarded) {
             perfectDayAwards.push({ userId: member.id, coupons: claim.coupons, quest: claim.quest });
@@ -1310,13 +1306,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       // Overwrite with exact backend values; no local arithmetic.
       // CompletionResult.level is always non-null, so this always reflects DB truth.
       set(state => {
-        const claimedIds = new Set(result.perfectDay.coupons.map(coupon => coupon.id));
-        const coupons = result.perfectDay.coupons.length > 0
-          ? [
-              ...result.perfectDay.coupons,
-              ...(state.couponsByUser[userId] ?? []).filter(item => !claimedIds.has(item.id)),
-            ]
-          : state.couponsByUser[userId] ?? [];
         const alreadyQueued = result.perfectDay.coupons.some(coupon =>
           state.perfectDayQueue.some(item => item.coupons.some(queued => queued.id === coupon.id)),
         );
@@ -1324,7 +1313,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           levelsByUser: { ...state.levelsByUser, [userId]: result.level },
           celebration: result.celebration ?? state.celebration,
           couponsByUser: result.perfectDay.coupons.length > 0
-            ? { ...state.couponsByUser, [userId]: coupons }
+            ? mergeCouponWallets(state.couponsByUser, result.perfectDay.coupons)
             : state.couponsByUser,
           perfectQuestByUser: result.perfectDay.quest
             ? { ...state.perfectQuestByUser, [userId]: result.perfectDay.quest }
@@ -1728,6 +1717,22 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       },
     }));
     broadcastSync();
+  },
+
+  transferPerfectDayCoupon: async (couponId, senderId, recipientId, message) => {
+    const supabase = createBrowserSupabase();
+    await requireAuthSession(supabase);
+    const { data, error } = await supabase.rpc('transfer_perfect_day_coupon', {
+      p_coupon_id: assertUuid(couponId, 'couponId'),
+      p_sender_id: assertUuid(senderId, 'senderId'),
+      p_recipient_id: assertUuid(recipientId, 'recipientId'),
+      p_message: message.trim(),
+    });
+    if (error) throw new Error(error.message);
+    const transferred = mapPerfectDayCoupon(data as Record<string, unknown>);
+    set(state => ({ couponsByUser: mergeCouponWallets(state.couponsByUser, [transferred]) }));
+    broadcastSync();
+    await get().hydrate();
   },
 
   updateMemberAvatar: (userId, avatarUrl) => {

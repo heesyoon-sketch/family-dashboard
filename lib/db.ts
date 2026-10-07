@@ -98,6 +98,7 @@ export interface PerfectDayCoupon {
   id: string;
   familyId: string;
   userId: string;
+  earnedByUserId?: string;
   earnedForDay: string;
   status: PerfectDayCouponStatus;
   redeemedFor?: PerfectDayCouponKind;

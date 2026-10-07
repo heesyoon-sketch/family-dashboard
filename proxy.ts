@@ -1,8 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { LEGACY_SITE_HOSTS, SITE_ORIGIN, safeReturnPath } from '@/lib/site';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (LEGACY_SITE_HOSTS.has(request.nextUrl.hostname)) {
+    const url = new URL(`${pathname}${request.nextUrl.search}`, SITE_ORIGIN);
+    return NextResponse.redirect(url, 308);
+  }
 
   if (
     pathname.startsWith('/login') ||
@@ -37,9 +43,16 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    const url = new URL(pathname === '/' ? '/home' : '/login', request.url);
+    const next = safeReturnPath(`${pathname}${request.nextUrl.search}`);
+    if (pathname !== '/' && next !== '/') url.searchParams.set('next', next);
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
+    redirect.headers.set('Cache-Control', 'private, no-store');
+    return redirect;
   }
 
+  response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }
 
