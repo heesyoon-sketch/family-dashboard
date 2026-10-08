@@ -276,7 +276,7 @@ export function TaskCard({
         style={{ x, rotate: reducedMotion ? 0 : cardRotate, scale: reducedMotion ? 1 : cardScale, touchAction: 'pan-y' }}
         className={[
           'member-task-card absolute inset-0 w-full overflow-hidden rounded-xl bg-[var(--task-card-bg)] text-left',
-          'px-3 py-2.5 flex items-center gap-2.5 md:px-2.5 md:py-2 md:gap-2',
+          'px-3 py-1 flex items-center gap-2.5 md:px-2.5 md:gap-2',
           disabled || busy ? 'cursor-default' : 'cursor-grab active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]',
           'ring-1 ring-inset ring-[var(--task-card-border)] shadow-[var(--task-card-shadow)] transition-colors duration-200',
         ].join(' ')}
@@ -288,10 +288,10 @@ export function TaskCard({
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <span className="flex-1 min-w-0">
-          <span className={`block text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'text-[#D5E9E1] line-through decoration-[var(--success)]/60' : 'text-[var(--fg)]'}`}>
+          <span className={`text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'text-[#D5E9E1] line-through decoration-[var(--success)]/60' : 'text-[var(--fg)]'}`}>
             {task.title}
           </span>
-          <span className="text-[11px] mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
+          <span className="text-[11px] leading-none mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
             <span className="flex shrink-0 items-center gap-0.5"><Icons.Clock3 size={10} aria-hidden />{duration.label[lang]}</span>
             <span className="shrink-0">· +{displayPts}pt</span>
             {disabled && (

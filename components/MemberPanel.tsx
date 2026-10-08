@@ -454,13 +454,6 @@ export function MemberPanel({ user }: { user: User }) {
           </button>
         </div>
 
-        {routineView === 'current' && !childDeadlinePassed && (
-          <p className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[10px] font-medium text-[var(--fg-muted)]">
-            <span>{lang === 'en' ? '← Drag to undo' : '← 드래그하여 취소'}</span>
-            <span>{lang === 'en' ? 'Drag to complete →' : '드래그하여 완료 →'}</span>
-          </p>
-        )}
-
         <div className={routineView === 'reference' || childDeadlinePassed ? 'mb-1.5 flex shrink-0 items-center text-[10px] font-medium text-[var(--fg-muted)]' : 'sr-only'} aria-live="polite">
           <span className="flex items-center gap-1">
             {routineView === 'reference' ? <Eye size={13} /> : allDone ? <CheckCircle2 size={13} className="text-[var(--success)]" /> : null}
@@ -488,7 +481,7 @@ export function MemberPanel({ user }: { user: User }) {
             <motion.div
               ref={listRef}
               layout
-              className="member-task-grid grid auto-rows-[80px] grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:auto-rows-[66px] md:gap-2 md:pb-12"
+              className="member-task-grid grid auto-rows-[68px] grid-cols-1 gap-1.5 min-[480px]:grid-cols-2 md:auto-rows-[60px] md:pb-6"
             >
               {visibleTasks.length === 0 && (
                 <div className="col-span-full text-center text-[var(--fg-muted)] py-8 text-sm">
