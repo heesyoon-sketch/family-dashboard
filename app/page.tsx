@@ -203,11 +203,11 @@ export default function Dashboard() {
   // Show blank screen until auth is verified for THIS render cycle.
   // familyId === null check is handled by the redirect useEffect above.
   if (!authReady || !hydrated || familyId === null) {
-    return <div className="min-h-screen bg-[#0D0E1C]" />;
+    return <div className="min-h-screen bg-[#0B0D17]" />;
   }
 
   return (
-    <div className="dashboard-shell flex min-h-dvh flex-col bg-[#0D0E1C] md:fixed md:inset-0 md:h-dvh md:overflow-hidden">
+    <div className="dashboard-shell flex min-h-dvh flex-col bg-[#0B0D17] md:fixed md:inset-0 md:h-dvh md:overflow-hidden">
 
       <DashboardHeader
         familyName={familyName}
@@ -226,7 +226,7 @@ export default function Dashboard() {
       />
 
       {penaltyPauseEnabled && (
-        <div className="flex shrink-0 items-center justify-center gap-1.5 border-b border-[#4EEDB0]/25 bg-[#4EEDB0]/12 px-3 py-1.5 text-center text-[11px] font-bold text-[#4EEDB0] md:text-[12px]">
+        <div className="flex shrink-0 items-center justify-center gap-1.5 border-b border-[var(--border)]/60 bg-[var(--bg)] px-3 py-1.5 text-center text-[11px] font-bold text-[var(--success)] md:text-[12px]">
           <Palmtree size={14} className="shrink-0" />
           <span>{t('vacation_mode_banner')}</span>
         </div>
@@ -247,7 +247,7 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <main className="hidden flex-1 min-h-0 flex-col gap-3 overflow-hidden bg-[#0D0E1C] p-3 md:flex">
+      <main className="hidden flex-1 min-h-0 flex-col gap-3 overflow-hidden bg-[#0B0D17] p-3 md:flex">
         <FamilyOnboardingChecklist />
         <div className="dashboard-grid grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,9fr)_minmax(0,10fr)] gap-3 overflow-hidden">
           {desktopSlots.map((user, index) =>

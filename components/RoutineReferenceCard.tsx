@@ -46,19 +46,19 @@ export function RoutineReferenceCard({
         visualState === 'completed'
           ? 'border-[var(--border)] bg-[var(--bg-card)]/35'
           : visualState === 'missed'
-            ? 'border-amber-500/30 bg-amber-500/[0.055]'
+            ? 'border-[var(--task-card-border)] bg-[var(--bg-card)]'
             : 'border-[var(--border)] bg-[var(--bg-card)]/45'
       }`}
     >
-      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--border)] text-[var(--fg-muted)] ${
-        completed ? 'bg-[var(--accent-glow)] text-[var(--success)]' : 'bg-[var(--bg)]'
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+        completed ? 'bg-[var(--accent-glow)] text-[var(--success)]' : 'bg-[var(--surface-elevated)] text-[var(--secondary)]'
       }`}>
         <TaskIcon size={18} />
       </div>
       <div className="min-w-0 flex-1">
         <div className={`line-clamp-2 text-sm font-bold leading-tight ${
           completed
-            ? 'text-[#D5E9E1] line-through decoration-[var(--success)]/60'
+            ? 'text-[var(--fg-secondary)] line-through decoration-[var(--success)]/60'
             : 'text-[var(--fg)]'
         }`}>
           {task.title}
@@ -76,7 +76,7 @@ export function RoutineReferenceCard({
             <span className="text-[9px] font-bold leading-none">{lang === 'en' ? 'Done' : '완료'}</span>
           </span>
         : visualState === 'missed'
-          ? <Clock3 size={15} className="shrink-0 text-amber-500/65" aria-hidden />
+          ? <Clock3 size={15} className="shrink-0 text-[var(--fg-muted)]" aria-hidden />
           : <Eye size={15} className="shrink-0 text-[var(--fg-muted)] opacity-60" aria-hidden />}
     </div>
   );

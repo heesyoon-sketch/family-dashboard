@@ -292,7 +292,7 @@ export function MemberPanel({ user }: { user: User }) {
                   {allDone && <CheckCircle2 size={15} className="shrink-0 text-[var(--accent)]" aria-label={lang === 'en' ? 'All routines complete' : '루틴 모두 완료'} />}
                 </div>
                 {/* Keep progression secondary to the member name and tasks. */}
-                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--fg-muted)] max-[380px]:gap-1 max-[380px]:text-[8px]">
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--secondary)] max-[380px]:gap-1 max-[380px]:text-[8px]">
                   <span
                     className="shrink-0"
                     title={`Level — long-term identity tier. Unlocks shield slots and profile frames.`}
@@ -318,7 +318,7 @@ export function MemberPanel({ user }: { user: User }) {
                   title={`${levelProgress.pointsInLevel}/${levelProgress.pointsToNext} XP to Lv.${displayLevel + 1}`}
                 >
                   <div
-                    className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+                    className="h-full rounded-full bg-[var(--member-accent)] transition-[width] duration-500"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -357,7 +357,7 @@ export function MemberPanel({ user }: { user: User }) {
                 title={t('gift')}
                 aria-label={t('gift')}
               >
-                <HeartHandshake size={18} className="text-[var(--accent)]" />
+                <HeartHandshake size={18} className="text-[var(--fg-secondary)]" />
               </button>
               <button
                 type="button"
@@ -366,7 +366,7 @@ export function MemberPanel({ user }: { user: User }) {
                 title={t('mailbox_history')}
                 aria-label={t('mailbox_history')}
               >
-                <Mail size={18} className="text-[var(--accent)]" />
+                <Mail size={18} className="text-[var(--fg-secondary)]" />
                 {hasRecentUnreadActivity && (
                   <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--bg)]" />
                 )}
@@ -374,14 +374,14 @@ export function MemberPanel({ user }: { user: User }) {
               <button
                 type="button"
                 onClick={openStore}
-                className="flex h-11 min-w-[78px] items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--accent-glow)] px-2 text-[var(--fg)] transition hover:brightness-110 active:scale-95"
+                className="flex h-11 min-w-[78px] items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-2 text-[var(--fg)] transition hover:brightness-110 active:scale-95"
                 title={`${t('store')} · ${lang === 'en' ? 'Current points' : '현재 포인트'}`}
                 aria-label={lang === 'en' ? `Open store, ${spendableBalance} current points` : `상점 열기, 현재 ${spendableBalance}포인트`}
               >
-                <Store size={18} className="shrink-0 text-[var(--accent)]" aria-hidden />
+                <Store size={18} className="shrink-0 text-[var(--fg-secondary)]" aria-hidden />
                 <span className="text-left leading-tight">
                   <span className="block text-[10px] font-semibold text-[var(--fg)]">{t('store')}</span>
-                  <span className="block text-sm font-bold tabular-nums">{spendableBalance}<span className="ml-0.5 text-[10px] font-medium">pt</span></span>
+                  <span className="block text-sm font-bold tabular-nums text-[var(--success)]">{spendableBalance}<span className="ml-0.5 text-[10px] font-medium">pt</span></span>
                 </span>
               </button>
             </div>

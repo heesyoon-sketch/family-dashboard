@@ -67,7 +67,7 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
               className={[
                 'relative flex min-h-[72px] min-w-[72px] flex-1 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 transition-colors',
                 isActive
-                  ? 'border-[var(--accent)]/60 bg-[var(--accent-glow)] text-[var(--fg)]'
+                  ? 'border-[var(--member-accent)]/50 bg-[var(--surface-elevated)] text-[var(--fg)]'
                   : 'border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/8',
               ].join(' ')}
             >
@@ -89,7 +89,7 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
               <span className="text-[10px] font-medium tabular-nums text-white/65">
                 {doneToday}/{totalToday}
               </span>
-              {isActive && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--accent)]" aria-hidden />}
+              {isActive && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--member-accent)]" aria-hidden />}
             </button>
           );
         })}

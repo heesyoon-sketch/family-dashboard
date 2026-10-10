@@ -282,18 +282,18 @@ export function TaskCard({
         ].join(' ')}
       >
         {/* Icon — 40px, readable and comfortable on touch screens */}
-        <span aria-hidden className="relative w-10 h-10 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
-          <LucideIcon size={19} className="text-[var(--accent)]" />
+        <span aria-hidden className="relative w-10 h-10 rounded-xl bg-[var(--surface-elevated)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
+          <LucideIcon size={19} className={completed ? 'text-[var(--success)]' : 'text-[var(--secondary)]'} />
         </span>
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}
         <span className="flex-1 min-w-0">
-          <span className={`text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'text-[#D5E9E1] line-through decoration-[var(--success)]/60' : 'text-[var(--fg)]'}`}>
+          <span className={`text-base font-semibold leading-tight line-clamp-2 md:text-[13px] min-[1200px]:text-sm ${completed ? 'text-[var(--fg-secondary)] line-through decoration-[var(--success)]/60' : 'text-[var(--fg)]'}`}>
             {task.title}
           </span>
-          <span className="text-[11px] leading-none mt-0.5 truncate flex items-center gap-1 md:text-[10px] text-[var(--fg-muted)]">
+          <span className="text-[11px] leading-none mt-0.5 truncate flex items-center gap-1 text-[var(--fg-secondary)]">
             <span className="flex shrink-0 items-center gap-0.5"><Icons.Clock3 size={10} aria-hidden />{duration.label[lang]}</span>
-            <span className="shrink-0">· +{displayPts}pt</span>
+            <span className={completed ? 'shrink-0 text-[var(--success)]' : 'shrink-0'}>· +{displayPts}pt</span>
             {disabled && (
               <span className="shrink-0 rounded-full bg-[var(--border)]/70 px-1 py-0.5 text-[9px] font-bold leading-none">
                 {disabledReason === 'deadline'

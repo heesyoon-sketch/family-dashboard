@@ -32,7 +32,7 @@ export function PerfectQuestChip({
     <button
       type="button"
       onClick={onOpenWallet}
-      className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-[#5B8EFF]/20 bg-[#5B8EFF]/[0.06] px-2.5 text-[#8EAFFF] transition-colors hover:bg-[#5B8EFF]/12 max-[380px]:gap-1.5 max-[380px]:px-2"
+      className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-[var(--reward)]/20 bg-[var(--reward)]/[0.06] px-2.5 text-[var(--reward)] transition-colors hover:bg-[var(--reward)]/12 max-[380px]:gap-1.5 max-[380px]:px-2"
       title={label}
       aria-label={label}
     >
@@ -50,40 +50,40 @@ export function PerfectQuestChip({
             return (
               <span
                 key={day}
-                className="relative grid h-2 w-2 place-items-center overflow-visible rounded-[3px] border border-[#5B8EFF]/25 bg-[#5B8EFF]/5"
+                className="relative grid h-2 w-2 place-items-center overflow-visible rounded-[3px] border border-[var(--reward)]/25 bg-[var(--reward)]/5"
               >
                 {active && (
                   <span className="absolute inset-0 overflow-hidden rounded-[2px]">
-                    {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#5B8EFF]/70" />}
-                    {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#5B8EFF]" />}
+                    {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[var(--reward)]/70" />}
+                    {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[var(--reward)]" />}
                   </span>
                 )}
                 <span className="relative z-10 leading-none">
-                  {complete ? <Check size={7} strokeWidth={3} className="text-[#0D0E1C]" /> : null}
+                  {complete ? <Check size={7} strokeWidth={3} className="text-[#0B0D17]" /> : null}
                 </span>
-                {complete && <span className="absolute inset-0 rounded-[2px] bg-[#5B8EFF]" />}
+                {complete && <span className="absolute inset-0 rounded-[2px] bg-[var(--reward)]" />}
               </span>
             );
           })}
-          <span className="mx-0.5 h-2 w-px bg-[#5B8EFF]/25" />
+          <span className="mx-0.5 h-2 w-px bg-[var(--reward)]/25" />
           {[1, 2].map(day => {
             const complete = day <= progress.weekendPerfectDays;
             const active = isWeekendToday && !weekendCompleteThisWeek && day === nextWeekendMark;
             return (
               <span
                 key={`weekend-${day}`}
-                className="relative grid h-2 w-2 place-items-center overflow-hidden rounded-full border border-[#5B8EFF]/25 bg-[#5B8EFF]/5"
+                className="relative grid h-2 w-2 place-items-center overflow-hidden rounded-full border border-[var(--reward)]/25 bg-[var(--reward)]/5"
               >
                 {active && (
                   <span className="absolute inset-0 overflow-hidden rounded-full">
-                    {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[#5B8EFF]/70" />}
-                    {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[#5B8EFF]" />}
+                    {morningComplete && <span className="absolute inset-y-0 left-0 w-1/2 bg-[var(--reward)]/70" />}
+                    {eveningComplete && <span className="absolute inset-y-0 right-0 w-1/2 bg-[var(--reward)]" />}
                   </span>
                 )}
                 <span className="relative z-10 leading-none">
-                  {complete ? <Check size={7} strokeWidth={3} className="text-[#0D0E1C]" /> : null}
+                  {complete ? <Check size={7} strokeWidth={3} className="text-[#0B0D17]" /> : null}
                 </span>
-                {complete && <span className="absolute inset-0 bg-[#5B8EFF]" />}
+                {complete && <span className="absolute inset-0 bg-[var(--reward)]" />}
               </span>
             );
           })}

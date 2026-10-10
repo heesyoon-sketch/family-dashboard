@@ -53,7 +53,7 @@ export function ConnectionStatusChip({ className }: { className?: string }) {
       className={[
         'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em]',
         healthy
-          ? 'border-[#4EEDB0]/25 bg-[#4EEDB0]/12 text-[#4EEDB0]'
+          ? 'border-[var(--border)]/60 bg-[var(--bg)] text-[var(--fg-secondary)]'
           : !online
             ? 'border-[#FF7BAC]/30 bg-[#FF7BAC]/10 text-[#FFB8CF]'
             : 'border-[#FFB830]/30 bg-[#FFB830]/10 text-[#FFE0A0]',

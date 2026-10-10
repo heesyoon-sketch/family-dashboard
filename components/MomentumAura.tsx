@@ -1,15 +1,15 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { MOMENTUM_STATES, type MomentumResult, type MomentumState } from '@/lib/progression';
 
 const STATE_GRADIENT: Record<MomentumState, string> = {
   spark:        'radial-gradient(circle at 50% 60%, #6b6f7a 0%, #2a2d3a 70%)',
-  warm:         'radial-gradient(circle at 50% 60%, #ffb37a 0%, #6f3a1f 75%)',
-  bright:       'radial-gradient(circle at 50% 60%, #ffd166 0%, #b9750d 75%)',
-  blazing:      'radial-gradient(circle at 50% 60%, #ffd166 0%, #ff7849 60%, #5a1f10 100%)',
+  warm:         'radial-gradient(circle at 50% 60%, #B7A0CC 0%, #514361 75%)',
+  bright:       'radial-gradient(circle at 50% 60%, #E8C77B 0%, #8B754E 75%)',
+  blazing:      'radial-gradient(circle at 50% 60%, #E8C77B 0%, #C79268 60%, #614637 100%)',
   overflowing:  'radial-gradient(circle at 50% 60%, #fff7a8 0%, #ffafd5 50%, #7adff2 100%)',
 };
 
@@ -30,6 +30,8 @@ interface Props {
 }
 
 export function MomentumAura({ momentum, size = 28, showLabel = false, className }: Props) {
+  const reducedMotion = useReducedMotion();
+  const exceptional = momentum.state === 'overflowing';
   const intensity = momentum.meta.intensity;
   const idle = momentum.state === 'spark';
   const [open, setOpen] = useState(false);
@@ -43,11 +45,11 @@ export function MomentumAura({ momentum, size = 28, showLabel = false, className
           width: size,
           height: size,
           background: STATE_GRADIENT[momentum.state],
-          boxShadow: idle ? 'none' : `0 0 ${Math.round(size * 0.45)}px ${STATE_RING[momentum.state]}`,
+          boxShadow: !exceptional || reducedMotion ? 'none' : `0 0 ${Math.round(size * 0.45)}px ${STATE_RING[momentum.state]}`,
           opacity: 0.4 + intensity * 0.6,
         }}
       >
-        {!idle && (
+        {exceptional && !reducedMotion && (
           <motion.span
             className="absolute inset-0"
             style={{
@@ -69,7 +71,7 @@ export function MomentumAura({ momentum, size = 28, showLabel = false, className
           }}
           aria-label={`Momentum: ${momentum.meta.label}. Tap to learn what each state means.`}
           className="cursor-pointer rounded text-[11px] font-black uppercase tracking-[0.18em] underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
-          style={{ color: idle ? 'var(--fg-muted)' : 'var(--accent)' }}
+          style={{ color: idle ? 'var(--fg-muted)' : 'var(--secondary)' }}
         >
           {momentum.meta.label}
         </button>
@@ -152,7 +154,7 @@ function MomentumStatesDialog({
                   style={{
                     background: STATE_GRADIENT[state.state],
                     boxShadow:
-                      state.state === 'spark'
+                      state.state !== 'overflowing'
                         ? 'none'
                         : `0 0 12px ${STATE_RING[state.state]}`,
                     opacity: 0.5 + state.intensity * 0.5,
