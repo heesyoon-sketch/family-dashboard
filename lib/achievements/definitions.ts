@@ -466,7 +466,7 @@ function baseDefinitions(): AchievementDefinition[] {
 export const ACHIEVEMENTS: AchievementDefinition[] = baseDefinitions();
 
 export const VISUAL_STYLE_DEFINITIONS: BadgeVisualStyleDefinition[] = [
-  ['gold-shine', 'Gold Shine', 'A warm gold shine for special shields.', 'rare', 'gold-shine'],
+  ['gold-shine', 'Gold Shine', 'A warm gold shine for special insignias.', 'rare', 'gold-shine'],
   ['rainbow-glow', 'Rainbow Glow', 'A bright rainbow glow for surprise days.', 'mythic', 'rainbow-glow'],
   ['crystal-edge', 'Crystal Edge', 'A crisp crystal border.', 'epic', 'crystal-edge'],
   ['starburst', 'Starburst', 'A starry medal burst.', 'rare', 'starburst'],

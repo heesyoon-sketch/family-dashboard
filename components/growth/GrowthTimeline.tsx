@@ -54,7 +54,7 @@ export function GrowthTimeline(props: {
   const items: Item[] = [
     ...props.personal.map(e => ({ key: `p-${e.id}`, day: e.day, scope: 'me' as const, Icon: PERSONAL_ICON[e.kind], title: t(e.text), detail: e.detail ? t(e.detail) : '', memory: null })),
     ...props.family.map(e => ({ key: `f-${e.id}`, day: e.day, scope: 'family' as const, Icon: FAMILY_ICON[e.kind], title: t(e.text), detail: e.detail ? t(e.detail) : '', memory: null })),
-    ...props.teamShields.map(s => ({ key: `t-${s.id}`, day: s.day, scope: 'family' as const, Icon: Medal, title: en ? `Team shield: ${s.title}` : `팀 쉴드: ${s.title}`, detail: s.names.join(' · '), memory: null })),
+    ...props.teamShields.map(s => ({ key: `t-${s.id}`, day: s.day, scope: 'family' as const, Icon: Medal, title: en ? `Team insignia: ${s.title}` : `팀 인시그니아: ${s.title}`, detail: s.names.join(' · '), memory: null })),
     ...props.memories.map(m => ({ key: `m-${m.id}`, day: m.memory_date, scope: 'family' as const, Icon: BookHeart, title: '', detail: '', memory: m })),
   ]
     .filter(item => scope === 'all' || item.scope === scope)

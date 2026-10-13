@@ -150,7 +150,7 @@ export function InsigniaUnlockOverlay() {
             <div className="relative">
               <div className="flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-[0.28em] text-white/65">
                 <Sparkles size={14} />
-                <span>Shield Unlocked</span>
+                <span>Insignia Unlocked</span>
                 <Sparkles size={14} />
               </div>
 
@@ -227,7 +227,7 @@ export function InsigniaUnlockOverlay() {
 
               {queue.length > 1 && (
                 <div className="mt-3 text-[11px] font-black uppercase tracking-wider text-white/45">
-                  +{queue.length - 1} more shield{queue.length - 1 === 1 ? '' : 's'} waiting
+                  +{queue.length - 1} more insignia{queue.length - 1 === 1 ? '' : 's'} waiting
                 </div>
               )}
             </div>

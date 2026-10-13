@@ -39,9 +39,9 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
 
   const label = equipped.length > 0
     ? (lang === 'en'
-        ? `Equipped shields: ${equipped.map(shield => shield.title).join(', ')}. Open shield collection.`
-        : `장착 쉴드 ${equipped.length}개. 쉴드 컬렉션 열기.`)
-    : (lang === 'en' ? 'No shields equipped. Open shield collection.' : '장착한 쉴드가 없습니다. 쉴드 컬렉션 열기.');
+        ? `Equipped insignias: ${equipped.map(insignia => insignia.title).join(', ')}. Open insignia wall.`
+        : `장착 인시그니아 ${equipped.length}개. 인시그니아 월 열기.`)
+    : (lang === 'en' ? 'No insignias equipped. Open insignia wall.' : '장착한 인시그니아가 없습니다. 인시그니아 월 열기.');
   const fanClasses = SHIELD_FAN_CLASSES[equipped.length as keyof typeof SHIELD_FAN_CLASSES] ?? [];
 
   return (

@@ -59,7 +59,7 @@ function ShieldDetail({ badge, equipped, canEquip, slotCapacity, onToggle, onClo
           <button ref={closeRef} type="button" onClick={onClose} aria-label={en ? 'Close' : '닫기'} className="grid h-11 w-11 place-items-center rounded-full text-[#B3B7CE] hover:bg-white/10"><X size={18} /></button>
         </div>
         <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#E8C77B]">{t(RARITY_COPY[badge.rarity])} · {t(THEME_COPY[shieldTheme(badge)])}</p>
-        <h3 id="shield-detail-title" className="mt-1 text-xl font-bold text-white">{hidden ? (en ? 'Secret shield' : '비밀 쉴드') : title(badge)}</h3>
+        <h3 id="shield-detail-title" className="mt-1 text-xl font-bold text-white">{hidden ? (en ? 'Secret insignia' : '비밀 인시그니아') : title(badge)}</h3>
         <p className="mt-2 text-sm leading-relaxed text-[#C9CCE0]">{hidden ? (en ? 'Keep going — this one reveals itself when you earn it.' : '계속 실천하면 얻는 순간 모습이 드러나요.') : description(badge)}</p>
         {badge.isUnlocked ? (
           <p className="mt-4 inline-flex items-center gap-1.5 text-sm text-[#79E8BD]"><Check size={16} aria-hidden />{badge.unlockedAt ? (en ? `Earned ${formatDay(badge.unlockedAt.slice(0, 10), true, { year: 'numeric', month: 'short', day: 'numeric' })}` : `${formatDay(badge.unlockedAt.slice(0, 10), false, { year: 'numeric', month: 'short', day: 'numeric' })} 획득`) : (en ? 'Earned' : '획득')}</p>
@@ -71,9 +71,9 @@ function ShieldDetail({ badge, equipped, canEquip, slotCapacity, onToggle, onClo
         )}
         {badge.isUnlocked && (
           <div className="mt-5 border-t border-white/10 pt-4">
-            <p className="mb-3 text-xs leading-relaxed text-[#A9AECB]">{en ? `Featured shields (up to ${slotCapacity} at your level) add a small, capped bonus to completion points.` : `대표 쉴드(현재 레벨에서 최대 ${slotCapacity}개)는 완료 포인트에 작은 보너스를 더해요. 보너스에는 상한이 있어요.`}</p>
+            <p className="mb-3 text-xs leading-relaxed text-[#A9AECB]">{en ? `Featured insignias (up to ${slotCapacity} at your level) add a small, capped bonus to completion points.` : `대표 인시그니아(현재 레벨에서 최대 ${slotCapacity}개)는 완료 포인트에 작은 보너스를 더해요. 보너스에는 상한이 있어요.`}</p>
             <button type="button" onClick={onToggle} disabled={!equipped && !canEquip} className={`min-h-11 w-full rounded-xl font-semibold transition disabled:opacity-40 ${equipped ? 'border border-white/15 text-white hover:bg-white/10' : 'bg-[#A5A6FF] text-[#141733] hover:bg-[#b8b9ff]'}`}>
-              {equipped ? (en ? 'Remove from featured' : '대표 쉴드에서 빼기') : canEquip ? (en ? 'Feature this shield' : '대표 쉴드로 장착') : (en ? 'All featured slots are full' : '대표 쉴드 칸이 모두 찼어요')}
+              {equipped ? (en ? 'Remove from featured' : '대표 인시그니아에서 빼기') : canEquip ? (en ? 'Feature this insignia' : '대표 인시그니아로 장착') : (en ? 'All featured slots are full' : '대표 인시그니아 칸이 모두 찼어요')}
             </button>
           </div>
         )}
@@ -93,7 +93,7 @@ export function ShieldCollection({ memberId }: { memberId: string }) {
   const [detailId, setDetailId] = useState<string | null>(null);
 
   if (!snapshot || snapshot.familyId !== familyId) {
-    return <div role="status" className="h-40 animate-pulse rounded-xl bg-white/[0.04] motion-reduce:animate-none"><span className="sr-only">{en ? 'Loading shields' : '쉴드를 불러오는 중'}</span></div>;
+    return <div role="status" className="h-40 animate-pulse rounded-xl bg-white/[0.04] motion-reduce:animate-none"><span className="sr-only">{en ? 'Loading insignias' : '인시그니아를 불러오는 중'}</span></div>;
   }
   const badges = snapshot.achievementsByChild?.[memberId] ?? [];
   const child = snapshot.state.children[memberId];
@@ -117,7 +117,7 @@ export function ShieldCollection({ memberId }: { memberId: string }) {
 
   const tile = (b: AchievementProgress, size = 56) => {
     const hidden = b.isSecret && !b.isUnlocked;
-    const name = hidden ? (en ? 'Secret shield' : '비밀 쉴드') : title(b);
+    const name = hidden ? (en ? 'Secret insignia' : '비밀 인시그니아') : title(b);
     return (
       <button
         key={b.achievementId}
@@ -140,7 +140,7 @@ export function ShieldCollection({ memberId }: { memberId: string }) {
       <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
         <div className="rounded-2xl border border-[#E8C77B]/20 bg-[radial-gradient(ellipse_at_top,rgba(232,199,123,0.12),transparent_70%)] p-4">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-bold text-[#F3E3BC]">{en ? 'Featured shields' : '대표 쉴드'}</h3>
+            <h3 className="text-sm font-bold text-[#F3E3BC]">{en ? 'Featured insignias' : '대표 인시그니아'}</h3>
             <span className="text-xs text-[#C9B98F]">{en ? `Lv.${level} · ${featured.length}/${slotCapacity} slots · +${bonus}% bonus` : `Lv.${level} · ${featured.length}/${slotCapacity}칸 · 보너스 +${bonus}%`}</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
@@ -150,15 +150,15 @@ export function ShieldCollection({ memberId }: { memberId: string }) {
               const locked = i >= slotCapacity;
               return (
                 <div key={i} className="grid min-h-28 place-items-center rounded-xl border border-dashed border-white/12 text-center text-[11px] text-[#8E94B4]">
-                  {locked ? <span className="inline-flex flex-col items-center gap-1"><Lock size={14} aria-hidden />Lv.{i === 1 ? 5 : 10}</span> : (en ? 'Pick an earned shield' : '획득한 쉴드를 골라요')}
+                  {locked ? <span className="inline-flex flex-col items-center gap-1"><Lock size={14} aria-hidden />Lv.{i === 1 ? 5 : 10}</span> : (en ? 'Pick an earned insignia' : '획득한 인시그니아를 골라요')}
                 </div>
               );
             })}
           </div>
         </div>
         <div className="rounded-2xl border border-white/[0.07] bg-black/15 p-4">
-          <h3 className="text-sm font-bold text-white">{en ? 'Closest next shields' : '곧 받을 수 있는 쉴드'}</h3>
-          {next.length === 0 ? <p className="mt-3 text-sm text-[#A9AECB]">{en ? 'Every visible shield is earned. Amazing.' : '보이는 쉴드를 모두 모았어요. 대단해요!'}</p> : (
+          <h3 className="text-sm font-bold text-white">{en ? 'Closest next insignias' : '곧 받을 수 있는 인시그니아'}</h3>
+          {next.length === 0 ? <p className="mt-3 text-sm text-[#A9AECB]">{en ? 'Every visible insignia is earned. Amazing.' : '보이는 인시그니아를 모두 모았어요. 대단해요!'}</p> : (
             <ul className="mt-3 space-y-3">
               {next.map(b => (
                 <li key={b.achievementId}>
@@ -186,9 +186,9 @@ export function ShieldCollection({ memberId }: { memberId: string }) {
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-white">{en ? `Collection · ${earned.length}/${badges.length}` : `컬렉션 · ${earned.length}/${badges.length}`}</h3>
-          <Segmented size="sm" label={en ? 'Shield theme' : '쉴드 테마'} value={theme} onChange={setTheme} options={[{ value: 'all' as const, label: en ? 'All' : '전체' }, ...SHIELD_THEMES.map(th => ({ value: th, label: t(THEME_COPY[th]) }))]} />
+          <Segmented size="sm" label={en ? 'Insignia theme' : '인시그니아 테마'} value={theme} onChange={setTheme} options={[{ value: 'all' as const, label: en ? 'All' : '전체' }, ...SHIELD_THEMES.map(th => ({ value: th, label: t(THEME_COPY[th]) }))]} />
         </div>
-        {earned.length === 0 && <div className="mb-3"><EmptyNote>{en ? 'No shields yet. Your first one comes from your very first completed habit.' : '아직 쉴드가 없어요. 첫 습관을 완료하면 첫 쉴드를 받아요.'}</EmptyNote></div>}
+        {earned.length === 0 && <div className="mb-3"><EmptyNote>{en ? 'No insignias yet. Your first one comes from your very first completed habit.' : '아직 인시그니아가 없어요. 첫 습관을 완료하면 첫 인시그니아를 받아요.'}</EmptyNote></div>}
         <div className="grid grid-cols-3 gap-1 min-[420px]:grid-cols-4 sm:grid-cols-6 lg:grid-cols-8">{visible.map(b => tile(b))}</div>
       </div>
 
