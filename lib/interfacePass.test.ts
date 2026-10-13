@@ -34,8 +34,8 @@ test('member panels combine morning and evening counts into compact tabs', () =>
 
 test('member panels show equipped shields as a compact horizontal stack', () => {
   const panel = read('components/MemberPanel.tsx');
-  const equippedShields = read('components/EquippedInsigniaStrip.tsx');
-  assert.match(panel, /EquippedInsigniaStrip/);
+  const equippedShields = read('components/EquippedShields.tsx');
+  assert.match(panel, /EquippedShields/);
   assert.doesNotMatch(panel, /NextAchievementChip/);
   assert.match(equippedShields, /equippedInsigniaIds/);
   assert.match(equippedShields, /-ml-\[14px\]/);
@@ -125,7 +125,7 @@ test('weekly routine quests show weekday and weekend progress', () => {
 
 test('member dashboards prioritize three visible habit rows', () => {
   const panel = read('components/MemberPanel.tsx');
-  const equippedShields = read('components/EquippedInsigniaStrip.tsx');
+  const equippedShields = read('components/EquippedShields.tsx');
   const mobileTabs = read('components/MobileMemberTabs.tsx');
   const dashboard = read('app/page.tsx');
 

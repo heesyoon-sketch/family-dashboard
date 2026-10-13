@@ -34,7 +34,7 @@ export function ShieldDetail({ award, recipient, onClose }: { award: MonthlyAwar
           <button ref={closeRef} type="button" onClick={onClose} aria-label={en ? 'Close' : '닫기'} className="grid h-11 w-11 place-items-center rounded-full text-[#B3B7CE] hover:bg-white/10"><X size={18} /></button>
         </div>
         <div className="flex flex-col items-center text-center">
-          <ShieldEmblem type={award.shield_type} tier={award.tier} size={140} title={name} />
+          <ShieldEmblem type={award.shield_type} tier={award.tier} category={award.category} size={140} title={name} />
           <h2 id="shield-award-title" className="mt-3 text-2xl font-bold text-white">{name}</h2>
           <p className="mt-1 text-sm text-[#C9CCE0]">{recipient} · {en ? `earned in ${earnedLabel.en}` : `${earnedLabel.ko}에 획득`}</p>
           <p className="mt-3 text-sm italic text-[#A9AECB]">“{t(TYPE_COPY[award.shield_type].theme)}”</p>

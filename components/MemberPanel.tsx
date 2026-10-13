@@ -7,7 +7,7 @@ import { ArrowDown, CheckCircle2, Eye, HeartHandshake, Mail, MoonStar, Store, Su
 import { Reward, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
-import { EquippedInsigniaStrip } from './EquippedInsigniaStrip';
+import { EquippedShields } from './EquippedShields';
 import { useFamilyStore } from '@/lib/store';
 import { computeLevelProgress, emptyMomentum, formatXp } from '@/lib/progression';
 import { StoreModal } from './StoreModal';
@@ -321,7 +321,7 @@ export function MemberPanel({ user }: { user: User }) {
                   />
                 </div>
               </div>
-              <span className="member-shields shrink-0"><EquippedInsigniaStrip userId={user.id} /></span>
+              <span className="member-shields shrink-0"><EquippedShields userId={user.id} /></span>
             </div>
 
             <div className="member-actions flex w-full shrink-0 items-center justify-between gap-1.5 md:w-auto md:justify-end">

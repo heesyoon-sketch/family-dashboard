@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Check, ChevronDown, Clock, Flag, HeartHandshake, Palmtree, ShieldCheck, Tag } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
 import { mondayOf, summarizeRange, type MemberHistory } from '@/lib/analytics/history';
@@ -61,7 +61,8 @@ export interface FamilyBandProps {
   penalties: PenaltyRecord[];
   activeToday: number;
   withHabits: number;
-  shieldsCollected: number | null;
+  /** Equipped shields shown on each member card. */
+  renderBadges?: (memberId: string) => ReactNode;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -91,7 +92,6 @@ export function FamilyBand(props: FamilyBandProps) {
           <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#A9AECB]">
             <span>{en ? 'Active today' : '오늘 참여'} <strong className="text-white">{props.activeToday}/{props.withHabits}</strong></span>
             {harmony && <span>{en ? 'Together' : '함께한 날'} <strong className="text-white">{harmony.sideBySideDays}/7</strong></span>}
-            {props.shieldsCollected !== null && <span>{en ? 'Insignias' : '모은 인시그니아'} <strong className="text-white">{props.shieldsCollected}</strong></span>}
             <span>{en ? 'Missions' : '달성 미션'} <strong className="text-white">{props.missionsCompleted}</strong>{props.missionsFinished > 0 ? `/${props.missionsFinished}` : ''}</span>
           </p>
         </div>
@@ -186,6 +186,7 @@ export function FamilyBand(props: FamilyBandProps) {
                   <span className="block truncate text-sm font-semibold text-white">{m.name}</span>
                   <span className={`flex items-center gap-1 text-[11px] ${activeToday ? 'text-[#79E8BD]' : 'text-[#8E94B4]'}`}>{activeToday ? <Check size={11} aria-hidden /> : <Clock size={11} aria-hidden />}{activeToday ? (en ? 'Active today' : '오늘 참여') : (en ? 'Not yet' : '아직')}</span>
                 </span>
+                {props.renderBadges?.(m.id)}
                 <span className="text-lg font-bold text-white">{pctText(week?.rate ?? null)}</span>
               </span>
               <span className="mt-2 block"><ProgressTrack thin value={week?.rate ?? 0} tone={toneOf(m.id)} /></span>

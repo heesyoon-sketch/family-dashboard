@@ -236,7 +236,7 @@ export function journeyEvents(history: MemberHistory, tasks: AnalyticsTask[], sh
   }
 
   for (const shield of shields) {
-    events.push({ id: `shield-${shield.id}`, day: shield.day, kind: 'shield', text: { en: `Insignia earned: ${shield.title.en}`, ko: `인시그니아 획득: ${shield.title.ko}` } });
+    events.push({ id: `shield-${shield.id}`, day: shield.day, kind: 'shield', text: { en: `Shield earned: ${shield.title.en}`, ko: `쉴드 획득: ${shield.title.ko}` } });
   }
 
   return events.sort((a, b) => b.day.localeCompare(a.day) || a.id.localeCompare(b.id));

@@ -22,11 +22,12 @@ test('insignias are frozen records: no unlocks, awards, revokes, loadout edits, 
   assert.match(storage, /\/\/ The insignia loadout is locked as-is[^\n]*\n\s+if \(INSIGNIAS_FROZEN\) return state;/);
   assert.match(read('lib/store.ts'), /legacyInsigniaBonusActive\(new Date\(\), get\(\)\.automaticSaleConfig\.timezone[^)]*\)\n\s+\? loadoutBonusFromIds\(equipped, unlocked\)\n\s+: 0;/);
   assert.doesNotMatch(read('app/page.tsx'), /InsigniaUnlockOverlay/);
-  assert.doesNotMatch(read('components/stats/ShieldCollection.tsx'), /setEquippedInsignia/);
 });
 
 test('one page: /shields redirects into Family Growth, which embeds the Shield Wall', () => {
   assert.match(read('app/shields/page.tsx'), /redirect\('\/stats#shield-wall'\)/);
-  assert.match(read('components/growth/FamilyGrowth.tsx'), /<ShieldWall analytics=\{analytics\} memberId=\{member\.id\} onSelectMember=\{selectMember\} embedded \/>/);
-  assert.match(read('components/EquippedInsigniaStrip.tsx'), /#shield-wall/);
+  const growth = read('components/growth/FamilyGrowth.tsx');
+  assert.match(growth, /<ShieldWall analytics=\{analytics\} memberId=\{member\.id\} \/>/);
+  assert.doesNotMatch(growth, /insignia-archive|ShieldCollection/, 'no separate insignia section');
+  assert.match(read('components/EquippedShields.tsx'), /#shield-wall/);
 });

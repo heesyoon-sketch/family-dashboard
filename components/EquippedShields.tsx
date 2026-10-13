@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
@@ -25,7 +26,7 @@ const SHIELD_DEFINITIONS_BY_ID = new Map(
 /** Compact equipped-shield stack for the dashboard header: this month's
  *  equipped Shields, or — until the insignia bonus ends — the insignias that
  *  still give it. The fanned overlap keeps all three legible in one row. */
-export function EquippedInsigniaStrip({ userId }: { userId: string }) {
+export function EquippedShields({ userId, link = true }: { userId: string; link?: boolean }) {
   const { lang } = useLanguage();
   const en = lang === 'en';
   const familyId = useFamilyStore(s => s.familyId);
@@ -49,19 +50,14 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
     ? (en ? `${count} equipped. Open Shield Wall.` : `장착 ${count}개. 쉴드 월 열기.`)
     : (en ? 'Nothing equipped. Open Shield Wall.' : '장착한 쉴드가 없어요. 쉴드 월 열기.');
   const fanClasses = SHIELD_FAN_CLASSES[count as keyof typeof SHIELD_FAN_CLASSES] ?? [];
-  const fan = (key: string, index: number, node: React.ReactNode) => (
+  const fan = (key: string, index: number, node: ReactNode) => (
     <span key={key} className={`relative transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[14px]'} ${fanClasses[index] ?? ''}`} style={{ zIndex: index + 1 }}>{node}</span>
   );
 
-  return (
-    <Link
-      href={`/stats?member=${encodeURIComponent(userId)}#shield-wall`}
-      className="group inline-flex h-8 shrink-0 items-center justify-center transition hover:brightness-110 max-[380px]:h-7"
-      title={label}
-      aria-label={label}
-    >
+  const icons = (
+    <>
       {shields.length > 0
-        ? shields.map((s, i) => fan(`${s.shieldType}`, i, <ShieldEmblem type={s.shieldType} tier={s.tier} size={SHIELD_PX} />))
+        ? shields.map((s, i) => fan(`${s.shieldType}`, i, <ShieldEmblem type={s.shieldType} tier={s.tier} category={s.category} size={SHIELD_PX} />))
         : legacy.length > 0
           ? legacy.map((badge, i) => fan(badge.achievementId, i, (
             <InsigniaBadge rarity={badge.rarity} icon={badge.icon} seed={badge.achievementId} size={SHIELD_PX} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" ariaLabel={badge.title} />
@@ -71,6 +67,17 @@ export function EquippedInsigniaStrip({ userId }: { userId: string }) {
               <Shield size={15} strokeWidth={2.2} aria-hidden />
             </span>
           )}
+    </>
+  );
+  if (!link) return <span className="inline-flex h-8 shrink-0 items-center" title={label}>{icons}</span>;
+  return (
+    <Link
+      href={`/stats?member=${encodeURIComponent(userId)}#shield-wall`}
+      className="group inline-flex h-8 shrink-0 items-center justify-center transition hover:brightness-110 max-[380px]:h-7"
+      title={label}
+      aria-label={label}
+    >
+      {icons}
     </Link>
   );
 }
