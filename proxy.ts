@@ -15,7 +15,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/join') ||
     pathname.startsWith('/auth') ||
     pathname.startsWith('/home') ||
-    pathname.startsWith('/privacy')
+    pathname.startsWith('/privacy') ||
+    // Scheduled jobs carry no session; each cron route checks CRON_SECRET.
+    pathname.startsWith('/api/cron/')
   ) {
     return NextResponse.next();
   }
