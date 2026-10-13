@@ -1,5 +1,6 @@
 'use client';
 
+import { HabitIcon } from '@/components/HabitIcon';
 import { useState } from 'react';
 import { ChevronDown, Flame, Info } from 'lucide-react';
 import { HABIT_RULES, type HabitGroup, type HabitPerformance } from '@/lib/analytics/history';
@@ -46,7 +47,7 @@ function HabitRow({ h, en, isArchived }: { h: HabitPerformance; en: boolean; isA
   return (
     <li className="rounded-xl border border-white/[0.07] bg-white/[0.02]">
       <button type="button" aria-expanded={open} onClick={() => setOpen(o => !o)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A5A6FF]">
-        <span className="text-xl" aria-hidden>{h.task.icon || '•'}</span>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-[#C9CCE0]"><HabitIcon name={h.task.icon} size={18} /></span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-[#F4F5FA]">{h.task.title}{isArchived && <span className="ml-2 text-xs font-normal text-[#8E94B4]">{en ? '(removed)' : '(삭제됨)'}</span>}</span>
           <span className="mt-0.5 block text-xs text-[#A9AECB]">{h.current.completed}/{h.current.eligible} {en ? 'times' : '회'} · {frequency(h, en)}</span>

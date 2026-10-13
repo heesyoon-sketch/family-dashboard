@@ -15,7 +15,7 @@ function StatsPageInner() {
   const en = lang === 'en';
   const analytics = useFamilyAnalytics();
   return (
-    <PageShell title={en ? 'Growth & Shields' : '성장과 쉴드'} subtitle={en ? 'Earn last month, equip this month — and see how far each of us has come' : '지난달에 얻고 이번 달에 장착해요. 그리고 각자 얼마나 자랐는지'}>
+    <PageShell title={en ? 'Growth & Shields' : '성장과 쉴드'} subtitle={en ? 'Shields and habits, all in one place' : '쉴드와 습관 기록을 한곳에서'}>
       <FamilyGrowth analytics={analytics} initialMemberId={searchParams.get('member')} />
     </PageShell>
   );

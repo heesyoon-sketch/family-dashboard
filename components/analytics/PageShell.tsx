@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BarChart3, ShieldCheck } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,8 +14,7 @@ import { LoadingBlock } from './ui';
 /** Auth gate + header for the one Family Growth & Shields page (/stats). */
 export function PageShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   const router = useRouter();
-  const { lang, t } = useLanguage();
-  const en = lang === 'en';
+  const { t } = useLanguage();
   const [ready, setReady] = useState(false);
   const familyName = useFamilyStore(s => s.familyName);
 
@@ -38,11 +37,6 @@ export function PageShell({ title, subtitle, children }: { title: string; subtit
     return () => { live = false; };
   }, [router]);
 
-  // One page: these jump to its two main parts.
-  const links = [
-    { href: '#shield-wall', label: en ? 'Shields' : '쉴드', Icon: ShieldCheck },
-    { href: '#personal', label: en ? 'Growth' : '성장', Icon: BarChart3 },
-  ];
 
   return (
     <div className="min-h-screen bg-[#0d1020] text-[#F4F5FA]">
@@ -56,13 +50,6 @@ export function PageShell({ title, subtitle, children }: { title: string; subtit
             <p className="hidden truncate text-xs text-[#8E94B4] sm:block">{subtitle}</p>
           </div>
           <ConnectionStatusChip className="hidden md:inline-flex" />
-          <nav aria-label={en ? 'Family pages' : '가족 페이지'} className="flex shrink-0 gap-1 rounded-xl border border-white/10 bg-black/25 p-1">
-            {links.map(({ href, label, Icon }) => (
-              <a key={href} href={href} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-[#B3B7CE] transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[#A5A6FF] sm:px-3 sm:text-sm">
-                <Icon size={15} aria-hidden /><span className="max-[420px]:sr-only">{label}</span>
-              </a>
-            ))}
-          </nav>
         </div>
       </header>
       <main>{ready ? children : <LoadingBlock label={t('loading')} />}</main>

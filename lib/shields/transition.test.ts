@@ -31,3 +31,11 @@ test('one page: /shields redirects into Family Growth, which embeds the Shield W
   assert.doesNotMatch(growth, /insignia-archive|ShieldCollection/, 'no separate insignia section');
   assert.match(read('components/EquippedShields.tsx'), /#shield-wall/);
 });
+
+test('simplified page: no tab nav, no footprints, habit icons render as icons', () => {
+  assert.doesNotMatch(read('components/analytics/PageShell.tsx'), /<nav /);
+  const growth = read('components/growth/FamilyGrowth.tsx');
+  assert.doesNotMatch(growth, /Footprints|GrowthTimeline/);
+  assert.equal((growth.match(/<HabitPerformanceList/g) ?? []).length, 1, 'one habit-by-habit section');
+  assert.match(read('components/stats/HabitPerformanceList.tsx'), /<HabitIcon name=\{h\.task\.icon\}/);
+});

@@ -4,15 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Activity, CalendarDays, CheckCircle2, Flame, Lightbulb, TrendingUp } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
-import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
-import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
 import { computeLevelProgress } from '@/lib/progression';
 import {
   PERIODS,
   activeDayRun,
   buildMemberHistory,
   comparePeriod,
-  dayKey,
   habitPerformance,
   heatmapWeeks,
   longestActiveDayRun,
@@ -21,10 +18,8 @@ import {
   zonedDayHour,
   type PeriodId,
 } from '@/lib/analytics/history';
-import { currentWeekStart, evaluateMission, familyLegacy, protectionStatus } from '@/lib/analytics/family';
-import { createBrowserSupabase } from '@/lib/supabase';
-import { growthInsights, journeyEvents, type Localized, type ShieldUnlock } from '@/lib/analytics/insights';
-import { shieldTitle } from '@/lib/analytics/shieldCopy';
+import { currentWeekStart, evaluateMission, protectionStatus } from '@/lib/analytics/family';
+import { growthInsights, type Localized } from '@/lib/analytics/insights';
 import { useMinuteClock, type FamilyAnalyticsState } from '@/lib/analytics/useFamilyAnalytics';
 import { EmptyNote, ErrorBanner, LoadingBlock, MEMBER_TONES, MemberAvatar, PointDelta, Section, Segmented, pctText, useCopy } from '@/components/analytics/ui';
 import { TrendChart } from '@/components/stats/TrendChart';
@@ -33,7 +28,6 @@ import { HabitPerformanceList } from '@/components/stats/HabitPerformanceList';
 import { ShieldWall } from '@/components/hall/ShieldWall';
 import { EquippedShields } from '@/components/EquippedShields';
 import { FamilyBand } from './FamilyBand';
-import { GrowthTimeline, type TeamShieldEvent } from './GrowthTimeline';
 
 const PERIOD_LABEL: Record<PeriodId, Localized> = {
   '7d': { en: '7 days', ko: '7일' },
@@ -61,7 +55,7 @@ const MOMENTUM_LABEL: Record<string, Localized> = {
  *  that pick the person), the selected member's growth below. */
 export function FamilyGrowth({ analytics, initialMemberId }: { analytics: FamilyAnalyticsState; initialMemberId: string | null }) {
   const { en, t } = useCopy();
-  const { members, records, timezone, error, refresh, familyId } = analytics;
+  const { members, records, timezone, error, refresh } = analytics;
   const users = useFamilyStore(s => s.users);
   const momentumByUser = useFamilyStore(s => s.momentumByUser);
   const levelsByUser = useFamilyStore(s => s.levelsByUser);
@@ -71,19 +65,11 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
   const saleActive = useFamilyStore(s => s.automaticSaleStatus.active);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [authId, setAuthId] = useState('');
-  const snapshot = useShieldSnapshot(familyId);
   const now = useMinuteClock();
   const [selected, setSelected] = useState<string | null>(initialMemberId);
   const [period, setPeriod] = useState<PeriodId>('30d');
   const memberId = members.some(m => m.id === selected) ? selected! : members[0]?.id ?? null;
   const member = members.find(m => m.id === memberId) ?? null;
-
-  useEffect(() => {
-    let live = true;
-    void createBrowserSupabase().auth.getUser().then(({ data }) => { if (live) setAuthId(data.user?.id ?? ''); });
-    return () => { live = false; };
-  }, []);
 
   // Keep the chosen member in the URL so dashboard links and reloads agree.
   const selectMember = (id: string) => {
@@ -114,7 +100,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
       protection: protectionStatus({ members, todayTasksByUser, todayCompletionsByWindow, nowHour: hour, vacation: penaltyPauseEnabled, saleDay: saleActive, penaltiesToday: records.penalties.filter(p => p.date === today).length }),
       activeToday: histories.filter(h => (h.days.get(today)?.completed ?? 0) > 0).length,
       withHabits: histories.filter(h => h.firstDay !== null || (todayTasksByUser[h.memberId]?.length ?? 0) > 0).length,
-      legacy: familyLegacy(histories, records.missions),
     };
   }, [records, members, histories, now, timezone, todayTasksByUser, todayCompletionsByWindow, penaltyPauseEnabled, saleActive]);
 
@@ -136,40 +121,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
       bestRun: longestActiveDayRun(history),
     };
   }, [records, member, histories, period]);
-
-  const journey = useMemo(() => {
-    if (!view || !member || !records) return [];
-    const badges = snapshot?.achievementsByChild?.[member.id] ?? [];
-    const defs = new Map(ACHIEVEMENTS.map(def => [def.achievementId, def]));
-    // Commons are frequent; the journey keeps the first one and rarer ones.
-    const unlocked = badges.filter(b => b.isUnlocked && b.unlockedAt).sort((a, b) => a.unlockedAt!.localeCompare(b.unlockedAt!));
-    const shields: ShieldUnlock[] = unlocked
-      .filter((b, i) => i === 0 || b.rarity !== 'common')
-      .map(b => {
-        const def = defs.get(b.achievementId);
-        return { id: b.achievementId, title: def ? shieldTitle(def) : { en: b.title, ko: b.title }, rarity: b.rarity, unlockedAt: b.unlockedAt!, day: dayKey(new Date(b.unlockedAt!), timezone) };
-      });
-    return journeyEvents(view.history, records.tasks, shields);
-  }, [view, member, records, snapshot, timezone]);
-
-  const teamShields = useMemo<TeamShieldEvent[]>(() => {
-    const defs = new Map(ACHIEVEMENTS.map(def => [def.achievementId, def]));
-    const byId = new Map<string, TeamShieldEvent>();
-    for (const [id, badges] of Object.entries(snapshot?.achievementsByChild ?? {})) {
-      for (const b of badges) {
-        if (!b.isUnlocked || b.category !== 'Team Shields' || !b.unlockedAt) continue;
-        const day = dayKey(new Date(b.unlockedAt), timezone);
-        const def = defs.get(b.achievementId);
-        const title = def ? (en ? shieldTitle(def).en : shieldTitle(def).ko) : b.title;
-        const entry = byId.get(b.achievementId) ?? { id: b.achievementId, day, title, names: [] };
-        if (day < entry.day) entry.day = day;
-        const name = members.find(m => m.id === id)?.name;
-        if (name) entry.names.push(name);
-        byId.set(b.achievementId, entry);
-      }
-    }
-    return [...byId.values()];
-  }, [snapshot, timezone, members, en]);
 
   // Old links used #shields (insignia wall); both now land on the Shield Wall.
   useEffect(() => {
@@ -282,21 +233,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
           <HabitPerformanceList habits={view.habits} />
         </Section>
       )}
-
-      <Section title={en ? 'Footprints' : '발자취'} subtitle={en ? 'Personal and family moments from your records, plus your own words.' : '기록에서 찾은 개인·가족의 순간과, 직접 남긴 한 줄이에요.'}>
-        <GrowthTimeline
-          memberName={member.name}
-          personal={journey}
-          family={family.legacy}
-          teamShields={teamShields}
-          memories={records.memories}
-          memoriesError={records.memoriesError}
-          familyId={familyId}
-          today={family.today}
-          authId={authId}
-          onChanged={refresh}
-        />
-      </Section>
 
       <p className="px-1 pb-4 text-[11px] leading-relaxed text-[#7F86A8]">
         {en
