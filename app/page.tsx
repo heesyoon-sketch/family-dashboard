@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
+import { InsigniaUnlockOverlay } from '@/components/InsigniaUnlockOverlay';
 import { PerfectDayCelebrationOverlay } from '@/components/PerfectDayCelebrationOverlay';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
@@ -282,6 +283,7 @@ export default function Dashboard() {
         ) : null;
       })()}
 
+      <InsigniaUnlockOverlay />
 
       {recapOpen && recapEntries.length > 0 && (
         <WeeklyRecapModal entries={recapEntries} onDismiss={dismissRecap} />
