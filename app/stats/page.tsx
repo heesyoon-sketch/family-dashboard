@@ -21,7 +21,7 @@ import { familyHasAdminPin } from '@/lib/adminPin';
 import { useLanguage, type Lang } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
 import { ConnectionStatusChip } from '@/components/ConnectionStatusChip';
-import { InsigniaWall } from '@/components/InsigniaWall';
+import dynamic from 'next/dynamic';
 import { useFamilyStore } from '@/lib/store';
 import {
   composeBonusPercent,
@@ -32,6 +32,10 @@ import {
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
 import { loadPersistedAchievementState } from '@/lib/achievements/storage';
 import { buildCoachingInsight } from '@/lib/coaching';
+
+const GrowthAlbum = dynamic(() => import('@/components/GrowthAlbum').then(m => m.GrowthAlbum), {
+  loading: () => <div className="p-8 text-center text-white/60">…</div>,
+});
 
 const THEME_ACCENT: Record<string, string> = {
   dark_minimal: '#5B8EFF',
@@ -206,8 +210,8 @@ function labels(lang: Lang) {
     ),
     levelProgress: lang === 'en' ? 'Level progress' : '레벨 진행',
     toNext: (need: number) => (lang === 'en' ? `${need} XP to next` : `다음까지 ${need} XP`),
-    insignias: lang === 'en' ? 'Shields' : '쉴드',
-    equipped: (count: number) => (lang === 'en' ? `${count} equipped` : `${count}개 장착`),
+    insignias: lang === 'en' ? 'Archived collection' : '이전 수집 기록',
+    equipped: (count: number) => (lang === 'en' ? `${count} preserved benefits` : `${count}개 기존 혜택 유지`),
     timeOfDay: lang === 'en' ? 'Time of day (30d)' : '시간대 (30일)',
     morning: lang === 'en' ? 'Morning' : '아침',
     afternoon: lang === 'en' ? 'Afternoon' : '오후',
@@ -238,8 +242,8 @@ function StatsPageInner() {
   const [activePage, setActivePage] = useState(0);
   // Keep the old `insignia` query compatible with saved links, but emit the
   // product's canonical Shield terminology everywhere going forward.
-  const initialView = ['shield', 'insignia'].includes(searchParams.get('view') ?? '') ? 'shield' : 'stats';
-  const [view, setView] = useState<'stats' | 'shield'>(initialView);
+  const initialView = ['growth', 'shield', 'insignia'].includes(searchParams.get('view') ?? '') ? 'growth' : 'stats';
+  const [view, setView] = useState<'stats' | 'growth'>(initialView);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -268,6 +272,7 @@ function StatsPageInner() {
       // lands here without first visiting the dashboard.
       const { useFamilyStore } = await import('@/lib/store');
       useFamilyStore.getState().hydrate().catch(err => console.warn('[stats hydrate]', err));
+      if (view === 'growth') { setLoading(false); return; }
 
       const now = new Date();
       const today = startOfDay(now);
@@ -547,7 +552,7 @@ function StatsPageInner() {
       console.error(error);
       setLoading(false);
     });
-  }, [router]);
+  }, [router, view]);
 
   const pageCount = Math.max(1, Math.ceil(allStats.length / 4));
   const clampedActivePage = Math.min(activePage, pageCount - 1);
@@ -578,9 +583,9 @@ function StatsPageInner() {
         </Link>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-white/90">
-            {copy.pageTitle}{familyName ? ` · ${familyName}` : ''}
+            {view === 'growth' ? (lang === 'en' ? 'Growth album' : '성장 앨범') : copy.pageTitle}{familyName ? ` · ${familyName}` : ''}
           </div>
-          <div className="truncate text-xs text-white/45">{copy.pageSub}</div>
+          <div className="truncate text-xs text-white/45">{view === 'growth' ? (lang === 'en' ? 'Our everyday story' : '우리 가족의 일상 기록') : copy.pageSub}</div>
         </div>
         <ConnectionStatusChip className="hidden md:inline-flex" />
         <div className="flex shrink-0 rounded-lg border border-white/10 bg-white/[0.04] p-1">
@@ -589,14 +594,14 @@ function StatsPageInner() {
             onClick={() => setView('stats')}
             className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'stats' ? 'bg-white text-slate-950' : 'text-white/58 hover:text-white'}`}
           >
-            Stats
+            {lang === 'en' ? 'Stats' : '통계'}
           </button>
           <button
             type="button"
-            onClick={() => setView('shield')}
-            className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'shield' ? 'bg-[#FFD166] text-slate-950' : 'text-white/58 hover:text-white'}`}
+            onClick={() => setView('growth')}
+            className={`rounded-md px-3 py-1.5 text-xs font-black transition ${view === 'growth' ? 'bg-[#FFD166] text-slate-950' : 'text-white/58 hover:text-white'}`}
           >
-            Shield Wall
+            {lang === 'en' ? 'Growth album' : '성장 앨범'}
           </button>
         </div>
         {view === 'stats' && pageCount > 1 && (
@@ -637,9 +642,9 @@ function StatsPageInner() {
         )}
       </header>
 
-      {view === 'shield' ? (
+      {view === 'growth' ? (
         <main className="flex-1 overflow-auto bg-[#0b0d12]">
-          <InsigniaWall />
+          <GrowthAlbum />
         </main>
       ) : (
         <>

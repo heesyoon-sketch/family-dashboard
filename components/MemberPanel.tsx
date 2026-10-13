@@ -293,7 +293,7 @@ export function MemberPanel({ user }: { user: User }) {
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--secondary)] max-[380px]:gap-1 max-[380px]:text-[8px]">
                   <span
                     className="shrink-0"
-                    title={`Level — long-term identity tier. Unlocks shield slots and profile frames.`}
+                    title={`Level — your accumulated effort over time.`}
                   >
                     Lv.{displayLevel}
                   </span>

@@ -32,15 +32,13 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   assert.doesNotMatch(panel, /Morning routines|Evening routines/);
 });
 
-test('member panels show equipped shields as a compact horizontal stack', () => {
+test('member panels link directly to the growth album without requiring shields', () => {
   const panel = read('components/MemberPanel.tsx');
-  const equippedShields = read('components/EquippedInsigniaStrip.tsx');
+  const entry = read('components/EquippedInsigniaStrip.tsx');
   assert.match(panel, /EquippedInsigniaStrip/);
-  assert.doesNotMatch(panel, /NextAchievementChip/);
-  assert.match(equippedShields, /equippedInsigniaIds/);
-  assert.match(equippedShields, /-ml-\[14px\]/);
-  assert.match(equippedShields, /SHIELD_FAN_CLASSES/);
-  assert.match(equippedShields, /SHIELD_PX = 26/);
+  assert.match(entry, /view=growth&member=/);
+  assert.doesNotMatch(entry, /equippedInsigniaIds|if \(!state\) return null/);
+  assert.doesNotMatch(read('app/page.tsx'), /InsigniaUnlockOverlay/);
 });
 
 test('past completed reference routines use visual completion styling', () => {
@@ -134,7 +132,7 @@ test('member dashboards prioritize three visible habit rows', () => {
   assert.match(panel, /Open store, \$\{spendableBalance\} current points/);
   assert.doesNotMatch(panel, /<Store size=\{15\}/);
   assert.doesNotMatch(panel, /max-\[380px\]:w-full/);
-  assert.match(equippedShields, /h-8 shrink-0/);
+  assert.match(equippedShields, /h-8/);
   assert.match(equippedShields, /max-\[380px\]:h-7/);
   assert.match(mobileTabs, /<FamilyQuestChip/);
   assert.doesNotMatch(dashboard, /<FamilyQuestCard/);

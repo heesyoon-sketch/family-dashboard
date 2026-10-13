@@ -1137,8 +1137,16 @@ async function runAchievementSync(params: AchievementSyncParams): Promise<FullAc
 // completion-triggered sync, a realtime refresh, and a route mount from
 // publishing different snapshots out of order.
 const _familyAchievementSyncTails = new Map<string, Promise<unknown>>();
+const SHIELDS_ARCHIVED = true;
 
 export function syncAchievements(params: AchievementSyncParams): Promise<FullAchievementSyncResult> {
+  // Preserve earned records and benefits. The growth album now celebrates
+  // completion history directly, without issuing new collectible shields.
+  if (SHIELDS_ARCHIVED) return loadPersistedAchievementState(params.familyId, params.children).then(state => {
+    const achievementsByChild = buildPersistedAchievementSnapshot(state, params.children, params.tasksByUser);
+    notifyShieldStateChanged({ familyId: params.familyId, state, achievementsByChild });
+    return { state, achievementsByChild, newlyUnlocked: [], awardedLevelsByUser: {} };
+  });
   const previous = _familyAchievementSyncTails.get(params.familyId) ?? Promise.resolve();
   const sync = previous
     .catch(() => undefined)
@@ -1214,6 +1222,7 @@ export async function revokeUnmetAchievements(params: {
   revocationWindowEnd?: Date;
   auditCause?: AchievementAuditCause;
 }): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
+  if (SHIELDS_ARCHIVED) return { revoked: [], refundedLevelsByUser: {} };
   const members = params.children;
   const state = await loadPersistedAchievementState(params.familyId, members);
   const memberIds = members.map(member => member.id);
