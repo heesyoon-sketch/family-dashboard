@@ -81,7 +81,7 @@ export function InsigniaUnlockOverlay() {
 
   const goToWall = () => {
     dismiss();
-    router.push('/stats?view=shield');
+    router.push(`/stats?member=${encodeURIComponent(current?.childId ?? '')}#shields`);
   };
 
   return (
