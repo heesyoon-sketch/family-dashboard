@@ -321,7 +321,7 @@ export function MemberPanel({ user }: { user: User }) {
                   />
                 </div>
               </div>
-              <span className="member-shields shrink-0"><EquippedShields userId={user.id} /></span>
+              <span className="member-shields shrink-0"><EquippedShields userId={user.id} showcase /></span>
             </div>
 
             <div className="member-actions flex w-full shrink-0 items-center justify-between gap-1.5 md:w-auto md:justify-end">

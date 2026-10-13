@@ -142,6 +142,32 @@ body {
   outline-offset: -2px;
 }
 
+/* Spend horizontal XP-bar space on distinct emblems, within the same 44px row. */
+.equipped-shield-showcase {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  gap: 2px;
+  padding: 0 4px;
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--member-accent) 14%, transparent), transparent 75%);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--member-accent) 24%, transparent);
+}
+
+.equipped-shield-emblem {
+  filter: drop-shadow(0 2px 3px #0008);
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .equipped-shield-showcase:hover .equipped-shield-emblem {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 3px 5px #0008);
+  }
+}
+
 @media (min-width: 768px) {
   .member-task-scroll {
     container-type: size;
