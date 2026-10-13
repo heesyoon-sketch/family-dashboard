@@ -224,7 +224,14 @@ export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
         ) : undefined}
       >
         {view.available.length === 0 ? (
-          <EmptyNote>{en ? `No shields to equip this month. Shields earned in ${monthText(data.month, true)} arrive on ${formatDay(nextPeriod(periodContaining('month', data.month)).start, true)}.` : `이번 달 장착할 쉴드가 없어요. ${monthText(data.month, false)}에 얻는 쉴드는 ${formatDay(nextPeriod(periodContaining('month', data.month)).start, false)}에 도착해요.`}</EmptyNote>
+          <EmptyNote>{(() => {
+            // Shields come from the first official month on, never from a practice month.
+            const source = firstOfficialMonth && firstOfficialMonth > data.month ? firstOfficialMonth : data.month;
+            const arrives = nextPeriod(periodContaining('month', source)).start;
+            return en
+              ? `No shields to equip this month. The next ones — earned in ${monthText(source, true)} — arrive on ${formatDay(arrives, true)}.`
+              : `이번 달 장착할 쉴드가 없어요. 다음 쉴드는 ${monthText(source, false)}에 얻어서 ${formatDay(arrives, false)}에 도착해요.`;
+          })()}</EmptyNote>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {view.available.map(award => {
@@ -248,8 +255,9 @@ export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
 
       {/* 4. Earn next month */}
       {earning && (
-        <Section id="earn" title={en ? 'Earn for next month' : '다음 달을 위해 얻기'} subtitle={en ? `What ${memberName} earns in ${monthText(earning.period.start, true)} can be equipped in ${monthText(earning.nextMonth, true)}.` : `${monthText(earning.period.start, false)}에 얻는 쉴드는 ${monthText(earning.nextMonth, false)}에 장착할 수 있어요.`}>
-          {!earning.progress.official && <p className="mb-3 text-xs text-[#8E94B4]">{en ? 'This month is practice — it started before records were complete.' : '이번 달은 연습이에요. 기록이 완전해지기 전에 시작됐어요.'}</p>}
+        <Section id="earn" title={en ? 'Earn for next month' : '다음 달을 위해 얻기'} subtitle={earning.progress.official
+          ? (en ? `What ${memberName} earns in ${monthText(earning.period.start, true)} can be equipped in ${monthText(earning.nextMonth, true)}.` : `${monthText(earning.period.start, false)}에 얻는 쉴드는 ${monthText(earning.nextMonth, false)}에 장착할 수 있어요.`)
+          : (en ? `${monthText(earning.period.start, true)} is a practice month — it started before records were complete, so it awards nothing. Progress below shows where ${memberName} would stand.` : `${monthText(earning.period.start, false)}은 연습 달이에요. 기록이 완전해지기 전에 시작해서 쉴드는 주지 않아요. 아래는 지금 페이스를 보여줘요.`)}>
           <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
             <div className="rounded-2xl bg-black/20 p-4 text-center sm:w-44">
               <p className="text-3xl font-bold text-white">{earning.progress.consistency.paceRate === null ? '—' : `${Math.round(earning.progress.consistency.paceRate)}%`}</p>
