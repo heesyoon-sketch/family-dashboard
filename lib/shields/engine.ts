@@ -1,8 +1,9 @@
-// Hall of Shields — pure evaluation engine.
+// Shield evaluation engine (pure).
 //
-// "You don't collect Shields. You earn them." A Shield is a periodic honor:
-// at most one per member per completed week and per completed month. It is
-// not a currency, grants no points or XP, and never expires.
+// Shield Wall 4.0: a completed month is evaluated once per member; every
+// qualifying Shield type becomes a monthly award that can be equipped during
+// the following month (see ./equipment.ts for bonuses). Weekly periods are
+// still supported by the engine but are no longer finalized.
 //
 // Inputs are normalized records (no React, no Supabase), so every rule is
 // deterministic and unit-testable. All rate comparisons use integer cross-
@@ -25,7 +26,7 @@
 import type { DayOfWeek } from '@/lib/db';
 import { HABIT_CATEGORIES, categorizeTask, type HabitCategory } from '@/lib/achievements/definitions';
 
-export const EVALUATION_VERSION = 'hall-v1';
+export const EVALUATION_VERSION = 'equip-v1';
 
 export type PeriodType = 'week' | 'month';
 export type ShieldType = 'consistency' | 'growth' | 'comeback' | 'teamwork' | 'dedication';
@@ -39,7 +40,7 @@ export const TIER_RANK: Record<ShieldTier, number> = { silver: 1, gold: 2, epic:
 export const TYPE_PREFERENCE: ShieldType[] = ['comeback', 'growth', 'teamwork', 'dedication', 'consistency'];
 
 // ---------------------------------------------------------------------------
-// Rules (version hall-v1)
+// Rules (version equip-v1)
 // ---------------------------------------------------------------------------
 
 export const RULES = {
@@ -56,7 +57,7 @@ export const RULES = {
   month: {
     minOccurrences: 20,
     minDays: 10,
-    consistency: { silver: 75, gold: 85, epic: 95, legendary: 100 },
+    consistency: { silver: 70, gold: 85, epic: 95, legendary: 100 },
     growth: { silver: 5, gold: 10, epic: 15, legendary: 25 },
     dedication: { minOccurrences: 12, minDays: 8 },
     comebackCooldownPeriods: 2,

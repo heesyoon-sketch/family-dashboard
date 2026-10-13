@@ -278,7 +278,7 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
         </Section>
       )}
 
-      <Section id="shields" title={en ? 'Insignia Wall' : '인시그니아 월'} subtitle={en ? 'Lifetime achievements from real habit records. Weekly and monthly honors live in the Hall of Shields.' : '실제 습관 기록으로 얻은 평생 업적이에요. 주간·월간 명예는 쉴드 명예의 전당에 있어요.'}>
+      <Section id="shields" title={en ? 'Insignia Wall' : '인시그니아 월'} subtitle={en ? 'Lifetime achievements from real habit records. Monthly equippable shields live on the Shield Wall.' : '실제 습관 기록으로 얻은 평생 업적이에요. 매달 장착하는 쉴드는 쉴드 월에 있어요.'}>
         <ShieldCollection memberId={member.id} />
       </Section>
 

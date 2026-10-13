@@ -4,6 +4,7 @@
 import type { HabitCategory } from '@/lib/achievements/definitions';
 import { josa } from '@/lib/analytics/insights';
 import { RULES, type PeriodType, type ShieldTier, type ShieldType } from './engine';
+import type { BonusScope } from './equipment';
 
 export type L = { en: string; ko: string };
 
@@ -108,4 +109,12 @@ export function explainAward(type: ShieldType, metrics: Metrics, name: string, p
       return { en: `${name} did their part in ${n} completed family mission${n === 1 ? '' : 's'} during ${periodLabel.en}.`, ko: `${josa(name, '은', '는')} ${periodLabel.ko} 동안 달성한 가족 미션 ${n}개에서 자기 몫을 해냈어요.` };
     }
   }
+}
+
+/** What an equipped Shield boosts. */
+export function scopeLabel(scope: BonusScope): L {
+  if (scope.kind === 'all') return { en: 'All habits', ko: '모든 습관' };
+  if (scope.kind === 'mission') return { en: 'Family Mission habits', ko: '가족 미션 습관' };
+  const names = scope.categories.filter(c => c in CATEGORY_COPY).map(c => CATEGORY_COPY[c]);
+  return { en: `${names.map(n => n.en).join(', ')} habits`, ko: `${names.map(n => n.ko).join('·')} 습관` };
 }

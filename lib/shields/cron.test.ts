@@ -22,3 +22,23 @@ test('only periods that start on/after the first snapshot and have ended are fin
   assert.deepEqual(finalizablePeriods('month', '2026-11-01', '2026-11-30', 6), []);
   assert.equal(finalizablePeriods('week', '2026-01-05', '2026-12-31', 12).length, 12, 'catch-up is bounded');
 });
+
+test('equipment migration: simulate first, spendable-only, same rates as the TS mirror', async () => {
+  const { RATE_BP, CAP_BP, FALLBACK_FACTOR_PCT } = await import('./equipment');
+  const sql = read('supabase/migrations/20261014120000_shield_equipment.sql');
+  assert.match(sql, /values \(1, 'equip-v1', 'simulate',/);
+  const rules = JSON.parse(sql.match(/'simulate', '(\{.*?\})'\)/)![1]);
+  assert.deepEqual(rules.rateBp, RATE_BP);
+  assert.equal(rules.capBp, CAP_BP);
+  assert.equal(rules.fallbackFactorPct, FALLBACK_FACTOR_PCT);
+  assert.equal(rules.countsTowardXp, false);
+  // Hooked into the authoritative RPCs, bonus on base points only.
+  assert.match(sql, /v_shield := public\.apply_shield_bonus\(/);
+  assert.match(sql, /case when v_partial then ceil\(v_base \* 0\.5\)::integer else v_base end/);
+  assert.match(sql, /perform public\.reverse_shield_bonus\(v_undo_completion, p_user_id, v_undo_points\)/);
+  assert.match(sql, /unique \(task_completion_id, entry_type\)/);
+  assert.match(sql, /grant execute on function public\.shield_auto_equip\(text, uuid\[\]\) to service_role/);
+  const route = read('lib/shields/finalize.ts');
+  assert.match(route, /finalize_shield_month/);
+  assert.doesNotMatch(route, /finalize_shield_period/);
+});

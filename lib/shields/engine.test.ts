@@ -67,8 +67,9 @@ test('minimum eligibility: no tasks, too few, too few days', () => {
   const month = periodContaining('month', '2026-11-10');
   const m = (c: number, e: number, d: number) => consistencyCandidate({ ...input(T(c, e, d)), period: month }).tier;
   assert.equal(m(20, 20, 9), null);
-  assert.equal(m(15, 20, 10), 'silver');
-  assert.equal(m(14, 20, 10), null, '70% is below monthly silver (75%)');
+  assert.equal(m(14, 20, 10), 'silver', '70% is monthly silver');
+  assert.equal(m(13, 20, 10), null, '65% is below monthly silver (70%)');
+  assert.equal(m(17, 20, 10), 'gold', '85% is monthly gold');
 });
 
 test('growth uses exact percentage points and guards baselines', () => {

@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     families: reports.length,
     evaluated: reports.reduce((n, r) => n + r.evaluated, 0),
     awarded: reports.reduce((n, r) => n + r.awarded, 0),
+    autoEquipped: reports.reduce((n, r) => n + r.autoEquipped, 0),
     missionsOpened: reports.reduce((n, r) => n + r.missionsOpened, 0),
     missionsFinalized: reports.reduce((n, r) => n + r.missionsFinalized, 0),
     failures: failures.length,

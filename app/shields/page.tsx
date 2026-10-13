@@ -2,7 +2,7 @@
 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFamilyAnalytics } from '@/lib/analytics/useFamilyAnalytics';
-import { HallOfShields } from '@/components/hall/HallOfShields';
+import { ShieldWall } from '@/components/hall/ShieldWall';
 import { PageShell } from '@/components/analytics/PageShell';
 
 export default function ShieldsPage() {
@@ -10,8 +10,8 @@ export default function ShieldsPage() {
   const en = lang === 'en';
   const analytics = useFamilyAnalytics();
   return (
-    <PageShell title={en ? 'Hall of Shields' : '쉴드 명예의 전당'} subtitle={en ? 'Every week tells a different story.' : '매주 다른 이야기가 쓰여요.'}>
-      <HallOfShields analytics={analytics} />
+    <PageShell title={en ? 'Shield Wall' : '쉴드 월'} subtitle={en ? 'Earn last month. Equip this month.' : '지난달에 얻고, 이번 달에 장착해요.'}>
+      <ShieldWall analytics={analytics} />
     </PageShell>
   );
 }

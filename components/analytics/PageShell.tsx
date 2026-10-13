@@ -42,7 +42,7 @@ export function PageShell({ title, subtitle, children }: { title: string; subtit
 
   const links = [
     { href: '/stats', label: en ? 'Family Growth' : '우리 가족 성장', Icon: BarChart3 },
-    { href: '/shields', label: en ? 'Hall of Shields' : '쉴드 명예의 전당', Icon: ShieldCheck },
+    { href: '/shields', label: en ? 'Shield Wall' : '쉴드 월', Icon: ShieldCheck },
   ];
 
   return (
