@@ -15,7 +15,7 @@ function StatsPageInner() {
   const en = lang === 'en';
   const analytics = useFamilyAnalytics();
   return (
-    <PageShell title={en ? 'Family Growth' : '우리 가족 성장'} subtitle={en ? 'Together as a family, and how far each of us has come' : '함께하는 우리, 그리고 각자 얼마나 자랐는지'}>
+    <PageShell title={en ? 'Growth & Shields' : '성장과 쉴드'} subtitle={en ? 'Earn last month, equip this month — and see how far each of us has come' : '지난달에 얻고 이번 달에 장착해요. 그리고 각자 얼마나 자랐는지'}>
       <FamilyGrowth analytics={analytics} initialMemberId={searchParams.get('member')} />
     </PageShell>
   );

@@ -20,6 +20,7 @@ import {
 } from '@/lib/shields/engine';
 import { CAP_BP, MAX_EQUIPPED, RATE_BP, autoEquip, formatBp, summarizeLoadout } from '@/lib/shields/equipment';
 import { liveProgress } from '@/lib/shields/live';
+import { legacyInsigniaBonusActive } from '@/lib/shields/transition';
 import { CATEGORY_COPY, TIER_COPY, TYPE_COPY, scopeLabel, shieldName } from '@/lib/shields/copy';
 import type { HabitCategory } from '@/lib/achievements/definitions';
 import { EmptyNote, ErrorBanner, LoadingBlock, MEMBER_TONES, MemberAvatar, Section, Segmented, formatDay, useCopy } from '@/components/analytics/ui';
@@ -58,7 +59,14 @@ function AwardCard({ award, action, onOpen }: { award: MonthlyAwardRow; action?:
   );
 }
 
-export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
+/** The Shield Wall. Standalone it picks its own member; embedded in Family
+ *  Growth, the page's selected member drives it. */
+export function ShieldWall({ analytics, memberId: controlledId, onSelectMember, embedded = false }: {
+  analytics: FamilyAnalyticsState;
+  memberId?: string;
+  onSelectMember?: (id: string) => void;
+  embedded?: boolean;
+}) {
   const { en, t } = useCopy();
   const { members, records, familyId } = analytics;
   const users = useFamilyStore(s => s.users);
@@ -69,7 +77,8 @@ export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const memberId = selected ?? members[0]?.id ?? null;
+  const memberId = controlledId ?? selected ?? members[0]?.id ?? null;
+  const pick = (id: string) => (onSelectMember ? onSelectMember(id) : setSelected(id));
   const nameOf = (id: string) => members.find(m => m.id === id)?.name ?? '';
   const toneOf = (id: string) => MEMBER_TONES[Math.max(0, members.findIndex(m => m.id === id)) % MEMBER_TONES.length];
 
@@ -128,21 +137,21 @@ export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
   const historyMonths = [...new Set(view.mine.map(a => a.evaluation_month))].sort().reverse();
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-6 sm:py-7">
+    <div id="shield-wall" className={embedded ? 'scroll-mt-20 space-y-4' : 'mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-6 sm:py-7'}>
       {error && <ErrorBanner onRetry={reload} stale />}
 
-      <section className="relative overflow-hidden rounded-3xl border border-[#E8C77B]/15 bg-[radial-gradient(ellipse_at_50%_0%,rgba(232,199,123,0.16),transparent_60%),radial-gradient(ellipse_at_0%_100%,rgba(165,166,255,0.14),transparent_55%),#11162b] px-5 py-6 text-center sm:py-8">
+      <section className={`relative overflow-hidden rounded-3xl ${embedded ? 'py-5 sm:py-6' : 'py-6 sm:py-8'} border border-[#E8C77B]/15 bg-[radial-gradient(ellipse_at_50%_0%,rgba(232,199,123,0.16),transparent_60%),radial-gradient(ellipse_at_0%_100%,rgba(165,166,255,0.14),transparent_55%),#11162b] px-5 text-center`}>
         <div className="flex justify-center gap-2" aria-hidden>
           {SHIELD_TYPES.map((type, i) => (
             <span key={type} className={i === 2 ? '' : 'mt-3 opacity-80'}><ShieldEmblem type={type} tier={(['silver', 'gold', 'legendary', 'epic', 'gold'] as ShieldTier[])[i]} size={i === 2 ? 56 : 40} /></span>
           ))}
         </div>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">{en ? 'Shield Wall' : '쉴드 월'}</h1>
+        <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">{en ? `${embedded ? `${memberName}’s ` : ''}Shield Wall` : `${embedded ? `${memberName}의 ` : ''}쉴드 월`}</h2>
         <p className="mt-1.5 text-sm font-semibold text-[#F3E3BC] sm:text-base">{en ? 'Earn last month. Equip this month.' : '지난달에 얻고, 이번 달에 장착해요.'}</p>
         <p className="mx-auto mt-2 max-w-xl text-xs leading-relaxed text-[#8E94B4]">{en ? 'Shields earned from a month’s real record can be equipped the next month. Up to three — one per type — add a bonus to the base points of the habits they cover, up to 30% in total.' : '한 달의 실제 기록으로 얻은 쉴드는 다음 달에 장착할 수 있어요. 종류별로 하나씩 최대 3개까지, 해당 습관의 기본 포인트에 보너스를 더해 줘요. 합쳐서 최대 30%예요.'}</p>
-        {members.length > 1 && (
+        {!embedded && members.length > 1 && (
           <div className="mt-4 flex justify-center">
-            <Segmented label={en ? 'Family member' : '가족 구성원'} value={memberId} onChange={setSelected} options={members.map(m => ({ value: m.id, label: m.name }))} />
+            <Segmented label={en ? 'Family member' : '가족 구성원'} value={memberId} onChange={pick} options={members.map(m => ({ value: m.id, label: m.name }))} />
           </div>
         )}
       </section>
@@ -155,6 +164,14 @@ export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
       )}
       {data.mode === 'off' && (
         <p role="status" className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-[#C9CCE0]">{en ? 'Shield bonuses are paused.' : '쉴드 보너스가 잠시 멈춰 있어요.'}</p>
+      )}
+      {legacyInsigniaBonusActive(now, data.timezone) && (
+        <p className="flex items-start gap-2 rounded-2xl border border-[#E8C77B]/25 bg-[#E8C77B]/[0.07] p-3 text-sm text-[#F3E3BC]">
+          <Sparkles size={16} className="mt-0.5 shrink-0" aria-hidden />
+          <span>{en
+            ? <>Insignias and Shields are now one thing: Shields. The insignias each of you has equipped keep their bonus until November 30; from December 1 the monthly Shields here take over. Earned insignias stay as a record{embedded ? <> — <a href="#insignia-archive" className="underline underline-offset-2">see them below</a></> : ''}.</>
+            : <>인시그니아와 쉴드가 이제 하나, 쉴드로 합쳐졌어요. 지금 장착한 인시그니아 보너스는 11월 30일까지 그대로 유지되고, 12월 1일부터는 이곳의 월간 쉴드가 이어받아요. 이미 얻은 인시그니아는 기록으로 남아요{embedded ? <> — <a href="#insignia-archive" className="underline underline-offset-2">아래에서 보기</a></> : ''}.</>}</span>
+        </p>
       )}
       {firstOfficialMonth && firstOfficialMonth > data.month && (
         <p className="flex items-start gap-2 rounded-2xl border border-[#A5A6FF]/20 bg-[#A5A6FF]/[0.07] p-3 text-sm text-[#D7DAF5]">
@@ -303,7 +320,7 @@ export function ShieldWall({ analytics }: { analytics: FamilyAnalyticsState }) {
               const s = summarizeLoadout(eq.map(toEquippable));
               return (
                 <li key={m.id}>
-                  <button type="button" onClick={() => setSelected(m.id)} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition hover:bg-white/[0.04] ${m.id === memberId ? 'border-[#A5A6FF]/40 bg-[#A5A6FF]/[0.06]' : 'border-white/[0.07] bg-[#141a31]'}`}>
+                  <button type="button" onClick={() => pick(m.id)} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition hover:bg-white/[0.04] ${m.id === memberId ? 'border-[#A5A6FF]/40 bg-[#A5A6FF]/[0.06]' : 'border-white/[0.07] bg-[#141a31]'}`}>
                     <MemberAvatar name={m.name} avatarUrl={users.find(u => u.id === m.id)?.avatarUrl} tone={toneOf(m.id)} size={36} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold text-white">{m.name}</span>

@@ -1277,7 +1277,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           const child = ach.children[userId];
           const equipped = child?.equippedInsigniaIds ?? [];
           const unlocked = new Set(Object.keys(child?.unlockedAtByAchievementId ?? {}));
-          const loadoutPct = loadoutBonusFromIds(equipped, unlocked);
+          // Insignia loadout bonus ends when monthly Shields take over.
+          const { legacyInsigniaBonusActive } = await import('./shields/transition');
+          const loadoutPct = legacyInsigniaBonusActive(new Date(), get().automaticSaleConfig.timezone || 'America/Toronto')
+            ? loadoutBonusFromIds(equipped, unlocked)
+            : 0;
           const momentumPct = get().momentumByUser[userId]?.bonusPercent ?? 0;
           const harmonyPct = get().harmony?.bonusPercent ?? 0;
           bonus = composeBonusPercent({

@@ -31,6 +31,7 @@ import { TrendChart } from '@/components/stats/TrendChart';
 import { ConsistencyHeatmap } from '@/components/stats/ConsistencyHeatmap';
 import { HabitPerformanceList } from '@/components/stats/HabitPerformanceList';
 import { ShieldCollection } from '@/components/stats/ShieldCollection';
+import { ShieldWall } from '@/components/hall/ShieldWall';
 import { FamilyBand } from './FamilyBand';
 import { GrowthTimeline, type TeamShieldEvent } from './GrowthTimeline';
 
@@ -170,9 +171,11 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
     return [...byId.values()];
   }, [snapshot, timezone, members, en]);
 
+  // Old links used #shields (insignia wall); both now land on the Shield Wall.
   useEffect(() => {
-    if (!view || typeof window === 'undefined' || window.location.hash !== '#shields') return;
-    document.getElementById('shields')?.scrollIntoView({ block: 'start' });
+    if (!view || typeof window === 'undefined') return;
+    const target = { '#shields': 'shield-wall', '#shield-wall': 'shield-wall', '#insignia-archive': 'insignia-archive' }[window.location.hash];
+    if (target) document.getElementById(target)?.scrollIntoView({ block: 'start' });
   }, [view]);
 
   if (!records || !family) {
@@ -203,10 +206,12 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
         penalties={records.penalties}
         activeToday={family.activeToday}
         withHabits={family.withHabits}
-        shieldsCollected={snapshot ? Object.values(snapshot.achievementsByChild ?? {}).reduce((sum, list) => sum + list.filter(b => b.isUnlocked).length, 0) : null}
+        shieldsCollected={null}
         selectedId={member.id}
         onSelect={selectMember}
       />
+
+      <ShieldWall analytics={analytics} memberId={member.id} onSelectMember={selectMember} embedded />
 
       <section id="personal" aria-labelledby="overview-title" className="relative scroll-mt-20 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(ellipse_at_top_left,rgba(165,166,255,0.14),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(121,232,189,0.08),transparent_60%),#151a2e] p-5 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -278,7 +283,7 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
         </Section>
       )}
 
-      <Section id="shields" title={en ? 'Insignia Wall' : '인시그니아 월'} subtitle={en ? 'Lifetime achievements from real habit records. Monthly equippable shields live on the Shield Wall.' : '실제 습관 기록으로 얻은 평생 업적이에요. 매달 장착하는 쉴드는 쉴드 월에 있어요.'}>
+      <Section id="insignia-archive" title={en ? 'Insignia record' : '인시그니아 기록'} subtitle={en ? 'Achievements earned before insignias became Shields. Kept forever as a record.' : '인시그니아가 쉴드로 합쳐지기 전에 얻은 업적이에요. 기록으로 영원히 남아요.'}>
         <ShieldCollection memberId={member.id} />
       </Section>
 

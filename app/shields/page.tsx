@@ -1,17 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useFamilyAnalytics } from '@/lib/analytics/useFamilyAnalytics';
-import { ShieldWall } from '@/components/hall/ShieldWall';
-import { PageShell } from '@/components/analytics/PageShell';
-
+// Shields and Family Growth are one page now; old links land on the Shield Wall.
 export default function ShieldsPage() {
-  const { lang } = useLanguage();
-  const en = lang === 'en';
-  const analytics = useFamilyAnalytics();
-  return (
-    <PageShell title={en ? 'Shield Wall' : '쉴드 월'} subtitle={en ? 'Earn last month. Equip this month.' : '지난달에 얻고, 이번 달에 장착해요.'}>
-      <ShieldWall analytics={analytics} />
-    </PageShell>
-  );
+  redirect('/stats#shield-wall');
 }

@@ -4,6 +4,7 @@ import { legacyRecurrenceToDays, type Level, type Task, type User } from '@/lib/
 import { createBrowserSupabase } from '@/lib/supabase';
 import { ACHIEVEMENTS, HABIT_CATEGORIES, VISUAL_STYLE_DEFINITIONS, type HabitCategory, type RequirementType } from './definitions';
 import { evaluateAchievementsForChild, type AchievementCompletion, type AchievementProgress } from './engine';
+import { INSIGNIAS_FROZEN } from '@/lib/shields/transition';
 
 export interface ChildAchievementState {
   childId: string;
@@ -692,6 +693,8 @@ export function setEquippedInsignia(
   maxSlots: number,
 ): FamilyAchievementState {
   const state = loadAchievementState(familyId, children);
+  // The insignia loadout is locked as-is until its bonus ends (see transition.ts).
+  if (INSIGNIAS_FROZEN) return state;
   const member = children.find(child => child.id === childId);
   const child = state.children[childId] ?? (member ? normaliseChildAchievementState(member) : emptyChildState(childId));
   const current = new Set(child.equippedInsigniaIds);
@@ -1024,6 +1027,11 @@ async function runAchievementSync(params: AchievementSyncParams): Promise<FullAc
     state,
     achievementsByChild: persistedAchievementsByChild,
   });
+  // Insignias are frozen records now (Shields replaced them): show what was
+  // earned, never unlock, award, or persist anything new.
+  if (INSIGNIAS_FROZEN) {
+    return { state, achievementsByChild: persistedAchievementsByChild, newlyUnlocked: [], awardedLevelsByUser: {} };
+  }
   // Fetches are independent — issue them in parallel rather than serially.
   const memberIds = members.map(member => member.id);
   const [completionsByChild, allTasksByUser] = await Promise.all([
@@ -1214,6 +1222,7 @@ export async function revokeUnmetAchievements(params: {
   revocationWindowEnd?: Date;
   auditCause?: AchievementAuditCause;
 }): Promise<{ revoked: AchievementProgress[]; refundedLevelsByUser: Record<string, Level> }> {
+  if (INSIGNIAS_FROZEN) return { revoked: [], refundedLevelsByUser: {} };
   const members = params.children;
   const state = await loadPersistedAchievementState(params.familyId, members);
   const memberIds = members.map(member => member.id);
