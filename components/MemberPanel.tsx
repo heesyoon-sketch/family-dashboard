@@ -20,7 +20,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getTimeWindowDisplay,
   isTaskActiveInTimeWindow,
-  taskWindowSortRank,
 } from '@/lib/timeWindows';
 
 const EMPTY_ITEMS: never[] = [];
@@ -133,14 +132,13 @@ export function MemberPanel({ user }: { user: User }) {
   const eveningTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'evening'));
   const morningDone = morningTasks.filter(task => completionsByWindow.morning.includes(task.id)).length;
   const eveningDone = eveningTasks.filter(task => completionsByWindow.evening.includes(task.id)).length;
-  // Tasks stay in their original position when completed — checking off a
-  // habit shouldn't re-shuffle the layout. Only sort by time window so the
-  // morning/afternoon/evening grouping stays stable.
+  // The selected window already filters the list. Honor the saved routine
+  // order, including habits shared by both windows, even after completion.
   const sortedTasks = [...currentTasks].sort((a, b) => {
-    return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
+    return a.sortOrder - b.sortOrder;
   });
   const sortedReferenceTasks = [...referenceTasks].sort((a, b) => {
-    return taskWindowSortRank(a.timeWindow) - taskWindowSortRank(b.timeWindow);
+    return a.sortOrder - b.sortOrder;
   });
   const visibleTasks = routineView === 'current' ? sortedTasks : sortedReferenceTasks;
   const selectedWindow = routineView === 'current' ? timeOfDay : referenceWindow;
