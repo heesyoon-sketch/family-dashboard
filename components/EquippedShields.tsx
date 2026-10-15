@@ -11,6 +11,7 @@ import { MAX_INSIGNIA_SLOTS, insigniaSlotsForLevel } from '@/lib/progression';
 import { CompactShield, achievementMark, categoryMark } from '@/components/insignia/CompactShield';
 import { useMonthlyLoadouts } from '@/components/hall/useMonthlyLoadouts';
 import { legacyInsigniaBonusActive } from '@/lib/shields/transition';
+import { shieldName } from '@/lib/shields/copy';
 
 const SHIELD_PX = 26;
 const SHIELD_FAN_CLASSES = {
@@ -50,19 +51,22 @@ export function EquippedShields({ userId, link = true, showcase = false }: { use
     : (en ? 'Nothing equipped. Open Shield Wall.' : '장착한 쉴드가 없어요. 쉴드 월 열기.');
   const fanClasses = SHIELD_FAN_CLASSES[count as keyof typeof SHIELD_FAN_CLASSES] ?? [];
   const shieldSize = showcase ? 38 : SHIELD_PX;
-  const fan = (key: string, index: number, node: ReactNode) => (
-    <span key={key} className={showcase
+  const fan = (key: string, index: number, name: string, node: ReactNode) => (
+    <span key={key} title={name} className={showcase
       ? 'equipped-shield-emblem relative flex shrink-0 items-center justify-center'
-      : `relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[14px]'} ${fanClasses[index] ?? ''}`} style={{ zIndex: index + 1 }}>{node}</span>
+      : `relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[8px]'} ${fanClasses[index] ?? ''}`} style={{ zIndex: index + 1 }}>{node}</span>
   );
 
   const icons = (
     <>
       {shields.length > 0
-        ? shields.map((s, i) => fan(`${s.shieldType}`, i,
-          <CompactShield tier={s.tier} mark={s.shieldType === 'dedication' ? categoryMark(s.category) : s.shieldType} size={shieldSize} />))
+        ? shields.map((s, i) => {
+          const name = shieldName(s.shieldType, s.tier, s.category)[en ? 'en' : 'ko'];
+          return fan(`${s.shieldType}`, i, name,
+            <CompactShield tier={s.tier} mark={s.shieldType === 'dedication' ? categoryMark(s.category) : s.shieldType} size={shieldSize} title={name} />);
+        })
         : legacy.length > 0
-          ? legacy.map((badge, i) => fan(badge.achievementId, i,
+          ? legacy.map((badge, i) => fan(badge.achievementId, i, badge.title,
             <CompactShield rarity={badge.rarity} mark={achievementMark(badge)} size={shieldSize} title={badge.title} />))
           : (
             <span className="grid h-7 w-7 place-items-center rounded-lg border border-dashed border-[var(--border)] text-[var(--fg-muted)]/65">

@@ -98,14 +98,14 @@ const TIER_SILHOUETTES: Record<ShieldTier, Silhouette> = {
     mark: [10, 11, 20],
   },
   legendary: {
-    outline: 'M9 12 20 9.5 31 12V22C31 29.5 26 34.5 20 37.5C14 34.5 9 29.5 9 22Z',
-    face: 'M11 13.6 20 11.6 29 13.6V22C29 28.2 25 32.6 20 35.2C15 32.6 11 28.2 11 22Z',
-    highlight: 'M9.8 18V12.6L20 10.3 30.2 12.6',
-    mark: [12, 14, 16],
+    outline: 'M8 11 20 8.5 32 11V21.5C32 29.5 26.5 34.5 20 37.5C13.5 34.5 8 29.5 8 21.5Z',
+    face: 'M10 12.6 20 10.6 30 12.6V21.5C30 28 25.5 32.5 20 35.2C14.5 32.5 10 28 10 21.5Z',
+    highlight: 'M8.8 18V11.6L20 9.3 31.2 11.6',
+    mark: [11, 13, 18],
     ornaments: [
-      'M10 15C6.5 12.5 3 13 .8 15.5 3.5 15.8 4.8 16.8 5.4 18 2.6 18.4 1.2 20.6 4.4 20.6 6 21.5 4.4 23 4 25.4 7 24.2 10 23.5Z',
-      'M30 15C33.5 12.5 37 13 39.2 15.5 36.5 15.8 35.2 16.8 34.6 18 37.4 18.4 38.8 20.6 35.6 20.6 34 21.5 35.6 23 36 25.4 33 24.2 30 23.5Z',
-      'M12.5 11 13.6 4.6 16.8 7.8 20 2.6 23.2 7.8 26.4 4.6 27.5 11Q20 9 12.5 11Z',
+      'M8.5 15C5.8 13 3.2 13.3 1.4 15.4 3.6 15.8 4.6 16.7 5 17.7 2.8 18.1 1.8 20 4.4 20.1 5.6 20.8 4.4 22.1 4.2 24 6.6 23 8.5 22.3Z',
+      'M31.5 15C34.2 13 36.8 13.3 38.6 15.4 36.4 15.8 35.4 16.7 35 17.7 37.2 18.1 38.2 20 35.6 20.1 34.4 20.8 35.6 22.1 35.8 24 33.4 23 31.5 22.3Z',
+      'M13 11 14 5 17 8 20 3 23 8 26 5 27 11Q20 9 13 11Z',
     ],
   },
 };
@@ -141,8 +141,7 @@ export function CompactShield({ rarity = 'common', tier, mark, size = 38, title 
         <path d={shape.outline} fill={`url(#${uid}-metal)`}/>
         <path d={shape.face} fill={`url(#${uid}-face)`}/>
         <path d={shape.highlight} stroke={light} strokeWidth=".8" strokeLinecap="round" strokeLinejoin="round" opacity=".75"/>
-        <path d="M9 23C10 28 15 32 20 34" stroke={mid} strokeWidth=".6" opacity=".4"/>
-        <Mark x={mx} y={my} width={ms} height={ms} color="#FFF6E6" strokeWidth={ms < 20 ? 2.9 : 2.7} strokeLinecap="round" strokeLinejoin="round" />
+        <Mark x={mx} y={my} width={ms} height={ms} color="#FFF6E6" strokeWidth={ms < 20 ? 2.8 : 2.7} strokeLinecap="round" strokeLinejoin="round" />
         {!tier && rarity === 'mythic' && <path d="m18 6 2-2 2 2-2 2Z" fill={light}/>}
       </svg>
     </span>
