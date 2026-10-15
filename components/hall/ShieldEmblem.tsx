@@ -3,7 +3,6 @@
 import { useId, type ComponentType } from 'react';
 import type { ShieldTier, ShieldType } from '@/lib/shields/engine';
 import { EpicFrame, LegendaryFrame, MythicFrame, RareFrame, SHIELD_TIER_PALETTES } from '@/components/insignia/shieldFrames';
-import { CompactShield, categoryMark } from '@/components/insignia/CompactShield';
 import {
   IconBackpackBoss,
   IconBetterMonth,
@@ -30,9 +29,6 @@ const TIER_SHAPE: Record<ShieldTier, typeof RareFrame> = {
   epic: MythicFrame,
   legendary: LegendaryFrame,
 };
-
-/** Below this size the illustration turns to mush; draw the compact mark. */
-const COMPACT_MAX_PX = 44;
 
 const TYPE_ART: Record<ShieldType, ComponentType> = {
   consistency: IconEveryWeekSpark,
@@ -64,13 +60,6 @@ export function ShieldEmblem({ type, tier, category = null, size = 120, projecte
 }) {
   const uid = useId().replace(/[:]/g, '');
   const faded = projected ? 'opacity-55 saturate-50' : '';
-  if (size <= COMPACT_MAX_PX) {
-    return (
-      <span className={`inline-block shrink-0 align-middle ${faded}`} style={{ lineHeight: 0 }}>
-        <CompactShield tier={tier} mark={type === 'dedication' ? categoryMark(category) : type} size={size} title={title} />
-      </span>
-    );
-  }
   const Frame = TIER_SHAPE[tier];
   const Art = (type === 'dedication' && category && DEDICATION_ART[category]) || TYPE_ART[type];
   return (
