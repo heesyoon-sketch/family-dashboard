@@ -2,8 +2,8 @@
 
 import { useId, type ComponentType } from 'react';
 import type { ShieldTier, ShieldType } from '@/lib/shields/engine';
-import type { AchievementRarity } from '@/lib/achievements/definitions';
-import { FRAME_BY_RARITY } from '@/components/insignia/shieldFrames';
+import { EpicFrame, LegendaryFrame, MythicFrame, RareFrame, SHIELD_TIER_PALETTES } from '@/components/insignia/shieldFrames';
+import { CompactShield, categoryMark } from '@/components/insignia/CompactShield';
 import {
   IconBackpackBoss,
   IconBetterMonth,
@@ -19,17 +19,20 @@ import {
   IconMorningHero,
 } from '@/components/insignia/shieldIcons';
 
-// Shields use the FamBit Shield Wall design package (the same frames and
-// illustrations the insignias had): the tier picks the frame, the type —
-// or, for Dedication, the habit area — picks the art.
+// Shields use the FamBit Shield Wall design package (the same frame shapes
+// and illustrations the insignias had): the tier picks the shape and its own
+// metal, the type — or, for Dedication, the habit area — picks the art.
 
-/** Tier → frame, in increasing grandeur. */
-export const TIER_FRAME: Record<ShieldTier, AchievementRarity> = {
-  silver: 'rare',
-  gold: 'legendary',
-  epic: 'epic',
-  legendary: 'mythic',
+/** Tier → frame shape, in increasing grandeur (recolored per tier). */
+const TIER_SHAPE: Record<ShieldTier, typeof RareFrame> = {
+  silver: RareFrame,
+  gold: EpicFrame,
+  epic: MythicFrame,
+  legendary: LegendaryFrame,
 };
+
+/** Below this size the illustration turns to mush; draw the compact mark. */
+const COMPACT_MAX_PX = 44;
 
 const TYPE_ART: Record<ShieldType, ComponentType> = {
   consistency: IconEveryWeekSpark,
@@ -60,17 +63,25 @@ export function ShieldEmblem({ type, tier, category = null, size = 120, projecte
   title?: string;
 }) {
   const uid = useId().replace(/[:]/g, '');
-  const Frame = FRAME_BY_RARITY[TIER_FRAME[tier]];
+  const faded = projected ? 'opacity-55 saturate-50' : '';
+  if (size <= COMPACT_MAX_PX) {
+    return (
+      <span className={`inline-block shrink-0 align-middle ${faded}`} style={{ lineHeight: 0 }}>
+        <CompactShield tier={tier} mark={type === 'dedication' ? categoryMark(category) : type} size={size} title={title} />
+      </span>
+    );
+  }
+  const Frame = TIER_SHAPE[tier];
   const Art = (type === 'dedication' && category && DEDICATION_ART[category]) || TYPE_ART[type];
   return (
     <span
       role={title ? 'img' : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
-      className={`relative inline-block shrink-0 align-middle ${projected ? 'opacity-55 saturate-50' : ''}`}
+      className={`relative inline-block shrink-0 align-middle ${faded}`}
       style={{ width: size, height: size, lineHeight: 0 }}
     >
-      <Frame uid={uid}><Art /></Frame>
+      <Frame uid={uid} palette={SHIELD_TIER_PALETTES[tier]}><Art /></Frame>
     </span>
   );
 }

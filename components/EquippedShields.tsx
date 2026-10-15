@@ -3,13 +3,11 @@
 import type { ReactNode } from 'react';
 import { Shield } from 'lucide-react';
 import Link from 'next/link';
-import { InsigniaBadge } from '@/components/InsigniaBadge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFamilyStore } from '@/lib/store';
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
 import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
 import { MAX_INSIGNIA_SLOTS, insigniaSlotsForLevel } from '@/lib/progression';
-import { ShieldEmblem, TIER_FRAME } from '@/components/hall/ShieldEmblem';
 import { CompactShield, achievementMark, categoryMark } from '@/components/insignia/CompactShield';
 import { useMonthlyLoadouts } from '@/components/hall/useMonthlyLoadouts';
 import { legacyInsigniaBonusActive } from '@/lib/shields/transition';
@@ -55,21 +53,17 @@ export function EquippedShields({ userId, link = true, showcase = false }: { use
   const fan = (key: string, index: number, node: ReactNode) => (
     <span key={key} className={showcase
       ? 'equipped-shield-emblem relative flex shrink-0 items-center justify-center'
-      : `relative transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[14px]'} ${fanClasses[index] ?? ''}`} style={{ zIndex: index + 1 }}>{node}</span>
+      : `relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[14px]'} ${fanClasses[index] ?? ''}`} style={{ zIndex: index + 1 }}>{node}</span>
   );
 
   const icons = (
     <>
       {shields.length > 0
-        ? shields.map((s, i) => fan(`${s.shieldType}`, i, showcase
-          ? <CompactShield rarity={TIER_FRAME[s.tier]} mark={s.shieldType === 'dedication' ? categoryMark(s.category) : s.shieldType} size={shieldSize} />
-          : <ShieldEmblem type={s.shieldType} tier={s.tier} category={s.category} size={shieldSize} />))
+        ? shields.map((s, i) => fan(`${s.shieldType}`, i,
+          <CompactShield tier={s.tier} mark={s.shieldType === 'dedication' ? categoryMark(s.category) : s.shieldType} size={shieldSize} />))
         : legacy.length > 0
-          ? legacy.map((badge, i) => fan(badge.achievementId, i, (
-            showcase
-              ? <CompactShield rarity={badge.rarity} mark={achievementMark(badge)} size={shieldSize} title={badge.title} />
-              : <InsigniaBadge rarity={badge.rarity} icon={badge.icon} seed={badge.achievementId} size={shieldSize} className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" ariaLabel={badge.title} />
-          )))
+          ? legacy.map((badge, i) => fan(badge.achievementId, i,
+            <CompactShield rarity={badge.rarity} mark={achievementMark(badge)} size={shieldSize} title={badge.title} />))
           : (
             <span className="grid h-7 w-7 place-items-center rounded-lg border border-dashed border-[var(--border)] text-[var(--fg-muted)]/65">
               <Shield size={15} strokeWidth={2.2} aria-hidden />

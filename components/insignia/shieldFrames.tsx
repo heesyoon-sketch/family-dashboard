@@ -13,6 +13,12 @@ interface FramePalette {
   panel: [string, string];
   accent: string;
   studs: string;
+  /** Ember under the Mythic frame; defaults to its original orange. */
+  glow?: string;
+  /** Crown jewel on the Mythic frame. */
+  gem?: string;
+  /** Bright edge highlight on the Mythic frame. */
+  highlight?: string;
 }
 
 export const FRAME_PALETTES: Record<AchievementRarity, FramePalette> = {
@@ -56,6 +62,8 @@ export const FRAME_PALETTES: Record<AchievementRarity, FramePalette> = {
 interface FrameProps {
   uid: string;
   children: ReactNode;
+  /** Recolor the frame (Shield tiers reuse the shapes with their own metals). */
+  palette?: FramePalette;
 }
 
 function FrameDefs({ uid, palette, panelCenterY = 0.35, panelRadius = 0.7 }: {
@@ -83,8 +91,8 @@ function FrameDefs({ uid, palette, panelCenterY = 0.35, panelRadius = 0.7 }: {
   );
 }
 
-export function CommonFrame({ uid, children }: FrameProps) {
-  const p = FRAME_PALETTES.common;
+export function CommonFrame({ uid, children, palette }: FrameProps) {
+  const p = palette ?? FRAME_PALETTES.common;
   return (
     <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
       <FrameDefs uid={uid} palette={p}/>
@@ -103,8 +111,8 @@ export function CommonFrame({ uid, children }: FrameProps) {
   );
 }
 
-export function RareFrame({ uid, children }: FrameProps) {
-  const p = FRAME_PALETTES.rare;
+export function RareFrame({ uid, children, palette }: FrameProps) {
+  const p = palette ?? FRAME_PALETTES.rare;
   const outer = '100,16 178,58 178,142 100,184 22,142 22,58';
   const inner = '100,30 165,65 165,135 100,170 35,135 35,65';
   const panel = '100,42 152,72 152,128 100,158 48,128 48,72';
@@ -128,8 +136,8 @@ export function RareFrame({ uid, children }: FrameProps) {
   );
 }
 
-export function EpicFrame({ uid, children }: FrameProps) {
-  const p = FRAME_PALETTES.epic;
+export function EpicFrame({ uid, children, palette }: FrameProps) {
+  const p = palette ?? FRAME_PALETTES.epic;
   const outerPath = 'M 40 38 L 70 28 L 85 38 L 100 28 L 115 38 L 130 28 L 160 38 L 162 100 Q 162 140 130 168 Q 110 180 100 184 Q 90 180 70 168 Q 38 140 38 100 Z';
   const innerPath = 'M 50 46 L 72 38 L 85 46 L 100 38 L 115 46 L 128 38 L 150 46 L 152 100 Q 152 134 126 158 Q 108 170 100 174 Q 92 170 74 158 Q 48 134 48 100 Z';
   const panelPath = 'M 60 56 L 74 50 L 86 56 L 100 50 L 114 56 L 126 50 L 140 56 L 142 100 Q 142 128 122 148 Q 106 158 100 162 Q 94 158 78 148 Q 58 128 58 100 Z';
@@ -160,8 +168,8 @@ export function EpicFrame({ uid, children }: FrameProps) {
   );
 }
 
-export function MythicFrame({ uid, children }: FrameProps) {
-  const p = FRAME_PALETTES.mythic;
+export function MythicFrame({ uid, children, palette }: FrameProps) {
+  const p = palette ?? FRAME_PALETTES.mythic;
   const outerPath = 'M 32 60 L 56 32 L 76 44 L 100 28 L 124 44 L 144 32 L 168 60 L 162 110 Q 156 152 124 172 L 100 184 L 76 172 Q 44 152 38 110 Z';
   const innerPath = 'M 42 64 L 60 42 L 76 52 L 100 38 L 124 52 L 140 42 L 158 64 L 152 108 Q 148 144 122 162 L 100 174 L 78 162 Q 52 144 48 108 Z';
   const panelPath = 'M 56 72 L 70 56 L 86 62 L 100 52 L 114 62 L 130 56 L 144 72 L 140 106 Q 138 134 118 150 L 100 162 L 82 150 Q 62 134 60 106 Z';
@@ -170,8 +178,8 @@ export function MythicFrame({ uid, children }: FrameProps) {
       <FrameDefs uid={uid} palette={p} panelCenterY={0.4}/>
       <defs>
         <radialGradient id={`${uid}-ember`} cx="0.5" cy="0.85" r="0.6">
-          <stop offset="0%" stopColor="#FF8A3D" stopOpacity="0.6"/>
-          <stop offset="100%" stopColor="#FF6B3D" stopOpacity="0"/>
+          <stop offset="0%" stopColor={p.glow ?? '#FF8A3D'} stopOpacity="0.6"/>
+          <stop offset="100%" stopColor={p.glow ?? '#FF6B3D'} stopOpacity="0"/>
         </radialGradient>
       </defs>
       <ellipse cx="100" cy="180" rx="56" ry="14" fill={`url(#${uid}-ember)`}/>
@@ -186,24 +194,24 @@ export function MythicFrame({ uid, children }: FrameProps) {
       </g>
       <g>
         <path d="M 92 28 L 100 18 L 108 28 Z" fill={p.rim[1]} stroke={p.rim[2]} strokeWidth="1" strokeLinejoin="round"/>
-        <circle cx="100" cy="32" r="3.5" fill="#FF6B6B" stroke={p.rim[2]} strokeWidth="1"/>
+        <circle cx="100" cy="32" r="3.5" fill={p.gem ?? '#FF6B6B'} stroke={p.rim[2]} strokeWidth="1"/>
         <circle cx="99" cy="31" r="1" fill="#fff" opacity="0.8"/>
       </g>
-      <path d="M 42 64 L 60 42 L 76 52 L 100 38 L 124 52 L 140 42 L 158 64" stroke="#FFE0B0" strokeWidth="1.4" fill="none" opacity="0.55"/>
+      <path d="M 42 64 L 60 42 L 76 52 L 100 38 L 124 52 L 140 42 L 158 64" stroke={p.highlight ?? '#FFE0B0'} strokeWidth="1.4" fill="none" opacity="0.55"/>
       <circle cx="56" cy="86" r="2.5" fill={p.accent}/>
       <circle cx="144" cy="86" r="2.5" fill={p.accent}/>
-      <path d="M 90 168 L 100 178 L 110 168" stroke="#FFB770" strokeWidth="1.2" fill="none" opacity="0.6"/>
-      <circle cx="36" cy="120" r="1.5" fill="#FFD93D" opacity="0.7"/>
-      <circle cx="164" cy="124" r="1.2" fill="#FF8A3D" opacity="0.8"/>
-      <circle cx="28" cy="100" r="1" fill="#FF8A3D" opacity="0.6"/>
-      <circle cx="172" cy="98" r="1" fill="#FFD93D" opacity="0.6"/>
+      <path d="M 90 168 L 100 178 L 110 168" stroke={p.rim[0]} strokeWidth="1.2" fill="none" opacity="0.6"/>
+      <circle cx="36" cy="120" r="1.5" fill={p.accent} opacity="0.7"/>
+      <circle cx="164" cy="124" r="1.2" fill={p.glow ?? '#FF8A3D'} opacity="0.8"/>
+      <circle cx="28" cy="100" r="1" fill={p.glow ?? '#FF8A3D'} opacity="0.6"/>
+      <circle cx="172" cy="98" r="1" fill={p.accent} opacity="0.6"/>
       <g>{children}</g>
     </svg>
   );
 }
 
-export function LegendaryFrame({ uid, children }: FrameProps) {
-  const p = FRAME_PALETTES.legendary;
+export function LegendaryFrame({ uid, children, palette }: FrameProps) {
+  const p = palette ?? FRAME_PALETTES.legendary;
   const outerPath = 'M 50 48 L 75 38 L 100 44 L 125 38 L 150 48 L 152 102 Q 152 138 128 162 Q 108 178 100 182 Q 92 178 72 162 Q 48 138 48 102 Z';
   const innerPath = 'M 58 54 L 76 46 L 100 52 L 124 46 L 142 54 L 144 102 Q 144 132 122 152 Q 106 166 100 170 Q 94 166 78 152 Q 56 132 56 102 Z';
   const panelPath = 'M 68 64 L 100 60 L 132 64 L 134 102 Q 134 126 116 142 Q 104 152 100 156 Q 96 152 84 142 Q 66 126 66 102 Z';
@@ -262,3 +270,40 @@ export const FRAME_BY_RARITY = {
   mythic: MythicFrame,
   legendary: LegendaryFrame,
 } satisfies Record<AchievementRarity, (props: FrameProps) => ReactNode>;
+
+/** Shield tiers own their metals so each name reads true — silver is silver,
+ *  and Legendary (the top tier) is the fiery one. Shapes grow in grandeur:
+ *  hex badge → crested shield → crowned shield → winged crown. */
+export const SHIELD_TIER_PALETTES = {
+  silver: {
+    rim:    ['#F4F7FB', '#B7C1D1', '#646F84'],
+    body:   ['#2B3242', '#1B202C'],
+    panel:  ['#1F2532', '#12161F'],
+    accent: '#DCE5F2',
+    studs:  '#C9D3E1',
+  },
+  gold: {
+    rim:    ['#FFF0B8', '#F3C14B', '#A9741A'],
+    body:   ['#3D2D12', '#24190A'],
+    panel:  ['#36290F', '#1E1607'],
+    accent: '#FFE07A',
+    studs:  '#FFF3C4',
+  },
+  epic: {
+    rim:    ['#EBC8FF', '#B86CF7', '#5E239F'],
+    body:   ['#2A1E4A', '#1A1235'],
+    panel:  ['#231944', '#170F30'],
+    accent: '#FF8CC6',
+    studs:  '#F4D9FF',
+    glow:   '#B86CF7',
+    gem:    '#FF8CC6',
+    highlight: '#F3DDFF',
+  },
+  legendary: {
+    rim:    ['#FFE9A8', '#FF7A3D', '#A1201A'],
+    body:   ['#4A1810', '#280A07'],
+    panel:  ['#3F160E', '#200906'],
+    accent: '#FFD24D',
+    studs:  '#FFE58A',
+  },
+} satisfies Record<string, FramePalette>;
