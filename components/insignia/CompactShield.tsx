@@ -23,6 +23,9 @@ export function achievementMark(badge: AchievementDefinition): ShieldMark {
   if (badge.questMetric === 'team' || badge.category === 'Team Shields' || badge.achievementId === 'full-house') return 'teamwork';
   if (badge.habitKeyword === 'diary' || /diary|writing|page-builder/.test(badge.achievementId)) return 'writing';
   if (badge.requirementCategory && badge.requirementCategory in MARKS) return badge.requirementCategory as ShieldMark;
+  if (badge.questMetric === 'activeDays') return 'consistency';
+  if (badge.questMetric === 'total') return 'milestone';
+  if (badge.questMetric === 'combo') return 'perfect';
   if (badge.category === 'Perfect Days') return 'perfect';
   if (badge.category === 'Momentum Trail') return 'growth';
   if (badge.category === 'Weekly Quests' || badge.category === 'Monthly Quests') return 'calendar';
