@@ -29,43 +29,6 @@ const OFFLINE_RETRY_MS = 15_000;
 const BACKGROUND_REFRESH_MS = 5 * 60_000;
 
 export function SyncBootstrap() {
-  const familyId = useFamilyStore(state => state.familyId);
-  const hydrated = useFamilyStore(state => state.hydrated);
-  const memberSignature = useFamilyStore(state => state.users.map(user => user.id).join(','));
-
-  // One app-level shield sync replaces per-card/per-page evaluations. Route
-  // transitions now consume the same stable snapshot instead of starting a
-  // new 370-day family recomputation for every mounted component.
-  useEffect(() => {
-    if (!hydrated || !familyId || !memberSignature) return;
-    const state = useFamilyStore.getState();
-    void import('@/lib/achievements/storage')
-      .then(({ primeShieldSnapshot, syncAchievementsOnce }) => {
-        primeShieldSnapshot(familyId, state.users, state.tasksByUser);
-        return syncAchievementsOnce({
-          familyId,
-          children: state.users,
-          tasksByUser: state.tasksByUser,
-          levelsByUser: state.levelsByUser,
-          awardNew: true,
-        });
-      })
-      .then(result => {
-        if (Object.keys(result.awardedLevelsByUser).length > 0) {
-          useFamilyStore.setState(current => ({
-            levelsByUser: {
-              ...current.levelsByUser,
-              ...result.awardedLevelsByUser,
-            },
-          }));
-        }
-        if (result.newlyUnlocked.length > 0) {
-          useFamilyStore.getState().enqueueInsigniaUnlocks(result.newlyUnlocked);
-        }
-      })
-      .catch(error => console.warn('[shields] bootstrap sync failed', error));
-  }, [familyId, hydrated, memberSignature]);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
 

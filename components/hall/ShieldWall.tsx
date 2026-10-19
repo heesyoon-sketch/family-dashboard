@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { FlaskConical, Lock } from 'lucide-react';
-import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
-import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
+import { useEarlierShields } from '@/lib/achievements/earlierShields';
 import { shieldTitle } from '@/lib/analytics/shieldCopy';
 import { useMinuteClock, type FamilyAnalyticsState } from '@/lib/analytics/useFamilyAnalytics';
 import { SHIELD_TYPES, TIER_RANK, addDays, zonedDayHour, type ShieldCompletion, type ShieldType } from '@/lib/shields/engine';
@@ -16,14 +15,12 @@ import { ShieldDetail } from './ShieldDetail';
 import { periodLabel } from './periodLabel';
 import { useShieldWallData, type WeeklyAwardRow } from './useShieldWallData';
 
-const DEFS = new Map(ACHIEVEMENTS.map(def => [def.achievementId, def]));
-
 /** One member's Shields: this week's three slots (earned last week), live
  *  progress toward next week's, and history. */
 export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalyticsState; memberId: string }) {
   const { en, t } = useCopy();
   const { members, records, familyId } = analytics;
-  const snapshot = useShieldSnapshot(familyId);
+  const earlier = useEarlierShields(familyId, memberId);
   const now = useMinuteClock();
   const { data, error, reload } = useShieldWallData(familyId, records?.loadedAt);
   const [detail, setDetail] = useState<WeeklyAwardRow | null>(null);
@@ -44,10 +41,6 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
     const bonusTaskIds = new Set(records.tasks.filter(task => task.userId === memberId && task.taskType === 'optional').map(task => task.id));
     return weekProgress({ userId: memberId, weekStart: data.week, schedules: data.schedules, completions, bonusTaskIds, timezone: data.timezone, today, nowHour: hour });
   }, [data, records, memberId, now]);
-
-  const earlier = useMemo(() => (snapshot?.achievementsByChild?.[memberId] ?? [])
-    .filter(b => b.isUnlocked)
-    .sort((a, b) => (b.unlockedAt ?? '').localeCompare(a.unlockedAt ?? '')), [snapshot, memberId]);
 
   if (error && !data) return <ErrorBanner onRetry={reload} stale={false} />;
   if (!data || !view) return <LoadingBlock label={en ? 'Loading shields' : '쉴드를 불러오는 중'} />;
@@ -138,12 +131,11 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
             <div>
               <h3 className="mb-2 text-xs font-semibold text-[#C9CCE0]">{en ? 'Earlier shields' : '예전 쉴드'}</h3>
               <ul className="grid grid-cols-4 gap-1 sm:grid-cols-8">
-                {earlier.map(b => {
-                  const def = DEFS.get(b.achievementId);
-                  const name = def ? t(shieldTitle(def)) : b.title;
+                {earlier.map(({ definition: def, unlockedAt }) => {
+                  const name = t(shieldTitle(def));
                   return (
-                    <li key={b.achievementId} className="flex flex-col items-center gap-1 p-1 text-center" title={b.unlockedAt ? `${name} · ${formatDay(b.unlockedAt.slice(0, 10), en, { year: 'numeric', month: 'short', day: 'numeric' })}` : name}>
-                      <InsigniaBadge rarity={b.rarity} icon={b.icon} seed={b.achievementId} size={44} ariaLabel="" />
+                    <li key={def.achievementId} className="flex flex-col items-center gap-1 p-1 text-center" title={`${name} · ${formatDay(unlockedAt.slice(0, 10), en, { year: 'numeric', month: 'short', day: 'numeric' })}`}>
+                      <InsigniaBadge rarity={def.rarity} icon={def.icon} seed={def.achievementId} size={44} ariaLabel="" />
                       <span className="line-clamp-2 text-[10px] leading-tight text-[#C9CCE0]">{name}</span>
                     </li>
                   );

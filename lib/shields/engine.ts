@@ -22,7 +22,6 @@
 // Day without snapshot Not evaluated. It counts toward neither side.
 
 import type { DayOfWeek } from '@/lib/db';
-import { categorizeTask, type HabitCategory } from '@/lib/achievements/definitions';
 
 export type PeriodType = 'week' | 'month';
 /** One Shield per routine window plus one for bonus tasks. */
@@ -100,22 +99,9 @@ export interface Tally {
   periodDays: number;
 }
 
-export interface PeriodTally extends Tally {
-  byCategory: Partial<Record<HabitCategory, Tally>>;
-}
+export type PeriodTally = Tally;
 
 const emptyTally = (periodDays = 0): Tally => ({ eligible: 0, completed: 0, days: 0, coveredDays: 0, periodDays });
-
-/** Categories using the existing achievement taxonomy, without the
- *  "responsibility" fallback categorizeTask applies to unmatched habits —
- *  only genuinely mapped habits count toward Dedication. */
-export function strictCategories(slot: Pick<SnapshotSlot, 'title' | 'icon' | 'window'>): HabitCategory[] {
-  const cats = categorizeTask({ title: slot.title, icon: slot.icon, timeWindow: slot.window });
-  const genuine = categorizeTask({ title: slot.title, icon: slot.icon, timeWindow: undefined });
-  const fallbackOnly = genuine.length === 1 && genuine[0] === 'responsibility'
-    && !/clean|cleanup|laundry|room|toy|bed|pajama|정리|빨래|장난감|침구|잠옷/i.test(`${slot.title} ${slot.icon}`);
-  return cats.filter(c => !(fallbackOnly && c === 'responsibility'));
-}
 
 /** Completed slot keys for a member: `${taskId}|${day}|${window}`. */
 export function completedSlotKeys(
@@ -162,14 +148,11 @@ export function tallyPeriod(
 ): PeriodTally {
   const periodDays = daysBetween(period.start, period.end) + 1;
   const total: Tally = emptyTally(periodDays);
-  const byCategory: Partial<Record<HabitCategory, Tally>> = {};
-  const catDays = new Map<HabitCategory, Set<string>>();
   for (const s of schedules) {
     if (s.userId !== userId || s.day < period.start || s.day > period.end) continue;
     if (options.today && s.day > options.today) continue;
     total.coveredDays += 1;
     let dayHasEligible = false;
-    const dayCats = new Set<HabitCategory>();
     for (const slot of s.slots) {
       const completed = done.has(`${slot.taskId}|${s.day}|${slot.window}`);
       const open = options.today === s.day && !completed
@@ -178,22 +161,10 @@ export function tallyPeriod(
       total.eligible += 1;
       if (completed) total.completed += 1;
       dayHasEligible = true;
-      for (const cat of strictCategories(slot)) {
-        const t = (byCategory[cat] ??= emptyTally(periodDays));
-        t.eligible += 1;
-        if (completed) t.completed += 1;
-        dayCats.add(cat);
-      }
     }
     if (dayHasEligible) total.days += 1;
-    for (const cat of dayCats) {
-      const set = catDays.get(cat) ?? new Set<string>();
-      set.add(s.day);
-      catDays.set(cat, set);
-    }
   }
-  for (const [cat, set] of catDays) byCategory[cat]!.days = set.size;
-  return { ...total, byCategory };
+  return total;
 }
 
 // ---------------------------------------------------------------------------

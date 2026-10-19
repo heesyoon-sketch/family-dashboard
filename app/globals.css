@@ -146,6 +146,23 @@ body {
   box-shadow: inset 3px 0 0 var(--bonus), inset 0 0 0 1px var(--success-ring);
 }
 
+/* Habit on a roll: a small warm flame with the streak count. */
+.habit-flame {
+  background: linear-gradient(135deg, #FFD27A, #FF9248);
+  box-shadow: 0 0 0 1px #0006;
+}
+.habit-flame-blazing {
+  background: linear-gradient(135deg, #FFE7A3, #FF6B3D 70%, #E8384F);
+  box-shadow: 0 0 0 1px #0006, 0 0 8px #FF6B3D99;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .habit-flame-blazing { animation: habit-flicker 1.8s ease-in-out infinite; }
+}
+@keyframes habit-flicker {
+  0%, 100% { box-shadow: 0 0 0 1px #0006, 0 0 6px #FF6B3D88; }
+  50% { box-shadow: 0 0 0 1px #0006, 0 0 11px #FF6B3DCC; }
+}
+
 .routine-reference-card[data-bonus="true"] {
   box-shadow: inset 3px 0 0 var(--bonus);
 }

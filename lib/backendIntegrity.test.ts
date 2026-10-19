@@ -44,14 +44,6 @@ test('offline actions are retained until success or an unrecoverable rejection',
   assert.doesNotMatch(read('lib/store.ts'), /pruneStaleActions/);
 });
 
-test('shield reads use an incremental completion cache and hydrated task data', () => {
-  const storage = read('lib/achievements/storage.ts');
-  assert.match(storage, /COMPLETION_CACHE_FULL_REFRESH_MS/);
-  assert.match(storage, /COMPLETION_CACHE_OVERLAP_MS/);
-  assert.match(storage, /new Map\(_completionCache!\.byId\)/);
-  assert.match(storage, /Object\.prototype\.hasOwnProperty\.call\(fallback, id\)/);
-});
-
 test('school week quests are family-scoped, weekly-idempotent, and award one pass for three weekdays', () => {
   const migration = read('supabase/migrations/105_school_week_quest.sql');
   assert.match(migration, /unique \(user_id, earned_for_day\)/);

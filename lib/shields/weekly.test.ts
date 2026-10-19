@@ -24,6 +24,9 @@ test('rules and rates match shield_config in the migrations', () => {
   assert.match(bronze, /'\{window,bronze\}', '50'/);
   assert.match(bronze, /'\{bonus,bronze\}', '1'/);
   rules.rateBp.bronze = 0; rules.window.bronze = 50; rules.bonus.bronze = 1;
+  // Legendary bonus moved to 6 days (one rest day) in a later migration.
+  assert.match(read('supabase/migrations/20261019230000_bonus_shield_rest_day.sql'), /jsonb_set\(rules, '\{bonus,legendary\}', '6'\)/);
+  rules.bonus.legendary = 6;
   assert.deepEqual(rules.rateBp, RATE_BP);
   assert.equal(rules.capBp, CAP_BP);
   assert.equal(rules.minCoveredDays, WEEKLY_RULES.minCoveredDays);
@@ -55,7 +58,8 @@ test('tier boundaries are exact', () => {
   assert.equal(tierFor(0, WEEKLY_RULES.bonus), null);
   assert.equal(tierFor(2, WEEKLY_RULES.bonus), 'bronze');
   assert.equal(tierFor(3, WEEKLY_RULES.bonus), 'silver');
-  assert.equal(tierFor(7, WEEKLY_RULES.bonus), 'legendary');
+  assert.equal(tierFor(5, WEEKLY_RULES.bonus), 'epic');
+  assert.equal(tierFor(6, WEEKLY_RULES.bonus), 'legendary', 'one rest day still earns Legendary');
 });
 
 test('too few slots in a window earns nothing in that window', () => {
@@ -142,4 +146,19 @@ test('bronze shields fill the slot but never pay, and add no ledger rows', () =>
   assert.match(sql, /if coalesce\(\(v_quote ->> 'rateBp'\)::integer, 0\) = 0 then return null; end if;/);
   assert.match(sql, /when v_bonus_days >= \(v_rules #>> '\{bonus,bronze\}'\)::int then 'bronze'/);
   assert.equal(bonusPoints(50, RATE_BP.bronze), 0);
+});
+
+test('undo works when a shield bonus rounded down to 0', () => {
+  const sql = read('supabase/migrations/20261019220000_fix_zero_shield_bonus_undo.sql');
+  // A 0-point award is never reversed (the ledger rejects a 0-point reversal).
+  assert.match(sql, /if v_entry\.bonus_points <= 0 then return 0; end if;/);
+  // And new 0-point bonuses are not recorded at all.
+  assert.match(sql, /if v_bonus <= 0 then return null; end if;/);
+});
+
+test('a server error is shown, not queued as offline; paused retries never loop', () => {
+  const store = read('lib/store.ts');
+  assert.equal(store.match(/if \(error instanceof RpcError && error\.code !== null\) \{\n\s+await get\(\)\.hydrate\(\);\n\s+throw error;/g)?.length, 2, 'complete and undo');
+  assert.match(store, /if \(processed > 0\) \{\n\s+await get\(\)\.hydrate\(\);\n\s+broadcastSync\(\);/);
+  assert.match(read('components/TaskCard.tsx'), /description: error instanceof Error \? error\.message : undefined/);
 });

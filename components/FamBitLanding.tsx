@@ -315,7 +315,7 @@ const landingCopy: Record<LandingLocale, LandingCopy> = {
       body: '',
       items: [
         { icon: MonitorSmartphone, accent: MINT, title: 'Made for a shared screen', body: 'Big touch targets on the living-room laptop or tablet, member tabs on phones, and an installable app that updates itself.' },
-        { icon: ShieldCheck, accent: BLUE, title: 'Monthly shields', body: 'Consistency builds Momentum, the family builds Harmony, and reachable shields add a visible bonus layer.' },
+        { icon: ShieldCheck, accent: BLUE, title: 'Weekly shields', body: 'A strong morning, evening or bonus week earns a shield that adds a small bonus the next week.' },
         { icon: HeartHandshake, accent: PINK, title: 'A mailbox for what\'s hard to say', body: 'Send a few points with "thank you," "I\'m sorry," or "I love you." Every gift stays in the family feed.' },
         { icon: BarChart3, accent: AMBER, title: 'Weekly recap', body: 'Completions, best days, and streaks for every member, plus a recap moment each new week.' },
         { icon: Palmtree, accent: VIOLET, title: 'Rest days built in', body: 'Special Day Mode and sale-day exemptions keep the system fair when life happens.' },

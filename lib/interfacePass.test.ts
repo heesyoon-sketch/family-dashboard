@@ -168,10 +168,12 @@ test('retired features stay retired: harmony, daily family quest, badges, level-
 
   const store = read('lib/store.ts');
   assert.doesNotMatch(store, /calculateHarmony|scheduleRealtimeShieldSync|syncAchievements\(|revokeUnmetAchievements/);
-  // Frozen insignias load once at startup for the Shield Wall history.
-  assert.match(read('components/SyncBootstrap.tsx'), /syncAchievementsOnce\(/);
+  // Insignias are read-only history now; nothing syncs them at startup.
+  assert.doesNotMatch(read('components/SyncBootstrap.tsx'), /syncAchievements/);
 
-  const aura = read('components/MomentumAura.tsx');
-  assert.doesNotMatch(aura, /per-completion bonus|capped at \+50%|\{momentum\.meta\.label\}/);
-  assert.match(aura, /보기만 하는 표시라 포인트는 붙지 않아요/);
+  // Momentum is gone entirely: no aura, no store state, no header rate line.
+  assert.throws(() => read('components/MomentumAura.tsx'));
+  assert.throws(() => read('lib/progression/momentum.ts'));
+  const panel = read('components/MemberPanel.tsx');
+  assert.doesNotMatch(panel, /MomentumAura|momentum|useWeeklyRequiredRates|이번 주 필수/);
 });

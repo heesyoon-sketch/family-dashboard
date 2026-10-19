@@ -53,8 +53,6 @@ test('snapshots freeze the denominator; unscheduled completions never count', ()
   assert.equal(t.eligible, 4);
   assert.equal(t.completed, 2);
   assert.equal(t.coveredDays, 2);
-  assert.equal(t.byCategory.learning?.eligible, 2);
-  assert.equal(t.byCategory.health?.completed, 1);
   // Live view: evening slots on "today" are not misses yet.
   const live = tallyPeriod('u', week, schedules, new Set(), { today: '2026-10-20', nowHour: 9 });
   assert.equal(live.eligible, 3);

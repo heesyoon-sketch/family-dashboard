@@ -31,8 +31,8 @@ export const TYPE_COPY: Record<ShieldType, { name: L; theme: L; how: L }> = {
     name: { en: 'Bonus Shield', ko: '보너스 쉴드' },
     theme: { en: 'I do a little extra.', ko: '나는 조금 더 해내요.' },
     how: {
-      en: `Do at least one bonus task on ${B.bronze}+ day (Bronze, no bonus), ${B.silver} days (Silver), ${B.gold} (Gold), ${B.epic} (Epic) or all ${B.legendary} (Legendary) — Silver and up need at least ${B.minRequiredRate}% of your required routine done. Boosts next week’s bonus tasks.`,
-      ko: `보너스 과제를 ${B.bronze}일 이상(브론즈, 보너스 없음) · ${B.silver}일(실버) · ${B.gold}일(골드) · ${B.epic}일(에픽) · ${B.legendary}일 모두(레전더리) 해요. 실버부터는 필수 루틴을 ${B.minRequiredRate}% 이상 해야 해요. 다음 주 보너스 과제 포인트가 올라가요.`,
+      en: `Do at least one bonus task on ${B.bronze}+ day (Bronze, no bonus), ${B.silver} days (Silver), ${B.gold} (Gold), ${B.epic} (Epic) or ${B.legendary}+ (Legendary — one rest day is fine) — Silver and up need at least ${B.minRequiredRate}% of your required routine done. Boosts next week’s bonus tasks.`,
+      ko: `보너스 과제를 ${B.bronze}일 이상(브론즈, 보너스 없음) · ${B.silver}일(실버) · ${B.gold}일(골드) · ${B.epic}일(에픽) · ${B.legendary}일 이상(레전더리, 하루는 쉬어도 돼요) 해요. 실버부터는 필수 루틴을 ${B.minRequiredRate}% 이상 해야 해요. 다음 주 보너스 과제 포인트가 올라가요.`,
     },
   },
 };

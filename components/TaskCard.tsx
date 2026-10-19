@@ -43,6 +43,7 @@ export function TaskCard({
   const { lang } = useLanguage();
   const reducedMotion = useReducedMotion();
   const isBonus = isOptionalTask(task);
+  const signal = useFamilyStore(s => s.habitSignalsByTask[task.id]);
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
@@ -138,7 +139,9 @@ export function TaskCard({
       }
     } catch (error) {
       console.error('Task update failed', error);
-      toast.error(lang === 'en' ? 'Could not save. Please try again.' : '저장하지 못했어요. 다시 시도해주세요.');
+      toast.error(lang === 'en' ? 'Could not save. Please try again.' : '저장하지 못했어요. 다시 시도해주세요.', {
+        description: error instanceof Error ? error.message : undefined,
+      });
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -198,9 +201,7 @@ export function TaskCard({
     }
   }, [iconMissing, task.icon, iconKey]);
 
-  // Points are now the simple base reward — no streak multipliers, no
-  // tier glow. Momentum/harmony bonuses live on the dashboard HUD instead
-  // of bleeding optimization pressure into individual habits.
+  // Points are the simple base reward; the only bonus is weekly Shields.
   const displayPts = task.basePoints;
   const duration = taskDurationOptionForPoints(task.basePoints);
   const bonusLabel = lang === 'en' ? 'Bonus' : '보너스';
@@ -212,6 +213,11 @@ export function TaskCard({
   const accessibleLabel = disabledReason === 'deadline'
     ? (lang === 'en' ? `${spokenTitle}, deadline passed` : `${spokenTitle}, 마감됨`)
     : toggleLabel;
+  const signalText = signal?.state === 'cold'
+    ? (lang === 'en' ? 'Missed a few times lately — try again?' : '최근에 자주 놓쳤어요. 다시 해볼까요?')
+    : signal?.state
+      ? (lang === 'en' ? `${signal.streak} in a row` : `${signal.streak}번 연속`)
+      : null;
   const swipeHint = completed
     ? (lang === 'en' ? 'Drag left to undo · Left arrow key' : '왼쪽으로 드래그하여 취소 · 왼쪽 방향키')
     : (lang === 'en' ? 'Drag right to complete · Right arrow key' : '오른쪽으로 드래그하여 완료 · 오른쪽 방향키');
@@ -278,7 +284,7 @@ export function TaskCard({
         data-completed={completed}
         data-bonus={isBonus || undefined}
         aria-label={accessibleLabel}
-        aria-description={disabled ? timeWindowDisplay : `${timeWindowDisplay}. ${swipeHint}`}
+        aria-description={[signalText, disabled ? timeWindowDisplay : `${timeWindowDisplay}. ${swipeHint}`].filter(Boolean).join('. ')}
         aria-keyshortcuts={disabled ? undefined : completed ? 'ArrowLeft' : 'ArrowRight'}
         title={disabled ? timeWindowDisplay : swipeHint}
         style={{ x, rotate: reducedMotion ? 0 : cardRotate, scale: reducedMotion ? 1 : cardScale, touchAction: 'pan-y' }}
@@ -292,6 +298,18 @@ export function TaskCard({
         {/* Icon — 40px, readable and comfortable on touch screens */}
         <span aria-hidden className="relative w-10 h-10 rounded-xl bg-[var(--surface-elevated)] flex items-center justify-center shrink-0 md:h-8 md:w-8 md:rounded-lg">
           <LucideIcon size={19} className={completed ? 'text-[var(--success)]' : 'text-[var(--secondary)]'} />
+          {signal?.state === 'hot' || signal?.state === 'blazing' ? (
+            <span
+              title={signalText ?? undefined}
+              className={`habit-flame absolute -right-1.5 -top-1.5 flex items-center gap-px rounded-full px-1 py-px text-[9px] font-black leading-none tabular-nums text-[#2A1405] ${signal.state === 'blazing' ? 'habit-flame-blazing' : ''}`}
+            >
+              <Icons.Flame size={9} strokeWidth={3} aria-hidden />{signal.streak}
+            </span>
+          ) : signal?.state === 'cold' ? (
+            <span title={signalText ?? undefined} className="absolute -right-1.5 -top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[#2E3A1F] text-[#B7E07A] ring-1 ring-[#B7E07A]/40">
+              <Icons.Sprout size={10} strokeWidth={2.5} aria-hidden />
+            </span>
+          ) : null}
         </span>
 
         {/* Text — text-sm title, text-xs points, line-clamp-2 prevents overflow */}

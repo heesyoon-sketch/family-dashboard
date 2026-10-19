@@ -2,28 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { INSIGNIAS_FROZEN, LEGACY_INSIGNIA_BONUS_END, legacyInsigniaBonusActive } from './transition';
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
-test('insignia bonus stops when weekly shields start (Mon Oct 19), so they never stack', () => {
-  assert.equal(LEGACY_INSIGNIA_BONUS_END, '2026-10-19');
-  const tz = 'America/Toronto';
-  assert.equal(legacyInsigniaBonusActive(new Date('2026-10-19T03:59:00Z'), tz), true, 'Sun Oct 18, 23:59 in Toronto');
-  assert.equal(legacyInsigniaBonusActive(new Date('2026-10-19T04:00:00Z'), tz), false, 'Mon Oct 19, 00:00 in Toronto');
-});
-
-test('insignias are frozen records: no unlocks, awards, revokes, loadout edits, or popups', () => {
-  assert.equal(INSIGNIAS_FROZEN, true);
-  const storage = read('lib/achievements/storage.ts');
-  assert.match(storage, /if \(INSIGNIAS_FROZEN\) \{\n\s+return \{ state, achievementsByChild: persistedAchievementsByChild, newlyUnlocked: \[\], awardedLevelsByUser: \{\} \};/);
-  assert.match(storage, /if \(INSIGNIAS_FROZEN\) return \{ revoked: \[\], refundedLevelsByUser: \{\} \};/);
-  assert.match(storage, /\/\/ The insignia loadout is locked as-is[^\n]*\n\s+if \(INSIGNIAS_FROZEN\) return state;/);
-  // No client-side bonus at all: insignias, momentum and harmony add nothing;
-  // the only point bonus is the weekly Shields, applied by the server.
+test('insignias are read-only history: no engine, sync, awards or unlock pop-ups', () => {
+  const reader = read('lib/achievements/earlierShields.ts');
+  assert.match(reader, /\.from\('achievement_states'\)\s*\.select\('user_id,unlocked_at_by_achievement_id'\)/);
+  assert.doesNotMatch(reader, /\.(insert|update|upsert)\(|\.delete\(\)/, 'never writes to the database');
+  assert.match(read('components/hall/ShieldWall.tsx'), /useEarlierShields\(familyId, memberId\)/);
+  for (const gone of ['lib/achievements/storage.ts', 'lib/achievements/engine.ts', 'lib/achievements/useShieldSnapshot.ts', 'lib/shields/transition.ts']) {
+    assert.throws(() => read(gone), `${gone} is removed`);
+  }
+  assert.doesNotMatch(read('components/SyncBootstrap.tsx'), /achievements/);
+  // No client-side bonus at all: the only point bonus is the weekly Shields.
   const store = read('lib/store.ts');
   assert.match(store, /await processCompletion\(userId, taskId, false, completionAt\);/);
-  assert.doesNotMatch(store, /composeBonusPercent|loadoutBonusFromIds|bonusPercent/);
+  assert.doesNotMatch(store, /composeBonusPercent|loadoutBonusFromIds|bonusPercent|insigniaQueue|momentum/);
   assert.doesNotMatch(read('app/page.tsx'), /InsigniaUnlockOverlay/);
 });
 

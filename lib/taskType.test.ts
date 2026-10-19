@@ -230,7 +230,6 @@ test('a skipped bonus task never breaks a perfect day; a bonus alone never makes
   ], dayStart);
   assert.equal(isPerfectRoutineDay(bonusOnly, bonusDone), false);
 
-  assert.match(read('lib/achievements/engine.ts'), /if \(task\.active !== 1 \|\| isOptionalTask\(task\)\) return false;/);
 });
 
 // 8. Shields --------------------------------------------------------------------

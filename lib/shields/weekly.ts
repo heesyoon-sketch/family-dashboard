@@ -29,7 +29,7 @@ import {
 export const WEEKLY_RULES = {
   minCoveredDays: 6,
   window: { minSlots: 5, minDays: 3, bronze: 50, silver: 70, gold: 85, epic: 95, legendary: 100 },
-  bonus: { bronze: 1, silver: 3, gold: 4, epic: 5, legendary: 7, minRequiredRate: 70 },
+  bonus: { bronze: 1, silver: 3, gold: 4, epic: 5, legendary: 6, minRequiredRate: 70 },
 } as const;
 
 /** Basis points: 100 bp = 1%. Mirrors shield_config.rules.rateBp. */

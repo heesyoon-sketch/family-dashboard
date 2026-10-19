@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Activity, CalendarDays, CheckCircle2, Flame, Lightbulb, TrendingUp } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Flame, Lightbulb, TrendingUp } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
 import {
   PERIODS,
@@ -42,21 +42,12 @@ const COMPARE_LABEL: Record<PeriodId, Localized> = {
   year: { en: 'vs same point last year', ko: '작년 같은 기간 대비' },
   all: { en: 'Since your first record', ko: '첫 기록부터' },
 };
-const MOMENTUM_LABEL: Record<string, Localized> = {
-  spark: { en: 'Spark', ko: '불씨' },
-  warm: { en: 'Warm', ko: '따뜻함' },
-  bright: { en: 'Bright', ko: '환하게' },
-  blazing: { en: 'Blazing', ko: '활활' },
-  overflowing: { en: 'Overflowing', ko: '넘쳐흘러요' },
-};
-
 /** One page: the family band on top (shared status, mission, member cards
  *  that pick the person), the selected member's growth below. */
 export function FamilyGrowth({ analytics, initialMemberId }: { analytics: FamilyAnalyticsState; initialMemberId: string | null }) {
   const { en, t } = useCopy();
   const { members, records, timezone, error, refresh } = analytics;
   const users = useFamilyStore(s => s.users);
-  const momentumByUser = useFamilyStore(s => s.momentumByUser);
   const todayTasksByUser = useFamilyStore(s => s.tasksByUser);
   const todayCompletionsByWindow = useFamilyStore(s => s.todayCompletionsByWindow);
   const penaltyPauseEnabled = useFamilyStore(s => s.penaltyPauseEnabled);
@@ -134,7 +125,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
   if (!member || !view) return <div className="p-4"><EmptyNote>{en ? 'Add a family member to start tracking.' : '가족 구성원을 추가하면 기록이 시작돼요.'}</EmptyNote></div>;
 
   const user = users.find(u => u.id === member.id);
-  const momentum = momentumByUser[member.id];
   const { comparison } = view;
   const hasHistory = view.history.firstDay !== null;
 
@@ -187,12 +177,11 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
                 <p className="text-xs text-[#8E94B4]">{t(COMPARE_LABEL[period])}{comparison.comparable && comparison.previous?.rate !== null && comparison.previous ? (en ? ` (${pctText(comparison.previous.rate)})` : ` (${pctText(comparison.previous.rate)})`) : ''}</p>
               </div>
             </div>
-            <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 { icon: CalendarDays, label: en ? 'Active days' : '실천한 날', value: `${comparison.current.activeDays}`, sub: en ? `of ${comparison.current.scheduledDays} with habits` : `습관 있던 ${comparison.current.scheduledDays}일 중` },
                 { icon: CheckCircle2, label: en ? 'Completed' : '완료한 습관', value: `${comparison.current.completed}`, sub: en ? `of ${comparison.current.eligible} scheduled` : `예정 ${comparison.current.eligible}회 중` },
                 { icon: Flame, label: en ? 'Active-day run' : '연속 실천', value: en ? `${view.run} days` : `${view.run}일`, sub: en ? `Best ${view.bestRun}` : `최고 ${view.bestRun}일` },
-                { icon: Activity, label: en ? 'Momentum' : '모멘텀', value: momentum ? t(MOMENTUM_LABEL[momentum.state] ?? { en: momentum.meta.label, ko: momentum.meta.label }) : '—', sub: momentum ? (en ? `Score ${momentum.score} · last 14 days` : `점수 ${momentum.score} · 최근 14일`) : '' },
               ].map(item => (
                 <div key={item.label} className="rounded-2xl bg-black/20 p-3">
                   <dt className="flex items-center gap-1.5 text-xs text-[#A9AECB]"><item.icon size={13} aria-hidden />{item.label}</dt>

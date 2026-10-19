@@ -14,11 +14,7 @@ import {
   type PerfectDayCouponKind,
   type PerfectQuestProgress,
 } from './db';
-import type { AchievementProgress } from './achievements/engine';
-import {
-  calculateMomentum,
-  type MomentumResult,
-} from './progression';
+import { habitSignal, type HabitSignal } from './habitSignals';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import {
   deleteTaskAction,
@@ -185,11 +181,8 @@ interface FamilyState {
   dailyStreakAtRiskByUser: Record<string, boolean>;
   weeklyRecapByUser: Record<string, WeeklyRecap>;
   /** Per-member emotional rhythm — replaces the old streak-multiplier system. */
-  momentumByUser: Record<string, MomentumResult>;
-  /** Family-wide cooperation/resonance score. */
-  /** Insignias unlocked but not yet shown to the user. Surfaces a celebration
-   *  pop-up that nudges them to check out the Insignia Wall. */
-  insigniaQueue: AchievementProgress[];
+  /** Per-habit flame / sprout signal for the task cards (visual only). */
+  habitSignalsByTask: Record<string, HabitSignal>;
   perfectDayQueue: PerfectDayAward[];
   hydrated: boolean;
   soundEnabled: boolean;
@@ -213,8 +206,6 @@ interface FamilyState {
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
   applyBalance: (userId: string, newBalance: number) => void;
-  enqueueInsigniaUnlocks: (items: AchievementProgress[]) => void;
-  dismissInsigniaUnlock: () => void;
   dismissPerfectDayAward: () => void;
   toggleSound: () => void;
   togglePenaltyPause: () => Promise<void>;
@@ -330,7 +321,7 @@ function scheduleRealtimeHydrate(ownMemberId: string | null, eventUserId?: strin
 // Apply a task_completions realtime change directly from the payload instead
 // of doing a full hydrate. Cheap and correct for the most common case (other
 // devices marking/un-marking tasks), with the trade-off that derived stats
-// (momentum, recap) refresh on the next full hydrate (e.g. tab
+// (recap, habit signals) refresh on the next full hydrate (e.g. tab
 // focus or admin action). For a 4-person kiosk that's a worthwhile trade —
 // a full hydrate is ~8 queries; this is zero.
 type TaskCompletionRow = {
@@ -462,8 +453,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   dailyStreakByUser: {},
   dailyStreakAtRiskByUser: {},
   weeklyRecapByUser: {},
-  momentumByUser: {},
-  insigniaQueue: [],
+  habitSignalsByTask: {},
   perfectDayQueue: [],
   hydrated: false,
   soundEnabled: loadSoundPref(),
@@ -743,9 +733,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const dailyStreakByUser: Record<string, number> = {};
     const dailyStreakAtRiskByUser: Record<string, boolean> = {};
     const weeklyRecapByUser: Record<string, WeeklyRecap> = {};
-    const momentumByUser: Record<string, MomentumResult> = {};
+    const habitSignalsByTask: Record<string, HabitSignal> = {};
+    const createdDayByTask = new Map((tRes.data ?? []).map(r => [r.id as string, r.created_at ? localDateKey(new Date(r.created_at as string)) : null]));
+    const todayKey = localDateKey(todayStart);
     const completionDatesByUser: Record<string, Date[]> = {};
-    const PROGRESSION_WINDOW = 14;
 
     // Recap focuses on the most recently *completed* ISO week (Mon–Sun).
     // weekMonday matches stats/page.tsx behaviour.
@@ -855,34 +846,28 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
       completionDatesByUser[u.id] = completionDates;
 
-      // Build per-day done/due arrays for the trailing 14 days. Momentum is
-      // %-based so each member is judged against their own due
-      // load — fairer than counting raw completions when habits and counts
-      // differ across the family. Days where nothing is scheduled don't
-      // pull the score down (skipped from numerator and denominator).
+      // Per-habit signals: a flame for a run of completed scheduled days, a
+      // sprout when a required habit keeps getting missed. Visual only.
+      const doneDaysByTask = new Map<string, Set<string>>();
+      for (const c of userHistComps) {
+        const set = doneDaysByTask.get(c.task_id) ?? new Set<string>();
+        set.add(localDateKey(new Date(c.completed_at)));
+        doneDaysByTask.set(c.task_id, set);
+      }
+      for (const task of allTasks) {
+        if (task.userId !== u.id || task.active !== 1) continue;
+        habitSignalsByTask[task.id] = habitSignal({
+          daysOfWeek: task.daysOfWeek,
+          optional: task.taskType === 'optional',
+          createdDay: createdDayByTask.get(task.id) ?? null,
+          doneDays: doneDaysByTask.get(task.id) ?? new Set(),
+          today: todayKey,
+          serverStreak: task.streakCount,
+          lastCompletedDay: task.lastCompletedAt ? localDateKey(task.lastCompletedAt) : null,
+        });
+      }
       // Bonus tasks are never "due", so they stay out of every rate below.
       const userActiveTasks = requiredTasks(allTasks.filter(t => t.userId === u.id && t.active === 1));
-      const dailyDone = new Array<number>(PROGRESSION_WINDOW).fill(0);
-      const dailyDue = new Array<number>(PROGRESSION_WINDOW).fill(0);
-      for (let ago = 0; ago < PROGRESSION_WINDOW; ago++) {
-        const dayStart = startOfDayLocal(addDays(todayStart, -ago));
-        const dayEndMs = addDays(dayStart, 1).getTime();
-        const dayStartMs = dayStart.getTime();
-        const dowKey = DOW_INDEX[dayStart.getDay()];
-        const dueTasks = userActiveTasks.filter(t => t.daysOfWeek.includes(dowKey));
-        dailyDue[ago] = dueTasks.length;
-        if (dueTasks.length === 0) continue;
-        const dueIds = new Set(dueTasks.map(t => t.id));
-        const doneIds = new Set<string>();
-        for (const c of userHistComps) {
-          const tms = new Date(c.completed_at).getTime();
-          if (tms >= dayStartMs && tms < dayEndMs && dueIds.has(c.task_id)) {
-            doneIds.add(c.task_id);
-          }
-        }
-        dailyDone[ago] = doneIds.size;
-      }
-      momentumByUser[u.id] = calculateMomentum({ dailyDone, dailyDue });
       bestDayByUser[u.id] = dayMap.size > 0
         ? Math.max(...[...dayMap.values()].map(s => s.size))
         : 0;
@@ -1057,7 +1042,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakByUser,
       dailyStreakAtRiskByUser,
       weeklyRecapByUser,
-      momentumByUser,
+      habitSignalsByTask,
       perfectDayQueue: [...get().perfectDayQueue, ...freshPerfectDayAwards],
       hydrated: true,
       timeOfDay,
@@ -1148,7 +1133,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             // / undoCompletion already applied them optimistically.
             if (eventUserId && eventUserId === currentMemberId) return;
             // Apply the change directly to todayCompletions; skip the full
-            // hydrate. Derived stats (momentum, recap) catch up on
+            // hydrate. Derived stats (recap, habit signals) catch up on
             // the next full hydrate triggered by SyncBootstrap or an admin
             // action — for a kiosk that's seconds-to-minutes.
             applyTaskCompletionEvent(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', newRow, oldRow);
@@ -1232,14 +1217,21 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         return { status: 'queued', taskId, basePoints };
       }
 
-      // No client-side bonus: the momentum flame is visual only, and the
-      // only point bonus is the equipped weekly Shields, applied server-side.
+      // No client-side bonus: the only point bonus is the equipped weekly Shields, applied server-side.
       const completionAt = new Date();
       let result;
       try {
         const { processCompletion } = await import('./gamification');
         result = await processCompletion(userId, taskId, false, completionAt);
       } catch (error) {
+        // Only a network failure is queued for later. When the server
+        // answered with an error, retrying would fail the same way: restore
+        // the true state and let the card show the error.
+        const { RpcError } = await import('./gamification');
+        if (error instanceof RpcError && error.code !== null) {
+          await get().hydrate();
+          throw error;
+        }
         await enqueueTaskAction('complete', userId, taskId);
         console.warn('Queued completion for offline sync', error);
         await get().hydrate();
@@ -1339,16 +1331,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         const { processUndo } = await import('./gamification');
         undoResult = await processUndo(userId, taskId, undoAt);
       } catch (error) {
-        // A definitive server rejection (e.g. undo blocked because the reward
-        // points were already spent) is not an offline blip — queuing it just
-        // schedules a doomed retry the sync loop will later drop. Restore the
-        // true state and stop; the task snaps back to completed with no points.
+        // A server answer (e.g. undo blocked because the points were already
+        // spent) is not an offline blip — queuing it only schedules doomed
+        // retries. Restore the true state and let the card show the error.
         const { RpcError } = await import('./gamification');
-        const permanentReject =
-          error instanceof RpcError && isUnrecoverableOfflineRpcCode(error.code);
-        if (permanentReject && isProbablyOnline()) {
+        if (error instanceof RpcError && error.code !== null) {
           await get().hydrate();
-          return;
+          throw error;
         }
         await enqueueTaskAction('undo', userId, taskId);
         console.warn('Queued undo for offline sync', error);
@@ -1412,6 +1401,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
       const { processCompletion, processUndo, RpcError } = await import('./gamification');
 
+      let processed = 0;
       for (const action of actions) {
         try {
           const actionAt = new Date(action.createdAt);
@@ -1432,6 +1422,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             await processUndo(action.userId, action.taskId, actionAt);
           }
           await deleteTaskAction(action.id);
+          processed += 1;
         } catch (error) {
           const isPermanent =
             error instanceof RpcError && isUnrecoverableOfflineRpcCode(error.code);
@@ -1442,6 +1433,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
               code: (error as { code: string }).code,
             });
             await deleteTaskAction(action.id);
+            processed += 1;
             continue;
           }
           console.warn('[sync] paused on transient error', error);
@@ -1449,8 +1441,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         }
       }
 
-      await get().hydrate();
-      broadcastSync();
+      // Only announce a sync when something changed. Announcing after a
+      // paused retry made other tabs retry at once, looping every second.
+      if (processed > 0) {
+        await get().hydrate();
+        broadcastSync();
+      }
     } finally {
       _syncInFlight = false;
     }
@@ -1588,17 +1584,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   },
 
 
-  enqueueInsigniaUnlocks: (items) => {
-    if (!items.length) return;
-    set(state => {
-      const seen = new Set(state.insigniaQueue.map(a => `${a.childId}:${a.achievementId}`));
-      const additions = items.filter(a => !seen.has(`${a.childId}:${a.achievementId}`));
-      if (additions.length === 0) return {};
-      return { insigniaQueue: [...state.insigniaQueue, ...additions] };
-    });
-  },
 
-  dismissInsigniaUnlock: () => set(state => ({ insigniaQueue: state.insigniaQueue.slice(1) })),
 
   dismissPerfectDayAward: () => set(state => ({ perfectDayQueue: state.perfectDayQueue.slice(1) })),
 
@@ -1668,8 +1654,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakByUser: {},
       dailyStreakAtRiskByUser: {},
       weeklyRecapByUser: {},
-      momentumByUser: {},
-      insigniaQueue: [],
+      habitSignalsByTask: {},
       perfectDayQueue: [],
       hydrated: false,
       timeOfDay: getCurrentTimeOfDay(),
