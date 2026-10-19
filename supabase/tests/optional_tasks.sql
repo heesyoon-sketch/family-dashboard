@@ -97,9 +97,10 @@ begin
   select coalesce(spendable_balance, 0) into v_balance_before from public.levels where user_id = r.member_id;
   select count(*) into v_revoked_before from public.perfect_day_coupons where user_id = r.member_id and status = 'revoked';
 
-  v_first := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, 'morning', v_morning, 0);
-  if coalesce((v_first->>'pointsAwarded')::int, 0) < 10 then
-    raise exception 'Bonus completion must award at least its base points: %', v_first;
+  -- A client-sent 50% bonus is ignored: completions pay base points only.
+  v_first := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, 'morning', v_morning, 50);
+  if coalesce((v_first->>'pointsAwarded')::int, 0) <> 10 then
+    raise exception 'Bonus completion must award exactly its base points: %', v_first;
   end if;
   select spendable_balance into v_balance_after_first from public.levels where user_id = r.member_id;
 

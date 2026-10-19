@@ -119,3 +119,9 @@ test('the dashboard always shows all three weekly slots, empty ones included', (
   const wall = read('components/hall/ShieldWall.tsx');
   assert.match(wall, /\{SHIELD_TYPES\.map\(type => \{\n\s+const award = view\.equipped\[type\];/);
 });
+
+test('the server ignores any client-sent bonus percent', () => {
+  const sql = read('supabase/migrations/20261019200000_ignore_client_bonus_percent.sql');
+  assert.match(sql, /v_bonus_pct := 0;/);
+  assert.doesNotMatch(sql, /coalesce\(p_bonus_percent/);
+});
