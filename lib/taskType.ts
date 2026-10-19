@@ -112,6 +112,7 @@ export const BONUS_TASK_TEMPLATES: BonusTaskTemplateGroup[] = [
       { icon: 'languages', title: { en: 'Practice English for 10 minutes', ko: '10분 영어 연습' } },
       { icon: 'code', title: { en: 'Coding for 20 minutes', ko: '20분 코딩' } },
       { icon: 'lightbulb', title: { en: 'Learn something new and tell a parent', ko: '새로 배운 것 부모님께 알려주기' } },
+      { icon: 'graduation-cap', title: { en: 'Teach someone something', ko: '누군가에게 무언가 가르쳐주기' } },
     ],
   },
   {
@@ -134,6 +135,7 @@ export const BONUS_TASK_TEMPLATES: BonusTaskTemplateGroup[] = [
       { icon: 'calendar-check', title: { en: 'Prepare school things for tomorrow', ko: '내일 학교 준비하기' } },
       { icon: 'utensils', title: { en: 'Help clean the kitchen', ko: '부엌 정리 돕기' } },
       { icon: 'shirt', title: { en: 'Help with laundry', ko: '빨래 돕기' } },
+      { icon: 'shirt', title: { en: 'Fold and put away laundry', ko: '빨래 개서 정리하기' } },
     ],
   },
   {
@@ -141,6 +143,7 @@ export const BONUS_TASK_TEMPLATES: BonusTaskTemplateGroup[] = [
     label: { en: 'Character / Family', ko: '마음·가족' },
     templates: [
       { icon: 'hand-heart', title: { en: 'Help a sibling', ko: '형제자매 돕기' } },
+      { icon: 'users', title: { en: 'Help a family member', ko: '가족 돕기' } },
       { icon: 'heart-handshake', title: { en: 'Do something helpful without being asked', ko: '말하기 전에 먼저 돕기' } },
       { icon: 'notebook-pen', title: { en: 'Write something you’re grateful for', ko: '감사한 일 적기' } },
       { icon: 'chef-hat', title: { en: 'Help prepare a family meal', ko: '가족 식사 준비 돕기' } },

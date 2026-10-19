@@ -202,9 +202,9 @@ export async function processCompletion(
   const badgesEarned = await evaluateAllBadges(userId);
   const leveledUp = Boolean(raw.leveledUp);
 
+  // Levels are no longer shown, so a level-up is not celebrated.
   let celebration: CompletionResult['celebration'] = null;
-  if (leveledUp)               celebration = { type: 'level_up', userId, newLevel: raw.level.currentLevel };
-  else if (badgesEarned.length) celebration = { type: 'badge', userId, badge: badgesEarned[0] };
+  if (badgesEarned.length) celebration = { type: 'badge', userId, badge: badgesEarned[0] };
 
   return {
     pointsAwarded: raw.pointsAwarded,

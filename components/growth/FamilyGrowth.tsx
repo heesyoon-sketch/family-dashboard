@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Activity, CalendarDays, CheckCircle2, Flame, Lightbulb, TrendingUp } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
-import { computeLevelProgress } from '@/lib/progression';
 import {
   PERIODS,
   activeDayRun,
@@ -58,7 +57,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
   const { members, records, timezone, error, refresh } = analytics;
   const users = useFamilyStore(s => s.users);
   const momentumByUser = useFamilyStore(s => s.momentumByUser);
-  const levelsByUser = useFamilyStore(s => s.levelsByUser);
   const todayTasksByUser = useFamilyStore(s => s.tasksByUser);
   const todayCompletionsByWindow = useFamilyStore(s => s.todayCompletionsByWindow);
   const penaltyPauseEnabled = useFamilyStore(s => s.penaltyPauseEnabled);
@@ -137,7 +135,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
 
   const user = users.find(u => u.id === member.id);
   const momentum = momentumByUser[member.id];
-  const levelProgress = computeLevelProgress(levelsByUser[member.id]?.totalPoints ?? 0);
   const { comparison } = view;
   const hasHistory = view.history.firstDay !== null;
 
@@ -171,7 +168,7 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
           <MemberAvatar name={member.name} avatarUrl={user?.avatarUrl} tone={MEMBER_TONES[Math.max(0, members.indexOf(member)) % MEMBER_TONES.length]} size={44} />
           <div className="min-w-0">
             <h2 id="overview-title" className="truncate text-lg font-bold text-white">{en ? `${member.name}'s growth` : `${member.name}의 성장`}</h2>
-            <p className="text-xs text-[#A9AECB]">Lv.{levelProgress.level} · {t(PERIOD_LABEL[period])}</p>
+            <p className="text-xs text-[#A9AECB]">{t(PERIOD_LABEL[period])}</p>
           </div>
         </div>
         <Segmented size="sm" label={en ? 'Reporting period' : '기간'} value={period} onChange={setPeriod} options={PERIODS.map(p => ({ value: p, label: t(PERIOD_LABEL[p]) }))} />
