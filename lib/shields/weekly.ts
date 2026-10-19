@@ -8,9 +8,9 @@
 //   Bonus    days with a bonus-task completion,   → boosts bonus tasks
 //            Silver+ only when ≥70% of required slots were done
 //
-// Bronze (50–69%, or 1–2 bonus days) fills the slot as recognition, +0%.
+// Bronze (50–69%, or 1–2 bonus days) fills the slot as recognition, +0P.
 //
-// The scopes never overlap, so one completion gets at most one Shield's rate.
+// The scopes never overlap, so one completion gets at most one Shield's bonus.
 // The database evaluates and awards; this module only shows progress, and a
 // test keeps these numbers equal to shield_config.rules.
 
@@ -32,9 +32,8 @@ export const WEEKLY_RULES = {
   bonus: { bronze: 1, silver: 3, gold: 4, epic: 5, legendary: 6, minRequiredRate: 70 },
 } as const;
 
-/** Basis points: 100 bp = 1%. Mirrors shield_config.rules.rateBp. */
-export const RATE_BP: Record<ShieldTier, number> = { bronze: 0, silver: 200, gold: 500, epic: 1000, legendary: 1500 };
-export const CAP_BP = 1500;
+/** Fixed points per matching completion. Mirrors shield_config.rules.pointsByTier. */
+export const POINTS_BY_TIER: Record<ShieldTier, number> = { bronze: 0, silver: 1, gold: 2, epic: 3, legendary: 4 };
 export const SLOT_OF: Record<ShieldType, 1 | 2 | 3> = { morning: 1, evening: 2, bonus: 3 };
 
 export type BonusScope = { kind: 'window'; window: Slot } | { kind: 'bonus' };
@@ -181,10 +180,7 @@ export function scopeApplies(scope: BonusScope, completion: { optional: boolean;
   return scope.kind === 'bonus' ? completion.optional : !completion.optional && scope.window === completion.window;
 }
 
-/** ceil(base × rate), integer math like the database: every boosted
- *  completion earns at least +1; a 0% rate (Bronze) earns 0. */
-export function bonusPoints(basePoints: number, rateBp: number): number {
-  return Math.floor((Math.max(0, basePoints) * Math.min(rateBp, CAP_BP) + 9999) / 10000);
+/** Zero-point completions earn no Shield bonus. */
+export function bonusPoints(basePoints: number, tier: ShieldTier): number {
+  return basePoints > 0 ? POINTS_BY_TIER[tier] : 0;
 }
-
-export const formatBp = (bp: number) => `${bp % 100 === 0 ? bp / 100 : (bp / 100).toFixed(1)}%`;

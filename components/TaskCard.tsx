@@ -13,6 +13,7 @@ import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { shieldCreditMessage } from '@/lib/shields/completionReward';
 import { taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
 import { isOptionalTask } from '@/lib/taskType';
 
@@ -118,7 +119,6 @@ export function TaskCard({
           });
         }
         if (feedback?.status === 'awarded') {
-          const bonusPoints = Math.max(0, feedback.pointsAwarded - feedback.basePoints);
           const detail = feedback.perfectQuestAwarded && feedback.perfectQuest
             ? feedback.perfectQuest.rewardKind === 'weekend'
               ? (lang === 'en'
@@ -129,12 +129,12 @@ export function TaskCard({
                   : '평일 루틴 챌린지 완주 · 30분 이용권 1장 획득!')
             : isBonus
               ? (lang === 'en' ? 'Bonus task · extra points earned!' : '보너스 미션 · 추가 포인트 획득!')
-            : bonusPoints > 0
-              ? (lang === 'en'
-                  ? `${feedback.basePoints} base + ${bonusPoints} bonus`
-                  : `기본 ${feedback.basePoints} + 보너스 ${bonusPoints}`)
-              : (lang === 'en' ? 'Points added to your balance' : '포인트가 차곡차곡 쌓였어요');
-          toast.success(`+${feedback.pointsAwarded}pt`, { description: detail });
+            : (lang === 'en' ? 'Points added to your balance' : '포인트가 차곡차곡 쌓였어요');
+          const description = feedback.shieldBonus
+            ? [shieldCreditMessage(feedback.basePoints, feedback.shieldBonus, lang),
+                feedback.perfectQuestAwarded || isBonus ? detail : null].filter(Boolean).join(' · ')
+            : detail;
+          toast.success(`+${feedback.pointsAwarded}pt`, { description, duration: feedback.shieldBonus ? 5000 : 4000 });
         }
       }
     } catch (error) {

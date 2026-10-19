@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DailySchedule, ShieldCompletion } from './engine';
-import { CAP_BP, RATE_BP, SLOT_OF, WEEKLY_RULES, bonusPoints, scopeApplies, tierFor, weekProgress } from './weekly';
+import { POINTS_BY_TIER, SLOT_OF, WEEKLY_RULES, bonusPoints, scopeApplies, tierFor, weekProgress } from './weekly';
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const MIGRATION = 'supabase/migrations/20261019180000_weekly_window_shields.sql';
@@ -27,8 +27,8 @@ test('rules and rates match shield_config in the migrations', () => {
   // Legendary bonus moved to 6 days (one rest day) in a later migration.
   assert.match(read('supabase/migrations/20261019230000_bonus_shield_rest_day.sql'), /jsonb_set\(rules, '\{bonus,legendary\}', '6'\)/);
   rules.bonus.legendary = 6;
-  assert.deepEqual(rules.rateBp, RATE_BP);
-  assert.equal(rules.capBp, CAP_BP);
+  assert.deepEqual(rules.rateBp, { bronze: 0, silver: 200, gold: 500, epic: 1000, legendary: 1500 });
+  assert.equal(rules.capBp, 1500);
   assert.equal(rules.minCoveredDays, WEEKLY_RULES.minCoveredDays);
   assert.deepEqual(rules.window, { ...WEEKLY_RULES.window });
   assert.deepEqual(rules.bonus, { ...WEEKLY_RULES.bonus });
@@ -42,7 +42,7 @@ test('morning and evening are scored separately from their own slots', () => {
   assert.deepEqual([p.morning.completed, p.morning.eligible, p.morning.rate], [14, 14, 100]);
   assert.equal(p.evening.rate, 50);
   assert.equal(p.evening.tier, 'bronze', '50% is Bronze — recognition, no bonus');
-  assert.equal(RATE_BP.bronze, 0);
+  assert.equal(POINTS_BY_TIER.bronze, 0);
   assert.deepEqual(p.evening.next, { tier: 'silver', needed: 3 }, '10/14 = 71% → silver');
 });
 
@@ -106,10 +106,10 @@ test('scopes never overlap, so a completion gets at most one shield', () => {
   for (const c of [{ optional: false, window: 'morning' }, { optional: false, window: 'evening' }, { optional: true, window: 'morning' }, { optional: true, window: 'evening' }] as const) {
     assert.equal(scopes.filter(s => scopeApplies(s, c)).length, 1);
   }
-  assert.equal(bonusPoints(30, RATE_BP.legendary), 5, 'ceil(30 × 15%) = ceil(4.5)');
-  assert.equal(bonusPoints(10, RATE_BP.silver), 1, 'a 10-point habit still gets +1');
-  assert.equal(bonusPoints(10, RATE_BP.gold), 1);
-  assert.equal(bonusPoints(10, RATE_BP.legendary), 2);
+  assert.equal(bonusPoints(30, 'legendary'), 4);
+  assert.equal(bonusPoints(10, 'silver'), 1, 'a 10-point habit still gets +1');
+  assert.equal(bonusPoints(10, 'gold'), 2);
+  assert.equal(bonusPoints(10, 'legendary'), 4);
   assert.deepEqual(SLOT_OF, { morning: 1, evening: 2, bonus: 3 });
 });
 
@@ -147,7 +147,7 @@ test('bronze shields fill the slot but never pay, and add no ledger rows', () =>
   assert.match(sql, /check \(tier in \('bronze', 'silver', 'gold', 'epic', 'legendary'\)\)/);
   assert.match(sql, /if coalesce\(\(v_quote ->> 'rateBp'\)::integer, 0\) = 0 then return null; end if;/);
   assert.match(sql, /when v_bonus_days >= \(v_rules #>> '\{bonus,bronze\}'\)::int then 'bronze'/);
-  assert.equal(bonusPoints(50, RATE_BP.bronze), 0);
+  assert.equal(bonusPoints(50, 'bronze'), 0);
 });
 
 test('undo works when a shield bonus rounded down to 0', () => {
@@ -176,10 +176,13 @@ test('a bonus day is any bonus task, not the same one every day', () => {
   assert.match(read('lib/shields/copy.ts'), /매일 같은 과제일 필요는 없어서/);
 });
 
-test('shield bonuses round up so small habits still feel them', () => {
-  const sql = read('supabase/migrations/20261019240000_shield_bonus_round_up.sql');
-  assert.match(sql, /'bonusPoints', \(greatest\(p_base_points, 0\) \* v_rate \+ 9999\) \/ 10000/);
-  // Kid-sized habits: 10/15/30/50 points across the tiers.
-  const table = [10, 15, 30, 50].map(base => (['silver', 'gold', 'epic', 'legendary'] as const).map(t => bonusPoints(base, RATE_BP[t])));
-  assert.deepEqual(table, [[1, 1, 1, 2], [1, 1, 2, 3], [1, 2, 3, 5], [1, 3, 5, 8]]);
+test('fixed shield bonuses distinguish every tier at any task value', () => {
+  for (const base of [1, 10, 15, 30, 50]) {
+    assert.deepEqual((['bronze', 'silver', 'gold', 'epic', 'legendary'] as const).map(t => bonusPoints(base, t)), [0, 1, 2, 3, 4]);
+  }
+  assert.equal(bonusPoints(0, 'legendary'), 0);
+  assert.equal(bonusPoints(-10, 'gold'), 0);
+  const sql = read('supabase/migrations/20261020000000_fixed_shield_points.sql');
+  const points = JSON.parse(sql.match(/'\{pointsByTier\}', '(\{.*?\})'::jsonb/)![1]);
+  assert.deepEqual(points, POINTS_BY_TIER);
 });

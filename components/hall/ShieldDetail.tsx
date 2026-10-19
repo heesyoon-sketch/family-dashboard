@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { periodContaining } from '@/lib/shields/engine';
-import { formatBp } from '@/lib/shields/weekly';
+import { POINTS_BY_TIER } from '@/lib/shields/weekly';
 import { TIER_COPY, TYPE_COPY, explainAward, scopeLabel, shieldName } from '@/lib/shields/copy';
 import { formatDay, useCopy } from '@/components/analytics/ui';
 import { ShieldEmblem } from './ShieldEmblem';
@@ -39,7 +39,7 @@ export function ShieldDetail({ award, recipient, onClose }: { award: WeeklyAward
         </div>
         {why && <p className="mt-5 rounded-2xl bg-black/25 p-4 text-sm leading-relaxed text-[#E7E9F5]">{t(why)}</p>}
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Bonus' : '보너스'}</dt><dd className="mt-0.5 font-semibold text-[#9FF0CE]">+{formatBp(award.bonus_rate_bp)}</dd></div>
+          <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Bonus' : '보너스'}</dt><dd className="mt-0.5 font-semibold text-[#9FF0CE]">+{POINTS_BY_TIER[award.tier]}P</dd></div>
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Applies to' : '적용 대상'}</dt><dd className="mt-0.5 font-semibold text-white">{t(scopeLabel(award.scope))}</dd></div>
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Tier' : '등급'}</dt><dd className="mt-0.5 font-semibold text-white">{t(TIER_COPY[award.tier])}</dd></div>
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Active' : '적용 기간'}</dt><dd className="mt-0.5 font-semibold text-white">{formatDay(equip.start, en)} – {formatDay(equip.end, en)}</dd></div>
@@ -48,8 +48,8 @@ export function ShieldDetail({ award, recipient, onClose }: { award: WeeklyAward
           <summary className="min-h-9 cursor-pointer font-semibold text-white">{en ? 'How this shield works' : '이 쉴드를 받는 방법'}</summary>
           <p className="mt-2">{t(TYPE_COPY[award.shield_type].how)}</p>
           <p className="mt-2 text-[#8E94B4]">{en
-            ? 'Earned from one week’s record, it is equipped automatically for the following week only, on that area’s base points, rounded up (at least +1). Earned shields stay in your history.'
-            : '한 주의 기록으로 얻은 쉴드는 다음 한 주 동안 자동으로 장착되고, 그 영역의 기본 포인트에 더해져요(올림 계산이라 최소 +1). 받은 쉴드는 기록에 남아요.'}</p>
+            ? 'Earned from one week’s record, it is equipped automatically for the following week only, adding fixed bonus points to each completed task in its area (Bronze +0P, Silver +1P, Gold +2P, Epic +3P, Legendary +4P). Earned shields stay in your history.'
+            : '한 주의 기록으로 얻은 쉴드는 다음 한 주 동안 자동으로 장착되고, 해당 영역의 과제를 완료할 때마다 고정 포인트가 더해져요(브론즈 +0P, 실버 +1P, 골드 +2P, 에픽 +3P, 레전더리 +4P). 받은 쉴드는 기록에 남아요.'}</p>
         </details>
       </div>
     </div>

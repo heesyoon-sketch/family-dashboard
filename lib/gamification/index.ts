@@ -1,3 +1,4 @@
+import { completionReward, type ShieldCredit } from '../shields/completionReward';
 import {
   DOW_INDEX,
   Level,
@@ -36,6 +37,8 @@ export function levelForPoints(pts: number): number {
 
 export interface CompletionResult {
   pointsAwarded: number;
+  basePoints: number;
+  shieldBonus: ShieldCredit | null;
   level: Level;
   maxStreak: number;
   longestStreak: number;
@@ -175,6 +178,7 @@ export async function processCompletion(
 
   const raw = data as {
     pointsAwarded: number;
+    shieldBonus?: { bonusPoints?: number; tier?: string | null } | null;
     level: RpcLevel;
     maxStreak: number;
     longestStreak: number;
@@ -194,7 +198,7 @@ export async function processCompletion(
   }
 
   return {
-    pointsAwarded: raw.pointsAwarded,
+    ...completionReward(raw),
     level: mapRpcLevel(raw.level),
     maxStreak: raw.maxStreak,
     longestStreak: raw.longestStreak,

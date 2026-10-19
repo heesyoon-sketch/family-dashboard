@@ -1,3 +1,4 @@
+import type { ShieldCredit } from './shields/completionReward';
 import { create } from 'zustand';
 import {
   Level,
@@ -103,6 +104,7 @@ export type CompletionFeedback =
       taskId: string;
       basePoints: number;
       pointsAwarded: number;
+      shieldBonus: ShieldCredit | null;
       perfectQuest: PerfectDayClaimResult['quest'];
       perfectQuestAwarded: boolean;
     }
@@ -1205,8 +1207,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       return {
         status: 'awarded',
         taskId,
-        basePoints,
+        basePoints: result.basePoints,
         pointsAwarded: result.pointsAwarded,
+        shieldBonus: result.shieldBonus,
         perfectQuest: result.perfectDay.quest,
         perfectQuestAwarded: result.perfectDay.awarded,
       };
