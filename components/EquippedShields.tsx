@@ -1,82 +1,50 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFamilyStore } from '@/lib/store';
-import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
-import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
-import { MAX_INSIGNIA_SLOTS, insigniaSlotsForLevel } from '@/lib/progression';
-import { InsigniaBadge } from '@/components/InsigniaBadge';
-import { ShieldEmblem } from '@/components/hall/ShieldEmblem';
+import { EmptyShield, ShieldEmblem } from '@/components/hall/ShieldEmblem';
 import { useWeeklyLoadouts } from '@/components/hall/useWeeklyLoadouts';
-import { legacyInsigniaBonusActive } from '@/lib/shields/transition';
-import { shieldName } from '@/lib/shields/copy';
+import { SHIELD_TYPES } from '@/lib/shields/engine';
+import { TYPE_COPY, shieldName } from '@/lib/shields/copy';
 
 const SHIELD_PX = 30;
-const SHIELD_FAN_CLASSES = {
-  1: [''],
-  2: ['-rotate-3 translate-y-px', 'rotate-3 translate-y-px'],
-  3: ['-rotate-6 translate-y-px', '', 'rotate-6 translate-y-px'],
-} as const;
-const SHIELD_DEFINITIONS_BY_ID = new Map(
-  ACHIEVEMENTS.map(achievement => [achievement.achievementId, achievement]),
-);
+const FAN_CLASSES = ['-rotate-6 translate-y-px', '', 'rotate-6 translate-y-px'] as const;
 
-/** Compact equipped-shield stack for the dashboard header: this week's
- *  equipped Shields, or — until the insignia bonus ends — the insignias that
- *  still give it. Dashboard presentation gives every emblem its own space. */
+/** Compact shield strip for the dashboard header: always the three weekly
+ *  slots (Morning, Evening, Bonus) in that order, so a slot not earned this
+ *  week stays visible as an empty outline instead of disappearing. */
 export function EquippedShields({ userId, link = true, showcase = false }: { userId: string; link?: boolean; showcase?: boolean }) {
   const { lang } = useLanguage();
   const en = lang === 'en';
   const familyId = useFamilyStore(s => s.familyId);
-  const levelsByUser = useFamilyStore(s => s.levelsByUser);
-  const timezone = useFamilyStore(s => s.automaticSaleConfig.timezone) || 'America/Toronto';
-  const level = levelsByUser[userId]?.currentLevel ?? 1;
-  const unlockedSlots = insigniaSlotsForLevel(level);
-  const snapshot = useShieldSnapshot(familyId);
   const loadouts = useWeeklyLoadouts(familyId);
-  const state = snapshot?.state.children[userId];
+  const mine = (loadouts ?? []).filter(r => r.userId === userId);
+  const slots = SHIELD_TYPES.map(type => ({ type, shield: mine.find(s => s.shieldType === type) ?? null }));
+  const count = slots.filter(s => s.shield).length;
 
-  const shields = (loadouts ?? []).filter(r => r.userId === userId).sort((a, b) => a.slot - b.slot);
-  const legacy = shields.length === 0 && state && legacyInsigniaBonusActive(new Date(), timezone)
-    ? state.equippedInsigniaIds
-      .map(id => SHIELD_DEFINITIONS_BY_ID.get(id))
-      .filter((achievement): achievement is (typeof ACHIEVEMENTS)[number] => Boolean(achievement))
-      .slice(0, Math.min(unlockedSlots, MAX_INSIGNIA_SLOTS))
-    : [];
-  const count = shields.length || legacy.length;
   const label = count > 0
-    ? (en ? `${count} equipped. Open Shield Wall.` : `장착 ${count}개. 쉴드 월 열기.`)
-    : (en ? 'Nothing equipped. Open Shield Wall.' : '장착한 쉴드가 없어요. 쉴드 월 열기.');
-  const fanClasses = SHIELD_FAN_CLASSES[count as keyof typeof SHIELD_FAN_CLASSES] ?? [];
-  const shieldSize = showcase ? 44 : SHIELD_PX;
-  const fan = (key: string, index: number, name: string, node: ReactNode) => (
-    <span key={key} title={name} className={showcase
+    ? (en ? `${count} of 3 shields this week. Open Shield Wall.` : `이번 주 쉴드 3개 중 ${count}개. 쉴드 월 열기.`)
+    : (en ? 'No shields this week. Open Shield Wall.' : '이번 주 쉴드가 없어요. 쉴드 월 열기.');
+  const size = showcase ? 44 : SHIELD_PX;
+  const slot = (key: string, index: number, title: string, node: ReactNode) => (
+    <span key={key} title={title} className={showcase
       ? 'equipped-shield-emblem relative flex shrink-0 items-center justify-center'
-      : `relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[8px]'} ${fanClasses[index] ?? ''}`} style={{ zIndex: index + 1 }}>{node}</span>
+      : `relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] transition-transform group-hover:-translate-y-0.5 ${index === 0 ? '' : '-ml-[8px]'} ${FAN_CLASSES[index]}`} style={{ zIndex: index + 1 }}>{node}</span>
   );
 
-  const icons = (
-    <>
-      {shields.length > 0
-        ? shields.map((s, i) => {
-          const name = shieldName(s.shieldType, s.tier)[en ? 'en' : 'ko'];
-          return fan(`${s.shieldType}`, i, name,
-            <ShieldEmblem type={s.shieldType} tier={s.tier} size={shieldSize} title={name} />);
-        })
-        : legacy.length > 0
-          ? legacy.map((badge, i) => fan(badge.achievementId, i, badge.title,
-            <InsigniaBadge rarity={badge.rarity} icon={badge.icon} seed={badge.achievementId} size={shieldSize} ariaLabel={badge.title} />))
-          : (
-            <span className="grid h-7 w-7 place-items-center rounded-lg border border-dashed border-[var(--border)] text-[var(--fg-muted)]/65">
-              <Shield size={15} strokeWidth={2.2} aria-hidden />
-            </span>
-          )}
-    </>
-  );
-  const presentation = showcase && count > 0 ? 'equipped-shield-showcase' : 'inline-flex h-8 shrink-0 items-center justify-center';
+  const icons = slots.map(({ type, shield }, i) => {
+    if (shield) {
+      const name = shieldName(shield.shieldType, shield.tier)[en ? 'en' : 'ko'];
+      return slot(type, i, name, <ShieldEmblem type={shield.shieldType} tier={shield.tier} size={size} title={name} />);
+    }
+    const empty = en ? `${TYPE_COPY[type].name.en} — not this week` : `${TYPE_COPY[type].name.ko} — 이번 주엔 없어요`;
+    // Slightly smaller and faded so earned shields stay the focus.
+    return slot(type, i, empty, <span className="opacity-60"><EmptyShield size={Math.round(size * 0.86)} /></span>);
+  });
+
+  const presentation = showcase ? 'equipped-shield-showcase' : 'inline-flex h-8 shrink-0 items-center justify-center';
   if (!link) return <span className={presentation} title={label}>{icons}</span>;
   return (
     <Link

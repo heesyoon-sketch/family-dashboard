@@ -110,3 +110,12 @@ test('the database evaluates, equips and pays with the same rules', () => {
   assert.match(read('supabase/migrations/20261019190000_weekly_shields_bonus_day_snapshot.sql'), /Only days with a snapshot/);
   assert.match(read('lib/shields/finalize.ts'), /db\.rpc\('finalize_due_shield_weeks', \{ p_family_id: familyId \}\)/);
 });
+
+test('the dashboard always shows all three weekly slots, empty ones included', () => {
+  const strip = read('components/EquippedShields.tsx');
+  assert.match(strip, /const slots = SHIELD_TYPES\.map\(type => \(\{ type, shield: mine\.find\(s => s\.shieldType === type\) \?\? null \}\)\)/);
+  assert.match(strip, /<EmptyShield size=/);
+  assert.doesNotMatch(strip, /legacyInsigniaBonusActive|InsigniaBadge/, 'the insignia stand-in ended with weekly shields');
+  const wall = read('components/hall/ShieldWall.tsx');
+  assert.match(wall, /\{SHIELD_TYPES\.map\(type => \{\n\s+const award = view\.equipped\[type\];/);
+});
