@@ -135,7 +135,7 @@ test('member dashboards prioritize three visible habit rows', () => {
   assert.doesNotMatch(panel, /<Store size=\{15\}/);
   assert.doesNotMatch(panel, /max-\[380px\]:w-full/);
   assert.match(equippedShields, /h-8 shrink-0/);
-  assert.match(mobileTabs, /<FamilyMissionChip/);
+  assert.doesNotMatch(mobileTabs, /FamilyMissionChip|FamilyQuestChip/);
   assert.doesNotMatch(dashboard, /<FamilyQuestCard|<HarmonyChip/);
 });
 
@@ -158,9 +158,12 @@ test('the always-on tablet can refresh itself without closing the app', () => {
 
 test('retired features stay retired: harmony, daily family quest, badges, level-ups, repeated insignia syncs', () => {
   const header = read('components/DashboardHeader.tsx');
-  assert.match(header, /<FamilyMissionChip/);
-  assert.doesNotMatch(header, /HarmonyChip|FamilyQuestChip/);
-  assert.match(read('components/FamilyMissionChip.tsx'), /evaluateMission\(/);
+  assert.doesNotMatch(header, /HarmonyChip|FamilyQuestChip|FamilyMissionChip/);
+  // Weekly family missions are retired too: no chip, no client writes, no cron step.
+  assert.throws(() => read('components/FamilyMissionChip.tsx'));
+  assert.doesNotMatch(read('lib/analytics/useFamilyAnalytics.ts'), /family_mission_weeks/);
+  assert.doesNotMatch(read('lib/shields/finalize.ts'), /mission/i);
+  assert.doesNotMatch(read('components/growth/FamilyBand.tsx'), /mission/i);
 
   const gamification = read('lib/gamification/index.ts');
   assert.doesNotMatch(gamification, /evaluateAllBadges|evaluateCondition|celebration/);

@@ -14,7 +14,7 @@ import {
   type AnalyticsMember,
   type AnalyticsTask,
 } from './history';
-import { evaluateMission, familyLegacy, planMissionWeek, protectionStatus } from './family';
+import { protectionStatus } from './family';
 import { growthInsights, journeyEvents } from './insights';
 import { shieldDescription, shieldTheme, shieldTitle } from './shieldCopy';
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
@@ -158,42 +158,6 @@ test('insights and journey are grounded in records', () => {
   assert.equal(journey.at(-1)?.kind, 'first');
   assert.equal(journey.at(-1)?.day, '2026-10-01');
   assert.equal(growthInsights(buildMemberHistory({ member: member('z'), tasks: [], completions: [], now: NOW, timezone: TZ }), [], periodRange('30d', '2026-10-14', null)).length, 0);
-});
-
-test('missions need two members, skip comeback without history, and freeze rules', () => {
-  const members = [member('a'), member('b')];
-  const tasks = [task('ta', 'a', { createdAt: '2026-10-12T00:00:00+09:00' }), task('tb', 'b', { createdAt: '2026-10-12T00:00:00+09:00' })];
-  assert.equal(planMissionWeek({ weekStart: '2026-10-12', members: [members[0]], tasks, completions: [], now: NOW, timezone: TZ }), null);
-  // Rotation index for 2026-10-12 lands on comeback-crew; without last-week
-  // history the plan moves on to the next mission.
-  const plan = planMissionWeek({ weekStart: '2026-10-12', members, tasks, completions: [], now: NOW, timezone: TZ });
-  assert.ok(plan);
-  assert.notEqual(plan!.missionId, 'comeback-crew');
-
-  const completions = [
-    done('a', 'ta', '2026-10-12T19:00:00+09:00'), done('b', 'tb', '2026-10-12T19:00:00+09:00'),
-    done('a', 'ta', '2026-10-13T19:00:00+09:00'), done('b', 'tb', '2026-10-13T19:00:00+09:00'),
-    done('a', 'ta', '2026-10-14T08:00:00+09:00'),
-  ];
-  const together = evaluateMission({ missionId: 'all-together', weekStart: '2026-10-12', rules: { version: 1, participants: tasks.map(t => ({ id: t.userId, slots: [{ taskId: t.id, days: ALL, window: 'evening' as const }] })), target: 4, strongRate: 0.7, comebackPoints: 5 }, tasks, completions, now: NOW, timezone: TZ });
-  assert.equal(together.current, 2);
-  assert.equal(together.complete, false);
-  assert.equal(together.daysLeft, 5);
-
-  // A habit added mid-week (tc) is not in the frozen rules, so it cannot
-  // lower anyone's Strong Week rate.
-  const strong = evaluateMission({ missionId: 'strong-week', weekStart: '2026-10-12', rules: { version: 1, participants: [{ id: 'a', slots: [{ taskId: 'ta', days: ALL, window: 'evening' }] }, { id: 'b', slots: [{ taskId: 'tb', days: ALL, window: 'evening' }] }], target: 2, strongRate: 0.7, comebackPoints: 5 }, tasks: [...tasks, task('tc', 'a')], completions, now: NOW, timezone: TZ });
-  assert.equal(strong.participants.find(p => p.id === 'a')?.rate, 1);
-  assert.equal(strong.complete, false, 'strong week is only judged once the week ends');
-});
-
-test('family legacy uses completion evidence only', () => {
-  const tasks = [task('ta', 'a'), task('tb', 'b')];
-  const completions = [done('a', 'ta', '2026-10-01T19:00:00+09:00'), done('b', 'tb', '2026-10-02T19:00:00+09:00'), done('a', 'ta', '2026-10-09T19:00:00+09:00'), done('b', 'tb', '2026-10-09T20:00:00+09:00')];
-  const histories = [member('a'), member('b')].map(m => buildMemberHistory({ member: m, tasks, completions, now: NOW, timezone: TZ }));
-  const legacy = familyLegacy(histories, []);
-  assert.equal(legacy.find(e => e.kind === 'first-together')?.day, '2026-10-09');
-  assert.ok(legacy.some(e => e.kind === 'family-comeback' && e.day === '2026-10-09'));
 });
 
 test('protection status follows existing exemptions and deadlines', () => {

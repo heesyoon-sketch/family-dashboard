@@ -17,7 +17,7 @@ import {
   zonedDayHour,
   type PeriodId,
 } from '@/lib/analytics/history';
-import { currentWeekStart, evaluateMission, protectionStatus } from '@/lib/analytics/family';
+import { protectionStatus } from '@/lib/analytics/family';
 import { growthInsights, type Localized } from '@/lib/analytics/insights';
 import { useMinuteClock, type FamilyAnalyticsState } from '@/lib/analytics/useFamilyAnalytics';
 import { EmptyNote, ErrorBanner, LoadingBlock, MEMBER_TONES, MemberAvatar, PointDelta, Section, Segmented, pctText, useCopy } from '@/components/analytics/ui';
@@ -42,7 +42,7 @@ const COMPARE_LABEL: Record<PeriodId, Localized> = {
   year: { en: 'vs same point last year', ko: '작년 같은 기간 대비' },
   all: { en: 'Since your first record', ko: '첫 기록부터' },
 };
-/** One page: the family band on top (shared status, mission, member cards
+/** One page: the family band on top (shared status, member cards
  *  that pick the person), the selected member's growth below. */
 export function FamilyGrowth({ analytics, initialMemberId }: { analytics: FamilyAnalyticsState; initialMemberId: string | null }) {
   const { en, t } = useCopy();
@@ -78,15 +78,8 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
   const family = useMemo(() => {
     if (!records) return null;
     const { day: today, hour } = zonedDayHour(now, timezone);
-    const weekStart = currentWeekStart(now, timezone);
-    const missionRow = records.missions.find(row => row.week_start === weekStart) ?? null;
-    const finished = records.missions.filter(row => row.status !== 'active');
     return {
       today,
-      missionRow,
-      mission: missionRow ? evaluateMission({ missionId: missionRow.mission_id, weekStart, rules: missionRow.rules, tasks: records.tasks, completions: records.completions, now, timezone }) : null,
-      missionsCompleted: finished.filter(row => row.status === 'completed').length,
-      missionsFinished: finished.length,
       protection: protectionStatus({ members, todayTasksByUser, todayCompletionsByWindow, nowHour: hour, penaltyEnabled: routinePenaltyEnabled, vacation: penaltyPauseEnabled, saleDay: saleActive, penaltiesToday: records.penalties.filter(p => p.date === today).length }),
       activeToday: histories.filter(h => (h.days.get(today)?.completed ?? 0) > 0).length,
       withHabits: histories.filter(h => h.firstDay !== null || (todayTasksByUser[h.memberId]?.length ?? 0) > 0).length,
@@ -136,11 +129,6 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
         members={members}
         histories={histories}
         today={family.today}
-        mission={family.mission}
-        missionStrongRate={family.missionRow?.rules.strongRate ?? 0.7}
-        missionsUnavailable={records.missionsError}
-        missionsCompleted={family.missionsCompleted}
-        missionsFinished={family.missionsFinished}
         protection={family.protection}
         penalties={records.penalties}
         activeToday={family.activeToday}

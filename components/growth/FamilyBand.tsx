@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Clock, Flag, HeartHandshake, Palmtree, ShieldCheck, Tag } from 'lucide-react';
+import { Check, ChevronDown, Clock, Palmtree, ShieldCheck, Tag } from 'lucide-react';
 import { useFamilyStore } from '@/lib/store';
 import { mondayOf, summarizeRange, type MemberHistory } from '@/lib/analytics/history';
 import {
-  MISSION_COPY,
   ROUTINE_DEADLINES,
-  type MissionProgress,
   type ProtectionState,
   type ProtectionStatus,
 } from '@/lib/analytics/family';
@@ -52,11 +50,6 @@ export interface FamilyBandProps {
   members: AnalyticsMember[];
   histories: MemberHistory[];
   today: string;
-  mission: MissionProgress | null;
-  missionStrongRate: number;
-  missionsUnavailable: boolean;
-  missionsCompleted: number;
-  missionsFinished: number;
   protection: ProtectionStatus;
   penalties: PenaltyRecord[];
   activeToday: number;
@@ -73,9 +66,8 @@ export function FamilyBand(props: FamilyBandProps) {
   const penaltyPauseEnabled = useFamilyStore(s => s.penaltyPauseEnabled);
   const penaltyPoints = useFamilyStore(s => s.routinePenaltyPoints);
   const saleActive = useFamilyStore(s => s.automaticSaleStatus.active);
-  const [missionOpen, setMissionOpen] = useState(false);
   const [protectionOpen, setProtectionOpen] = useState(false);
-  const { mission, protection, members } = props;
+  const { protection, members } = props;
   const memberName = (id: string) => members.find(m => m.id === id)?.name ?? '';
   const toneOf = (id: string) => MEMBER_TONES[Math.max(0, members.findIndex(m => m.id === id)) % MEMBER_TONES.length];
 
@@ -91,41 +83,11 @@ export function FamilyBand(props: FamilyBandProps) {
           <p className="mt-0.5 text-sm text-[#C9CCE0]">{protectionLine(protection, en)}</p>
           <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#A9AECB]">
             <span>{en ? 'Active today' : '오늘 참여'} <strong className="text-white">{props.activeToday}/{props.withHabits}</strong></span>
-            <span>{en ? 'Missions' : '달성 미션'} <strong className="text-white">{props.missionsCompleted}</strong>{props.missionsFinished > 0 ? `/${props.missionsFinished}` : ''}</span>
           </p>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 lg:grid-cols-2">
-        {/* Mission — one line, details on demand */}
-        <div className="rounded-2xl bg-black/25">
-          <button type="button" aria-expanded={missionOpen} aria-controls="mission-details" onClick={() => setMissionOpen(o => !o)} disabled={!mission} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left disabled:cursor-default">
-            <HeartHandshake size={18} className="shrink-0 text-[#A5A6FF]" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="flex justify-between gap-2 text-sm">
-                <span className="truncate text-[#C9CCE0]">{mission ? <>{en ? 'Mission' : '이번 주 미션'} · <strong className="text-white">{t(MISSION_COPY[mission.missionId].title)}</strong></> : props.missionsUnavailable ? (en ? 'Missions unavailable right now' : '지금은 미션을 불러올 수 없어요') : props.withHabits < 2 ? (en ? 'Missions start with two members' : '두 명 이상이면 미션이 시작돼요') : (en ? 'Preparing this week’s mission' : '이번 주 미션 준비 중')}</span>
-                {mission && <span className="shrink-0 text-xs text-[#C9CCE0]">{mission.complete ? (en ? 'Complete!' : '달성!') : `${mission.current}/${mission.target}`}{!mission.ended && ` · ${en ? `${mission.daysLeft}d left` : `${mission.daysLeft}일 남음`}`}</span>}
-              </span>
-              {mission && <span className="mt-1.5 block"><ProgressTrack thin value={mission.target ? mission.current / mission.target : 0} tone={mission.complete ? '#79E8BD' : '#A5A6FF'} /></span>}
-            </span>
-            {mission && <ChevronDown size={16} aria-hidden className={`shrink-0 text-[#8E94B4] transition motion-reduce:transition-none ${missionOpen ? 'rotate-180' : ''}`} />}
-          </button>
-          {mission && missionOpen && (
-            <div id="mission-details" className="border-t border-white/[0.06] px-3 pb-3 pt-2 text-sm">
-              <p className="leading-relaxed text-[#C9CCE0]">{t(MISSION_COPY[mission.missionId].goal(mission.target, props.missionStrongRate))}</p>
-              <ul className="mt-2 space-y-1">
-                {mission.participants.map(p => (
-                  <li key={p.id} className="flex items-center gap-2 text-xs">
-                    <span className={`grid h-5 w-5 place-items-center rounded-full ${p.met ? 'bg-[#79E8BD]/20 text-[#79E8BD]' : 'bg-white/5 text-[#7F86A8]'}`} aria-label={p.met ? (en ? 'done' : '달성') : (en ? 'in progress' : '진행 중')}>{p.met ? <Check size={11} /> : <Clock size={10} />}</span>
-                    <span className="font-semibold text-white">{memberName(p.id)}</span><span className="text-[#A9AECB]">{t(p.value)}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs leading-relaxed text-[#8E94B4]">{en ? 'Rules lock when the week begins and reset every Monday. Missions add no points — they’re about doing it together.' : '규칙은 주가 시작될 때 고정되고 매주 월요일에 새로 시작해요. 미션에는 포인트가 없어요. 함께하는 게 목적이에요.'}</p>
-            </div>
-          )}
-        </div>
-
+      <div className="mt-4 grid gap-2">
         {/* Protection — rules and recent misses on demand */}
         <div className="rounded-2xl bg-black/25">
           <button type="button" aria-expanded={protectionOpen} aria-controls="protection-details" onClick={() => setProtectionOpen(o => !o)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left">
@@ -171,7 +133,6 @@ export function FamilyBand(props: FamilyBandProps) {
           const h = props.histories.find(x => x.memberId === m.id);
           const week = h ? summarizeRange(h, mondayOf(props.today), props.today) : null;
           const activeToday = (h?.days.get(props.today)?.completed ?? 0) > 0;
-          const part = mission?.participants.find(p => p.id === m.id);
           const selected = props.selectedId === m.id;
           return (
             <button
@@ -193,7 +154,6 @@ export function FamilyBand(props: FamilyBandProps) {
               <span className="mt-2 block"><ProgressTrack thin value={week?.rate ?? 0} tone={toneOf(m.id)} /></span>
               <span className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-[#8E94B4]">
                 <span>{en ? 'This week' : '이번 주'}{week && week.eligible > 0 ? ` ${week.completed}/${week.eligible}` : ''}</span>
-                {part && <span className={`inline-flex min-w-0 items-center gap-1 truncate ${part.met ? 'text-[#79E8BD]' : ''}`}><Flag size={10} aria-hidden className="shrink-0" /><span className="truncate">{t(part.value)}</span></span>}
               </span>
             </button>
           );

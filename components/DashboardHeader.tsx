@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { BarChart2, CalendarDays, ChevronLeft, ChevronRight, LogOut, MoreHorizontal, Palmtree, Settings, Volume2, VolumeX } from 'lucide-react';
 import { FamBitWordmark } from './FamBitLogo';
-import { FamilyMissionChip } from './FamilyMissionChip';
 import { ConnectionStatusChip } from './ConnectionStatusChip';
 import { AuthProfileAvatar } from './AuthProfileAvatar';
 import { CalendarPeekChip } from './CalendarPeekChip';
@@ -63,8 +62,6 @@ export function DashboardHeader(props: DashboardHeaderProps) {
       </div>
 
       <CalendarPeekChip />
-
-      <FamilyMissionChip className="hidden max-w-[240px] shrink md:inline-flex" />
 
       <div className="hidden shrink-0 items-center gap-2 xl:flex">
         <ConnectionStatusChip />

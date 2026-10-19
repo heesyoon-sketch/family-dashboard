@@ -22,7 +22,7 @@ import {
   type AnalyticsMember,
   type AnalyticsTask,
 } from './analytics/history';
-import { planMissionWeek, protectionStatus } from './analytics/family';
+import { protectionStatus } from './analytics/family';
 import { completedSlotKeys, tallyPeriod, periodContaining, type DailySchedule } from './shields/engine';
 import { weekProgress } from './shields/weekly';
 
@@ -269,15 +269,6 @@ test('weekly Shield rates never count bonus completions as required slots', () =
   const p = weekProgress({ userId: 'kid', weekStart: '2026-10-12', schedules, completions, bonusTaskIds: new Set(['read']), timezone: TZ });
   assert.deepEqual([p.evening.completed, p.evening.eligible], [1, 1]);
   assert.equal(p.bonus.bonusDays, 1, 'the bonus completion counts toward the Bonus Shield instead');
-});
-
-test('family missions do not enrol a member through bonus tasks alone', () => {
-  const plan = planMissionWeek({
-    weekStart: '2026-10-12', now: NOW, timezone: TZ, completions: [],
-    members: [member('a'), member('b')],
-    tasks: [habit('a1', 'a'), habit('b-bonus', 'b', { taskType: 'optional' })],
-  });
-  assert.equal(plan, null);
 });
 
 // 9 & 10. Existing tasks and historical rows behave exactly as before -------------
