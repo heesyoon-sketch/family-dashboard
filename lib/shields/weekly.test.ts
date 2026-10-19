@@ -199,7 +199,7 @@ test('legacy and partial points use the existing task duration buckets', () => {
 });
 
 test('shield benefit labels show point ranges without percentages', () => {
-  assert.equal(shieldBonusLabel('gold', false), '과제별 +2~4P');
-  assert.equal(shieldBonusLabel('legendary', true), '+4–8P per task');
-  assert.equal(shieldBonusLabel('bronze', false), '+0P');
+  assert.equal(shieldBonusLabel('gold', false), '10·15P → +2P · 30P → +3P · 50P → +4P');
+  assert.equal(shieldBonusLabel('legendary', true), '10·15P → +4P · 30P → +6P · 50P → +8P');
+  assert.equal(shieldBonusLabel('bronze', false), '보너스 없음');
 });

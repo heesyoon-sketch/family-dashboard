@@ -13,7 +13,7 @@ import confetti from 'canvas-confetti';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { shieldCreditMessage } from '@/lib/shields/completionReward';
+import { CompletionToast } from './CompletionToast';
 import { taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
 import { isOptionalTask } from '@/lib/taskType';
 
@@ -130,11 +130,17 @@ export function TaskCard({
             : isBonus
               ? (lang === 'en' ? 'Bonus task · extra points earned!' : '보너스 미션 · 추가 포인트 획득!')
             : (lang === 'en' ? 'Points added to your balance' : '포인트가 차곡차곡 쌓였어요');
-          const description = feedback.shieldBonus
-            ? [shieldCreditMessage(feedback.basePoints, feedback.shieldBonus, lang),
-                feedback.perfectQuestAwarded || isBonus ? detail : null].filter(Boolean).join(' · ')
-            : detail;
-          toast.success(`+${feedback.pointsAwarded}pt`, { description, duration: feedback.shieldBonus ? 5000 : 4000 });
+          toast.custom(id => (
+            <CompletionToast
+              taskTitle={task.title}
+              basePoints={feedback.basePoints}
+              pointsAwarded={feedback.pointsAwarded}
+              shieldBonus={feedback.shieldBonus}
+              en={lang === 'en'}
+              detail={feedback.perfectQuestAwarded || isBonus ? detail : undefined}
+              onDismiss={() => toast.dismiss(id)}
+            />
+          ), { duration: feedback.shieldBonus ? 5000 : 4000 });
         }
       }
     } catch (error) {

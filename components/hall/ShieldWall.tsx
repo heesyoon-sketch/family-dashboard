@@ -8,6 +8,7 @@ import { useMinuteClock, type FamilyAnalyticsState } from '@/lib/analytics/useFa
 import { SHIELD_TYPES, TIER_RANK, addDays, zonedDayHour, type ShieldCompletion, type ShieldType } from '@/lib/shields/engine';
 import { shieldBonusLabel, WEEKLY_RULES, weekProgress, type BonusProgress, type WindowProgress } from '@/lib/shields/weekly';
 import { TIER_COPY, TYPE_COPY, scopeLabel, shieldName } from '@/lib/shields/copy';
+import { ShieldPointGuide } from './ShieldPointGuide';
 import { ShieldBonusTable } from './ShieldBonusTable';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import { EmptyNote, ErrorBanner, LoadingBlock, formatDay, useCopy } from '@/components/analytics/ui';
@@ -82,7 +83,7 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
                   </button>
                   <span className="text-xs font-semibold leading-tight text-white">{t(TIER_COPY[award.tier])}</span>
                   {award.tier !== 'bronze'
-                    ? <span className="text-[11px] text-[#9FF0CE]">{shieldBonusLabel(award.tier, en)} · {t(scopeLabel(award.scope))}</span>
+                    ? <div className="w-full"><p className="mb-1.5 text-[10px] text-[#A9AECB]">{t(scopeLabel(award.scope))}</p><ShieldPointGuide tier={award.tier} en={en} compact /></div>
                     : <span className="text-[11px] text-[#C9A27E]">{en ? 'No bonus · Silver adds points' : '보너스 없음 · 실버부터 보너스'}</span>}
                 </>
               ) : (

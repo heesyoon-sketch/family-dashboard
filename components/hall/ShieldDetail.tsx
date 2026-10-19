@@ -3,10 +3,9 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { periodContaining } from '@/lib/shields/engine';
-import { shieldBonusLabel } from '@/lib/shields/weekly';
-import { TIER_COPY, TYPE_COPY, explainAward, scopeLabel, shieldName } from '@/lib/shields/copy';
+import { TYPE_COPY, explainAward, scopeLabel, shieldName } from '@/lib/shields/copy';
 import { formatDay, useCopy } from '@/components/analytics/ui';
-import { ShieldBonusTable } from './ShieldBonusTable';
+import { ShieldPointGuide } from './ShieldPointGuide';
 import { ShieldEmblem } from './ShieldEmblem';
 import type { WeeklyAwardRow } from './useShieldWallData';
 import { periodLabel } from './periodLabel';
@@ -40,18 +39,16 @@ export function ShieldDetail({ award, recipient, onClose }: { award: WeeklyAward
         </div>
         {why && <p className="mt-5 rounded-2xl bg-black/25 p-4 text-sm leading-relaxed text-[#E7E9F5]">{t(why)}</p>}
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Bonus' : '보너스'}</dt><dd className="mt-0.5 font-semibold text-[#9FF0CE]">{shieldBonusLabel(award.tier, en)}</dd></div>
+          <div className="col-span-2 rounded-xl bg-white/[0.03] p-3"><dt className="mb-2 text-xs text-[#8E94B4]">{en ? 'Task points → extra points' : '과제 포인트 → 추가 포인트'}</dt><dd><ShieldPointGuide tier={award.tier} en={en} /></dd></div>
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Applies to' : '적용 대상'}</dt><dd className="mt-0.5 font-semibold text-white">{t(scopeLabel(award.scope))}</dd></div>
-          <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Tier' : '등급'}</dt><dd className="mt-0.5 font-semibold text-white">{t(TIER_COPY[award.tier])}</dd></div>
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Active' : '적용 기간'}</dt><dd className="mt-0.5 font-semibold text-white">{formatDay(equip.start, en)} – {formatDay(equip.end, en)}</dd></div>
         </dl>
-        <ShieldBonusTable en={en} />
         <details className="mt-4 rounded-xl bg-black/20 p-3 text-xs leading-relaxed text-[#C9CCE0]">
           <summary className="min-h-9 cursor-pointer font-semibold text-white">{en ? 'How this shield works' : '이 쉴드를 받는 방법'}</summary>
           <p className="mt-2">{t(TYPE_COPY[award.shield_type].how)}</p>
           <p className="mt-2 text-[#8E94B4]">{en
-            ? 'Earned shields are equipped automatically for the following week. Each completed task in the shield’s area earns the bonus shown in the table. Undoing a completion also removes its bonus. Bronze has no bonus. Earned shields stay in your history.'
-            : '받은 쉴드는 다음 한 주 동안 자동으로 장착돼요. 해당 영역의 과제를 완료하면 위 표의 추가 포인트를 받아요. 완료를 취소하면 추가 포인트도 함께 회수돼요. 브론즈는 보너스가 없고 받은 쉴드는 기록에 남아요.'}</p>
+            ? 'Earned shields are equipped automatically for the following week. Each completed task in the shield’s area earns the bonus shown above. Undoing a completion also removes its bonus. Bronze has no bonus. Earned shields stay in your history.'
+            : '받은 쉴드는 다음 한 주 동안 자동으로 장착돼요. 해당 영역의 과제를 완료하면 위 안내의 추가 포인트를 받아요. 완료를 취소하면 추가 포인트도 함께 회수돼요. 브론즈는 보너스가 없고 받은 쉴드는 기록에 남아요.'}</p>
         </details>
       </div>
     </div>

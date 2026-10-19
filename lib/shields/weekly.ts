@@ -193,7 +193,7 @@ export function bonusPoints(basePoints: number, tier: ShieldTier): number {
 }
 
 export function shieldBonusLabel(tier: ShieldTier, en: boolean): string {
+  if (tier === 'bronze') return en ? 'No bonus' : '보너스 없음';
   const points = SHIELD_BONUS_POINTS[tier];
-  return tier === 'bronze' ? '+0P'
-    : en ? `+${points[10]}–${points[50]}P per task` : `과제별 +${points[10]}~${points[50]}P`;
+  return `10·15P → +${points[10]}P · 30P → +${points[30]}P · 50P → +${points[50]}P`;
 }
