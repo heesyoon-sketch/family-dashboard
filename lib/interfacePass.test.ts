@@ -138,3 +138,20 @@ test('member dashboards prioritize three visible habit rows', () => {
   assert.match(mobileTabs, /<FamilyQuestChip/);
   assert.doesNotMatch(dashboard, /<FamilyQuestCard/);
 });
+
+test('the always-on tablet can refresh itself without closing the app', () => {
+  const header = read('components/DashboardHeader.tsx');
+  assert.match(header, /<RefreshButton className=/);
+  assert.ok(header.indexOf('<RefreshButton') < header.indexOf('<CalendarPeekChip'), 'refresh sits next to the family name');
+
+  const button = read('components/RefreshButton.tsx');
+  assert.match(button, /registration\?\.update\(\)/);
+  assert.match(button, /window\.location\.reload\(\)/);
+  // Offline it must not reload into an error page.
+  assert.match(button, /if \(!navigator\.onLine\) \{/);
+
+  const worker = read('components/ServiceWorkerUpdate.tsx');
+  assert.match(worker, /UPDATE_CHECK_MS = 10 \* 60_000/);
+  assert.match(worker, /IDLE_BEFORE_RELOAD_MS = 60_000/);
+  assert.match(read('components/SyncBootstrap.tsx'), /BACKGROUND_REFRESH_MS = 5 \* 60_000/);
+});

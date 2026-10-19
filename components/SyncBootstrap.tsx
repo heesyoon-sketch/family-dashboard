@@ -24,6 +24,9 @@ const WAKE_DEBOUNCE_MS = 500;
 // quick succession.
 const FRESH_WINDOW_MS = 30_000;
 const OFFLINE_RETRY_MS = 15_000;
+// The always-on tablet can silently lose its realtime socket while asleep;
+// a slow background refresh keeps it honest without a manual reload.
+const BACKGROUND_REFRESH_MS = 5 * 60_000;
 
 export function SyncBootstrap() {
   const familyId = useFamilyStore(state => state.familyId);
@@ -94,6 +97,9 @@ export function SyncBootstrap() {
       if (!state.familyId || !navigator.onLine) return;
       state.syncOfflineActions().catch(err => console.warn('[sync retry]', err));
     }, OFFLINE_RETRY_MS);
+    const backgroundRefresh = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) wake('interval');
+    }, BACKGROUND_REFRESH_MS);
 
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('online', onOnline);
@@ -103,6 +109,7 @@ export function SyncBootstrap() {
     return () => {
       if (timer) clearTimeout(timer);
       window.clearInterval(offlineRetry);
+      window.clearInterval(backgroundRefresh);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('pageshow', onPageShow);

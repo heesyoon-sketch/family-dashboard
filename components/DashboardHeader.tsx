@@ -9,6 +9,7 @@ import { HarmonyChip } from './HarmonyChip';
 import { ConnectionStatusChip } from './ConnectionStatusChip';
 import { AuthProfileAvatar } from './AuthProfileAvatar';
 import { CalendarPeekChip } from './CalendarPeekChip';
+import { RefreshButton } from './RefreshButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const iconButton = 'grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-white/75 transition hover:bg-white/10 active:scale-95';
@@ -59,6 +60,7 @@ export function DashboardHeader(props: DashboardHeaderProps) {
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <FamBitWordmark markSize={28} showText={false} />
         <h1 className="truncate text-sm font-bold tracking-tight text-white md:text-base">{props.familyName || 'FamBit'}</h1>
+        <RefreshButton className={`${iconButton} disabled:opacity-60`} />
       </div>
 
       <CalendarPeekChip />
