@@ -46,7 +46,7 @@ import {
   parseAutomaticSaleSetting,
 } from '@/lib/automaticSale';
 import { holidayTimezone, publicHolidayDates } from '@/lib/holidayCalendar';
-import { parseRoutinePenaltySetting } from '@/lib/penaltyPause';
+import { DEFAULT_ROUTINE_PENALTY_POINTS, MAX_ROUTINE_PENALTY_POINTS, parseRoutinePenaltySetting } from '@/lib/penaltyPause';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -70,6 +70,8 @@ export default function AdminPage() {
   const [otpError, setOtpError] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [routinePenaltyEnabled, setRoutinePenaltyEnabled] = useState(true);
+  const [routinePenaltyPoints, setRoutinePenaltyPoints] = useState(DEFAULT_ROUTINE_PENALTY_POINTS);
+  const [routinePenaltyPointsInput, setRoutinePenaltyPointsInput] = useState(String(DEFAULT_ROUTINE_PENALTY_POINTS));
   const [routinePenaltySaving, setRoutinePenaltySaving] = useState(false);
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [authProfile, setAuthProfile] = useState<{ email: string | null; avatarUrl: string | null }>({
@@ -216,7 +218,10 @@ export default function AdminPage() {
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
       setAutomaticSaleConfig(parseAutomaticSaleSetting(automaticSaleRes.data?.value));
-      setRoutinePenaltyEnabled(parseRoutinePenaltySetting(routinePenaltyRes.data?.value));
+      const routinePenalty = parseRoutinePenaltySetting(routinePenaltyRes.data?.value);
+      setRoutinePenaltyEnabled(routinePenalty.enabled);
+      setRoutinePenaltyPoints(routinePenalty.points);
+      setRoutinePenaltyPointsInput(String(routinePenalty.points));
       await loadRewardRedemptions();
       const [{ data: parentAllowed }, { data: ownerAllowed }] = await Promise.all([
         supabase.rpc('is_my_family_parent'),
@@ -280,22 +285,44 @@ export default function AdminPage() {
     }
   };
 
-  const toggleRoutinePenalty = async () => {
-    if (routinePenaltySaving) return;
-    const next = !routinePenaltyEnabled;
+  const saveRoutinePenalty = async (enabled: boolean, points: number) => {
+    if (routinePenaltySaving) return false;
     setRoutinePenaltySaving(true);
     try {
       const supabase = createBrowserSupabase();
-      const { error } = await supabase.rpc('admin_set_routine_penalty', { p_enabled: next });
+      const { data, error } = await supabase.rpc('admin_set_routine_penalty', {
+        p_enabled: enabled,
+        p_points: points,
+      });
       if (error) throw error;
-      setRoutinePenaltyEnabled(next);
+      const saved = parseRoutinePenaltySetting(JSON.stringify(data));
+      setRoutinePenaltyEnabled(saved.enabled);
+      setRoutinePenaltyPoints(saved.points);
+      setRoutinePenaltyPointsInput(String(saved.points));
       await storeHydrate();
       notifyDashboard();
+      return true;
     } catch (saveError) {
       console.error('Failed to update routine penalty setting', saveError);
       toast.error(adminCopy.routinePenaltySaveFailed);
+      return false;
     } finally {
       setRoutinePenaltySaving(false);
+    }
+  };
+
+  const toggleRoutinePenalty = () => {
+    void saveRoutinePenalty(!routinePenaltyEnabled, routinePenaltyPoints);
+  };
+
+  const saveRoutinePenaltyPoints = async () => {
+    const points = Number(routinePenaltyPointsInput);
+    if (!Number.isInteger(points) || points < 1 || points > MAX_ROUTINE_PENALTY_POINTS) {
+      toast.error(adminCopy.routinePenaltyPointsInvalid(MAX_ROUTINE_PENALTY_POINTS));
+      return;
+    }
+    if (await saveRoutinePenalty(routinePenaltyEnabled, points)) {
+      toast.success(adminCopy.routinePenaltyPointsSaved(points));
     }
   };
 
@@ -1561,6 +1588,10 @@ export default function AdminPage() {
               pinChanging={pinChanging}
               handleChangePin={handleChangePin}
               routinePenaltyEnabled={routinePenaltyEnabled}
+              routinePenaltyPoints={routinePenaltyPoints}
+              routinePenaltyPointsInput={routinePenaltyPointsInput}
+              setRoutinePenaltyPointsInput={setRoutinePenaltyPointsInput}
+              saveRoutinePenaltyPoints={saveRoutinePenaltyPoints}
               routinePenaltySaving={routinePenaltySaving}
               toggleRoutinePenalty={toggleRoutinePenalty}
               exportingSnapshot={exportingSnapshot}

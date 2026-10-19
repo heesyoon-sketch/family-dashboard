@@ -59,7 +59,7 @@ import {
   parseAutomaticSaleSetting,
   withAutomaticSale,
 } from './automaticSale';
-import { parsePenaltyPauseSetting, parseRoutinePenaltySetting } from './penaltyPause';
+import { DEFAULT_ROUTINE_PENALTY_POINTS, parsePenaltyPauseSetting, parseRoutinePenaltySetting } from './penaltyPause';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -170,8 +170,10 @@ interface FamilyState {
   automaticSaleStatus: AutomaticSaleStatus;
   /** Family-wide "vacation mode": while true, missed routines never deduct points. */
   penaltyPauseEnabled: boolean;
-  /** Family-wide switch for the 50-point routine deadline penalty (default on). */
+  /** Family-wide switch for the routine deadline penalty (default on). */
   routinePenaltyEnabled: boolean;
+  /** Spendable points one missed routine deadline costs (default 50). */
+  routinePenaltyPoints: number;
   activeTaskCount: number;
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
@@ -487,6 +489,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
   penaltyPauseEnabled: false,
   routinePenaltyEnabled: true,
+  routinePenaltyPoints: DEFAULT_ROUTINE_PENALTY_POINTS,
   activeTaskCount: 0,
   currentMemberId: null,
   currentMemberCanAdmin: false,
@@ -555,6 +558,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         penaltyPauseEnabled: false,
         routinePenaltyEnabled: true,
+        routinePenaltyPoints: DEFAULT_ROUTINE_PENALTY_POINTS,
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -605,6 +609,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         penaltyPauseEnabled: false,
         routinePenaltyEnabled: true,
+        routinePenaltyPoints: DEFAULT_ROUTINE_PENALTY_POINTS,
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -736,8 +741,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const automaticSaleConfig = parseAutomaticSaleSetting(automaticSaleRes.data?.value);
     const automaticSaleStatus = getAutomaticSaleStatus(automaticSaleConfig, now);
     const penaltyPauseEnabled = parsePenaltyPauseSetting(penaltyPauseRes.data?.value);
-    const routinePenaltyEnabled = routinePenaltyRes.error
-      ? get().routinePenaltyEnabled
+    const routinePenalty = routinePenaltyRes.error
+      ? { enabled: get().routinePenaltyEnabled, points: get().routinePenaltyPoints }
       : parseRoutinePenaltySetting(routinePenaltyRes.data?.value);
     const rewards: Reward[] = (rRes.data ?? []).map(r => withAutomaticSale(
       mapRewardRow(r as Record<string, unknown>),
@@ -1080,7 +1085,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       automaticSaleConfig,
       automaticSaleStatus,
       penaltyPauseEnabled,
-      routinePenaltyEnabled,
+      routinePenaltyEnabled: routinePenalty.enabled,
+      routinePenaltyPoints: routinePenalty.points,
       activeTaskCount,
       currentMemberId,
       currentMemberCanAdmin,
@@ -1839,6 +1845,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
       penaltyPauseEnabled: false,
       routinePenaltyEnabled: true,
+      routinePenaltyPoints: DEFAULT_ROUTINE_PENALTY_POINTS,
       activeTaskCount: 0,
       currentMemberId: null,
       currentMemberCanAdmin: false,

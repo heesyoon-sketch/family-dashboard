@@ -4,7 +4,6 @@ import * as Icons from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { resetAllProgress } from '@/lib/reset';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
-import { ROUTINE_PENALTY_POINTS } from '@/lib/analytics/family';
 
 interface AdminSettingsPanelProps {
   familyInviteCode: string | null;
@@ -20,6 +19,10 @@ interface AdminSettingsPanelProps {
   pinChanging: boolean;
   handleChangePin: () => void;
   routinePenaltyEnabled: boolean;
+  routinePenaltyPoints: number;
+  routinePenaltyPointsInput: string;
+  setRoutinePenaltyPointsInput: Dispatch<SetStateAction<string>>;
+  saveRoutinePenaltyPoints: () => void;
   routinePenaltySaving: boolean;
   toggleRoutinePenalty: () => void;
   exportingSnapshot: boolean;
@@ -43,6 +46,10 @@ export function AdminSettingsPanel({
   setConfirmPinInput,
   pinChanging,
   routinePenaltyEnabled,
+  routinePenaltyPoints,
+  routinePenaltyPointsInput,
+  setRoutinePenaltyPointsInput,
+  saveRoutinePenaltyPoints,
   routinePenaltySaving,
   toggleRoutinePenalty,
   exportingSnapshot,
@@ -132,30 +139,60 @@ export function AdminSettingsPanel({
       </div>
 
       {/* Routine deadline penalty, family-wide */}
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-        <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2">
-            <Icons.AlarmClockMinus size={18} className="text-[#FF7BAC]" />
-            <h2 className="text-base font-black text-white">{adminCopy.routinePenalty}</h2>
+      <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center gap-2">
+              <Icons.AlarmClockMinus size={18} className="text-[#FF7BAC]" />
+              <h2 className="text-base font-black text-white">{adminCopy.routinePenalty}</h2>
+            </div>
+            <p className="text-sm leading-6 text-white/54">{adminCopy.routinePenaltyHelp(routinePenaltyPoints)}</p>
           </div>
-          <p className="text-sm leading-6 text-white/54">{adminCopy.routinePenaltyHelp(ROUTINE_PENALTY_POINTS)}</p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={routinePenaltyEnabled}
+            aria-label={adminCopy.routinePenalty}
+            onClick={toggleRoutinePenalty}
+            disabled={routinePenaltySaving}
+            className="inline-flex shrink-0 items-center gap-2 disabled:opacity-50"
+          >
+            <span className={`text-xs font-black ${routinePenaltyEnabled ? 'text-[#FF7BAC]' : 'text-white/40'}`}>
+              {routinePenaltySaving ? '…' : routinePenaltyEnabled ? adminCopy.on : adminCopy.off}
+            </span>
+            <span className={`relative h-6 w-11 rounded-full transition-colors ${routinePenaltyEnabled ? 'bg-[#FF7BAC]' : 'bg-white/14'}`}>
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${routinePenaltyEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+            </span>
+          </button>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={routinePenaltyEnabled}
-          aria-label={adminCopy.routinePenalty}
-          onClick={toggleRoutinePenalty}
-          disabled={routinePenaltySaving}
-          className="inline-flex shrink-0 items-center gap-2 disabled:opacity-50"
+        <form
+          className="mt-3 flex items-center gap-2"
+          onSubmit={e => { e.preventDefault(); saveRoutinePenaltyPoints(); }}
         >
-          <span className={`text-xs font-black ${routinePenaltyEnabled ? 'text-[#FF7BAC]' : 'text-white/40'}`}>
-            {routinePenaltySaving ? '…' : routinePenaltyEnabled ? adminCopy.on : adminCopy.off}
-          </span>
-          <span className={`relative h-6 w-11 rounded-full transition-colors ${routinePenaltyEnabled ? 'bg-[#FF7BAC]' : 'bg-white/14'}`}>
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${routinePenaltyEnabled ? 'left-[22px]' : 'left-0.5'}`} />
-          </span>
-        </button>
+          <label htmlFor="routine-penalty-points" className="shrink-0 text-sm font-bold text-white/70">
+            {adminCopy.routinePenaltyPointsLabel}
+          </label>
+          <div className="flex h-10 min-w-0 flex-1 items-center rounded-lg border border-white/10 bg-[#111224] px-3 focus-within:border-[#4EEDB0] sm:max-w-40">
+            <input
+              id="routine-penalty-points"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              value={routinePenaltyPointsInput}
+              onChange={e => setRoutinePenaltyPointsInput(e.target.value.replace(/\D/g, ''))}
+              className="min-w-0 flex-1 bg-transparent text-right text-base font-black text-white outline-none"
+            />
+            <span className="ml-1.5 text-sm font-bold text-white/50">P</span>
+          </div>
+          <button
+            type="submit"
+            disabled={routinePenaltySaving || routinePenaltyPointsInput === String(routinePenaltyPoints)}
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#4EEDB0] px-4 text-sm font-black text-[#07120E] transition-colors hover:bg-[#71F4C0] disabled:cursor-not-allowed disabled:bg-white/[0.055] disabled:text-white/36"
+          >
+            {adminCopy.save}
+          </button>
+        </form>
       </div>
 
       {/* Change Admin PIN */}

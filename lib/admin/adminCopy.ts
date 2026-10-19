@@ -23,6 +23,14 @@ export function buildAdminCopy(lang: Lang) {
     routinePenaltyHelp: (points: number) => lang === 'en'
       ? `For the whole family: when on, an unfinished morning (12:00) or evening (22:00) routine deducts ${points} spendable points.`
       : `가족 전체에 적용돼요. 켜져 있으면 아침(12시)·저녁(22시) 루틴을 못 마쳤을 때 사용 가능 포인트 ${points}점이 차감돼요.`,
+    save: lang === 'en' ? 'Save' : '저장',
+    routinePenaltyPointsLabel: lang === 'en' ? 'Points per missed deadline' : '마감 1회당 차감',
+    routinePenaltyPointsInvalid: (max: number) => lang === 'en'
+      ? `Enter a whole number from 1 to ${max}.`
+      : `1부터 ${max} 사이의 숫자를 입력하세요.`,
+    routinePenaltyPointsSaved: (points: number) => lang === 'en'
+      ? `Missed deadlines now deduct ${points} points.`
+      : `이제 마감을 놓치면 ${points}점이 차감돼요.`,
     routinePenaltySaveFailed: lang === 'en' ? 'Could not save the penalty setting.' : '벌점 설정을 저장하지 못했어요.',
     on: lang === 'en' ? 'On' : '켜짐',
     off: lang === 'en' ? 'Off' : '꺼짐',
