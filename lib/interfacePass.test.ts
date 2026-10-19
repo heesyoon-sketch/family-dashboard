@@ -37,9 +37,9 @@ test('member panels show equipped shields as a compact horizontal stack', () => 
   const equippedShields = read('components/EquippedShields.tsx');
   assert.match(panel, /EquippedShields/);
   assert.doesNotMatch(panel, /NextAchievementChip/);
-  assert.match(equippedShields, /equippedInsigniaIds/);
+  assert.match(equippedShields, /SHIELD_TYPES\.map/);
   assert.match(equippedShields, /-ml-\[8px\]/);
-  assert.match(equippedShields, /SHIELD_FAN_CLASSES/);
+  assert.match(equippedShields, /FAN_CLASSES/);
   assert.match(equippedShields, /SHIELD_PX = 30/);
 });
 

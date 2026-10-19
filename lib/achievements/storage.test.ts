@@ -347,8 +347,9 @@ test('shield UI components consume the central snapshot instead of starting fami
   for (const file of ['components/EquippedShields.tsx', 'components/hall/ShieldWall.tsx']) {
     const source = readFileSync(join(process.cwd(), file), 'utf8');
     assert.doesNotMatch(source, /syncAchievements(?:Once)?\s*\(/, `${file} must not start a network sync`);
-    assert.match(source, /useShieldSnapshot/);
   }
+  // Only the Shield Wall still shows insignias (as earlier-shield history).
+  assert.match(readFileSync(join(process.cwd(), 'components/hall/ShieldWall.tsx'), 'utf8'), /useShieldSnapshot/);
 });
 
 test('bootstrap shield sync awards and celebrates newly reached milestones', () => {
