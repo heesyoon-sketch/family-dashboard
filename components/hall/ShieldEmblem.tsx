@@ -1,50 +1,41 @@
-'use client';
-
-import { useId, type ComponentType } from 'react';
+import Image from 'next/image';
+import { Moon, Sparkles, Sunrise } from 'lucide-react';
 import type { ShieldTier, ShieldType } from '@/lib/shields/engine';
-import { EpicFrame, LegendaryFrame, MythicFrame, RareFrame, SHIELD_TIER_PALETTES } from '@/components/insignia/shieldFrames';
-import { IconEveningFinisher, IconEveryWeekSpark, IconMorningHero } from '@/components/insignia/shieldIcons';
+import { shieldArtSource } from '@/lib/shields/art';
 
-// Shields use the FamBit Shield Wall design package (the same frame shapes
-// and illustrations the insignias had): the tier picks the shape and its own
-// metal, the kind (morning / evening / bonus) picks the art.
-
-/** Tier → frame shape, in increasing grandeur (recolored per tier). */
-const TIER_SHAPE: Record<ShieldTier, typeof RareFrame> = {
-  bronze: RareFrame,
-  silver: RareFrame,
-  gold: EpicFrame,
-  epic: MythicFrame,
-  legendary: LegendaryFrame,
+const TYPE_MARK = {
+  morning: { Icon: Sunrise, color: '#E8C77B' },
+  evening: { Icon: Moon, color: '#AFCDFB' },
+  bonus: { Icon: Sparkles, color: '#C4B5FD' },
 };
 
-const TYPE_ART: Record<ShieldType, ComponentType> = {
-  morning: IconMorningHero,
-  evening: IconEveningFinisher,
-  bonus: IconEveryWeekSpark,
-};
-
+/** Approved collectible art carries rarity; a small corner mark carries routine type. */
 export function ShieldEmblem({ type, tier, size = 120, projected = false, title }: {
   type: ShieldType;
   tier: ShieldTier;
   size?: number;
-  /** "On pace" preview — drawn faded so it never reads as earned. */
   projected?: boolean;
   title?: string;
 }) {
-  const uid = useId().replace(/[:]/g, '');
-  const faded = projected ? 'opacity-55 saturate-50' : '';
-  const Frame = TIER_SHAPE[tier];
-  const Art = TYPE_ART[type];
+  const { Icon, color } = TYPE_MARK[type];
+  const markSize = Math.max(10, Math.min(25, Math.round(size * 0.28)));
   return (
     <span
       role={title ? 'img' : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
-      className={`relative inline-block shrink-0 align-middle ${faded}`}
+      data-shield-art={tier}
+      data-shield-type={type}
+      className={`relative inline-block shrink-0 align-middle ${projected ? 'opacity-55 saturate-50' : ''}`}
       style={{ width: size, height: size, lineHeight: 0 }}
     >
-      <Frame uid={uid} palette={SHIELD_TIER_PALETTES[tier]}><Art /></Frame>
+      <Image src={shieldArtSource(tier, size)} alt="" width={size} height={size} sizes={`${size}px`} draggable={false} className="h-full w-full select-none object-contain" />
+      <span className="absolute grid place-items-center rounded-full border bg-[#141A2B] shadow-sm" style={{
+        width: markSize, height: markSize, right: Math.round(size * (size >= 60 ? 0.16 : 0.04)), bottom: Math.round(size * (size >= 60 ? 0.14 : 0.02)),
+        borderColor: `${color}60`, color,
+      }}>
+        <Icon size={Math.max(6, Math.round(markSize * 0.58))} strokeWidth={2.2} aria-hidden />
+      </span>
     </span>
   );
 }

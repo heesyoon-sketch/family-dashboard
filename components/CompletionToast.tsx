@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import { shieldArtSource } from '@/lib/shields/art';
 import type { CSSProperties } from 'react';
 import { Check, ShieldCheck, X } from 'lucide-react';
 import { TIER_COPY } from '@/lib/shields/copy';
@@ -32,7 +34,7 @@ export function CompletionToast({ taskTitle, basePoints, pointsAwarded, shieldBo
       </div>
       <div className="completion-toast__breakdown" aria-label={shieldBonus ? shieldCreditMessage(basePoints, shieldBonus, en ? 'en' : 'ko') : undefined}>
         <span className="completion-toast__base">{en ? 'Base' : '기본'} <strong>+{basePoints}P</strong></span>
-        {shieldBonus && <span className="completion-toast__shield"><ShieldCheck size={14} aria-hidden="true" />{shieldLabel}<strong>+{shieldBonus.points}P</strong></span>}
+        {shieldBonus && <span className="completion-toast__shield"><span aria-hidden="true">{shieldBonus.tier ? <Image src={shieldArtSource(shieldBonus.tier)} alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" /> : <ShieldCheck size={14} />}</span>{shieldLabel}<strong>+{shieldBonus.points}P</strong></span>}
       </div>
       {detail && <p className="completion-toast__detail">{detail}</p>}
     </div>
