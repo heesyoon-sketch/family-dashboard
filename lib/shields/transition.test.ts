@@ -19,7 +19,11 @@ test('insignias are frozen records: no unlocks, awards, revokes, loadout edits, 
   assert.match(storage, /if \(INSIGNIAS_FROZEN\) \{\n\s+return \{ state, achievementsByChild: persistedAchievementsByChild, newlyUnlocked: \[\], awardedLevelsByUser: \{\} \};/);
   assert.match(storage, /if \(INSIGNIAS_FROZEN\) return \{ revoked: \[\], refundedLevelsByUser: \{\} \};/);
   assert.match(storage, /\/\/ The insignia loadout is locked as-is[^\n]*\n\s+if \(INSIGNIAS_FROZEN\) return state;/);
-  assert.match(read('lib/store.ts'), /legacyInsigniaBonusActive\(new Date\(\), get\(\)\.automaticSaleConfig\.timezone[^)]*\)\n\s+\? loadoutBonusFromIds\(equipped, unlocked\)\n\s+: 0;/);
+  // No client-side bonus at all: insignias, momentum and harmony add nothing;
+  // the only point bonus is the weekly Shields, applied by the server.
+  const store = read('lib/store.ts');
+  assert.match(store, /await processCompletion\(userId, taskId, false, completionAt\);/);
+  assert.doesNotMatch(store, /composeBonusPercent|loadoutBonusFromIds|bonusPercent/);
   assert.doesNotMatch(read('app/page.tsx'), /InsigniaUnlockOverlay/);
 });
 

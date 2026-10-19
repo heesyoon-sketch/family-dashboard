@@ -37,3 +37,9 @@ test('composed bonuses never exceed the global cap', () => {
 
   assert.equal(bonus.totalPercent, 50);
 });
+
+test('momentum and harmony are visual only: no point bonus at any state', async () => {
+  const { MOMENTUM_STATES } = await import('./momentum');
+  const { HARMONY_STATES } = await import('./harmony');
+  for (const s of [...MOMENTUM_STATES, ...HARMONY_STATES]) assert.equal('bonusPercent' in s, false, s.state);
+});

@@ -22,16 +22,14 @@ export interface HarmonyStateMeta {
   label: string;
   description: string;
   minScore: number;
-  /** Tiny family-wide bonus applied to all members, in percent. */
-  bonusPercent: number;
   glow: string;
 }
 
 export const HARMONY_STATES: HarmonyStateMeta[] = [
-  { state: 'quiet',     label: 'Quiet',     description: 'Each member is finding their own rhythm.',                 minScore: 0,  bonusPercent: 0, glow: '#5b6678' },
-  { state: 'echoing',   label: 'Echoing',   description: 'Days are starting to overlap — the family hears itself.', minScore: 35, bonusPercent: 1, glow: '#7adff2' },
-  { state: 'resonant',  label: 'Resonant',  description: 'A shared rhythm is forming across most days.',             minScore: 65, bonusPercent: 2, glow: '#a98bff' },
-  { state: 'radiant',   label: 'Radiant',   description: 'Side by side, almost every day. The house glows.',         minScore: 88, bonusPercent: 3, glow: '#ffd166' },
+  { state: 'quiet',     label: 'Quiet',     description: 'Each member is finding their own rhythm.',                 minScore: 0,  glow: '#5b6678' },
+  { state: 'echoing',   label: 'Echoing',   description: 'Days are starting to overlap — the family hears itself.', minScore: 35, glow: '#7adff2' },
+  { state: 'resonant',  label: 'Resonant',  description: 'A shared rhythm is forming across most days.',             minScore: 65, glow: '#a98bff' },
+  { state: 'radiant',   label: 'Radiant',   description: 'Side by side, almost every day. The house glows.',         minScore: 88, glow: '#ffd166' },
 ];
 
 export interface HarmonyMemberDaily {
@@ -60,7 +58,6 @@ export interface HarmonyResult {
   /** Out of the family, how many are running today. */
   activeTodayCount: number;
   totalMembers: number;
-  bonusPercent: number;
 }
 
 export function calculateHarmony(input: HarmonyInput): HarmonyResult {
@@ -116,7 +113,6 @@ export function calculateHarmony(input: HarmonyInput): HarmonyResult {
     activeTodayMemberIds,
     activeTodayCount,
     totalMembers,
-    bonusPercent: meta.bonusPercent,
   };
 }
 
@@ -136,6 +132,5 @@ export function emptyHarmony(totalMembers: number): HarmonyResult {
     activeTodayMemberIds: [],
     activeTodayCount: 0,
     totalMembers: Math.max(1, totalMembers),
-    bonusPercent: 0,
   };
 }

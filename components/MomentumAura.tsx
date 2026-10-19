@@ -172,13 +172,6 @@ function MomentumStatesDialog({
                         </span>
                       )}
                     </div>
-                    <span
-                      className={`shrink-0 text-xs font-bold ${
-                        state.bonusPercent > 0 ? 'text-[#3ddc97]' : 'text-white/45'
-                      }`}
-                    >
-                      {state.bonusPercent > 0 ? `+${state.bonusPercent}% bonus` : 'no bonus'}
-                    </span>
                   </div>
                   <p className="mt-0.5 text-[13px] leading-snug text-white/65">
                     {state.description}

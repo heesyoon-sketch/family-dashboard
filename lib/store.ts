@@ -19,9 +19,6 @@ import type { AchievementProgress } from './achievements/engine';
 import {
   calculateMomentum,
   calculateHarmony,
-  composeBonusPercent,
-  loadoutBonusFromIds,
-  type BonusBreakdown,
   type MomentumResult,
   type HarmonyResult,
 } from './progression';
@@ -119,7 +116,6 @@ export type CompletionFeedback =
       taskId: string;
       basePoints: number;
       pointsAwarded: number;
-      bonus: BonusBreakdown;
       perfectQuest: PerfectDayClaimResult['quest'];
       perfectQuestAwarded: boolean;
     }
@@ -1286,45 +1282,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         return { status: 'queued', taskId, basePoints };
       }
 
-      // Compose the loadout + momentum + harmony bonus on the client and
-      // hand it to the RPC. The server clamps to 50% so a stale or tampered
-      // client can never inflate points beyond the design ceiling (1.5×).
-      let bonus = composeBonusPercent({
-        momentumPercent: 0,
-        harmonyPercent: 0,
-        loadoutPercent: 0,
-      });
-      try {
-        const familyId = get().familyId;
-        if (familyId) {
-          const { loadPersistedAchievementState } = await import('./achievements/storage');
-          const ach = await loadPersistedAchievementState(familyId, get().users);
-          const child = ach.children[userId];
-          const equipped = child?.equippedInsigniaIds ?? [];
-          const unlocked = new Set(Object.keys(child?.unlockedAtByAchievementId ?? {}));
-          // Insignia loadout bonus ends when monthly Shields take over.
-          const { legacyInsigniaBonusActive } = await import('./shields/transition');
-          const loadoutPct = legacyInsigniaBonusActive(new Date(), get().automaticSaleConfig.timezone || 'America/Toronto')
-            ? loadoutBonusFromIds(equipped, unlocked)
-            : 0;
-          const momentumPct = get().momentumByUser[userId]?.bonusPercent ?? 0;
-          const harmonyPct = get().harmony?.bonusPercent ?? 0;
-          bonus = composeBonusPercent({
-            momentumPercent: momentumPct,
-            harmonyPercent: harmonyPct,
-            loadoutPercent: loadoutPct,
-          });
-        }
-      } catch (error) {
-        console.warn('[bonus] failed to compose, sending 0%', error);
-      }
-
+      // No client-side bonus: momentum and harmony are visual only, and the
+      // only point bonus is the equipped weekly Shields, applied server-side.
       const completionAt = new Date();
       let result;
       try {
         const { processCompletion } = await import('./gamification');
-        result = await processCompletion(userId, taskId, false, completionAt, bonus.totalPercent);
-        console.log('[completion] bonus%', bonus.totalPercent, '→ awarded', result.pointsAwarded, 'pts');
+        result = await processCompletion(userId, taskId, false, completionAt);
       } catch (error) {
         await enqueueTaskAction('complete', userId, taskId);
         console.warn('Queued completion for offline sync', error);
@@ -1417,7 +1381,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         taskId,
         basePoints,
         pointsAwarded: result.pointsAwarded,
-        bonus,
         perfectQuest: result.perfectDay.quest,
         perfectQuestAwarded: result.perfectDay.awarded,
       };

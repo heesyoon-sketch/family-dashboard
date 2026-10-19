@@ -22,19 +22,16 @@ export interface MomentumStateMeta {
   description: string;
   /** Inclusive lower bound of the 0..100 score for this state. */
   minScore: number;
-  /** Tiny ambient bonus, in percent (basis points / 100). Capped low so the
-   *  loop stays about emotional rhythm, not min/max grinding. */
-  bonusPercent: number;
   /** Visual intensity of the aura, 0..1. */
   intensity: number;
 }
 
 export const MOMENTUM_STATES: MomentumStateMeta[] = [
-  { state: 'spark',        label: 'Spark',       description: 'A quiet beginning. Show up and the flame grows.',           minScore: 0,  bonusPercent: 0, intensity: 0.20 },
-  { state: 'warm',         label: 'Warm',        description: 'Rhythm is forming. The flame holds steady.',                 minScore: 30, bonusPercent: 1, intensity: 0.40 },
-  { state: 'bright',       label: 'Bright',      description: 'Lit and lively — most days are touched by progress.',       minScore: 55, bonusPercent: 2, intensity: 0.62 },
-  { state: 'blazing',      label: 'Blazing',     description: 'Strong, warm momentum carrying you forward.',                minScore: 75, bonusPercent: 4, intensity: 0.82 },
-  { state: 'overflowing',  label: 'Overflowing', description: 'Radiant. The whole house feels the rhythm.',                 minScore: 92, bonusPercent: 6, intensity: 1.00 },
+  { state: 'spark',        label: 'Spark',       description: 'A quiet beginning. Show up and the flame grows.',           minScore: 0,  intensity: 0.20 },
+  { state: 'warm',         label: 'Warm',        description: 'Rhythm is forming. The flame holds steady.',                 minScore: 30, intensity: 0.40 },
+  { state: 'bright',       label: 'Bright',      description: 'Lit and lively — most days are touched by progress.',       minScore: 55, intensity: 0.62 },
+  { state: 'blazing',      label: 'Blazing',     description: 'Strong, warm momentum carrying you forward.',                minScore: 75, intensity: 0.82 },
+  { state: 'overflowing',  label: 'Overflowing', description: 'Radiant. The whole house feels the rhythm.',                 minScore: 92, intensity: 1.00 },
 ];
 
 export interface MomentumResult {
@@ -46,8 +43,6 @@ export interface MomentumResult {
   activeDays: number;
   /** Window length used for computation. */
   windowDays: number;
-  /** Bonus applied per completion as a percent of base points. */
-  bonusPercent: number;
 }
 
 /** Decay weight for a day `n` ago. Linear — recent days count fully, older
@@ -97,7 +92,6 @@ export function calculateMomentum(input: MomentumInput): MomentumResult {
     meta,
     activeDays,
     windowDays: WINDOW_DAYS,
-    bonusPercent: meta.bonusPercent,
   };
 }
 
@@ -117,6 +111,5 @@ export function emptyMomentum(): MomentumResult {
     meta: MOMENTUM_STATES[0],
     activeDays: 0,
     windowDays: WINDOW_DAYS,
-    bonusPercent: 0,
   };
 }
