@@ -189,7 +189,8 @@ function BonusRow({ p }: { p: BonusProgress }) {
       {p.tier ? <ShieldEmblem type="bonus" tier={p.tier} size={30} projected /> : <EmptyShield size={26} />}
       <span className="min-w-0 flex-1">
         <span className="font-semibold text-white">{t(TYPE_COPY.bonus.name)}</span>
-        <span className="ml-1.5 tabular-nums text-[#C9CCE0]">{en ? `${p.bonusDays} bonus day${p.bonusDays === 1 ? '' : 's'}` : `보너스 ${p.bonusDays}일`}</span>
+        <span className="ml-1.5 tabular-nums text-[#C9CCE0]">{en ? `${p.bonusDays} bonus day${p.bonusDays === 1 ? '' : 's'}` : `보너스 한 날 ${p.bonusDays}일`}</span>
+        <span className="block text-[11px] text-[#8E94B4]">{en ? 'Any one bonus task counts for the day.' : '아무 보너스 과제나 하나면 그날로 인정돼요.'}</span>
         {p.tier && <TierBadge tier={p.tier} />}
         {p.gated
           ? <span className="mt-0.5 flex items-center gap-1 text-[11px] text-[#E8C77B]"><Lock size={11} aria-hidden />{en ? `Needs ${WEEKLY_RULES.bonus.minRequiredRate}% of the required routine first` : `필수 루틴 ${WEEKLY_RULES.bonus.minRequiredRate}% 이상부터 받을 수 있어요`}</span>

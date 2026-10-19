@@ -173,10 +173,6 @@ interface FamilyState {
   todayCompletionsByWindow: Record<string, WindowCompletions>;
   couponsByUser: Record<string, PerfectDayCoupon[]>;
   perfectQuestByUser: Record<string, PerfectQuestProgress>;
-  maxStreakByUser: Record<string, number>;
-  longestStreakByUser: Record<string, number>;
-  bestDayByUser: Record<string, number>;
-  growthByUser: Record<string, number | null>;
   dailyStreakByUser: Record<string, number>;
   dailyStreakAtRiskByUser: Record<string, boolean>;
   weeklyRecapByUser: Record<string, WeeklyRecap>;
@@ -203,9 +199,7 @@ interface FamilyState {
   transferPointsWithMessage: (senderId: string, receiverId: string, amount: number, message: string) => Promise<void>;
   redeemPerfectDayCoupon: (couponId: string, userId: string, kind: PerfectDayCouponKind) => Promise<void>;
   transferPerfectDayCoupon: (couponId: string, senderId: string, recipientId: string, message: string) => Promise<void>;
-  updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
-  applyBalance: (userId: string, newBalance: number) => void;
   dismissPerfectDayAward: () => void;
   toggleSound: () => void;
   togglePenaltyPause: () => Promise<void>;
@@ -446,10 +440,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   todayCompletionsByWindow: {},
   couponsByUser: {},
   perfectQuestByUser: {},
-  maxStreakByUser: {},
-  longestStreakByUser: {},
-  bestDayByUser: {},
-  growthByUser: {},
   dailyStreakByUser: {},
   dailyStreakAtRiskByUser: {},
   weeklyRecapByUser: {},
@@ -636,9 +626,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const userIds = (uRes.data ?? []).map((r: { id: string }) => r.id);
     const safeIds = userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'];
 
-    const [lRes, sRes, cTodayRes, cHistRes, aRes, couponRes, perfectQuestRes] = await Promise.all([
+    const [lRes, cTodayRes, cHistRes, aRes, couponRes, perfectQuestRes] = await Promise.all([
       supabase.from('levels').select('*').in('user_id', safeIds),
-      supabase.from('streaks').select('*').in('user_id', safeIds),
       supabase.from('task_completions')
         .select('id, user_id, task_id, completed_at')
         .in('user_id', safeIds)
@@ -664,7 +653,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     ]);
     surfaceHydrateErrors([
       { label: 'levels',           error: lRes.error },
-      { label: 'streaks',          error: sRes.error },
       { label: 'completions:today', error: cTodayRes.error },
       { label: 'completions:30d',  error: cHistRes.error },
       { label: 'family_activities', error: aRes.error },
@@ -726,10 +714,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const todayCompletionsByWindow: Record<string, WindowCompletions> = {};
     const couponsByUser: Record<string, PerfectDayCoupon[]> = {};
     const perfectQuestByUser: Record<string, PerfectQuestProgress> = {};
-    const maxStreakByUser: Record<string, number> = {};
-    const longestStreakByUser: Record<string, number> = {};
-    const bestDayByUser: Record<string, number> = {};
-    const growthByUser: Record<string, number | null> = {};
     const dailyStreakByUser: Record<string, number> = {};
     const dailyStreakAtRiskByUser: Record<string, boolean> = {};
     const weeklyRecapByUser: Record<string, WeeklyRecap> = {};
@@ -754,30 +738,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     for (const raw of Array.isArray(perfectQuestRes.data) ? perfectQuestRes.data : []) {
       const progress = mapPerfectQuestProgress(raw as Record<string, unknown>);
       if (userIds.includes(progress.userId)) perfectQuestByUser[progress.userId] = progress;
-    }
-
-    function avgDailyPct(
-      comps: { task_id: string; completed_at: string }[],
-      from: Date,
-      days: number,
-      total: number,
-    ): number {
-      if (total === 0) return 0;
-      let sum = 0;
-      for (let i = 0; i < days; i++) {
-        const d = startOfDayLocal(addDays(from, i));
-        const dEnd = addDays(d, 1);
-        const unique = new Set(
-          comps
-            .filter(c => {
-              const t = new Date(c.completed_at).getTime();
-              return t >= d.getTime() && t < dEnd.getTime();
-            })
-            .map(c => c.task_id)
-        ).size;
-        sum += unique / total;
-      }
-      return Math.round((sum / days) * 100);
     }
 
     for (const u of users) {
@@ -827,13 +787,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         weekendRewardEarnedThisWeek: false,
       };
 
-      const userStreaks = (sRes.data ?? []).filter(s => s.user_id === u.id);
-      // maxStreak: read live streak_count from tasks (primary source)
-      maxStreakByUser[u.id] = allTasks
-        .filter(t => t.userId === u.id && t.active === 1)
-        .reduce((max, t) => Math.max(max, t.streakCount), 0);
-      longestStreakByUser[u.id] = userStreaks.reduce((max, s) => Math.max(max, s.longest), 0);
-
       const userHistComps = (cHistRes.data ?? []).filter(c => c.user_id === u.id);
       const dayMap = new Map<string, Set<string>>();
       const completionDates: Date[] = [];
@@ -868,26 +821,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
       // Bonus tasks are never "due", so they stay out of every rate below.
       const userActiveTasks = requiredTasks(allTasks.filter(t => t.userId === u.id && t.active === 1));
-      bestDayByUser[u.id] = dayMap.size > 0
-        ? Math.max(...[...dayMap.values()].map(s => s.size))
-        : 0;
-
-      const total = requiredTasks(tasksByUser[u.id]).length;
-      const recent7Start = addDays(todayStart, -6);
-      const prev7Start = addDays(todayStart, -13);
-      if (total > 0) {
-        const requiredIds = new Set(userActiveTasks.map(t => t.id));
-        const requiredComps = userHistComps.filter(c => requiredIds.has(c.task_id));
-        const recent7 = avgDailyPct(requiredComps, recent7Start, 7, total);
-        const prev7   = avgDailyPct(requiredComps, prev7Start,   7, total);
-        const hasPrevData = userHistComps.some(c => {
-          const t = new Date(c.completed_at).getTime();
-          return t >= prev7Start.getTime() && t < recent7Start.getTime();
-        });
-        growthByUser[u.id] = hasPrevData ? recent7 - prev7 : null;
-      } else {
-        growthByUser[u.id] = null;
-      }
 
       // Daily streak — consecutive days ending today (or yesterday if today is empty)
       // where the user completed ≥1 task. dayMap is already keyed by startOfDay ISO.
@@ -1035,10 +968,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       todayCompletionsByWindow,
       couponsByUser,
       perfectQuestByUser,
-      maxStreakByUser,
-      longestStreakByUser,
-      bestDayByUser,
-      growthByUser,
       dailyStreakByUser,
       dailyStreakAtRiskByUser,
       weeklyRecapByUser,
@@ -1262,14 +1191,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
                 quest: result.perfectDay.quest,
               }]
             : state.perfectDayQueue,
-          maxStreakByUser: {
-            ...state.maxStreakByUser,
-            [userId]: result.maxStreak,
-          },
-          longestStreakByUser: {
-            ...state.longestStreakByUser,
-            [userId]: result.longestStreak,
-          },
           tasksByUser: {
             ...state.tasksByUser,
             [userId]: (state.tasksByUser[userId] ?? []).map(t =>
@@ -1367,8 +1288,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
               ),
             }
           : state.couponsByUser,
-        maxStreakByUser:     { ...state.maxStreakByUser,     [userId]: undoResult.maxStreak },
-        longestStreakByUser: { ...state.longestStreakByUser, [userId]: undoResult.longestStreak },
         tasksByUser: {
           ...state.tasksByUser,
           [userId]: (state.tasksByUser[userId] ?? []).map(t =>
@@ -1562,26 +1481,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     await get().hydrate();
   },
 
-  updateMemberAvatar: (userId, avatarUrl) => {
-    set(state => ({
-      users: state.users.map(user =>
-        user.id === userId ? { ...user, avatarUrl } : user
-      ),
-    }));
-  },
-
-  applyBalance: (userId, newBalance) => {
-    set(state => {
-      const existing = state.levelsByUser[userId];
-      if (!existing) return {};
-      return {
-        levelsByUser: {
-          ...state.levelsByUser,
-          [userId]: { ...existing, spendableBalance: Math.max(0, Math.round(newBalance)) },
-        },
-      };
-    });
-  },
 
 
 
@@ -1647,10 +1546,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       todayCompletionsByWindow: {},
       couponsByUser: {},
       perfectQuestByUser: {},
-      maxStreakByUser: {},
-      longestStreakByUser: {},
-      bestDayByUser: {},
-      growthByUser: {},
       dailyStreakByUser: {},
       dailyStreakAtRiskByUser: {},
       weeklyRecapByUser: {},

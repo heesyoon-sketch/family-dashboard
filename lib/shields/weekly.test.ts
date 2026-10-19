@@ -162,3 +162,14 @@ test('a server error is shown, not queued as offline; paused retries never loop'
   assert.match(store, /if \(processed > 0\) \{\n\s+await get\(\)\.hydrate\(\);\n\s+broadcastSync\(\);/);
   assert.match(read('components/TaskCard.tsx'), /description: error instanceof Error \? error\.message : undefined/);
 });
+
+test('a bonus day is any bonus task, not the same one every day', () => {
+  // Monday laundry, Tuesday reading, Wednesday helping — three different
+  // tasks still make three bonus days.
+  const required = days.flatMap(day => [done('wake', day, 7), done('teeth', day, 7), done('homework', day, 18), done('shower', day, 19)]);
+  const mixed = [done('laundry', '2026-10-12', 17), done('read', '2026-10-13', 17), done('help', '2026-10-14', 17)];
+  const p = weekProgress({ userId: 'kid', weekStart: '2026-10-12', schedules, completions: [...required, ...mixed], bonusTaskIds: new Set(['laundry', 'read', 'help']), timezone: TZ });
+  assert.equal(p.bonus.bonusDays, 3);
+  assert.equal(p.bonus.tier, 'silver');
+  assert.match(read('lib/shields/copy.ts'), /매일 같은 과제일 필요는 없어서/);
+});

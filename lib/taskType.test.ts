@@ -207,7 +207,6 @@ test('completed bonus tasks do not inflate the required completion rate', () => 
 
   const store = read('lib/store.ts');
   assert.match(store, /const userActiveTasks = requiredTasks\(/);
-  assert.match(store, /const total = requiredTasks\(tasksByUser\[u\.id\]\)\.length/);
   assert.match(read('components/MobileMemberTabs.tsx'), /requiredTasks\(tasksByUser\[user\.id\] \?\? \[\]\)/);
 });
 
