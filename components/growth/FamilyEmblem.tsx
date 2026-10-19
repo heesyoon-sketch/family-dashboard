@@ -4,6 +4,7 @@ import { useId } from 'react';
 import type { ProtectionState } from '@/lib/analytics/family';
 
 const STATE_COLORS: Record<ProtectionState, { a: string; b: string; glow: string }> = {
+  'penalty-off': { a: '#8ff0c8', b: '#3f8f7c', glow: 'rgba(121,232,189,0.35)' },
   vacation: { a: '#8ff0c8', b: '#3f8f7c', glow: 'rgba(121,232,189,0.35)' },
   'sale-day': { a: '#8ff0c8', b: '#3f8f7c', glow: 'rgba(121,232,189,0.35)' },
   secured: { a: '#c3c4ff', b: '#5b5fc7', glow: 'rgba(165,166,255,0.35)' },

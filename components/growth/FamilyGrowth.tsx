@@ -62,6 +62,7 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
   const todayTasksByUser = useFamilyStore(s => s.tasksByUser);
   const todayCompletionsByWindow = useFamilyStore(s => s.todayCompletionsByWindow);
   const penaltyPauseEnabled = useFamilyStore(s => s.penaltyPauseEnabled);
+  const routinePenaltyEnabled = useFamilyStore(s => s.routinePenaltyEnabled);
   const saleActive = useFamilyStore(s => s.automaticSaleStatus.active);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,11 +98,11 @@ export function FamilyGrowth({ analytics, initialMemberId }: { analytics: Family
       mission: missionRow ? evaluateMission({ missionId: missionRow.mission_id, weekStart, rules: missionRow.rules, tasks: records.tasks, completions: records.completions, now, timezone }) : null,
       missionsCompleted: finished.filter(row => row.status === 'completed').length,
       missionsFinished: finished.length,
-      protection: protectionStatus({ members, todayTasksByUser, todayCompletionsByWindow, nowHour: hour, vacation: penaltyPauseEnabled, saleDay: saleActive, penaltiesToday: records.penalties.filter(p => p.date === today).length }),
+      protection: protectionStatus({ members, todayTasksByUser, todayCompletionsByWindow, nowHour: hour, penaltyEnabled: routinePenaltyEnabled, vacation: penaltyPauseEnabled, saleDay: saleActive, penaltiesToday: records.penalties.filter(p => p.date === today).length }),
       activeToday: histories.filter(h => (h.days.get(today)?.completed ?? 0) > 0).length,
       withHabits: histories.filter(h => h.firstDay !== null || (todayTasksByUser[h.memberId]?.length ?? 0) > 0).length,
     };
-  }, [records, members, histories, now, timezone, todayTasksByUser, todayCompletionsByWindow, penaltyPauseEnabled, saleActive]);
+  }, [records, members, histories, now, timezone, todayTasksByUser, todayCompletionsByWindow, routinePenaltyEnabled, penaltyPauseEnabled, saleActive]);
 
   const view = useMemo(() => {
     if (!records || !member) return null;

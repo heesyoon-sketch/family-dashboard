@@ -59,7 +59,7 @@ import {
   parseAutomaticSaleSetting,
   withAutomaticSale,
 } from './automaticSale';
-import { parsePenaltyPauseSetting } from './penaltyPause';
+import { parsePenaltyPauseSetting, parseRoutinePenaltySetting } from './penaltyPause';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -170,6 +170,8 @@ interface FamilyState {
   automaticSaleStatus: AutomaticSaleStatus;
   /** Family-wide "vacation mode": while true, missed routines never deduct points. */
   penaltyPauseEnabled: boolean;
+  /** Family-wide switch for the 50-point routine deadline penalty (default on). */
+  routinePenaltyEnabled: boolean;
   activeTaskCount: number;
   currentMemberId: string | null;
   currentMemberCanAdmin: boolean;
@@ -484,6 +486,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   automaticSaleConfig: defaultAutomaticSaleConfig(),
   automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
   penaltyPauseEnabled: false,
+  routinePenaltyEnabled: true,
   activeTaskCount: 0,
   currentMemberId: null,
   currentMemberCanAdmin: false,
@@ -551,6 +554,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         automaticSaleConfig: defaultAutomaticSaleConfig(),
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         penaltyPauseEnabled: false,
+        routinePenaltyEnabled: true,
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -600,6 +604,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         automaticSaleConfig: defaultAutomaticSaleConfig(),
         automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
         penaltyPauseEnabled: false,
+        routinePenaltyEnabled: true,
         activeTaskCount: 0,
         currentMemberId: null,
         currentMemberCanAdmin: false,
@@ -620,17 +625,21 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const timeOfDay = getCurrentTimeOfDay();
     const routineAvailability = getChildRoutineAvailability(now);
 
-    try {
-      await applyMorningRoutinePenaltiesIfDue(supabase, now);
-    } catch (error) {
-      // Keep the dashboard usable if the check is temporarily unavailable.
-      // The minute timer retries until the server confirms today's check.
-      console.warn('[morning-penalty] check failed', error);
-    }
-    try {
-      await applyEveningRoutinePenaltiesIfDue(supabase, now);
-    } catch (error) {
-      console.warn('[evening-penalty] check failed', error);
+    // The server also refuses to deduct when the family switch is off; this
+    // just skips the round trip once a hydrate has told us it is off.
+    if (get().routinePenaltyEnabled) {
+      try {
+        await applyMorningRoutinePenaltiesIfDue(supabase, now);
+      } catch (error) {
+        // Keep the dashboard usable if the check is temporarily unavailable.
+        // The minute timer retries until the server confirms today's check.
+        console.warn('[morning-penalty] check failed', error);
+      }
+      try {
+        await applyEveningRoutinePenaltiesIfDue(supabase, now);
+      } catch (error) {
+        console.warn('[evening-penalty] check failed', error);
+      }
     }
     // Recap window needs three trailing weeks (current week-in-progress so we can show
     // a daily streak that extends into today, plus the two completed weeks we compare).
@@ -640,12 +649,13 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     // .is('deleted_at', null) filters out soft-deleted rows. Migration 060
     // added the column with a default null and partial indexes scoped by
     // (family_id) where deleted_at is null, so this filter is cheap.
-    const [uRes, tRes, rRes, automaticSaleRes, penaltyPauseRes] = await Promise.all([
+    const [uRes, tRes, rRes, automaticSaleRes, penaltyPauseRes, routinePenaltyRes] = await Promise.all([
       supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null),
       supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
       supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'automatic_reward_sale').maybeSingle(),
       supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'penalty_pause').maybeSingle(),
+      supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'routine_penalty').maybeSingle(),
     ]);
     // Surface SELECT errors loudly. Previously these were silently swallowed
     // by `?? []` fallbacks, which meant a missing column or RLS regression
@@ -657,6 +667,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       { label: 'rewards', error: rRes.error },
       { label: 'automatic-sale', error: automaticSaleRes.error },
       { label: 'penalty-pause', error: penaltyPauseRes.error },
+      { label: 'routine-penalty', error: routinePenaltyRes.error },
     ], get().lastHydrateAt > 0);
 
     // If the core SELECTs all failed AND we already have a successful hydrate
@@ -725,6 +736,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const automaticSaleConfig = parseAutomaticSaleSetting(automaticSaleRes.data?.value);
     const automaticSaleStatus = getAutomaticSaleStatus(automaticSaleConfig, now);
     const penaltyPauseEnabled = parsePenaltyPauseSetting(penaltyPauseRes.data?.value);
+    const routinePenaltyEnabled = routinePenaltyRes.error
+      ? get().routinePenaltyEnabled
+      : parseRoutinePenaltySetting(routinePenaltyRes.data?.value);
     const rewards: Reward[] = (rRes.data ?? []).map(r => withAutomaticSale(
       mapRewardRow(r as Record<string, unknown>),
       automaticSaleStatus,
@@ -1066,6 +1080,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       automaticSaleConfig,
       automaticSaleStatus,
       penaltyPauseEnabled,
+      routinePenaltyEnabled,
       activeTaskCount,
       currentMemberId,
       currentMemberCanAdmin,
@@ -1823,6 +1838,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       automaticSaleConfig: defaultAutomaticSaleConfig(),
       automaticSaleStatus: getAutomaticSaleStatus(defaultAutomaticSaleConfig()),
       penaltyPauseEnabled: false,
+      routinePenaltyEnabled: true,
       activeTaskCount: 0,
       currentMemberId: null,
       currentMemberCanAdmin: false,

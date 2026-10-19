@@ -8,15 +8,14 @@ export function parsePenaltyPauseSetting(value: string | null | undefined): bool
   }
 }
 
-// Members listed here never get the routine (morning/evening) penalty.
-export function parseRoutinePenaltyExemptSetting(value: string | null | undefined): string[] {
-  if (!value) return [];
+// Family-wide switch for the routine deadline penalty. Missing or malformed
+// settings mean "on", matching the server's routine_penalty_enabled().
+export function parseRoutinePenaltySetting(value: string | null | undefined): boolean {
+  if (!value) return true;
   try {
-    const parsed = JSON.parse(value) as { userIds?: unknown };
-    return Array.isArray(parsed?.userIds)
-      ? parsed.userIds.filter((id): id is string => typeof id === 'string')
-      : [];
+    const parsed = JSON.parse(value) as { enabled?: unknown };
+    return typeof parsed?.enabled === 'boolean' ? parsed.enabled : true;
   } catch {
-    return [];
+    return true;
   }
 }

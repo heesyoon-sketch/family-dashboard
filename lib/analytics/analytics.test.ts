@@ -198,6 +198,7 @@ test('family legacy uses completion evidence only', () => {
 
 test('protection status follows existing exemptions and deadlines', () => {
   const base = { members: [{ id: 'a' }], todayTasksByUser: { a: [{ id: 'm', timeWindow: 'morning' }, { id: 'e', timeWindow: 'evening' }] }, todayCompletionsByWindow: { a: { morning: ['m'], evening: [] } }, penaltiesToday: 0 };
+  assert.equal(protectionStatus({ ...base, nowHour: 15, penaltyEnabled: false, vacation: true, saleDay: false }).state, 'penalty-off');
   assert.equal(protectionStatus({ ...base, nowHour: 15, vacation: true, saleDay: false }).state, 'vacation');
   assert.equal(protectionStatus({ ...base, nowHour: 15, vacation: false, saleDay: true }).state, 'sale-day');
   assert.equal(protectionStatus({ ...base, nowHour: 15, vacation: false, saleDay: false }).state, 'open');

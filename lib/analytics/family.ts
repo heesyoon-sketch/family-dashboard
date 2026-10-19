@@ -423,7 +423,7 @@ export function familyLegacy(histories: MemberHistory[], missionRows: MissionWee
 export const ROUTINE_DEADLINES = { morning: 12, evening: 22 } as const;
 export const ROUTINE_PENALTY_POINTS = 50;
 
-export type ProtectionState = 'vacation' | 'sale-day' | 'secured' | 'open' | 'missed';
+export type ProtectionState = 'penalty-off' | 'vacation' | 'sale-day' | 'secured' | 'open' | 'missed';
 
 export interface RoutineMemberStatus {
   id: string;
@@ -452,6 +452,8 @@ export function protectionStatus(params: {
   todayTasksByUser: Record<string, Array<{ id: string; timeWindow?: string }>>;
   todayCompletionsByWindow: Record<string, { morning: string[]; evening: string[] }>;
   nowHour: number;
+  /** Family switch for the routine deadline penalty; defaults to on. */
+  penaltyEnabled?: boolean;
   vacation: boolean;
   saleDay: boolean;
   penaltiesToday: number;
@@ -473,7 +475,8 @@ export function protectionStatus(params: {
     deadlines.filter(d => !d.closed).flatMap(d => d.members.filter(m => m.done < m.due).map(m => m.id)),
   ).size;
   let state: ProtectionState;
-  if (params.vacation) state = 'vacation';
+  if (params.penaltyEnabled === false) state = 'penalty-off';
+  else if (params.vacation) state = 'vacation';
   else if (params.saleDay) state = 'sale-day';
   else if (params.penaltiesToday > 0) state = 'missed';
   else if (openMembers > 0) state = 'open';

@@ -19,6 +19,7 @@ import { MEMBER_TONES, MemberAvatar, formatDay, pctText, useCopy } from '@/compo
 import { FamilyEmblem } from './FamilyEmblem';
 
 const STATE_LABEL: Record<ProtectionState, Localized> = {
+  'penalty-off': { en: 'Deadline penalty off', ko: '마감 차감 꺼짐' },
   vacation: { en: 'Protected · vacation mode', ko: '보호 중 · 휴가 모드' },
   'sale-day': { en: 'Protected today · sale day', ko: '오늘은 보호 중 · 세일일' },
   secured: { en: 'Secured', ko: '든든해요' },
@@ -150,7 +151,9 @@ export function FamilyBand(props: FamilyBandProps) {
                   {d.members.map(m => <span key={m.id} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${m.done >= m.due ? 'border-[#79E8BD]/30 text-[#BFF5DE]' : 'border-white/12'}`}>{m.done >= m.due && <Check size={10} aria-hidden />}{memberName(m.id)} {m.done}/{m.due}</span>)}
                 </p>
               ))}
-              <p>{en ? `Finish morning routines by ${ROUTINE_DEADLINES.morning}:00 and evening routines by ${ROUTINE_DEADLINES.evening}:00. A routine left unfinished deducts ${ROUTINE_PENALTY_POINTS} spendable points (never below zero; XP and levels stay).` : `아침 루틴은 ${ROUTINE_DEADLINES.morning}시, 저녁 루틴은 ${ROUTINE_DEADLINES.evening}시까지 마치면 돼요. 못 마치면 사용 가능 포인트가 ${ROUTINE_PENALTY_POINTS}점 차감돼요 (0 아래로는 내려가지 않고, XP와 레벨은 그대로).`}</p>
+              {protection.state === 'penalty-off'
+                ? <p>{en ? 'This family has the routine deadline penalty turned off (Admin > Settings). Missed routines never deduct points.' : '이 가족은 루틴 마감 차감이 꺼져 있어요 (관리자 > 설정). 루틴을 못 마쳐도 포인트가 차감되지 않아요.'}</p>
+                : <p>{en ? `Finish morning routines by ${ROUTINE_DEADLINES.morning}:00 and evening routines by ${ROUTINE_DEADLINES.evening}:00. A routine left unfinished deducts ${ROUTINE_PENALTY_POINTS} spendable points (never below zero; XP and levels stay).` : `아침 루틴은 ${ROUTINE_DEADLINES.morning}시, 저녁 루틴은 ${ROUTINE_DEADLINES.evening}시까지 마치면 돼요. 못 마치면 사용 가능 포인트가 ${ROUTINE_PENALTY_POINTS}점 차감돼요 (0 아래로는 내려가지 않고, XP와 레벨은 그대로).`}</p>}
               <p className="flex items-start gap-1.5"><Palmtree size={13} className="mt-0.5 shrink-0 text-[#79E8BD]" aria-hidden />{en ? 'Vacation mode (parents, dashboard menu) pauses deductions.' : '휴가 모드(부모님, 대시보드 메뉴)를 켜면 차감이 멈춰요.'} <strong className="text-white">{penaltyPauseEnabled ? (en ? 'On.' : '켜짐') : (en ? 'Off.' : '꺼짐')}</strong></p>
               <p className="flex items-start gap-1.5"><Tag size={13} className="mt-0.5 shrink-0 text-[#E8C77B]" aria-hidden />{en ? 'Weekend/holiday sale days skip deductions.' : '주말·공휴일 세일일에는 차감되지 않아요.'} <strong className="text-white">{saleActive ? (en ? 'Today is one.' : '오늘이 세일일') : (en ? 'Not today.' : '오늘은 아님')}</strong></p>
               <p className="text-[#A9AECB]">{en ? `Missed deadlines, last 14 days: ${props.penalties.length}` : `최근 14일 놓친 마감: ${props.penalties.length}번`}</p>

@@ -5,7 +5,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { resetAllProgress } from '@/lib/reset';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
 import { ROUTINE_PENALTY_POINTS } from '@/lib/analytics/family';
-import type { User } from '@/lib/db';
 
 interface AdminSettingsPanelProps {
   familyInviteCode: string | null;
@@ -20,10 +19,9 @@ interface AdminSettingsPanelProps {
   setConfirmPinInput: Dispatch<SetStateAction<string>>;
   pinChanging: boolean;
   handleChangePin: () => void;
-  penaltyMembers: User[];
-  routinePenaltyExemptIds: string[];
-  routinePenaltySavingId: string | null;
-  toggleMemberRoutinePenalty: (userId: string) => void;
+  routinePenaltyEnabled: boolean;
+  routinePenaltySaving: boolean;
+  toggleRoutinePenalty: () => void;
   exportingSnapshot: boolean;
   exportFamilySnapshot: () => void;
   leavingFamily: boolean;
@@ -44,10 +42,9 @@ export function AdminSettingsPanel({
   confirmPinInput,
   setConfirmPinInput,
   pinChanging,
-  penaltyMembers,
-  routinePenaltyExemptIds,
-  routinePenaltySavingId,
-  toggleMemberRoutinePenalty,
+  routinePenaltyEnabled,
+  routinePenaltySaving,
+  toggleRoutinePenalty,
   exportingSnapshot,
   exportFamilySnapshot,
   leavingFamily,
@@ -134,40 +131,31 @@ export function AdminSettingsPanel({
         </div>
       </div>
 
-      {/* Routine penalty, per member */}
-      <div className="rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
-        <div className="mb-1 flex items-center gap-2">
-          <Icons.AlarmClockMinus size={18} className="text-[#FF7BAC]" />
-          <h2 className="text-base font-black text-white">{adminCopy.routinePenalty}</h2>
+      {/* Routine deadline penalty, family-wide */}
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-white/8 bg-[#14162A] p-4 sm:p-5">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2">
+            <Icons.AlarmClockMinus size={18} className="text-[#FF7BAC]" />
+            <h2 className="text-base font-black text-white">{adminCopy.routinePenalty}</h2>
+          </div>
+          <p className="text-sm leading-6 text-white/54">{adminCopy.routinePenaltyHelp(ROUTINE_PENALTY_POINTS)}</p>
         </div>
-        <p className="mb-3 text-sm leading-6 text-white/54">{adminCopy.routinePenaltyHelp(ROUTINE_PENALTY_POINTS)}</p>
-        <div className="divide-y divide-white/8 rounded-lg border border-white/8 bg-[#111224]">
-          {penaltyMembers.map(member => {
-            const enabled = !routinePenaltyExemptIds.includes(member.id);
-            const saving = routinePenaltySavingId === member.id;
-            return (
-              <div key={member.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <span className="min-w-0 truncate text-sm font-bold text-white">{member.name}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={enabled}
-                  aria-label={`${member.name} ${adminCopy.routinePenalty}`}
-                  onClick={() => toggleMemberRoutinePenalty(member.id)}
-                  disabled={routinePenaltySavingId !== null}
-                  className="inline-flex shrink-0 items-center gap-2 disabled:opacity-50"
-                >
-                  <span className={`text-xs font-black ${enabled ? 'text-[#FF7BAC]' : 'text-white/40'}`}>
-                    {saving ? '…' : enabled ? adminCopy.on : adminCopy.off}
-                  </span>
-                  <span className={`relative h-6 w-11 rounded-full transition-colors ${enabled ? 'bg-[#FF7BAC]' : 'bg-white/14'}`}>
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${enabled ? 'left-[22px]' : 'left-0.5'}`} />
-                  </span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={routinePenaltyEnabled}
+          aria-label={adminCopy.routinePenalty}
+          onClick={toggleRoutinePenalty}
+          disabled={routinePenaltySaving}
+          className="inline-flex shrink-0 items-center gap-2 disabled:opacity-50"
+        >
+          <span className={`text-xs font-black ${routinePenaltyEnabled ? 'text-[#FF7BAC]' : 'text-white/40'}`}>
+            {routinePenaltySaving ? '…' : routinePenaltyEnabled ? adminCopy.on : adminCopy.off}
+          </span>
+          <span className={`relative h-6 w-11 rounded-full transition-colors ${routinePenaltyEnabled ? 'bg-[#FF7BAC]' : 'bg-white/14'}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${routinePenaltyEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+          </span>
+        </button>
       </div>
 
       {/* Change Admin PIN */}

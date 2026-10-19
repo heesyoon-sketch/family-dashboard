@@ -21,8 +21,8 @@ export function buildAdminCopy(lang: Lang) {
     language: lang === 'en' ? 'Language' : '언어 설정',
     routinePenalty: lang === 'en' ? 'Routine deadline penalty' : '루틴 마감 벌점',
     routinePenaltyHelp: (points: number) => lang === 'en'
-      ? `When on, an unfinished morning (12:00) or evening (22:00) routine deducts ${points} spendable points.`
-      : `켜져 있으면 아침(12시)·저녁(22시) 루틴을 못 마쳤을 때 사용 가능 포인트 ${points}점이 차감돼요.`,
+      ? `For the whole family: when on, an unfinished morning (12:00) or evening (22:00) routine deducts ${points} spendable points.`
+      : `가족 전체에 적용돼요. 켜져 있으면 아침(12시)·저녁(22시) 루틴을 못 마쳤을 때 사용 가능 포인트 ${points}점이 차감돼요.`,
     routinePenaltySaveFailed: lang === 'en' ? 'Could not save the penalty setting.' : '벌점 설정을 저장하지 못했어요.',
     on: lang === 'en' ? 'On' : '켜짐',
     off: lang === 'en' ? 'Off' : '꺼짐',

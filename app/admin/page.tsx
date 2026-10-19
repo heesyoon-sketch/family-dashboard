@@ -46,7 +46,7 @@ import {
   parseAutomaticSaleSetting,
 } from '@/lib/automaticSale';
 import { holidayTimezone, publicHolidayDates } from '@/lib/holidayCalendar';
-import { parseRoutinePenaltyExemptSetting } from '@/lib/penaltyPause';
+import { parseRoutinePenaltySetting } from '@/lib/penaltyPause';
 
 function notifyDashboard() {
   const ch = new BroadcastChannel('habit_sync');
@@ -69,8 +69,8 @@ export default function AdminPage() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [routinePenaltyExemptIds, setRoutinePenaltyExemptIds] = useState<string[]>([]);
-  const [routinePenaltySavingId, setRoutinePenaltySavingId] = useState<string | null>(null);
+  const [routinePenaltyEnabled, setRoutinePenaltyEnabled] = useState(true);
+  const [routinePenaltySaving, setRoutinePenaltySaving] = useState(false);
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [authProfile, setAuthProfile] = useState<{ email: string | null; avatarUrl: string | null }>({
     email: null,
@@ -198,11 +198,11 @@ export default function AdminPage() {
 
       await supabase.rpc('claim_owner_parent_profile');
 
-      const [userRes, rewardRes, automaticSaleRes, penaltyExemptRes] = await Promise.all([
+      const [userRes, rewardRes, automaticSaleRes, routinePenaltyRes] = await Promise.all([
         supabase.from('users').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('display_order', { ascending: true }).order('created_at', { ascending: true }),
         supabase.from('rewards').select('*').eq('family_id', resolvedFamilyId).is('deleted_at', null).order('cost_points'),
         supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'automatic_reward_sale').maybeSingle(),
-        supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'routine_penalty_exempt_members').maybeSingle(),
+        supabase.from('family_settings').select('value').eq('family_id', resolvedFamilyId).eq('key', 'routine_penalty').maybeSingle(),
       ]);
       const users: User[] = (userRes.data ?? []).map(r => ({
         id: r.id, name: r.name, role: r.role, theme: r.theme,
@@ -216,7 +216,7 @@ export default function AdminPage() {
       setAllUsers(users);
       setRewards((rewardRes.data ?? []).map(r => mapReward(r as Record<string, unknown>)));
       setAutomaticSaleConfig(parseAutomaticSaleSetting(automaticSaleRes.data?.value));
-      setRoutinePenaltyExemptIds(parseRoutinePenaltyExemptSetting(penaltyExemptRes.data?.value));
+      setRoutinePenaltyEnabled(parseRoutinePenaltySetting(routinePenaltyRes.data?.value));
       await loadRewardRedemptions();
       const [{ data: parentAllowed }, { data: ownerAllowed }] = await Promise.all([
         supabase.rpc('is_my_family_parent'),
@@ -280,23 +280,22 @@ export default function AdminPage() {
     }
   };
 
-  const toggleMemberRoutinePenalty = async (userId: string) => {
-    if (routinePenaltySavingId) return;
-    const enabled = routinePenaltyExemptIds.includes(userId);
-    setRoutinePenaltySavingId(userId);
+  const toggleRoutinePenalty = async () => {
+    if (routinePenaltySaving) return;
+    const next = !routinePenaltyEnabled;
+    setRoutinePenaltySaving(true);
     try {
       const supabase = createBrowserSupabase();
-      const { data, error } = await supabase.rpc('admin_set_member_routine_penalty', {
-        p_user_id: userId,
-        p_enabled: enabled,
-      });
+      const { error } = await supabase.rpc('admin_set_routine_penalty', { p_enabled: next });
       if (error) throw error;
-      setRoutinePenaltyExemptIds(parseRoutinePenaltyExemptSetting(JSON.stringify(data)));
+      setRoutinePenaltyEnabled(next);
+      await storeHydrate();
+      notifyDashboard();
     } catch (saveError) {
       console.error('Failed to update routine penalty setting', saveError);
       toast.error(adminCopy.routinePenaltySaveFailed);
     } finally {
-      setRoutinePenaltySavingId(null);
+      setRoutinePenaltySaving(false);
     }
   };
 
@@ -1561,10 +1560,9 @@ export default function AdminPage() {
               setConfirmPinInput={setConfirmPinInput}
               pinChanging={pinChanging}
               handleChangePin={handleChangePin}
-              penaltyMembers={sortedUsers}
-              routinePenaltyExemptIds={routinePenaltyExemptIds}
-              routinePenaltySavingId={routinePenaltySavingId}
-              toggleMemberRoutinePenalty={toggleMemberRoutinePenalty}
+              routinePenaltyEnabled={routinePenaltyEnabled}
+              routinePenaltySaving={routinePenaltySaving}
+              toggleRoutinePenalty={toggleRoutinePenalty}
               exportingSnapshot={exportingSnapshot}
               exportFamilySnapshot={exportFamilySnapshot}
               leavingFamily={leavingFamily}
