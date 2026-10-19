@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createBrowserSupabase } from '@/lib/supabase';
-import { periodContaining, zonedDayHour, type DailySchedule, type ShieldTier, type ShieldType } from '@/lib/shields/engine';
+import { addDays, periodContaining, zonedDayHour, type DailySchedule, type ShieldTier, type ShieldType } from '@/lib/shields/engine';
 import type { BonusScope } from '@/lib/shields/weekly';
 
 export type ShieldMode = 'off' | 'simulate' | 'live';
@@ -36,6 +36,7 @@ export interface ShieldWallData {
   /** Monday of the current equipment week (family time). */
   week: string;
   awards: WeeklyAwardRow[];
+  lifetimeLegendary: { userId: string; count: number };
   /** Active equipment of the current week. */
   equipment: EquipmentRow[];
   /** Shield bonus points credited this week, per member. */
@@ -47,7 +48,7 @@ export interface ShieldWallData {
 
 /** Reads the family's Shields (RLS: own family only). Awards and equipment
  *  are written only by the weekly server job. */
-export function useShieldWallData(familyId: string | null, refreshKey: unknown) {
+export function useShieldWallData(familyId: string | null, refreshKey: unknown, memberId: string) {
   const [data, setData] = useState<ShieldWallData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -63,15 +64,16 @@ export function useShieldWallData(familyId: string | null, refreshKey: unknown) 
       const timezone = String(tz);
       const week = periodContaining('week', zonedDayHour(new Date(), timezone).day).start;
 
-      const [config, awards, equipment, ledger, schedules, first] = await Promise.all([
+      const [config, awards, equipment, ledger, schedules, first, legendary] = await Promise.all([
         db.from('shield_config').select('mode').eq('id', 1).maybeSingle(),
-        db.from('shield_monthly_awards').select('id,user_id,evaluation_month,equipment_month,shield_type,tier,scope,bonus_rate_bp,qualification_metrics,created_at').eq('family_id', familyId).order('evaluation_month', { ascending: false }).limit(2000),
+        db.from('shield_monthly_awards').select('id,user_id,evaluation_month,equipment_month,shield_type,tier,scope,bonus_rate_bp,qualification_metrics,created_at').eq('family_id', familyId).gte('equipment_month', addDays(week, -28)).lte('equipment_month', week).order('equipment_month', { ascending: false }),
         db.from('shield_equipment').select('id,user_id,award_id,slot_number,equipped_at').eq('family_id', familyId).eq('equipment_month', week).is('unequipped_at', null),
         db.from('shield_bonus_ledger').select('user_id,mode,bonus_points').eq('family_id', familyId).eq('equipment_month', week).limit(5000),
         db.from('shield_daily_schedules').select('user_id,day,slots').eq('family_id', familyId).gte('day', week).order('day').limit(500),
         db.from('shield_daily_schedules').select('day').eq('family_id', familyId).order('day').limit(1),
+        db.from('shield_monthly_awards').select('id', { count: 'exact', head: true }).eq('family_id', familyId).eq('user_id', memberId).eq('tier', 'legendary').lte('equipment_month', week),
       ]);
-      const failed = [config, awards, equipment, ledger, schedules, first].find(r => r.error);
+      const failed = [config, awards, equipment, ledger, schedules, first, legendary].find(r => r.error);
       if (failed?.error) throw new Error(failed.error.message);
       if (!live) return;
       const bonusThisWeek: Record<string, number> = {};
@@ -80,6 +82,7 @@ export function useShieldWallData(familyId: string | null, refreshKey: unknown) 
       }
       setData({
         timezone,
+        lifetimeLegendary: { userId: memberId, count: legendary.count ?? 0 },
         mode: ((config.data as { mode?: ShieldMode } | null)?.mode) ?? 'off',
         week,
         awards: (awards.data ?? []) as WeeklyAwardRow[],
@@ -91,7 +94,7 @@ export function useShieldWallData(familyId: string | null, refreshKey: unknown) 
       setError(null);
     })().catch(err => { if (live) setError(err instanceof Error ? err.message : 'load failed'); });
     return () => { live = false; };
-  }, [familyId, refreshKey, nonce]);
+  }, [familyId, refreshKey, nonce, memberId]);
 
   return { data, error, reload };
 }

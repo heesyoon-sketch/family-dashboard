@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { FlaskConical, Lock } from 'lucide-react';
+import { ChevronDown, FlaskConical, Lock, ShieldCheck } from 'lucide-react';
 import { useEarlierShields } from '@/lib/achievements/earlierShields';
 import { shieldTitle } from '@/lib/analytics/shieldCopy';
 import { useMinuteClock, type FamilyAnalyticsState } from '@/lib/analytics/useFamilyAnalytics';
-import { SHIELD_TYPES, TIER_RANK, addDays, zonedDayHour, type ShieldCompletion, type ShieldType } from '@/lib/shields/engine';
+import { SHIELD_TYPES, addDays, zonedDayHour, type ShieldCompletion, type ShieldType } from '@/lib/shields/engine';
+import { recentShieldWeeks } from '@/lib/shields/history';
 import { shieldBonusLabel, WEEKLY_RULES, weekProgress, type BonusProgress, type WindowProgress } from '@/lib/shields/weekly';
 import { TIER_COPY, TYPE_COPY, scopeLabel, shieldName } from '@/lib/shields/copy';
 import { ShieldPointGuide } from './ShieldPointGuide';
@@ -24,7 +25,7 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
   const { members, records, familyId } = analytics;
   const earlier = useEarlierShields(familyId, memberId);
   const now = useMinuteClock();
-  const { data, error, reload } = useShieldWallData(familyId, records?.loadedAt);
+  const { data, error, reload } = useShieldWallData(familyId, records?.loadedAt, memberId);
   const [detail, setDetail] = useState<WeeklyAwardRow | null>(null);
   const memberName = members.find(m => m.id === memberId)?.name ?? '';
 
@@ -49,7 +50,10 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
 
   const weekEnd = addDays(data.week, 6);
   const nextMonday = addDays(data.week, 7);
-  const historyWeeks = [...new Set(view.mine.map(a => a.evaluation_month))].sort().reverse();
+  const historyWeeks = recentShieldWeeks(view.mine, earlier, data.week, data.timezone);
+  const legendaryCount = data.lifetimeLegendary.userId === memberId
+    ? data.lifetimeLegendary.count + earlier.filter(s => s.definition.rarity === 'legendary').length
+    : null;
   const earnedThisWeek = data.bonusThisWeek[memberId] ?? 0;
   const weekText = (start: string) => {
     const l = periodLabel('week', start, addDays(start, 6));
@@ -115,39 +119,38 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
         </div>
       )}
 
-      {/* History */}
-      <details className="mt-4 rounded-2xl border border-white/[0.06] p-3.5">
-        <summary className="min-h-9 cursor-pointer text-sm font-semibold text-white">{en ? `Shield history · ${view.mine.length + earlier.length}` : `쉴드 기록 · ${view.mine.length + earlier.length}개`}</summary>
-        <div className="mt-3 space-y-4">
+      {/* Compact archive: four completed weeks, with a lifetime achievement count. */}
+      <details key={memberId} className="group/history mt-4 rounded-2xl border border-white/[0.06] p-3.5">
+        <summary className="flex min-h-10 cursor-pointer list-none flex-wrap items-center gap-2 text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">
+          <ChevronDown size={15} aria-hidden className="text-[#8E94B4] transition-transform group-open/history:rotate-180 motion-reduce:transition-none" />
+          <span>{en ? 'Past shields' : '지난 쉴드'}</span>
+          <span className="text-[11px] font-normal text-[#8E94B4]">{en ? 'Last 4 weeks' : '최근 4주'}</span>
+          {legendaryCount !== null && <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#FFB18D]/[0.08] px-2 py-1 text-[11px] text-[#FFB18D]" title={en ? 'Lifetime Legendary shields earned' : '지금까지 받은 레전더리 쉴드'}>
+            <ShieldCheck size={12} aria-hidden />{en ? `Legendary ×${legendaryCount}` : `레전더리 ${legendaryCount}회`}
+          </span>}
+        </summary>
+        <div className="mt-3 divide-y divide-white/[0.06]">
           {historyWeeks.map(week => (
-            <div key={week}>
-              <h3 className="mb-2 text-xs font-semibold text-[#C9CCE0]">{weekText(week)}</h3>
+            <div key={week.start} className="py-3 first:pt-0 last:pb-0">
+              <h3 className="mb-2 text-xs font-semibold text-[#A9AECB]">{weekText(week.start)}</h3>
               <ul className="flex flex-wrap gap-2">
-                {view.mine.filter(a => a.evaluation_month === week).sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier]).map(a => (
-                  <li key={a.id}><button type="button" onClick={() => setDetail(a)} className="flex w-24 flex-col items-center gap-1 rounded-xl p-1.5 text-center hover:bg-white/[0.05]"><ShieldEmblem type={a.shield_type} tier={a.tier} size={52} /><span className="text-[11px] leading-tight text-[#E7E9F5]">{t(shieldName(a.shield_type, a.tier))}</span></button></li>
+                {week.awards.map(a => (
+                  <li key={a.id}><button type="button" onClick={() => setDetail(a)} className="flex min-h-11 items-center gap-1.5 rounded-xl bg-white/[0.02] py-1 pl-1 pr-2.5 text-left hover:bg-white/[0.05]" aria-label={`${t(shieldName(a.shield_type, a.tier))} — ${en ? 'details' : '자세히'}`}>
+                    <ShieldEmblem type={a.shield_type} tier={a.tier} size={34} />
+                    <span className="text-[11px] leading-tight text-[#E7E9F5]">{t(shieldName(a.shield_type, a.tier))}</span>
+                  </button></li>
+                ))}
+                {week.earlier.map(({ definition: def }) => (
+                  <li key={def.achievementId} className="flex min-h-11 items-center gap-1.5 rounded-xl bg-white/[0.02] py-1 pl-1 pr-2.5">
+                    <InsigniaBadge rarity={def.rarity} icon={def.icon} seed={def.achievementId} size={34} ariaLabel="" />
+                    <span className="text-[11px] leading-tight text-[#C9CCE0]">{t(shieldTitle(def))}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           ))}
-          {earlier.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-xs font-semibold text-[#C9CCE0]">{en ? 'Earlier shields' : '예전 쉴드'}</h3>
-              <ul className="grid grid-cols-4 gap-1 sm:grid-cols-8">
-                {earlier.map(({ definition: def, unlockedAt }) => {
-                  const name = t(shieldTitle(def));
-                  return (
-                    <li key={def.achievementId} className="flex flex-col items-center gap-1 p-1 text-center" title={`${name} · ${formatDay(unlockedAt.slice(0, 10), en, { year: 'numeric', month: 'short', day: 'numeric' })}`}>
-                      <InsigniaBadge rarity={def.rarity} icon={def.icon} seed={def.achievementId} size={44} ariaLabel="" />
-                      <span className="line-clamp-2 text-[10px] leading-tight text-[#C9CCE0]">{name}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-          {historyWeeks.length === 0 && earlier.length === 0 && <EmptyNote>{en ? 'No shields yet.' : '아직 쉴드가 없어요.'}</EmptyNote>}
+          {historyWeeks.length === 0 && <EmptyNote>{en ? 'No shields in the past 4 weeks yet. This week’s shields are shown above.' : '최근 4주에 받은 쉴드가 없어요. 이번 주 쉴드는 위에서 확인할 수 있어요.'}</EmptyNote>}
         </div>
-        <ShieldBonusTable en={en} />
       </details>
 
       <details className="mt-2 rounded-2xl border border-white/[0.06] p-3.5 text-sm text-[#C9CCE0]">
