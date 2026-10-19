@@ -7,7 +7,7 @@ import { useFamilyStore } from '@/lib/store';
 import { isTaskActiveInTimeWindow } from '@/lib/timeWindows';
 import { requiredTasks } from '@/lib/taskType';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { FamilyQuestChip } from './FamilyQuestCard';
+import { FamilyMissionChip } from './FamilyMissionChip';
 
 interface MobileMemberTabsProps {
   users: User[];
@@ -98,7 +98,7 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className="text-[11px] font-medium text-white/55">{lang === 'en' ? 'Whose turn is it?' : '누구의 차례인가요?'}</span>
-        <FamilyQuestChip className="max-w-[190px]" />
+        <FamilyMissionChip className="max-w-[210px]" />
       </div>
     </div>
   );

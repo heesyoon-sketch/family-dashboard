@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import {
   Level,
-  Badge,
   Task,
   User,
   Reward,
@@ -18,9 +17,7 @@ import {
 import type { AchievementProgress } from './achievements/engine';
 import {
   calculateMomentum,
-  calculateHarmony,
   type MomentumResult,
-  type HarmonyResult,
 } from './progression';
 import { assertUuid, createBrowserSupabase } from './supabase';
 import {
@@ -31,8 +28,6 @@ import {
   listTaskActions,
 } from './offlineQueue';
 import {
-  getCompletionWindowEnd,
-  getCompletionWindowStart,
   getChildRoutineAvailability,
   getCurrentTimeWindow,
   isTaskActiveInTimeWindow,
@@ -105,10 +100,6 @@ function surfaceHydrateErrors(entries: HydrateErrorEntry[], hadPriorData: boolea
     );
   }
 }
-
-export type Celebration =
-  | { type: 'level_up'; userId: string; newLevel: number }
-  | { type: 'badge';    userId: string; badge: Badge };
 
 export type CompletionFeedback =
   | {
@@ -196,8 +187,6 @@ interface FamilyState {
   /** Per-member emotional rhythm — replaces the old streak-multiplier system. */
   momentumByUser: Record<string, MomentumResult>;
   /** Family-wide cooperation/resonance score. */
-  harmony: HarmonyResult | null;
-  celebration: Celebration | null;
   /** Insignias unlocked but not yet shown to the user. Surfaces a celebration
    *  pop-up that nudges them to check out the Insignia Wall. */
   insigniaQueue: AchievementProgress[];
@@ -224,7 +213,6 @@ interface FamilyState {
   updateMemberAvatar: (userId: string, avatarUrl: string) => void;
   /** Optimistically overwrite a user's spendable balance (after cosmetic spend). */
   applyBalance: (userId: string, newBalance: number) => void;
-  dismissCelebration: () => void;
   enqueueInsigniaUnlocks: (items: AchievementProgress[]) => void;
   dismissInsigniaUnlock: () => void;
   dismissPerfectDayAward: () => void;
@@ -249,7 +237,6 @@ const _taskMutationsInFlight = new Set<string>();
 let _realtimeChannel: ReturnType<ReturnType<typeof createBrowserSupabase>['channel']> | null = null;
 let _realtimeSubscribedFamilyId: string | null = null;
 let _hydrateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let _shieldSyncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _hydrateInFlight: Promise<void> | null = null;
 let _hydrateQueued = false;
 
@@ -339,31 +326,11 @@ function scheduleRealtimeHydrate(ownMemberId: string | null, eventUserId?: strin
   }, REALTIME_HYDRATE_DEBOUNCE_MS);
 }
 
-function scheduleRealtimeShieldSync() {
-  if (_shieldSyncDebounceTimer) clearTimeout(_shieldSyncDebounceTimer);
-  _shieldSyncDebounceTimer = setTimeout(() => {
-    _shieldSyncDebounceTimer = null;
-    const state = useFamilyStore.getState();
-    if (!state.familyId || state.users.length === 0) return;
-    void import('./achievements/storage')
-      .then(({ syncAchievementsOnce }) => syncAchievementsOnce({
-        familyId: state.familyId!,
-        children: state.users,
-        tasksByUser: state.tasksByUser,
-        levelsByUser: state.levelsByUser,
-        // Another device owns the remote write. This device only needs a
-        // fresh local evaluation and UI notification.
-        persist: false,
-        force: true,
-      }))
-      .catch(error => console.warn('[shields] realtime refresh failed', error));
-  }, REALTIME_HYDRATE_DEBOUNCE_MS);
-}
 
 // Apply a task_completions realtime change directly from the payload instead
 // of doing a full hydrate. Cheap and correct for the most common case (other
 // devices marking/un-marking tasks), with the trade-off that derived stats
-// (momentum, harmony, recap) refresh on the next full hydrate (e.g. tab
+// (momentum, recap) refresh on the next full hydrate (e.g. tab
 // focus or admin action). For a 4-person kiosk that's a worthwhile trade —
 // a full hydrate is ~8 queries; this is zero.
 type TaskCompletionRow = {
@@ -496,8 +463,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   dailyStreakAtRiskByUser: {},
   weeklyRecapByUser: {},
   momentumByUser: {},
-  harmony: null,
-  celebration: null,
   insigniaQueue: [],
   perfectDayQueue: [],
   hydrated: false,
@@ -780,10 +745,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const weeklyRecapByUser: Record<string, WeeklyRecap> = {};
     const momentumByUser: Record<string, MomentumResult> = {};
     const completionDatesByUser: Record<string, Date[]> = {};
-    // Per-member daily done/due arrays for the trailing 14 days. Momentum
-    // uses all 14; harmony slices the first 7. Storing 14 once keeps the
-    // hydrate cost flat regardless of which window each module wants.
-    const dailyByUser: Record<string, { done: number[]; due: number[] }> = {};
     const PROGRESSION_WINDOW = 14;
 
     // Recap focuses on the most recently *completed* ISO week (Mon–Sun).
@@ -894,8 +855,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
       completionDatesByUser[u.id] = completionDates;
 
-      // Build per-day done/due arrays for the trailing 14 days. Momentum and
-      // harmony are %-based so each member is judged against their own due
+      // Build per-day done/due arrays for the trailing 14 days. Momentum is
+      // %-based so each member is judged against their own due
       // load — fairer than counting raw completions when habits and counts
       // differ across the family. Days where nothing is scheduled don't
       // pull the score down (skipped from numerator and denominator).
@@ -921,7 +882,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         }
         dailyDone[ago] = doneIds.size;
       }
-      dailyByUser[u.id] = { done: dailyDone, due: dailyDue };
       momentumByUser[u.id] = calculateMomentum({ dailyDone, dailyDue });
       bestDayByUser[u.id] = dayMap.size > 0
         ? Math.max(...[...dayMap.values()].map(s => s.size))
@@ -1036,14 +996,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       };
     }
 
-    // Family-level cooperation score derived from the same trailing window
-    // used for momentum. Cheap (O(members * window)) so it's safe to recompute
-    // every hydrate.
-    const harmony = calculateHarmony({
-      dailyByMember: dailyByUser,
-      memberIds: users.map(u => u.id),
-    });
-
     // Reconcile a coupon after refresh as well as immediately after a tap.
     // This closes the small gap where the completion committed but the client
     // closed before the idempotent coupon-claim RPC finished.
@@ -1106,7 +1058,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakAtRiskByUser,
       weeklyRecapByUser,
       momentumByUser,
-      harmony,
       perfectDayQueue: [...get().perfectDayQueue, ...freshPerfectDayAwards],
       hydrated: true,
       timeOfDay,
@@ -1197,11 +1148,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             // / undoCompletion already applied them optimistically.
             if (eventUserId && eventUserId === currentMemberId) return;
             // Apply the change directly to todayCompletions; skip the full
-            // hydrate. Derived stats (momentum, harmony, recap) catch up on
+            // hydrate. Derived stats (momentum, recap) catch up on
             // the next full hydrate triggered by SyncBootstrap or an admin
             // action — for a kiosk that's seconds-to-minutes.
             applyTaskCompletionEvent(payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE', newRow, oldRow);
-            scheduleRealtimeShieldSync();
           },
         )
         .on(
@@ -1282,7 +1232,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         return { status: 'queued', taskId, basePoints };
       }
 
-      // No client-side bonus: momentum and harmony are visual only, and the
+      // No client-side bonus: the momentum flame is visual only, and the
       // only point bonus is the equipped weekly Shields, applied server-side.
       const completionAt = new Date();
       let result;
@@ -1304,7 +1254,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         );
         return {
           levelsByUser: { ...state.levelsByUser, [userId]: result.level },
-          celebration: result.celebration ?? state.celebration,
           couponsByUser: result.perfectDay.coupons.length > 0
             ? mergeCouponWallets(state.couponsByUser, result.perfectDay.coupons)
             : state.couponsByUser,
@@ -1339,42 +1288,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           },
         };
       });
-
-      try {
-        const familyId = get().familyId;
-        if (familyId) {
-          const { syncAchievements } = await import('./achievements/storage');
-          const achievementResult = await syncAchievements({
-            familyId,
-            children: get().users,
-            tasksByUser: get().tasksByUser,
-            levelsByUser: get().levelsByUser,
-            awardNew: true,
-            auditCause: {
-              userId,
-              taskId,
-              occurredAt: completionAt,
-              source: 'task_completion',
-            },
-          });
-          if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
-            set(state => ({
-              levelsByUser: {
-                ...state.levelsByUser,
-                ...achievementResult.awardedLevelsByUser,
-              },
-            }));
-          }
-          // Surface a celebratory pop-up for everything that unlocked from this
-          // completion (could be the kid's own badge plus a team badge that fired
-          // on the sibling). The overlay queues them and walks through one by one.
-          if (achievementResult.newlyUnlocked.length > 0) {
-            get().enqueueInsigniaUnlocks(achievementResult.newlyUnlocked);
-          }
-        }
-      } catch (error) {
-        console.warn('[achievements] sync after completion failed', error);
-      }
 
       return {
         status: 'awarded',
@@ -1420,17 +1333,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
 
       const undoAt = new Date();
-      const undoTask = (get().tasksByUser[userId] ?? []).find(candidate => candidate.id === taskId);
-      const undoWindowStart = getCompletionWindowStart(
-        startOfDayLocal(undoAt),
-        undoTask?.timeWindow,
-        getCurrentTimeWindow(undoAt),
-      );
-      const undoWindowEnd = getCompletionWindowEnd(
-        startOfDayLocal(undoAt),
-        undoTask?.timeWindow,
-        getCurrentTimeWindow(undoAt),
-      );
 
       let undoResult;
       try {
@@ -1495,42 +1397,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         },
       }));
 
-      // Walk back any insignia the now-undone completion put over the line.
-      // Revokes the badge, refunds the achievement bonus points, and
-      // unequips it (and any title/visual style it solely unlocked) so the
-      // wall stays consistent with the underlying activity.
-      try {
-        const familyId = get().familyId;
-        if (familyId) {
-          const { revokeUnmetAchievements } = await import('./achievements/storage');
-          const revokeResult = await revokeUnmetAchievements({
-            familyId,
-            children: get().users,
-            tasksByUser: get().tasksByUser,
-            revocationWindowStart: undoWindowStart,
-            revocationWindowEnd: undoWindowEnd,
-            auditCause: {
-              userId,
-              taskId,
-              occurredAt: undoAt,
-              source: 'task_undo',
-            },
-          });
-          if (Object.keys(revokeResult.refundedLevelsByUser).length > 0) {
-            set(state => ({
-              levelsByUser: {
-                ...state.levelsByUser,
-                ...revokeResult.refundedLevelsByUser,
-              },
-            }));
-          }
-          if (revokeResult.revoked.length > 0) {
-            console.log('[undo] revoked insignias', revokeResult.revoked.map(r => r.achievementId));
-          }
-        }
-      } catch (error) {
-        console.warn('[undo] revoke evaluation failed', error);
-      }
       await get().hydrate();
     } finally {
       _taskMutationsInFlight.delete(mutationKey);
@@ -1545,7 +1411,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       if (actions.length === 0) return;
 
       const { processCompletion, processUndo, RpcError } = await import('./gamification');
-      let queueChanged = false;
 
       for (const action of actions) {
         try {
@@ -1567,7 +1432,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
             await processUndo(action.userId, action.taskId, actionAt);
           }
           await deleteTaskAction(action.id);
-          queueChanged = true;
         } catch (error) {
           const isPermanent =
             error instanceof RpcError && isUnrecoverableOfflineRpcCode(error.code);
@@ -1578,7 +1442,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
               code: (error as { code: string }).code,
             });
             await deleteTaskAction(action.id);
-            queueChanged = true;
             continue;
           }
           console.warn('[sync] paused on transient error', error);
@@ -1587,32 +1450,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       }
 
       await get().hydrate();
-      if (queueChanged) {
-        const familyId = get().familyId;
-        const users = get().users;
-        if (familyId && users.length > 0) {
-          const { syncAchievementsOnce } = await import('./achievements/storage');
-          const achievementResult = await syncAchievementsOnce({
-            familyId,
-            children: users,
-            tasksByUser: get().tasksByUser,
-            levelsByUser: get().levelsByUser,
-            awardNew: true,
-            force: true,
-          });
-          if (Object.keys(achievementResult.awardedLevelsByUser).length > 0) {
-            set(state => ({
-              levelsByUser: {
-                ...state.levelsByUser,
-                ...achievementResult.awardedLevelsByUser,
-              },
-            }));
-          }
-          if (achievementResult.newlyUnlocked.length > 0) {
-            get().enqueueInsigniaUnlocks(achievementResult.newlyUnlocked);
-          }
-        }
-      }
       broadcastSync();
     } finally {
       _syncInFlight = false;
@@ -1750,7 +1587,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     });
   },
 
-  dismissCelebration: () => set({ celebration: null }),
 
   enqueueInsigniaUnlocks: (items) => {
     if (!items.length) return;
@@ -1833,8 +1669,6 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       dailyStreakAtRiskByUser: {},
       weeklyRecapByUser: {},
       momentumByUser: {},
-      harmony: null,
-      celebration: null,
       insigniaQueue: [],
       perfectDayQueue: [],
       hydrated: false,

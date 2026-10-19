@@ -66,7 +66,7 @@ async function readAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{
   }
 }
 
-function mapTask(row: Record<string, unknown>): AnalyticsTask {
+export function mapTask(row: Record<string, unknown>): AnalyticsTask {
   const days = Array.isArray(row.days_of_week) && row.days_of_week.length > 0
     ? row.days_of_week as DayOfWeek[]
     : legacyRecurrenceToDays(String(row.recurrence ?? 'daily'));

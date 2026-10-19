@@ -135,8 +135,8 @@ test('member dashboards prioritize three visible habit rows', () => {
   assert.doesNotMatch(panel, /<Store size=\{15\}/);
   assert.doesNotMatch(panel, /max-\[380px\]:w-full/);
   assert.match(equippedShields, /h-8 shrink-0/);
-  assert.match(mobileTabs, /<FamilyQuestChip/);
-  assert.doesNotMatch(dashboard, /<FamilyQuestCard/);
+  assert.match(mobileTabs, /<FamilyMissionChip/);
+  assert.doesNotMatch(dashboard, /<FamilyQuestCard|<HarmonyChip/);
 });
 
 test('the always-on tablet can refresh itself without closing the app', () => {
@@ -154,4 +154,24 @@ test('the always-on tablet can refresh itself without closing the app', () => {
   assert.match(worker, /UPDATE_CHECK_MS = 10 \* 60_000/);
   assert.match(worker, /IDLE_BEFORE_RELOAD_MS = 60_000/);
   assert.match(read('components/SyncBootstrap.tsx'), /BACKGROUND_REFRESH_MS = 5 \* 60_000/);
+});
+
+test('retired features stay retired: harmony, daily family quest, badges, level-ups, repeated insignia syncs', () => {
+  const header = read('components/DashboardHeader.tsx');
+  assert.match(header, /<FamilyMissionChip/);
+  assert.doesNotMatch(header, /HarmonyChip|FamilyQuestChip/);
+  assert.match(read('components/FamilyMissionChip.tsx'), /evaluateMission\(/);
+
+  const gamification = read('lib/gamification/index.ts');
+  assert.doesNotMatch(gamification, /evaluateAllBadges|evaluateCondition|celebration/);
+  assert.doesNotMatch(read('app/page.tsx'), /<CelebrationOverlay|components\/CelebrationOverlay'/);
+
+  const store = read('lib/store.ts');
+  assert.doesNotMatch(store, /calculateHarmony|scheduleRealtimeShieldSync|syncAchievements\(|revokeUnmetAchievements/);
+  // Frozen insignias load once at startup for the Shield Wall history.
+  assert.match(read('components/SyncBootstrap.tsx'), /syncAchievementsOnce\(/);
+
+  const aura = read('components/MomentumAura.tsx');
+  assert.doesNotMatch(aura, /per-completion bonus|capped at \+50%|\{momentum\.meta\.label\}/);
+  assert.match(aura, /보기만 하는 표시라 포인트는 붙지 않아요/);
 });

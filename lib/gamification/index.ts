@@ -1,13 +1,11 @@
 import {
   DOW_INDEX,
   Level,
-  Badge,
   startOfDay,
   type PerfectDayCoupon,
   type PerfectDayCouponKind,
 } from '../db';
 import { assertUuid, createBrowserSupabase } from '../supabase';
-import { evaluateCondition } from './conditions';
 import { getCurrentTimeWindow, type TimeWindow } from '../timeWindows';
 import {
   localDateKey,
@@ -39,9 +37,6 @@ export function levelForPoints(pts: number): number {
 export interface CompletionResult {
   pointsAwarded: number;
   level: Level;
-  leveledUp: boolean;
-  badgesEarned: Badge[];
-  celebration: import('../store').Celebration | null;
   maxStreak: number;
   longestStreak: number;
   streakCurrent: number;
@@ -181,7 +176,6 @@ export async function processCompletion(
   const raw = data as {
     pointsAwarded: number;
     level: RpcLevel;
-    leveledUp?: boolean;
     maxStreak: number;
     longestStreak: number;
     streakCurrent: number;
@@ -199,19 +193,9 @@ export async function processCompletion(
     console.warn('[perfect-day] claim after completion failed', error);
   }
 
-  const badgesEarned = await evaluateAllBadges(userId);
-  const leveledUp = Boolean(raw.leveledUp);
-
-  // Levels are no longer shown, so a level-up is not celebrated.
-  let celebration: CompletionResult['celebration'] = null;
-  if (badgesEarned.length) celebration = { type: 'badge', userId, badge: badgesEarned[0] };
-
   return {
     pointsAwarded: raw.pointsAwarded,
     level: mapRpcLevel(raw.level),
-    leveledUp,
-    badgesEarned,
-    celebration,
     maxStreak: raw.maxStreak,
     longestStreak: raw.longestStreak,
     streakCurrent: raw.streakCurrent,
@@ -332,67 +316,4 @@ export async function tradeCashForPoints(
 
   const raw = data as { spendableBalance: number };
   return raw.spendableBalance;
-}
-
-// `badges` is effectively static config — re-fetching it on every task tap
-// is pure waste. Cache for the page session; cache key is `active=1`.
-let _badgesCache: { rows: Badge[]; fetchedAt: number } | null = null;
-const BADGES_CACHE_TTL_MS = 5 * 60 * 1000;
-
-async function loadActiveBadges(supabase: ReturnType<typeof createBrowserSupabase>): Promise<Badge[]> {
-  const now = Date.now();
-  if (_badgesCache && now - _badgesCache.fetchedAt < BADGES_CACHE_TTL_MS) {
-    return _badgesCache.rows;
-  }
-  const { data, error } = await supabase.from('badges').select('*').eq('active', 1);
-  if (error) {
-    console.error('[badges] load failed', error);
-    return _badgesCache?.rows ?? [];
-  }
-  const rows: Badge[] = (data ?? []).map(b => ({
-    id: b.id, code: b.code, name: b.name, description: b.description,
-    icon: b.icon, category: b.category, conditionJson: b.condition_json, active: b.active,
-  }));
-  _badgesCache = { rows, fetchedAt: now };
-  return rows;
-}
-
-export async function evaluateAllBadges(userId: string): Promise<Badge[]> {
-  const supabase = createBrowserSupabase();
-  const [all, { data: earned }] = await Promise.all([
-    loadActiveBadges(supabase),
-    supabase.from('user_badges').select('badge_id').eq('user_id', userId),
-  ]);
-  const earnedIds = new Set((earned ?? []).map(e => e.badge_id));
-
-  const candidates: Badge[] = all.filter(b => !earnedIds.has(b.id));
-  // Common case once a kid has earned everything: skip the per-condition
-  // queries entirely. evaluateCondition issues 1–2 SELECTs per candidate.
-  if (candidates.length === 0) return [];
-
-  const evaluated = await Promise.all(
-    candidates.map(async badge => ({ badge, met: await evaluateCondition(userId, badge.conditionJson, supabase) }))
-  );
-
-  const newly: Badge[] = [];
-  for (const { badge, met } of evaluated) {
-    if (!met) continue;
-    const { error: insertError } = await supabase.from('user_badges').insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      badge_id: badge.id,
-      earned_at: new Date().toISOString(),
-    });
-    if (insertError) {
-      // A unique-violation on (user_id, badge_id) means we lost a race with
-      // another tab/device awarding the same badge — that's fine, treat as
-      // not newly earned. Anything else (RLS, schema drift) is a real error.
-      if (insertError.code !== '23505') {
-        console.error('[badges] failed to award', badge.code, insertError);
-      }
-      continue;
-    }
-    newly.push(badge);
-  }
-  return newly;
 }

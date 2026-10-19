@@ -70,7 +70,6 @@ export interface FamilyBandProps {
 export function FamilyBand(props: FamilyBandProps) {
   const { en, t } = useCopy();
   const users = useFamilyStore(s => s.users);
-  const harmony = useFamilyStore(s => s.harmony);
   const penaltyPauseEnabled = useFamilyStore(s => s.penaltyPauseEnabled);
   const penaltyPoints = useFamilyStore(s => s.routinePenaltyPoints);
   const saleActive = useFamilyStore(s => s.automaticSaleStatus.active);
@@ -92,7 +91,6 @@ export function FamilyBand(props: FamilyBandProps) {
           <p className="mt-0.5 text-sm text-[#C9CCE0]">{protectionLine(protection, en)}</p>
           <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#A9AECB]">
             <span>{en ? 'Active today' : '오늘 참여'} <strong className="text-white">{props.activeToday}/{props.withHabits}</strong></span>
-            {harmony && <span>{en ? 'Together' : '함께한 날'} <strong className="text-white">{harmony.sideBySideDays}/7</strong></span>}
             <span>{en ? 'Missions' : '달성 미션'} <strong className="text-white">{props.missionsCompleted}</strong>{props.missionsFinished > 0 ? `/${props.missionsFinished}` : ''}</span>
           </p>
         </div>

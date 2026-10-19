@@ -7,7 +7,6 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { toast } from 'sonner';
 import { MemberPanel } from '@/components/MemberPanel';
 import { MobileMemberTabs } from '@/components/MobileMemberTabs';
-import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { PerfectDayCelebrationOverlay } from '@/components/PerfectDayCelebrationOverlay';
 import { WeeklyRecapModal } from '@/components/WeeklyRecapModal';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
@@ -23,7 +22,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { t } = useLanguage();
   const {
-    users, hydrate, celebration, dismissCelebration, soundEnabled, toggleSound,
+    users, hydrate, soundEnabled, toggleSound,
     penaltyPauseEnabled, togglePenaltyPause,
   } = useFamilyStore();
   const hydrated  = useFamilyStore(s => s.hydrated);
@@ -266,10 +265,6 @@ export default function Dashboard() {
           )}
         </div>
       </main>
-
-      {celebration && (
-        <CelebrationOverlay data={celebration} onDismiss={dismissCelebration} />
-      )}
 
       {perfectDayAward && (() => {
         const awardUser = users.find(user => user.id === perfectDayAward.userId);
