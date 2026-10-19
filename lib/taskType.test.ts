@@ -24,7 +24,7 @@ import {
 } from './analytics/history';
 import { planMissionWeek, protectionStatus } from './analytics/family';
 import { completedSlotKeys, tallyPeriod, periodContaining, type DailySchedule } from './shields/engine';
-import { liveProgress } from './shields/live';
+import { weekProgress } from './shields/weekly';
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const MIGRATION = 'supabase/migrations/20261019120000_optional_bonus_tasks.sql';
@@ -259,15 +259,17 @@ test('Shield snapshots exclude bonus tasks, so bonus completions never touch the
   assert.deepEqual(a, b);
 });
 
-test('live Shield projections never count future bonus slots as remaining work', () => {
-  const params = {
-    userId: 'kid', period: periodContaining('month', '2026-10-14'), today: '2026-10-14', nowHour: 15,
-    firstSnapshotDay: '2026-10-01', schedules: [], completions: [], missions: [], pastAwards: [], timezone: TZ,
-  };
-  const required = liveProgress({ ...params, tasks: [habit('homework', 'kid')] });
-  const withBonus = liveProgress({ ...params, tasks: [habit('homework', 'kid'), habit('read', 'kid', { taskType: 'optional', timeWindow: 'both' })] });
-  assert.equal(withBonus.remaining, required.remaining);
-  assert.equal(withBonus.remainingDays, required.remainingDays);
+test('weekly Shield rates never count bonus completions as required slots', () => {
+  const schedules: DailySchedule[] = [
+    { userId: 'kid', day: '2026-10-13', slots: [{ taskId: 'homework', title: 'homework', icon: '', window: 'evening' }] },
+  ];
+  const completions = [
+    { id: '1', userId: 'kid', taskId: 'homework', completedAt: '2026-10-13T19:00:00+09:00' },
+    { id: '2', userId: 'kid', taskId: 'read', completedAt: '2026-10-13T19:30:00+09:00' },
+  ];
+  const p = weekProgress({ userId: 'kid', weekStart: '2026-10-12', schedules, completions, bonusTaskIds: new Set(['read']), timezone: TZ });
+  assert.deepEqual([p.evening.completed, p.evening.eligible], [1, 1]);
+  assert.equal(p.bonus.bonusDays, 1, 'the bonus completion counts toward the Bonus Shield instead');
 });
 
 test('family missions do not enrol a member through bonus tasks alone', () => {

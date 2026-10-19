@@ -3,24 +3,11 @@
 import { useId, type ComponentType } from 'react';
 import type { ShieldTier, ShieldType } from '@/lib/shields/engine';
 import { EpicFrame, LegendaryFrame, MythicFrame, RareFrame, SHIELD_TIER_PALETTES } from '@/components/insignia/shieldFrames';
-import {
-  IconBackpackBoss,
-  IconBetterMonth,
-  IconComebackMonth,
-  IconEnergyChampion,
-  IconEveningFinisher,
-  IconEveryWeekSpark,
-  IconFaithfulLight,
-  IconFamilyRhythm,
-  IconHealthMonth,
-  IconHelperMonth,
-  IconLearningMonth,
-  IconMorningHero,
-} from '@/components/insignia/shieldIcons';
+import { IconEveningFinisher, IconEveryWeekSpark, IconMorningHero } from '@/components/insignia/shieldIcons';
 
 // Shields use the FamBit Shield Wall design package (the same frame shapes
 // and illustrations the insignias had): the tier picks the shape and its own
-// metal, the type — or, for Dedication, the habit area — picks the art.
+// metal, the kind (morning / evening / bonus) picks the art.
 
 /** Tier → frame shape, in increasing grandeur (recolored per tier). */
 const TIER_SHAPE: Record<ShieldTier, typeof RareFrame> = {
@@ -31,28 +18,14 @@ const TIER_SHAPE: Record<ShieldTier, typeof RareFrame> = {
 };
 
 const TYPE_ART: Record<ShieldType, ComponentType> = {
-  consistency: IconEveryWeekSpark,
-  growth: IconBetterMonth,
-  comeback: IconComebackMonth,
-  teamwork: IconFamilyRhythm,
-  dedication: IconLearningMonth,
-};
-
-const DEDICATION_ART: Record<string, ComponentType> = {
-  learning: IconLearningMonth,
-  health: IconHealthMonth,
-  responsibility: IconHelperMonth,
-  exercise: IconEnergyChampion,
-  faith: IconFaithfulLight,
-  school: IconBackpackBoss,
   morning: IconMorningHero,
   evening: IconEveningFinisher,
+  bonus: IconEveryWeekSpark,
 };
 
-export function ShieldEmblem({ type, tier, category = null, size = 120, projected = false, title }: {
+export function ShieldEmblem({ type, tier, size = 120, projected = false, title }: {
   type: ShieldType;
   tier: ShieldTier;
-  category?: string | null;
   size?: number;
   /** "On pace" preview — drawn faded so it never reads as earned. */
   projected?: boolean;
@@ -61,7 +34,7 @@ export function ShieldEmblem({ type, tier, category = null, size = 120, projecte
   const uid = useId().replace(/[:]/g, '');
   const faded = projected ? 'opacity-55 saturate-50' : '';
   const Frame = TIER_SHAPE[tier];
-  const Art = (type === 'dedication' && category && DEDICATION_ART[category]) || TYPE_ART[type];
+  const Art = TYPE_ART[type];
   return (
     <span
       role={title ? 'img' : undefined}

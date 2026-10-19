@@ -10,7 +10,7 @@ import { useShieldSnapshot } from '@/lib/achievements/useShieldSnapshot';
 import { MAX_INSIGNIA_SLOTS, insigniaSlotsForLevel } from '@/lib/progression';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import { ShieldEmblem } from '@/components/hall/ShieldEmblem';
-import { useMonthlyLoadouts } from '@/components/hall/useMonthlyLoadouts';
+import { useWeeklyLoadouts } from '@/components/hall/useWeeklyLoadouts';
 import { legacyInsigniaBonusActive } from '@/lib/shields/transition';
 import { shieldName } from '@/lib/shields/copy';
 
@@ -24,7 +24,7 @@ const SHIELD_DEFINITIONS_BY_ID = new Map(
   ACHIEVEMENTS.map(achievement => [achievement.achievementId, achievement]),
 );
 
-/** Compact equipped-shield stack for the dashboard header: this month's
+/** Compact equipped-shield stack for the dashboard header: this week's
  *  equipped Shields, or — until the insignia bonus ends — the insignias that
  *  still give it. Dashboard presentation gives every emblem its own space. */
 export function EquippedShields({ userId, link = true, showcase = false }: { userId: string; link?: boolean; showcase?: boolean }) {
@@ -36,7 +36,7 @@ export function EquippedShields({ userId, link = true, showcase = false }: { use
   const level = levelsByUser[userId]?.currentLevel ?? 1;
   const unlockedSlots = insigniaSlotsForLevel(level);
   const snapshot = useShieldSnapshot(familyId);
-  const loadouts = useMonthlyLoadouts(familyId);
+  const loadouts = useWeeklyLoadouts(familyId);
   const state = snapshot?.state.children[userId];
 
   const shields = (loadouts ?? []).filter(r => r.userId === userId).sort((a, b) => a.slot - b.slot);
@@ -62,9 +62,9 @@ export function EquippedShields({ userId, link = true, showcase = false }: { use
     <>
       {shields.length > 0
         ? shields.map((s, i) => {
-          const name = shieldName(s.shieldType, s.tier, s.category)[en ? 'en' : 'ko'];
+          const name = shieldName(s.shieldType, s.tier)[en ? 'en' : 'ko'];
           return fan(`${s.shieldType}`, i, name,
-            <ShieldEmblem type={s.shieldType} tier={s.tier} category={s.category} size={shieldSize} title={name} />);
+            <ShieldEmblem type={s.shieldType} tier={s.tier} size={shieldSize} title={name} />);
         })
         : legacy.length > 0
           ? legacy.map((badge, i) => fan(badge.achievementId, i, badge.title,

@@ -1,15 +1,14 @@
 // Insignia → Shield transition (one concept: Shields).
 //
 // Lifetime insignias are no longer earned; what a member already earned is
-// kept as a read-only record. The insignia loadout bonus each member has
-// equipped keeps paying until the first monthly Shields can be equipped
-// (first official month November 2026 → equipment month December 2026), so
-// the family never has a month without an equipment bonus.
+// kept as a read-only record. The insignia loadout bonus stopped when weekly
+// Shields started (Mon 2026-10-19): the new Shields replace it rather than
+// stack on top of it.
 
 import { zonedDayHour } from './engine';
 
 /** First family-local day on which the insignia loadout bonus no longer applies. */
-export const LEGACY_INSIGNIA_BONUS_END = '2026-12-01';
+export const LEGACY_INSIGNIA_BONUS_END = '2026-10-19';
 
 /** Lifetime insignias are frozen: no new unlocks, awards, revocations, or
  *  loadout changes. Existing records stay visible. */

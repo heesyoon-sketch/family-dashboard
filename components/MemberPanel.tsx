@@ -10,7 +10,7 @@ import { MomentumAura } from './MomentumAura';
 import { EquippedShields } from './EquippedShields';
 import { useFamilyStore } from '@/lib/store';
 import { emptyMomentum } from '@/lib/progression';
-import { useMonthlyRequiredRates } from '@/lib/shields/useMonthlyRequiredRates';
+import { useWeeklyRequiredRates } from '@/lib/shields/useWeeklyRequiredRates';
 import { StoreModal } from './StoreModal';
 import { WarmGiftModal } from './WarmGiftModal';
 import { ActivityFeedModal } from './ActivityFeedModal';
@@ -77,7 +77,7 @@ export function MemberPanel({ user }: { user: User }) {
   const hydrated       = useFamilyStore(s => s.hydrated);
   const tasks          = useFamilyStore(s => s.tasksByUser[user.id] ?? EMPTY_ITEMS);
   const level          = useFamilyStore(s => s.levelsByUser[user.id]);
-  const monthlyRates   = useMonthlyRequiredRates();
+  const weeklyRates    = useWeeklyRequiredRates();
   const completed      = useFamilyStore(s => s.todayCompletions[user.id] ?? EMPTY_ITEMS);
   const completionsByWindow = useFamilyStore(
     s => s.todayCompletionsByWindow[user.id] ?? EMPTY_WINDOWS,
@@ -203,17 +203,14 @@ export function MemberPanel({ user }: { user: User }) {
   const allDone    = totalCount > 0 && doneCount === totalCount;
   const availableCouponCount = coupons.filter(coupon => coupon.status === 'available').length;
 
-  const monthRate      = monthlyRates?.[user.id] ?? null;
-  const monthPct       = monthRate?.rate == null ? null : Math.round(monthRate.rate * 100);
-  const monthNumber    = monthRate ? Number(monthRate.month.slice(5, 7)) : new Date().getMonth() + 1;
-  const monthLabel     = lang === 'en'
-    ? `${new Date(2000, monthNumber - 1, 1).toLocaleString('en-US', { month: 'short' })} required`
-    : `${monthNumber}월 필수`;
-  const monthTitle     = monthRate && monthRate.eligible > 0
+  const weekRate       = weeklyRates?.[user.id] ?? null;
+  const weekPct        = weekRate?.rate == null ? null : Math.round(weekRate.rate * 100);
+  const weekLabel      = lang === 'en' ? 'This week' : '이번 주 필수';
+  const weekTitle      = weekRate && weekRate.eligible > 0
     ? (lang === 'en'
-        ? `This month: ${monthRate.completed} of ${monthRate.eligible} required routines done. Monthly Shields are earned from this rate.`
-        : `이번 달 필수 루틴 ${monthRate.eligible}개 중 ${monthRate.completed}개 완료. 월간 쉴드는 이 달성률로 정해져요.`)
-    : (lang === 'en' ? 'No required routines have closed this month yet.' : '이번 달 마감된 필수 루틴이 아직 없어요.');
+        ? `This week: ${weekRate.completed} of ${weekRate.eligible} required routines done. Next week's Shields are earned from this.`
+        : `이번 주 필수 루틴 ${weekRate.eligible}개 중 ${weekRate.completed}개 완료. 다음 주 쉴드는 이 기록으로 정해져요.`)
+    : (lang === 'en' ? 'No required routines have closed this week yet.' : '이번 주 마감된 필수 루틴이 아직 없어요.');
   const avatarSrc = user.avatarUrl
     ? `${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
     : null;
@@ -346,15 +343,15 @@ export function MemberPanel({ user }: { user: User }) {
                   <h2 className="min-w-0 truncate text-lg font-bold leading-tight tracking-tight">{user.name}</h2>
                   {allDone && <CheckCircle2 size={15} className="shrink-0 text-[var(--accent)]" aria-label={lang === 'en' ? 'All routines complete' : '루틴 모두 완료'} />}
                 </div>
-                {/* This month's required-routine rate: the same number monthly
-                    Shields are earned from. Bonus tasks never move it. */}
+                {/* This week's required-routine rate: the same record next
+                    week's Shields are earned from. Bonus tasks never move it. */}
                 <div
                   className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-semibold text-[var(--secondary)] max-[380px]:gap-1 max-[380px]:text-[8px]"
-                  title={monthTitle}
-                  aria-label={monthTitle}
+                  title={weekTitle}
+                  aria-label={weekTitle}
                 >
-                  <span className="shrink-0">{monthLabel}</span>
-                  <span className="shrink-0 tabular-nums text-[var(--fg)]">{monthPct === null ? '—' : `${monthPct}%`}</span>
+                  <span className="shrink-0">{weekLabel}</span>
+                  <span className="shrink-0 tabular-nums text-[var(--fg)]">{weekPct === null ? '—' : `${weekPct}%`}</span>
                   <span className="h-1 w-1 shrink-0 rounded-full bg-[var(--fg-muted)]/40 max-[380px]:hidden" />
                   <div className="max-[380px]:hidden">
                     <MomentumAura momentum={momentum} size={14} showLabel />
@@ -364,7 +361,7 @@ export function MemberPanel({ user }: { user: User }) {
                 <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--border)] max-[380px]:mt-0.5" aria-hidden>
                   <div
                     className="h-full rounded-full bg-[var(--member-accent)] transition-[width] duration-500"
-                    style={{ width: `${monthPct ?? 0}%` }}
+                    style={{ width: `${weekPct ?? 0}%` }}
                   />
                 </div>
               </div>

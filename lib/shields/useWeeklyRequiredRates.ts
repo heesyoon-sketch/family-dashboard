@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { createBrowserSupabase } from '@/lib/supabase';
 import { useFamilyStore } from '@/lib/store';
 import { periodContaining, zonedDayHour, type DailySchedule, type ShieldCompletion } from './engine';
-import { monthlyRequiredRate, type MonthlyRequiredRate } from './monthlyRate';
+import { weeklyRequiredRate, type RequiredRate } from './requiredRate';
 
-type Rates = Record<string, MonthlyRequiredRate>;
+type Rates = Record<string, RequiredRate>;
 
 // Every member panel asks for the same family data; one in-flight load per
 // refresh key serves them all.
@@ -18,13 +18,13 @@ async function loadRates(familyId: string, userIds: string[]): Promise<Rates> {
   if (tzError) throw new Error(tzError.message);
   const timezone = String(tz);
   const now = new Date();
-  const month = periodContaining('month', zonedDayHour(now, timezone).day).start;
+  const week = periodContaining('week', zonedDayHour(now, timezone).day).start;
   // A day of slack covers completions near midnight in other timezones.
-  const since = new Date(`${month}T00:00:00Z`);
+  const since = new Date(`${week}T00:00:00Z`);
   since.setUTCDate(since.getUTCDate() - 1);
 
   const [schedules, completions] = await Promise.all([
-    db.from('shield_daily_schedules').select('user_id,day,slots').eq('family_id', familyId).gte('day', month).order('day').limit(2000),
+    db.from('shield_daily_schedules').select('user_id,day,slots').eq('family_id', familyId).gte('day', week).order('day').limit(500),
     db.from('task_completions').select('id,user_id,task_id,completed_at').in('user_id', userIds).gte('completed_at', since.toISOString()).limit(10000),
   ]);
   if (schedules.error) throw new Error(schedules.error.message);
@@ -32,11 +32,11 @@ async function loadRates(familyId: string, userIds: string[]): Promise<Rates> {
 
   const daily: DailySchedule[] = (schedules.data ?? []).map(r => ({ userId: r.user_id, day: r.day, slots: Array.isArray(r.slots) ? r.slots : [] }));
   const done: ShieldCompletion[] = (completions.data ?? []).map(c => ({ id: c.id, userId: c.user_id, taskId: c.task_id, completedAt: c.completed_at }));
-  return Object.fromEntries(userIds.map(userId => [userId, monthlyRequiredRate({ userId, schedules: daily, completions: done, timezone, now })]));
+  return Object.fromEntries(userIds.map(userId => [userId, weeklyRequiredRate({ userId, schedules: daily, completions: done, timezone, now })]));
 }
 
-/** This month's required-routine rate per member, refreshed with the dashboard. */
-export function useMonthlyRequiredRates(): Rates | null {
+/** This week's required-routine rate per member, refreshed with the dashboard. */
+export function useWeeklyRequiredRates(): Rates | null {
   const familyId = useFamilyStore(s => s.familyId);
   const userIds = useFamilyStore(s => s.users.map(u => u.id).join(','));
   const lastHydrateAt = useFamilyStore(s => s.lastHydrateAt);
@@ -51,7 +51,7 @@ export function useMonthlyRequiredRates(): Rates | null {
     let live = true;
     cached.promise
       .then(next => { if (live) setRates(next); })
-      .catch(error => console.warn('[monthly rate] load failed', error));
+      .catch(error => console.warn('[weekly rate] load failed', error));
     return () => { live = false; };
   }, [familyId, userIds, lastHydrateAt, todayDone]);
 

@@ -6,12 +6,11 @@ import { INSIGNIAS_FROZEN, LEGACY_INSIGNIA_BONUS_END, legacyInsigniaBonusActive 
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
-test('insignia bonus runs through Nov 30 in family time and stops Dec 1', () => {
-  assert.equal(LEGACY_INSIGNIA_BONUS_END, '2026-12-01');
+test('insignia bonus stops when weekly shields start (Mon Oct 19), so they never stack', () => {
+  assert.equal(LEGACY_INSIGNIA_BONUS_END, '2026-10-19');
   const tz = 'America/Toronto';
-  assert.equal(legacyInsigniaBonusActive(new Date('2026-12-01T04:59:00Z'), tz), true, 'Nov 30, 23:59 in Toronto');
-  assert.equal(legacyInsigniaBonusActive(new Date('2026-12-01T05:00:00Z'), tz), false, 'Dec 1, 00:00 in Toronto');
-  assert.equal(legacyInsigniaBonusActive(new Date('2026-10-13T12:00:00Z'), tz), true);
+  assert.equal(legacyInsigniaBonusActive(new Date('2026-10-19T03:59:00Z'), tz), true, 'Sun Oct 18, 23:59 in Toronto');
+  assert.equal(legacyInsigniaBonusActive(new Date('2026-10-19T04:00:00Z'), tz), false, 'Mon Oct 19, 00:00 in Toronto');
 });
 
 test('insignias are frozen records: no unlocks, awards, revokes, loadout edits, or popups', () => {
