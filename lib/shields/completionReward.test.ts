@@ -28,3 +28,10 @@ test('no bonus, duplicate, shadow and clock mismatch responses do not invent a c
   const old = completionReward({ pointsAwarded: 10, shieldBonus: { bonusPoints: 1 } });
   assert.equal(shieldCreditMessage(10, old.shieldBonus!, 'ko'), '10포인트 + 쉴드 추가 포인트 1pt');
 });
+
+
+test('larger tasks display their actual percentage credit and total', () => {
+  const result = completionReward({ pointsAwarded: 50, shieldBonus: { bonusPoints: 8, tier: 'legendary' } });
+  assert.equal(result.pointsAwarded, 58);
+  assert.equal(shieldCreditMessage(result.basePoints, result.shieldBonus!, 'ko'), '50포인트 + 레전더리 쉴드 추가 포인트 8pt');
+});

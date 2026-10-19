@@ -32,8 +32,9 @@ export const WEEKLY_RULES = {
   bonus: { bronze: 1, silver: 3, gold: 4, epic: 5, legendary: 6, minRequiredRate: 70 },
 } as const;
 
-/** Fixed points per matching completion. Mirrors shield_config.rules.pointsByTier. */
+/** Minimum points per matching completion. Mirrors shield_config.rules.pointsByTier. */
 export const POINTS_BY_TIER: Record<ShieldTier, number> = { bronze: 0, silver: 1, gold: 2, epic: 3, legendary: 4 };
+export const RATE_BP: Record<ShieldTier, number> = { bronze: 0, silver: 200, gold: 500, epic: 1000, legendary: 1500 };
 export const SLOT_OF: Record<ShieldType, 1 | 2 | 3> = { morning: 1, evening: 2, bonus: 3 };
 
 export type BonusScope = { kind: 'window'; window: Slot } | { kind: 'bonus' };
@@ -182,5 +183,14 @@ export function scopeApplies(scope: BonusScope, completion: { optional: boolean;
 
 /** Zero-point completions earn no Shield bonus. */
 export function bonusPoints(basePoints: number, tier: ShieldTier): number {
-  return basePoints > 0 ? POINTS_BY_TIER[tier] : 0;
+  return basePoints > 0
+    ? Math.max(POINTS_BY_TIER[tier], Math.floor((basePoints * RATE_BP[tier] + 9999) / 10000))
+    : 0;
+}
+
+/** Compact benefit text; the minimum and percentage are alternatives, not added. */
+export function shieldBonusLabel(tier: ShieldTier, en: boolean): string {
+  return tier === 'bronze' ? '+0P'
+    : en ? `+${RATE_BP[tier] / 100}% (min +${POINTS_BY_TIER[tier]}P)`
+      : `+${RATE_BP[tier] / 100}% (최소 +${POINTS_BY_TIER[tier]}P)`;
 }

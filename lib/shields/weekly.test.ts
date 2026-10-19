@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DailySchedule, ShieldCompletion } from './engine';
-import { POINTS_BY_TIER, SLOT_OF, WEEKLY_RULES, bonusPoints, scopeApplies, tierFor, weekProgress } from './weekly';
+import { POINTS_BY_TIER, RATE_BP, shieldBonusLabel, SLOT_OF, WEEKLY_RULES, bonusPoints, scopeApplies, tierFor, weekProgress } from './weekly';
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const MIGRATION = 'supabase/migrations/20261019180000_weekly_window_shields.sql';
@@ -106,7 +106,7 @@ test('scopes never overlap, so a completion gets at most one shield', () => {
   for (const c of [{ optional: false, window: 'morning' }, { optional: false, window: 'evening' }, { optional: true, window: 'morning' }, { optional: true, window: 'evening' }] as const) {
     assert.equal(scopes.filter(s => scopeApplies(s, c)).length, 1);
   }
-  assert.equal(bonusPoints(30, 'legendary'), 4);
+  assert.equal(bonusPoints(30, 'legendary'), 5);
   assert.equal(bonusPoints(10, 'silver'), 1, 'a 10-point habit still gets +1');
   assert.equal(bonusPoints(10, 'gold'), 2);
   assert.equal(bonusPoints(10, 'legendary'), 4);
@@ -176,13 +176,27 @@ test('a bonus day is any bonus task, not the same one every day', () => {
   assert.match(read('lib/shields/copy.ts'), /매일 같은 과제일 필요는 없어서/);
 });
 
-test('fixed shield bonuses distinguish every tier at any task value', () => {
-  for (const base of [1, 10, 15, 30, 50]) {
-    assert.deepEqual((['bronze', 'silver', 'gold', 'epic', 'legendary'] as const).map(t => bonusPoints(base, t)), [0, 1, 2, 3, 4]);
+test('shield bonuses pay the larger of the minimum and rounded-up percentage', () => {
+  const expected = [[0,1,2,3,4], [0,1,2,3,4], [0,1,2,3,5], [0,1,3,5,8]];
+  for (const [i, base] of [10, 15, 30, 50].entries()) {
+    assert.deepEqual((['bronze', 'silver', 'gold', 'epic', 'legendary'] as const).map(t => bonusPoints(base, t)), expected[i]);
   }
   assert.equal(bonusPoints(0, 'legendary'), 0);
   assert.equal(bonusPoints(-10, 'gold'), 0);
+  assert.equal(bonusPoints(1, 'legendary'), 4);
+  assert.equal(bonusPoints(20, 'legendary'), 4, 'minimum is not added to the percentage');
+  assert.equal(bonusPoints(21, 'legendary'), 4, 'percentage ties the minimum');
+  assert.equal(bonusPoints(27, 'legendary'), 5, 'percentage rounds up above the minimum');
+  assert.equal(bonusPoints(100, 'bronze'), 0);
   const sql = read('supabase/migrations/20261020000000_fixed_shield_points.sql');
   const points = JSON.parse(sql.match(/'\{pointsByTier\}', '(\{.*?\})'::jsonb/)![1]);
   assert.deepEqual(points, POINTS_BY_TIER);
+  const hybrid = read('supabase/migrations/20261020000100_minimum_percent_shield_bonus.sql');
+  assert.deepEqual(JSON.parse(hybrid.match(/'\{rateBp\}', '(\{.*?\})'::jsonb/)![1]), RATE_BP);
+});
+
+test('shield benefit labels explain the percentage and guaranteed minimum', () => {
+  assert.equal(shieldBonusLabel('gold', false), '+5% (최소 +2P)');
+  assert.equal(shieldBonusLabel('legendary', true), '+15% (min +4P)');
+  assert.equal(shieldBonusLabel('bronze', false), '+0P');
 });
