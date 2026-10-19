@@ -6,8 +6,9 @@ import { useEarlierShields } from '@/lib/achievements/earlierShields';
 import { shieldTitle } from '@/lib/analytics/shieldCopy';
 import { useMinuteClock, type FamilyAnalyticsState } from '@/lib/analytics/useFamilyAnalytics';
 import { SHIELD_TYPES, TIER_RANK, addDays, zonedDayHour, type ShieldCompletion, type ShieldType } from '@/lib/shields/engine';
-import { POINTS_BY_TIER, shieldBonusLabel, WEEKLY_RULES, weekProgress, type BonusProgress, type WindowProgress } from '@/lib/shields/weekly';
+import { shieldBonusLabel, WEEKLY_RULES, weekProgress, type BonusProgress, type WindowProgress } from '@/lib/shields/weekly';
 import { TIER_COPY, TYPE_COPY, scopeLabel, shieldName } from '@/lib/shields/copy';
+import { ShieldBonusTable } from './ShieldBonusTable';
 import { InsigniaBadge } from '@/components/InsigniaBadge';
 import { EmptyNote, ErrorBanner, LoadingBlock, formatDay, useCopy } from '@/components/analytics/ui';
 import { EmptyShield, ShieldEmblem } from './ShieldEmblem';
@@ -80,7 +81,7 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
                     <ShieldEmblem type={award.shield_type} tier={award.tier} size={72} />
                   </button>
                   <span className="text-xs font-semibold leading-tight text-white">{t(TIER_COPY[award.tier])}</span>
-                  {POINTS_BY_TIER[award.tier] > 0
+                  {award.tier !== 'bronze'
                     ? <span className="text-[11px] text-[#9FF0CE]">{shieldBonusLabel(award.tier, en)} · {t(scopeLabel(award.scope))}</span>
                     : <span className="text-[11px] text-[#C9A27E]">{en ? 'No bonus · Silver adds points' : '보너스 없음 · 실버부터 보너스'}</span>}
                 </>
@@ -145,6 +146,7 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
           )}
           {historyWeeks.length === 0 && earlier.length === 0 && <EmptyNote>{en ? 'No shields yet.' : '아직 쉴드가 없어요.'}</EmptyNote>}
         </div>
+        <ShieldBonusTable en={en} />
       </details>
 
       <details className="mt-2 rounded-2xl border border-white/[0.06] p-3.5 text-sm text-[#C9CCE0]">
@@ -158,8 +160,9 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
           ))}
         </ul>
         <p className="mt-3 text-xs leading-relaxed text-[#A9AECB]">{en
-          ? `Every Monday, last week’s record (Mon–Sun) earns up to three shields, equipped automatically for the new week. Bronze is recognition only; Each completed task earns the larger of the tier minimum and its percentage of base points: Silver +1P or 2%, Gold +2P or 5%, Epic +3P or 10%, Legendary +4P or 15% (percentages round up), each only in its own area, and taken back if a completion is undone. A week needs at least ${WEEKLY_RULES.minCoveredDays} recorded days.`
-          : `매주 월요일, 지난주(월~일) 기록으로 쉴드를 최대 3개 얻고 새 주에 자동으로 장착돼요. 브론즈는 기록용(보너스 없음)이고, 과제를 완료할 때마다 최소 보너스와 기본 포인트의 퍼센트 중 더 큰 값을 지급해요. 실버 +1P 또는 2% · 골드 +2P 또는 5% · 에픽 +3P 또는 10% · 레전더리 +4P 또는 15%(소수점 올림)가 각자 자기 영역에만 더해지고, 완료를 취소하면 함께 돌려받아요. 한 주에 기록된 날이 ${WEEKLY_RULES.minCoveredDays}일 이상이어야 해요.`}</p>
+          ? `Every Monday, last week’s record (Mon–Sun) earns up to three shields, equipped automatically for the new week. Each completed task earns the extra points shown below, only in its shield’s area. Undoing a completion also removes its bonus. Bronze has no bonus. A week needs at least ${WEEKLY_RULES.minCoveredDays} recorded days.`
+          : `매주 월요일, 지난주(월~일) 기록으로 쉴드를 최대 3개 얻고 새 주에 자동으로 장착돼요. 해당 영역의 과제를 완료하면 아래 표의 추가 포인트를 받아요. 완료를 취소하면 추가 포인트도 함께 회수돼요. 브론즈는 보너스가 없어요. 한 주에 기록된 날이 ${WEEKLY_RULES.minCoveredDays}일 이상이어야 해요.`}</p>
+        <ShieldBonusTable en={en} />
       </details>
 
       {detail && <ShieldDetail award={detail} recipient={memberName} onClose={() => setDetail(null)} />}
@@ -202,7 +205,7 @@ function BonusRow({ p }: { p: BonusProgress }) {
 
 function TierBadge({ tier }: { tier: NonNullable<WindowProgress['tier']> }) {
   const { en, t } = useCopy();
-  return POINTS_BY_TIER[tier] > 0
+  return tier !== 'bronze'
     ? <span className="ml-1.5 text-[#9FF0CE]">{t(TIER_COPY[tier])} {shieldBonusLabel(tier, en)}</span>
     : <span className="ml-1.5 text-[#C9A27E]">{t(TIER_COPY[tier])} · {en ? 'no bonus' : '보너스 없음'}</span>;
 }

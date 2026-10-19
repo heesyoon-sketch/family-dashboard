@@ -6,6 +6,7 @@ import { periodContaining } from '@/lib/shields/engine';
 import { shieldBonusLabel } from '@/lib/shields/weekly';
 import { TIER_COPY, TYPE_COPY, explainAward, scopeLabel, shieldName } from '@/lib/shields/copy';
 import { formatDay, useCopy } from '@/components/analytics/ui';
+import { ShieldBonusTable } from './ShieldBonusTable';
 import { ShieldEmblem } from './ShieldEmblem';
 import type { WeeklyAwardRow } from './useShieldWallData';
 import { periodLabel } from './periodLabel';
@@ -44,12 +45,13 @@ export function ShieldDetail({ award, recipient, onClose }: { award: WeeklyAward
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Tier' : '등급'}</dt><dd className="mt-0.5 font-semibold text-white">{t(TIER_COPY[award.tier])}</dd></div>
           <div className="rounded-xl bg-white/[0.03] p-3"><dt className="text-xs text-[#8E94B4]">{en ? 'Active' : '적용 기간'}</dt><dd className="mt-0.5 font-semibold text-white">{formatDay(equip.start, en)} – {formatDay(equip.end, en)}</dd></div>
         </dl>
+        <ShieldBonusTable en={en} />
         <details className="mt-4 rounded-xl bg-black/20 p-3 text-xs leading-relaxed text-[#C9CCE0]">
           <summary className="min-h-9 cursor-pointer font-semibold text-white">{en ? 'How this shield works' : '이 쉴드를 받는 방법'}</summary>
           <p className="mt-2">{t(TYPE_COPY[award.shield_type].how)}</p>
           <p className="mt-2 text-[#8E94B4]">{en
-            ? 'Earned from one week’s record, it is equipped automatically for the following week only, adding the larger of the tier minimum and its percentage of base points to each completed task in its area: Silver +1P or 2%, Gold +2P or 5%, Epic +3P or 10%, Legendary +4P or 15%. Percentages round up; Bronze has no bonus. Earned shields stay in your history.'
-            : '한 주의 기록으로 얻은 쉴드는 다음 한 주 동안 자동으로 장착되고, 해당 영역의 과제를 완료할 때마다 최소 보너스와 기본 포인트의 퍼센트 중 더 큰 값이 더해져요. 실버 +1P 또는 2%, 골드 +2P 또는 5%, 에픽 +3P 또는 10%, 레전더리 +4P 또는 15%예요. 소수점은 올림하고 브론즈는 보너스가 없어요. 받은 쉴드는 기록에 남아요.'}</p>
+            ? 'Earned shields are equipped automatically for the following week. Each completed task in the shield’s area earns the bonus shown in the table. Undoing a completion also removes its bonus. Bronze has no bonus. Earned shields stay in your history.'
+            : '받은 쉴드는 다음 한 주 동안 자동으로 장착돼요. 해당 영역의 과제를 완료하면 위 표의 추가 포인트를 받아요. 완료를 취소하면 추가 포인트도 함께 회수돼요. 브론즈는 보너스가 없고 받은 쉴드는 기록에 남아요.'}</p>
         </details>
       </div>
     </div>

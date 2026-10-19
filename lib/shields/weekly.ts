@@ -1,3 +1,4 @@
+import { normalizeTaskPoints, type TaskDurationOption } from '../taskDurationPoints';
 // Weekly Shields (pure mirror of finalize_shield_week).
 //
 // EARN LAST WEEK. EQUIP THIS WEEK. Each member can earn one Shield of each
@@ -32,9 +33,14 @@ export const WEEKLY_RULES = {
   bonus: { bronze: 1, silver: 3, gold: 4, epic: 5, legendary: 6, minRequiredRate: 70 },
 } as const;
 
-/** Minimum points per matching completion. Mirrors shield_config.rules.pointsByTier. */
-export const POINTS_BY_TIER: Record<ShieldTier, number> = { bronze: 0, silver: 1, gold: 2, epic: 3, legendary: 4 };
-export const RATE_BP: Record<ShieldTier, number> = { bronze: 0, silver: 200, gold: 500, epic: 1000, legendary: 1500 };
+/** Explicit bonus points by Shield tier and task duration points. Mirrors shield_config. */
+export const SHIELD_BONUS_POINTS: Record<ShieldTier, Record<TaskDurationOption['points'], number>> = {
+  bronze: { 10: 0, 15: 0, 30: 0, 50: 0 },
+  silver: { 10: 1, 15: 1, 30: 2, 50: 3 },
+  gold: { 10: 2, 15: 2, 30: 3, 50: 4 },
+  epic: { 10: 3, 15: 3, 30: 4, 50: 6 },
+  legendary: { 10: 4, 15: 4, 30: 6, 50: 8 },
+};
 export const SLOT_OF: Record<ShieldType, 1 | 2 | 3> = { morning: 1, evening: 2, bonus: 3 };
 
 export type BonusScope = { kind: 'window'; window: Slot } | { kind: 'bonus' };
@@ -181,16 +187,13 @@ export function scopeApplies(scope: BonusScope, completion: { optional: boolean;
   return scope.kind === 'bonus' ? completion.optional : !completion.optional && scope.window === completion.window;
 }
 
-/** Zero-point completions earn no Shield bonus. */
+/** Legacy/partial point values follow the existing task duration normalization. */
 export function bonusPoints(basePoints: number, tier: ShieldTier): number {
-  return basePoints > 0
-    ? Math.max(POINTS_BY_TIER[tier], Math.floor((basePoints * RATE_BP[tier] + 9999) / 10000))
-    : 0;
+  return basePoints > 0 ? SHIELD_BONUS_POINTS[tier][normalizeTaskPoints(basePoints)] : 0;
 }
 
-/** Compact benefit text; the minimum and percentage are alternatives, not added. */
 export function shieldBonusLabel(tier: ShieldTier, en: boolean): string {
+  const points = SHIELD_BONUS_POINTS[tier];
   return tier === 'bronze' ? '+0P'
-    : en ? `+${RATE_BP[tier] / 100}% (min +${POINTS_BY_TIER[tier]}P)`
-      : `+${RATE_BP[tier] / 100}% (최소 +${POINTS_BY_TIER[tier]}P)`;
+    : en ? `+${points[10]}–${points[50]}P per task` : `과제별 +${points[10]}~${points[50]}P`;
 }

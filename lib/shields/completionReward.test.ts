@@ -30,8 +30,17 @@ test('no bonus, duplicate, shadow and clock mismatch responses do not invent a c
 });
 
 
-test('larger tasks display their actual percentage credit and total', () => {
+test('larger tasks display their actual table credit and total', () => {
   const result = completionReward({ pointsAwarded: 50, shieldBonus: { bonusPoints: 8, tier: 'legendary' } });
   assert.equal(result.pointsAwarded, 58);
   assert.equal(shieldCreditMessage(result.basePoints, result.shieldBonus!, 'ko'), '50포인트 + 레전더리 쉴드 추가 포인트 8pt');
+});
+
+
+test('updated table payouts appear in the popup total and breakdown', () => {
+  for (const [base, tier, points, name] of [[30, 'silver', 2, '실버'], [30, 'gold', 3, '골드'], [30, 'epic', 4, '에픽'], [30, 'legendary', 6, '레전더리'], [50, 'silver', 3, '실버'], [50, 'gold', 4, '골드'], [50, 'epic', 6, '에픽']] as const) {
+    const result = completionReward({ pointsAwarded: base, shieldBonus: { bonusPoints: points, tier } });
+    assert.equal(result.pointsAwarded, base + points);
+    assert.equal(shieldCreditMessage(base, result.shieldBonus!, 'ko'), `${base}포인트 + ${name} 쉴드 추가 포인트 ${points}pt`);
+  }
 });
