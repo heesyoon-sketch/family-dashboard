@@ -363,34 +363,41 @@ export function AdminTasksPanel({
                         />
                       </div>
 
-                      <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
-                        {([
-                          { value: 'morning', label: t('morning'), range: '00:00-12:59', icon: Icons.Sun },
-                          { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '13:00-23:59', icon: Icons.Moon },
-                        ] as const).map(opt => {
-                          const isActive = selectedTimeWindows(task.timeWindow).includes(opt.value);
-                          const TimeIcon = opt.icon;
-                          return (
-                            <button
-                              key={String(opt.value)}
-                              onClick={() => toggleTimeWindow(task, opt.value)}
-                              className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md px-1.5 text-xs font-black transition-colors ${
-                                isActive
-                                  ? 'bg-[#4EEDB0] text-[#07120E]'
-                                  : 'text-white/45 hover:bg-white/[0.055] hover:text-white'
-                              }`}
-                            >
-                              <span className="flex min-w-0 items-center gap-1">
-                                <TimeIcon size={13} />
-                                <span className="truncate">{opt.label}</span>
-                              </span>
-                              <span className={`mt-0.5 text-[9px] font-bold leading-none ${isActive ? 'text-[#07120E]/70' : 'text-white/32'}`}>
-                                {opt.range}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {isBonus ? (
+                        <p className="mt-2 flex min-h-12 items-center gap-1.5 rounded-lg border border-[#C4B5FD]/20 bg-[#C4B5FD]/[0.06] px-3 text-xs font-bold text-[#DDD3FE]">
+                          <Icons.CalendarClock size={14} className="shrink-0 text-[#C4B5FD]" aria-hidden />
+                          {lang === 'en' ? 'All day · counts once per day' : '하루 종일 · 하루 1번'}
+                        </p>
+                      ) : (
+                        <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
+                          {([
+                            { value: 'morning', label: t('morning'), range: '00:00-12:59', icon: Icons.Sun },
+                            { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '13:00-23:59', icon: Icons.Moon },
+                          ] as const).map(opt => {
+                            const isActive = selectedTimeWindows(task.timeWindow).includes(opt.value);
+                            const TimeIcon = opt.icon;
+                            return (
+                              <button
+                                key={String(opt.value)}
+                                onClick={() => toggleTimeWindow(task, opt.value)}
+                                className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md px-1.5 text-xs font-black transition-colors ${
+                                  isActive
+                                    ? 'bg-[#4EEDB0] text-[#07120E]'
+                                    : 'text-white/45 hover:bg-white/[0.055] hover:text-white'
+                                }`}
+                              >
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <TimeIcon size={13} />
+                                  <span className="truncate">{opt.label}</span>
+                                </span>
+                                <span className={`mt-0.5 text-[9px] font-bold leading-none ${isActive ? 'text-[#07120E]/70' : 'text-white/32'}`}>
+                                  {opt.range}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -44,8 +44,10 @@ import {
   type TimeWindow,
 } from './timeWindows';
 import {
+  completionWindowsFor,
   isPerfectRoutineDay,
   localDateKey,
+  updateWindowCompletions,
   mapPerfectDayCoupon,
   mergeCouponWallets,
   mapPerfectQuestProgress,
@@ -401,31 +403,17 @@ function applyTaskCompletionEvent(
     const completionWindow = getCurrentTimeWindow(new Date(completedAt));
     if (!isTaskActiveInTimeWindow(task.timeWindow, completionWindow)) return {};
 
-    const current = state.todayCompletions[userId] ?? [];
-    const existingWindows = state.todayCompletionsByWindow[userId] ?? { morning: [], evening: [] };
-    const windowIds = existingWindows[completionWindow];
-
-    if (eventType === 'DELETE') {
-      const nextWindows = {
-        ...existingWindows,
-        [completionWindow]: windowIds.filter(id => id !== taskId),
-      };
-      return {
-        todayCompletionsByWindow: { ...state.todayCompletionsByWindow, [userId]: nextWindows },
-        todayCompletions: completionWindow === state.timeOfDay
-          ? { ...state.todayCompletions, [userId]: current.filter(id => id !== taskId) }
-          : state.todayCompletions,
-      };
-    }
-
-    const nextWindows = {
-      ...existingWindows,
-      [completionWindow]: Array.from(new Set([...windowIds, taskId])),
-    };
+    const windows = completionWindowsFor(task, completionWindow);
+    const nextWindows = updateWindowCompletions(
+      state.todayCompletionsByWindow[userId],
+      taskId,
+      windows,
+      eventType !== 'DELETE',
+    );
     return {
       todayCompletionsByWindow: { ...state.todayCompletionsByWindow, [userId]: nextWindows },
-      todayCompletions: completionWindow === state.timeOfDay
-        ? { ...state.todayCompletions, [userId]: Array.from(new Set([...current, taskId])) }
+      todayCompletions: windows.includes(state.timeOfDay)
+        ? { ...state.todayCompletions, [userId]: nextWindows[state.timeOfDay] }
         : state.todayCompletions,
     };
   });
@@ -1284,13 +1272,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         },
         todayCompletionsByWindow: {
           ...state.todayCompletionsByWindow,
-          [userId]: {
-            ...(state.todayCompletionsByWindow[userId] ?? { morning: [], evening: [] }),
-            [state.timeOfDay]: Array.from(new Set([
-              ...(state.todayCompletionsByWindow[userId]?.[state.timeOfDay] ?? []),
-              taskId,
-            ])),
-          },
+          [userId]: updateWindowCompletions(
+            state.todayCompletionsByWindow[userId],
+            taskId,
+            completionWindowsFor(task, state.timeOfDay),
+            true,
+          ),
         },
       }));
 
@@ -1446,6 +1433,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     _taskMutationsInFlight.add(mutationKey);
 
     try {
+      const undoneTask = (get().tasksByUser[userId] ?? []).find(candidate => candidate.id === taskId);
       // Optimistic: unmark immediately so the UI feels instant.
       set(state => ({
         todayCompletions: {
@@ -1454,11 +1442,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         },
         todayCompletionsByWindow: {
           ...state.todayCompletionsByWindow,
-          [userId]: {
-            ...(state.todayCompletionsByWindow[userId] ?? { morning: [], evening: [] }),
-            [state.timeOfDay]: (state.todayCompletionsByWindow[userId]?.[state.timeOfDay] ?? [])
-              .filter(id => id !== taskId),
-          },
+          [userId]: updateWindowCompletions(
+            state.todayCompletionsByWindow[userId],
+            taskId,
+            completionWindowsFor(undoneTask, state.timeOfDay),
+            false,
+          ),
         },
       }));
 

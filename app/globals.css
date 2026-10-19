@@ -105,6 +105,10 @@ body {
   box-shadow: none;
 }
 
+.member-routine-tabs [data-bonus-tab][aria-selected="true"] {
+  color: var(--bonus);
+}
+
 .member-task-card:not(:disabled):hover {
   background: var(--surface-elevated);
 }

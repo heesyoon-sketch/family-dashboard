@@ -5,7 +5,7 @@ import {
   isTaskActiveInTimeWindow,
   type TimeWindow,
 } from './timeWindows';
-import { requiredTasks } from './taskType';
+import { isOptionalTask, requiredTasks } from './taskType';
 
 export interface CompletionWindowRow {
   task_id: string;
@@ -41,6 +41,31 @@ export function localDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Windows a completion counts for. Bonus tasks are day-scoped: one
+ *  completion marks them done for the whole day. */
+export function completionWindowsFor(
+  task: Pick<Task, 'taskType'> | undefined,
+  window: TimeWindow,
+): TimeWindow[] {
+  return task && isOptionalTask(task) ? ['morning', 'evening'] : [window];
+}
+
+/** Adds or removes a task id in each of the given windows. */
+export function updateWindowCompletions(
+  current: WindowCompletions | undefined,
+  taskId: string,
+  windows: TimeWindow[],
+  done: boolean,
+): WindowCompletions {
+  const next: WindowCompletions = { morning: [...(current?.morning ?? [])], evening: [...(current?.evening ?? [])] };
+  for (const window of windows) {
+    next[window] = done
+      ? Array.from(new Set([...next[window], taskId]))
+      : next[window].filter(id => id !== taskId);
+  }
+  return next;
+}
+
 export function splitCompletionsByWindow(
   tasks: Task[],
   completions: CompletionWindowRow[],
@@ -57,6 +82,16 @@ export function splitCompletionsByWindow(
     if (!task) continue;
     const completedAt = new Date(completion.completed_at);
     if (Number.isNaN(completedAt.getTime())) continue;
+
+    if (isOptionalTask(task)) {
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      if (completedAt >= dayStart && completedAt < dayEnd) {
+        byWindow.morning.add(task.id);
+        byWindow.evening.add(task.id);
+      }
+      continue;
+    }
 
     for (const window of ['morning', 'evening'] as const) {
       if (!isTaskActiveInTimeWindow(task.timeWindow, window)) continue;

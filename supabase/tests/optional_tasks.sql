@@ -53,11 +53,18 @@ begin
   if v_optional.task_type is distinct from 'optional' then
     raise exception 'p_task_type optional was not stored, got %', v_optional.task_type;
   end if;
-  -- Available in both windows so the test works at any hour.
-  v_optional := public.admin_update_task(v_optional.id, '{"time_window":"both"}'::jsonb);
-  if v_optional.task_type is distinct from 'optional' then
-    raise exception 'Unrelated edits must keep the task type';
+  if v_optional.time_window is distinct from 'both' then
+    raise exception 'Bonus tasks must be available all day, got %', v_optional.time_window;
   end if;
+  v_optional := public.admin_update_task(v_optional.id, '{"time_window":"morning"}'::jsonb);
+  if v_optional.task_type is distinct from 'optional' or v_optional.time_window <> 'both' then
+    raise exception 'Bonus tasks must stay optional and all-day: % %', v_optional.task_type, v_optional.time_window;
+  end if;
+  v_required := public.admin_update_task(v_required.id, '{"task_type":"optional"}'::jsonb);
+  if v_required.time_window <> 'both' then
+    raise exception 'Switching a task to bonus must make it all-day';
+  end if;
+  v_required := public.admin_update_task(v_required.id, '{"task_type":"required"}'::jsonb);
 
   begin
     perform public.admin_insert_task(v_member, 'TEST bad', 'circle', 'MEDIUM', 10, 'daily', v_days, 1, 902, 'sometimes');
@@ -70,7 +77,7 @@ begin
 end;
 $$;
 
--- 4 & 12. Completing a bonus task pays once per window, never twice.
+-- 4 & 12. A bonus task pays once per day: morning or evening, never both.
 do $$
 declare
   r optional_task_test;
@@ -78,29 +85,47 @@ declare
   v_local timestamp := now() at time zone v_tz;
   v_day_start timestamptz := date_trunc('day', v_local) at time zone v_tz;
   v_day_key text := (array['MON','TUE','WED','THU','FRI','SAT','SUN'])[extract(isodow from v_local)::int];
-  v_window text := case when extract(hour from v_local) < 12 then 'morning' else 'evening' end;
+  v_morning timestamptz := v_day_start + interval '9 hours';
+  v_evening timestamptz := v_day_start + interval '15 hours';
   v_first jsonb;
-  v_second jsonb;
+  v_repeat jsonb;
+  v_balance_before integer;
   v_balance_after_first integer;
-  v_balance_after_second integer;
+  v_revoked_before integer;
 begin
   select * into r from optional_task_test;
-  v_first := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, v_window, now(), 0);
+  select coalesce(spendable_balance, 0) into v_balance_before from public.levels where user_id = r.member_id;
+  select count(*) into v_revoked_before from public.perfect_day_coupons where user_id = r.member_id and status = 'revoked';
+
+  v_first := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, 'morning', v_morning, 0);
   if coalesce((v_first->>'pointsAwarded')::int, 0) < 10 then
     raise exception 'Bonus completion must award at least its base points: %', v_first;
   end if;
   select spendable_balance into v_balance_after_first from public.levels where user_id = r.member_id;
 
-  v_second := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, v_window, now(), 0);
-  if coalesce((v_second->>'pointsAwarded')::int, -1) <> 0 then
-    raise exception 'Repeating a bonus task in the same window must award 0: %', v_second;
+  v_repeat := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, 'morning', v_morning + interval '1 minute', 0);
+  if coalesce((v_repeat->>'pointsAwarded')::int, -1) <> 0 then
+    raise exception 'Repeating a bonus task in the same window must award 0: %', v_repeat;
   end if;
-  select spendable_balance into v_balance_after_second from public.levels where user_id = r.member_id;
-  if v_balance_after_second <> v_balance_after_first then
-    raise exception 'Repeat completion changed the balance';
+  v_repeat := public.process_task_completion_atomic(r.member_id, r.optional_id, false, v_day_start, v_day_key, 'evening', v_evening, 0);
+  if coalesce((v_repeat->>'pointsAwarded')::int, -1) <> 0 then
+    raise exception 'A bonus task done this morning must not pay again this evening: %', v_repeat;
   end if;
-  if (select count(*) from public.task_completions where task_id = r.optional_id) <> 1 then
-    raise exception 'Repeat completion created a second record';
+  if (select spendable_balance from public.levels where user_id = r.member_id) <> v_balance_after_first
+    or (select count(*) from public.task_completions where task_id = r.optional_id) <> 1 then
+    raise exception 'Repeat completions changed the balance or added records';
+  end if;
+
+  -- Undo from the evening finds the morning completion and refunds it.
+  perform public.process_task_undo_atomic(r.member_id, r.optional_id, v_day_start, v_day_key, 'evening', v_evening + interval '1 minute');
+  if (select count(*) from public.task_completions where task_id = r.optional_id) <> 0 then
+    raise exception 'Evening undo must remove the day''s bonus completion';
+  end if;
+  if (select coalesce(spendable_balance, 0) from public.levels where user_id = r.member_id) <> v_balance_before then
+    raise exception 'Undo must refund the bonus points exactly';
+  end if;
+  if (select count(*) from public.perfect_day_coupons where user_id = r.member_id and status = 'revoked') <> v_revoked_before then
+    raise exception 'Undoing a bonus task must not revoke coupons';
   end if;
 end;
 $$;
@@ -122,7 +147,6 @@ begin
   select * into r from optional_task_test;
   -- Leave the member with nothing but the (incomplete) bonus task. Rolled back.
   update public.tasks set active = 0 where user_id = r.member_id and id <> r.optional_id;
-  delete from public.task_completions where task_id = r.optional_id;
 
   if public.perfect_quest_day_is_eligible(r.member_id, r.family_id, v_local::date) then
     raise exception 'A bonus task alone must not make a day quest-eligible';
@@ -148,4 +172,4 @@ end;
 $$;
 
 rollback;
-select 'PASS: required default, optional create/edit, invalid type rejected, single payout per window, no quest/shield/penalty effect; rolled back' as result;
+select 'PASS: required default, optional all-day create/edit, invalid type rejected, one payout per day, evening undo refunds, no quest/shield/penalty effect; rolled back' as result;

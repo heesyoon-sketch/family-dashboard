@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import type { DayOfWeek, Task } from './db';
 import { mapTask } from './admin/adminHelpers';
-import { isPerfectRoutineDay, splitCompletionsByWindow } from './perfectDay';
+import { completionWindowsFor, isPerfectRoutineDay, splitCompletionsByWindow, updateWindowCompletions } from './perfectDay';
 import {
   BONUS_TASK_TEMPLATES,
   isOptionalTask,
@@ -111,9 +111,15 @@ test('bonus tasks render with a lavender, labelled treatment that is not green',
   assert.match(css, /\[data-bonus="true"\]\[data-completed="true"\] \{\s*background: var\(--task-completed-bg\);\s*box-shadow: inset 3px 0 0 var\(--bonus\)/);
 
   const panel = read('components/MemberPanel.tsx');
-  assert.match(panel, /visibleRequired\.map/);
-  assert.match(panel, /visibleBonus\.map/);
-  assert.ok(panel.indexOf('visibleRequired.map') < panel.indexOf('visibleBonus.map'), 'required tasks render first');
+  // Bonus tasks get their own third tab; morning/evening list required only.
+  assert.match(panel, /const listTasks = showBonus \? bonusToday : visibleTasks\.filter\(task => !isOptionalTask\(task\)\)/);
+  assert.match(panel, /hasBonus \? 'grid-cols-3' : 'grid-cols-2'/);
+  assert.match(panel, /data-bonus-tab/);
+  // The tab shows points earned, never a done/total score.
+  assert.match(panel, /bonusSummary\.bonusPointsEarned > 0 && <span>\+\{bonusSummary\.bonusPointsEarned\}<\/span>/);
+  // Finishing the required routine points kids at the bonus tab.
+  assert.match(panel, /allDone && bonusLeft > 0 && !childDeadlinePassed/);
+  assert.match(read('app/globals.css'), /\[data-bonus-tab\]\[aria-selected="true"\] \{\s*color: var\(--bonus\);/);
 });
 
 // 4. Completing a bonus task awards its points ----------------------------------
@@ -197,7 +203,7 @@ test('completed bonus tasks do not inflate the required completion rate', () => 
   const day = summarizeRange(h, '2026-10-13', '2026-10-13');
   assert.equal(day.eligible, 2);
   assert.equal(day.completed, 1);
-  assert.equal(habitPerformance(h, [habit('read', 'kid', { taskType: 'optional' })], periodRange('week', h.today)).length, 0);
+  assert.equal(habitPerformance(h, [habit('read', 'kid', { taskType: 'optional' })], periodRange('7d', h.today, h.firstDay)).length, 0);
 
   const store = read('lib/store.ts');
   assert.match(store, /const userActiveTasks = requiredTasks\(/);
@@ -330,4 +336,62 @@ test('a bonus task pays at most once per routine window', () => {
   // Tallies count a task once per window even if the client repeats it.
   const tasks = [task('read', { taskType: 'optional', basePoints: 5 })];
   assert.equal(summarizeTaskDay(tasks, ['read', 'read', 'read']).bonusPointsEarned, 5);
+});
+
+// Day-scoped bonus tasks -------------------------------------------------------
+
+const DAY_MIGRATION = 'supabase/migrations/20261019130000_day_scoped_bonus_tasks.sql';
+
+test('a bonus completion counts for the whole day, in both windows', () => {
+  const dayStart = new Date(2026, 7, 3, 0, 0, 0, 0);
+  const at = (hour: number) => { const d = new Date(dayStart); d.setHours(hour); return d.toISOString(); };
+  const tasks = [task('wake', { timeWindow: 'both' }), task('read', { timeWindow: 'both', taskType: 'optional' })];
+  const byWindow = splitCompletionsByWindow(tasks, [
+    { task_id: 'wake', completed_at: at(8) },
+    { task_id: 'read', completed_at: at(8) },
+  ], dayStart);
+  assert.deepEqual(byWindow.morning.sort(), ['read', 'wake']);
+  // The required task done in the morning is still open in the evening; the bonus is not.
+  assert.deepEqual(byWindow.evening, ['read']);
+
+  // Yesterday's bonus completion does not carry over.
+  const yesterday = new Date(dayStart); yesterday.setHours(-3);
+  assert.deepEqual(splitCompletionsByWindow(tasks, [{ task_id: 'read', completed_at: yesterday.toISOString() }], dayStart), { morning: [], evening: [] });
+});
+
+test('optimistic and realtime updates mark bonus tasks in both windows', () => {
+  assert.deepEqual(completionWindowsFor(task('read', { taskType: 'optional' }), 'evening'), ['morning', 'evening']);
+  assert.deepEqual(completionWindowsFor(task('homework'), 'evening'), ['evening']);
+  assert.deepEqual(completionWindowsFor(undefined, 'morning'), ['morning']);
+
+  const done = updateWindowCompletions({ morning: ['wake'], evening: [] }, 'read', ['morning', 'evening'], true);
+  assert.deepEqual(done, { morning: ['wake', 'read'], evening: ['read'] });
+  assert.deepEqual(updateWindowCompletions(done, 'read', ['morning', 'evening'], false), { morning: ['wake'], evening: [] });
+
+  const store = read('lib/store.ts');
+  assert.equal(store.match(/completionWindowsFor\(/g)?.length, 3, 'complete, undo and realtime paths');
+});
+
+test('the server pays a bonus task once per day and pins it to both windows', () => {
+  const migration = read(DAY_MIGRATION);
+  // Completion and undo both widen the lookup to the whole day for bonus tasks.
+  assert.equal(migration.match(/if v_task\.task_type = 'optional' then\s*v_completion_window_start := p_day_start;\s*v_completion_window_end := p_day_start \+ interval '1 day';/g)?.length, 2);
+  // Shield bonus reversal looks up the same day-wide completion.
+  assert.match(migration, /c\.completed_at >= case when v_undo_task\.task_type = 'optional' then p_day_start/);
+  assert.match(migration, /case when v_task_type = 'optional' then 'both' else 'evening' end/);
+  assert.match(migration, /when coalesce\(p_patch->>'task_type', task_type\) = 'optional' then 'both'/);
+});
+
+test('undoing a bonus task never revokes a Perfect Day or weekly quest reward', () => {
+  const migration = read(DAY_MIGRATION);
+  const undo = migration.slice(migration.indexOf('FUNCTION public.process_task_undo_atomic_before_routine_deadlines('));
+  const guard = undo.indexOf("if v_task.task_type <> 'optional' then");
+  assert.ok(guard > 0);
+  assert.ok(guard < undo.indexOf("set status = 'revoked'"), 'coupon revocation sits inside the required-only branch');
+
+  const trigger = migration.slice(migration.indexOf('FUNCTION public.reconcile_school_week_mark_on_completion_delete('));
+  assert.ok(
+    trigger.indexOf("t.task_type = 'optional'") < trigger.indexOf('delete from public.school_week_quest_marks'),
+    'bonus completions return before the quest mark is removed',
+  );
 });

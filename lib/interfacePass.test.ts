@@ -23,8 +23,8 @@ test('member panels combine morning and evening counts into compact tabs', () =>
   assert.match(panel, /morningDone\}\/\{morningTasks\.length\}/);
   assert.match(panel, /eveningDone\}\/\{eveningTasks\.length\}/);
   assert.match(panel, /role="tablist"/);
-  assert.match(panel, /aria-selected=\{selectedWindow === 'morning'\}/);
-  assert.match(panel, /aria-selected=\{selectedWindow === 'evening'\}/);
+  assert.match(panel, /aria-selected=\{activeTab === 'morning'\}/);
+  assert.match(panel, /aria-selected=\{activeTab === 'evening'\}/);
   assert.match(panel, /morningPct/);
   assert.match(panel, /eveningPct/);
   assert.match(panel, /reference only/);

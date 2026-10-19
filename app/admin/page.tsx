@@ -1061,10 +1061,15 @@ export default function AdminPage() {
     const previous = task.taskType ?? 'required';
     if (previous === taskType) return;
     const supabase = createBrowserSupabase();
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, taskType } : t));
-    const { error } = await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { task_type: taskType } });
+    // Bonus tasks are day-scoped, so the server pins them to both windows.
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, taskType, ...(taskType === 'optional' ? { timeWindow: 'both' as const } : {}) } : t));
+    const { data, error } = await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { task_type: taskType } });
+    if (!error && data) {
+      const saved = mapTask(data as Record<string, unknown>);
+      setTasks(prev => prev.map(t => t.id === task.id ? saved : t));
+    }
     if (error) {
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, taskType: previous } : t));
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, taskType: previous, timeWindow: task.timeWindow } : t));
       toast.error(`${t('task_save_failed')}: ${error.message}`);
       return;
     }
