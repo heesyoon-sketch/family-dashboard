@@ -106,8 +106,10 @@ test('scopes never overlap, so a completion gets at most one shield', () => {
   for (const c of [{ optional: false, window: 'morning' }, { optional: false, window: 'evening' }, { optional: true, window: 'morning' }, { optional: true, window: 'evening' }] as const) {
     assert.equal(scopes.filter(s => scopeApplies(s, c)).length, 1);
   }
-  assert.equal(bonusPoints(30, RATE_BP.legendary), 4, 'floor(30 × 15%)');
-  assert.equal(bonusPoints(10, RATE_BP.silver), 0);
+  assert.equal(bonusPoints(30, RATE_BP.legendary), 5, 'ceil(30 × 15%) = ceil(4.5)');
+  assert.equal(bonusPoints(10, RATE_BP.silver), 1, 'a 10-point habit still gets +1');
+  assert.equal(bonusPoints(10, RATE_BP.gold), 1);
+  assert.equal(bonusPoints(10, RATE_BP.legendary), 2);
   assert.deepEqual(SLOT_OF, { morning: 1, evening: 2, bonus: 3 });
 });
 
@@ -172,4 +174,12 @@ test('a bonus day is any bonus task, not the same one every day', () => {
   assert.equal(p.bonus.bonusDays, 3);
   assert.equal(p.bonus.tier, 'silver');
   assert.match(read('lib/shields/copy.ts'), /매일 같은 과제일 필요는 없어서/);
+});
+
+test('shield bonuses round up so small habits still feel them', () => {
+  const sql = read('supabase/migrations/20261019240000_shield_bonus_round_up.sql');
+  assert.match(sql, /'bonusPoints', \(greatest\(p_base_points, 0\) \* v_rate \+ 9999\) \/ 10000/);
+  // Kid-sized habits: 10/15/30/50 points across the tiers.
+  const table = [10, 15, 30, 50].map(base => (['silver', 'gold', 'epic', 'legendary'] as const).map(t => bonusPoints(base, RATE_BP[t])));
+  assert.deepEqual(table, [[1, 1, 1, 2], [1, 1, 2, 3], [1, 2, 3, 5], [1, 3, 5, 8]]);
 });

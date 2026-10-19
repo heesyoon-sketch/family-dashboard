@@ -181,9 +181,10 @@ export function scopeApplies(scope: BonusScope, completion: { optional: boolean;
   return scope.kind === 'bonus' ? completion.optional : !completion.optional && scope.window === completion.window;
 }
 
-/** floor(base × rate), integer math like the database. */
+/** ceil(base × rate), integer math like the database: every boosted
+ *  completion earns at least +1; a 0% rate (Bronze) earns 0. */
 export function bonusPoints(basePoints: number, rateBp: number): number {
-  return Math.floor((Math.max(0, basePoints) * Math.min(rateBp, CAP_BP)) / 10000);
+  return Math.floor((Math.max(0, basePoints) * Math.min(rateBp, CAP_BP) + 9999) / 10000);
 }
 
 export const formatBp = (bp: number) => `${bp % 100 === 0 ? bp / 100 : (bp / 100).toFixed(1)}%`;
