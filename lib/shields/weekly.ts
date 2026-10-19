@@ -6,7 +6,9 @@
 //   Morning  required morning slots completed     → boosts morning required tasks
 //   Evening  required evening slots completed     → boosts evening required tasks
 //   Bonus    days with a bonus-task completion,   → boosts bonus tasks
-//            only when ≥70% of required slots were done
+//            Silver+ only when ≥70% of required slots were done
+//
+// Bronze (50–69%, or 1–2 bonus days) fills the slot as recognition, +0%.
 //
 // The scopes never overlap, so one completion gets at most one Shield's rate.
 // The database evaluates and awards; this module only shows progress, and a
@@ -26,18 +28,19 @@ import {
 
 export const WEEKLY_RULES = {
   minCoveredDays: 6,
-  window: { minSlots: 5, minDays: 3, silver: 70, gold: 85, epic: 95, legendary: 100 },
-  bonus: { silver: 3, gold: 4, epic: 5, legendary: 7, minRequiredRate: 70 },
+  window: { minSlots: 5, minDays: 3, bronze: 50, silver: 70, gold: 85, epic: 95, legendary: 100 },
+  bonus: { bronze: 1, silver: 3, gold: 4, epic: 5, legendary: 7, minRequiredRate: 70 },
 } as const;
 
 /** Basis points: 100 bp = 1%. Mirrors shield_config.rules.rateBp. */
-export const RATE_BP: Record<ShieldTier, number> = { silver: 200, gold: 500, epic: 1000, legendary: 1500 };
+export const RATE_BP: Record<ShieldTier, number> = { bronze: 0, silver: 200, gold: 500, epic: 1000, legendary: 1500 };
 export const CAP_BP = 1500;
 export const SLOT_OF: Record<ShieldType, 1 | 2 | 3> = { morning: 1, evening: 2, bonus: 3 };
 
 export type BonusScope = { kind: 'window'; window: Slot } | { kind: 'bonus' };
 
-const ORDER: ShieldTier[] = ['legendary', 'epic', 'gold', 'silver'];
+const ORDER: ShieldTier[] = ['legendary', 'epic', 'gold', 'silver', 'bronze'];
+const UP: Record<ShieldTier | 'none', ShieldTier | null> = { none: 'bronze', bronze: 'silver', silver: 'gold', gold: 'epic', epic: 'legendary', legendary: null };
 
 /** Highest tier whose threshold `value` meets (shield_tier_for). */
 export function tierFor(value: number | null, thresholds: Record<ShieldTier, number>): ShieldTier | null {
@@ -62,7 +65,7 @@ export interface BonusProgress {
   type: 'bonus';
   bonusDays: number;
   requiredRate: number | null;
-  /** Required routine below 70%: no Bonus Shield however many bonus days. */
+  /** Required routine below 70%: bonus days earn at most Bronze. */
   gated: boolean;
   tier: ShieldTier | null;
   next: { tier: ShieldTier; needed: number } | null;
@@ -79,7 +82,7 @@ export interface WeekProgress {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function nextWindowTier(tier: ShieldTier | null, completed: number, eligible: number): WindowProgress['next'] {
-  const up = tier === null ? 'silver' : tier === 'silver' ? 'gold' : tier === 'gold' ? 'epic' : tier === 'epic' ? 'legendary' : null;
+  const up = UP[tier ?? 'none'];
   if (!up || eligible === 0) return null;
   const needed = Math.ceil((WEEKLY_RULES.window[up] * eligible) / 100) - completed;
   return needed > 0 && needed <= eligible - completed ? { tier: up, needed } : null;
@@ -151,8 +154,11 @@ export function weekProgress(params: {
   const reqAll = tallies.morning.eligible + tallies.evening.eligible;
   const requiredRate = reqAll > 0 ? round1((reqDone * 100) / reqAll) : null;
   const gated = (requiredRate ?? 0) < WEEKLY_RULES.bonus.minRequiredRate;
-  const bonusTier = gated ? null : tierFor(bonusDays.size, WEEKLY_RULES.bonus);
-  const bonusUp = bonusTier === null ? 'silver' : bonusTier === 'silver' ? 'gold' : bonusTier === 'gold' ? 'epic' : bonusTier === 'epic' ? 'legendary' : null;
+  const bonusTier = gated
+    ? (bonusDays.size >= WEEKLY_RULES.bonus.bronze ? 'bronze' : null)
+    : tierFor(bonusDays.size, WEEKLY_RULES.bonus);
+  // While gated, more bonus days can't lift it past Bronze; the hint is the gate.
+  const bonusUp = gated ? (bonusTier ? null : 'bronze') : UP[bonusTier ?? 'none'];
 
   return {
     week,

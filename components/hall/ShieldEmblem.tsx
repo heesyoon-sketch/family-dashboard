@@ -11,6 +11,7 @@ import { IconEveningFinisher, IconEveryWeekSpark, IconMorningHero } from '@/comp
 
 /** Tier → frame shape, in increasing grandeur (recolored per tier). */
 const TIER_SHAPE: Record<ShieldTier, typeof RareFrame> = {
+  bronze: RareFrame,
   silver: RareFrame,
   gold: EpicFrame,
   epic: MythicFrame,

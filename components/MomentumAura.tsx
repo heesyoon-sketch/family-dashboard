@@ -3,6 +3,7 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { MOMENTUM_STATES, type MomentumResult, type MomentumState } from '@/lib/progression';
 
 const STATE_GRADIENT: Record<MomentumState, string> = {
@@ -21,6 +22,15 @@ const STATE_RING: Record<MomentumState, string> = {
   overflowing:  'rgba(255,175,213,0.85)',
 };
 
+// Visual only: momentum adds no points. Weekly Shields are the only bonus.
+const STATE_COPY: Record<MomentumState, { ko: string; en: string; koDescription: string }> = {
+  spark:       { en: 'Spark',       ko: '불씨',   koDescription: '조용한 시작이에요. 해내는 만큼 불꽃이 자라요.' },
+  warm:        { en: 'Warm',        ko: '따뜻함', koDescription: '리듬이 생기고 있어요. 불꽃이 꾸준히 타요.' },
+  bright:      { en: 'Bright',      ko: '밝음',   koDescription: '대부분의 날에 해내고 있어요.' },
+  blazing:     { en: 'Blazing',     ko: '활활',   koDescription: '든든한 리듬이 나를 앞으로 밀어줘요.' },
+  overflowing: { en: 'Overflowing', ko: '눈부심', koDescription: '반짝반짝! 집 전체가 그 리듬을 느껴요.' },
+};
+
 interface Props {
   momentum: MomentumResult;
   /** Compact mode renders a chip-sized inline aura for the dashboard. */
@@ -33,50 +43,53 @@ export function MomentumAura({ momentum, size = 28, showLabel = false, className
   const reducedMotion = useReducedMotion();
   const exceptional = momentum.state === 'overflowing';
   const intensity = momentum.meta.intensity;
-  const idle = momentum.state === 'spark';
   const [open, setOpen] = useState(false);
+
+  const { lang } = useLanguage();
+  const name = lang === 'en' ? STATE_COPY[momentum.state].en : STATE_COPY[momentum.state].ko;
+  const aura = (
+    <div
+      aria-hidden
+      className="relative shrink-0 overflow-hidden rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background: STATE_GRADIENT[momentum.state],
+        boxShadow: !exceptional || reducedMotion ? 'none' : `0 0 ${Math.round(size * 0.45)}px ${STATE_RING[momentum.state]}`,
+        opacity: 0.4 + intensity * 0.6,
+      }}
+    >
+      {exceptional && !reducedMotion && (
+        <motion.span
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.55) 0%, transparent 60%)',
+          }}
+          animate={{ opacity: [0.3, 0.7, 0.3], scale: [0.85, 1.05, 0.85] }}
+          transition={{ duration: 2.4 + (1 - intensity) * 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+    </div>
+  );
 
   return (
     <div className={`inline-flex items-center gap-2 ${className ?? ''}`}>
-      <div
-        aria-hidden
-        className="relative shrink-0 overflow-hidden rounded-full"
-        style={{
-          width: size,
-          height: size,
-          background: STATE_GRADIENT[momentum.state],
-          boxShadow: !exceptional || reducedMotion ? 'none' : `0 0 ${Math.round(size * 0.45)}px ${STATE_RING[momentum.state]}`,
-          opacity: 0.4 + intensity * 0.6,
-        }}
-      >
-        {exceptional && !reducedMotion && (
-          <motion.span
-            className="absolute inset-0"
-            style={{
-              background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.55) 0%, transparent 60%)',
-            }}
-            animate={{ opacity: [0.3, 0.7, 0.3], scale: [0.85, 1.05, 0.85] }}
-            transition={{ duration: 2.4 + (1 - intensity) * 1.6, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        )}
-      </div>
-      {showLabel && (
+      {showLabel ? (
+        // The flame alone; tapping it explains the rhythm. No text label, so
+        // it never reads like a points bonus.
         <button
           type="button"
           onClick={event => {
-            // Don't let the click bubble up to a parent that might also
-            // respond (e.g. if the panel itself becomes clickable).
             event.stopPropagation();
             setOpen(true);
           }}
-          aria-label={`Momentum: ${momentum.meta.label}. Tap to learn what each state means.`}
-          className="cursor-pointer rounded text-[11px] font-black uppercase tracking-[0.18em] underline-offset-2 hover:underline focus:outline-none focus-visible:underline"
-          style={{ color: idle ? 'var(--fg-muted)' : 'var(--secondary)' }}
+          aria-label={lang === 'en' ? `Rhythm flame: ${name}. Tap to learn more.` : `리듬 불꽃: ${name}. 눌러서 알아보기.`}
+          title={lang === 'en' ? `Rhythm flame: ${name}` : `리듬 불꽃: ${name}`}
+          className="grid place-items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
-          {momentum.meta.label}
+          {aura}
         </button>
-      )}
-
+      ) : aura}
       <AnimatePresence>
         {open && (
           <MomentumStatesDialog current={momentum.state} onClose={() => setOpen(false)} />
@@ -93,6 +106,8 @@ function MomentumStatesDialog({
   current: MomentumState;
   onClose: () => void;
 }) {
+  const { lang } = useLanguage();
+  const en = lang === 'en';
   return (
     <motion.div
       key="momentum-dialog"
@@ -116,23 +131,22 @@ function MomentumStatesDialog({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={en ? 'Close' : '닫기'}
           className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/10 hover:text-white"
         >
           <X size={16} />
         </button>
 
         <div className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/45">
-          Momentum
+          {en ? 'Rhythm flame' : '리듬 불꽃'}
         </div>
         <h2 className="text-xl font-black leading-tight">
-          The flame you carry day to day
+          {en ? 'The flame you carry day to day' : '매일 지켜가는 나의 불꽃'}
         </h2>
         <p className="mt-1 text-sm leading-snug text-white/65">
-          Momentum reflects the rhythm of your last two weeks, based on the share of your
-          scheduled habits you finish each day. A 1-of-1 day counts the same as a 4-of-4
-          day, and rest days where nothing&apos;s scheduled don&apos;t pull the score down. The
-          brighter the flame, the larger the per-completion bonus.
+          {en
+            ? 'It shows the rhythm of your last two weeks: the share of your required routine you finish each day. Rest days with nothing scheduled don’t dim it. It is just for fun — it adds no points.'
+            : '최근 2주 동안 매일 필수 루틴을 얼마나 해냈는지 보여줘요. 할 일이 없는 날은 불꽃을 줄이지 않아요. 보기만 하는 표시라 포인트는 붙지 않아요.'}
         </p>
 
         <ul className="mt-4 space-y-2">
@@ -164,20 +178,20 @@ function MomentumStatesDialog({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-black uppercase tracking-wider">
-                        {state.label}
+                        {en ? STATE_COPY[state.state].en : STATE_COPY[state.state].ko}
                       </span>
                       {isCurrent && (
                         <span className="rounded-full bg-[var(--accent)]/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-[var(--accent)]">
-                          You
+                          {en ? 'You' : '지금'}
                         </span>
                       )}
                     </div>
                   </div>
                   <p className="mt-0.5 text-[13px] leading-snug text-white/65">
-                    {state.description}
+                    {en ? state.description : STATE_COPY[state.state].koDescription}
                   </p>
                   <p className="mt-1 text-[11px] text-white/40">
-                    score {state.minScore}+ / 100
+                    {en ? `score ${state.minScore}+ / 100` : `${state.minScore}점 이상 / 100`}
                   </p>
                 </div>
               </li>
@@ -186,8 +200,7 @@ function MomentumStatesDialog({
         </ul>
 
         <p className="mt-4 text-[11px] leading-snug text-white/45">
-          Bonuses stack with Harmony and your equipped shield loadout, capped at +50%
-          total.
+          {en ? 'Extra points come only from your weekly shields.' : '추가 포인트는 주간 쉴드에서만 받아요.'}
         </p>
       </motion.div>
     </motion.div>

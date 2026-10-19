@@ -27,12 +27,13 @@ import { categorizeTask, type HabitCategory } from '@/lib/achievements/definitio
 export type PeriodType = 'week' | 'month';
 /** One Shield per routine window plus one for bonus tasks. */
 export type ShieldType = 'morning' | 'evening' | 'bonus';
-export type ShieldTier = 'silver' | 'gold' | 'epic' | 'legendary';
+/** Bronze is recognition only (no bonus); Silver and up pay a bonus. */
+export type ShieldTier = 'bronze' | 'silver' | 'gold' | 'epic' | 'legendary';
 export type Slot = 'morning' | 'evening';
 
 export const SHIELD_TYPES: ShieldType[] = ['morning', 'evening', 'bonus'];
-export const TIERS: ShieldTier[] = ['silver', 'gold', 'epic', 'legendary'];
-export const TIER_RANK: Record<ShieldTier, number> = { silver: 1, gold: 2, epic: 3, legendary: 4 };
+export const TIERS: ShieldTier[] = ['bronze', 'silver', 'gold', 'epic', 'legendary'];
+export const TIER_RANK: Record<ShieldTier, number> = { bronze: 0, silver: 1, gold: 2, epic: 3, legendary: 4 };
 
 // ---------------------------------------------------------------------------
 // Calendar (family-local dates as YYYY-MM-DD)

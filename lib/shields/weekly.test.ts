@@ -16,8 +16,14 @@ let n = 0;
 const at = (day: string, hour: number) => new Date(`${day}T${String(hour).padStart(2, '0')}:00:00-04:00`).toISOString();
 const done = (taskId: string, day: string, hour: number): ShieldCompletion => ({ id: `c${n++}`, userId: 'kid', taskId, completedAt: at(day, hour) });
 
-test('rules and rates match shield_config in the migration', () => {
+test('rules and rates match shield_config in the migrations', () => {
   const rules = JSON.parse(read(MIGRATION).match(/rules = '(\{.*?\})'::jsonb/)![1]);
+  // Bronze was added by a follow-up migration with jsonb_set.
+  const bronze = read('supabase/migrations/20261019210000_bronze_shields.sql');
+  assert.match(bronze, /'\{rateBp,bronze\}', '0'/);
+  assert.match(bronze, /'\{window,bronze\}', '50'/);
+  assert.match(bronze, /'\{bonus,bronze\}', '1'/);
+  rules.rateBp.bronze = 0; rules.window.bronze = 50; rules.bonus.bronze = 1;
   assert.deepEqual(rules.rateBp, RATE_BP);
   assert.equal(rules.capBp, CAP_BP);
   assert.equal(rules.minCoveredDays, WEEKLY_RULES.minCoveredDays);
@@ -32,18 +38,22 @@ test('morning and evening are scored separately from their own slots', () => {
   assert.equal(p.morning.tier, 'legendary');
   assert.deepEqual([p.morning.completed, p.morning.eligible, p.morning.rate], [14, 14, 100]);
   assert.equal(p.evening.rate, 50);
-  assert.equal(p.evening.tier, null);
+  assert.equal(p.evening.tier, 'bronze', '50% is Bronze — recognition, no bonus');
+  assert.equal(RATE_BP.bronze, 0);
   assert.deepEqual(p.evening.next, { tier: 'silver', needed: 3 }, '10/14 = 71% → silver');
 });
 
 test('tier boundaries are exact', () => {
-  assert.equal(tierFor(69.9, WEEKLY_RULES.window), null);
+  assert.equal(tierFor(49.9, WEEKLY_RULES.window), null);
+  assert.equal(tierFor(50, WEEKLY_RULES.window), 'bronze');
+  assert.equal(tierFor(69.9, WEEKLY_RULES.window), 'bronze');
   assert.equal(tierFor(70, WEEKLY_RULES.window), 'silver');
   assert.equal(tierFor(84.6, WEEKLY_RULES.window), 'silver');
   assert.equal(tierFor(85, WEEKLY_RULES.window), 'gold');
   assert.equal(tierFor(95, WEEKLY_RULES.window), 'epic');
   assert.equal(tierFor(100, WEEKLY_RULES.window), 'legendary');
-  assert.equal(tierFor(2, WEEKLY_RULES.bonus), null);
+  assert.equal(tierFor(0, WEEKLY_RULES.bonus), null);
+  assert.equal(tierFor(2, WEEKLY_RULES.bonus), 'bronze');
   assert.equal(tierFor(3, WEEKLY_RULES.bonus), 'silver');
   assert.equal(tierFor(7, WEEKLY_RULES.bonus), 'legendary');
 });
@@ -66,7 +76,7 @@ test('bonus shield counts bonus days and needs the required routine first', () =
   const half = days.flatMap(day => [done('wake', day, 7), done('homework', day, 18)]);
   const gated = weekProgress({ userId: 'kid', weekStart: '2026-10-12', schedules, completions: [...half, ...reading], bonusTaskIds: new Set(['read']), timezone: TZ });
   assert.equal(gated.bonus.gated, true);
-  assert.equal(gated.bonus.tier, null);
+  assert.equal(gated.bonus.tier, 'bronze', 'bonus days still earn Bronze, never more');
 });
 
 test('a task that was required that day never counts as a bonus day', () => {
@@ -124,4 +134,12 @@ test('the server ignores any client-sent bonus percent', () => {
   const sql = read('supabase/migrations/20261019200000_ignore_client_bonus_percent.sql');
   assert.match(sql, /v_bonus_pct := 0;/);
   assert.doesNotMatch(sql, /coalesce\(p_bonus_percent/);
+});
+
+test('bronze shields fill the slot but never pay, and add no ledger rows', () => {
+  const sql = read('supabase/migrations/20261019210000_bronze_shields.sql');
+  assert.match(sql, /check \(tier in \('bronze', 'silver', 'gold', 'epic', 'legendary'\)\)/);
+  assert.match(sql, /if coalesce\(\(v_quote ->> 'rateBp'\)::integer, 0\) = 0 then return null; end if;/);
+  assert.match(sql, /when v_bonus_days >= \(v_rules #>> '\{bonus,bronze\}'\)::int then 'bronze'/);
+  assert.equal(bonusPoints(50, RATE_BP.bronze), 0);
 });

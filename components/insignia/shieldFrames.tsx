@@ -275,6 +275,14 @@ export const FRAME_BY_RARITY = {
  *  and Legendary (the top tier) is the fiery one. Shapes grow in grandeur:
  *  hex badge → crested shield → crowned shield → winged crown. */
 export const SHIELD_TIER_PALETTES = {
+  // Bronze: recognition below Silver, no bonus — warm copper, kept muted.
+  bronze: {
+    rim:    ['#F2C9A0', '#B87333', '#6B3E1E'],
+    body:   ['#33241A', '#1E150F'],
+    panel:  ['#2B1F16', '#18110C'],
+    accent: '#E8B48A',
+    studs:  '#F0CDA8',
+  },
   silver: {
     rim:    ['#F4F7FB', '#B7C1D1', '#646F84'],
     body:   ['#2B3242', '#1B202C'],

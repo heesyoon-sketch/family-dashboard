@@ -87,7 +87,9 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
                     <ShieldEmblem type={award.shield_type} tier={award.tier} size={72} />
                   </button>
                   <span className="text-xs font-semibold leading-tight text-white">{t(TIER_COPY[award.tier])}</span>
-                  <span className="text-[11px] text-[#9FF0CE]">+{formatBp(award.bonus_rate_bp)} · {t(scopeLabel(award.scope))}</span>
+                  {award.bonus_rate_bp > 0
+                    ? <span className="text-[11px] text-[#9FF0CE]">+{formatBp(award.bonus_rate_bp)} · {t(scopeLabel(award.scope))}</span>
+                    : <span className="text-[11px] text-[#C9A27E]">{en ? 'No bonus · Silver adds points' : '보너스 없음 · 실버부터 보너스'}</span>}
                 </>
               ) : (
                 <>
@@ -164,8 +166,8 @@ export function ShieldWall({ analytics, memberId }: { analytics: FamilyAnalytics
           ))}
         </ul>
         <p className="mt-3 text-xs leading-relaxed text-[#A9AECB]">{en
-          ? `Every Monday, last week’s record (Mon–Sun) earns up to three shields, equipped automatically for the new week. Silver +2% · Gold +5% · Epic +10% · Legendary +15% of base points, each only in its own area, rounded down, and taken back if a completion is undone. A week needs at least ${WEEKLY_RULES.minCoveredDays} recorded days.`
-          : `매주 월요일, 지난주(월~일) 기록으로 쉴드를 최대 3개 얻고 새 주에 자동으로 장착돼요. 기본 포인트에 실버 +2% · 골드 +5% · 에픽 +10% · 레전더리 +15%가 각자 자기 영역에만 더해지고(내림 계산), 완료를 취소하면 함께 돌려받아요. 한 주에 기록된 날이 ${WEEKLY_RULES.minCoveredDays}일 이상이어야 해요.`}</p>
+          ? `Every Monday, last week’s record (Mon–Sun) earns up to three shields, equipped automatically for the new week. Bronze is recognition only; Silver +2% · Gold +5% · Epic +10% · Legendary +15% of base points, each only in its own area, rounded down, and taken back if a completion is undone. A week needs at least ${WEEKLY_RULES.minCoveredDays} recorded days.`
+          : `매주 월요일, 지난주(월~일) 기록으로 쉴드를 최대 3개 얻고 새 주에 자동으로 장착돼요. 브론즈는 기록용(보너스 없음)이고, 기본 포인트에 실버 +2% · 골드 +5% · 에픽 +10% · 레전더리 +15%가 각자 자기 영역에만 더해지고(내림 계산), 완료를 취소하면 함께 돌려받아요. 한 주에 기록된 날이 ${WEEKLY_RULES.minCoveredDays}일 이상이어야 해요.`}</p>
       </details>
 
       {detail && <ShieldDetail award={detail} recipient={memberName} onClose={() => setDetail(null)} />}
@@ -181,7 +183,7 @@ function WindowRow({ p }: { p: WindowProgress }) {
       <span className="min-w-0 flex-1">
         <span className="font-semibold text-white">{t(TYPE_COPY[p.type].name)}</span>
         <span className="ml-1.5 tabular-nums text-[#C9CCE0]">{p.eligible > 0 ? `${p.completed}/${p.eligible} · ${p.rate}%` : (en ? 'nothing closed yet' : '아직 마감된 루틴 없음')}</span>
-        {p.tier && <span className="ml-1.5 text-[#9FF0CE]">{t(TIER_COPY[p.tier])} +{formatBp(RATE_BP[p.tier])}</span>}
+        {p.tier && <TierBadge tier={p.tier} />}
         {p.next && <span className="block text-[11px] text-[#A9AECB]">{en ? `${p.next.needed} more → ${TIER_COPY[p.next.tier].en}` : `${p.next.needed}개 더 → ${TIER_COPY[p.next.tier].ko}`}</span>}
       </span>
     </li>
@@ -196,11 +198,18 @@ function BonusRow({ p }: { p: BonusProgress }) {
       <span className="min-w-0 flex-1">
         <span className="font-semibold text-white">{t(TYPE_COPY.bonus.name)}</span>
         <span className="ml-1.5 tabular-nums text-[#C9CCE0]">{en ? `${p.bonusDays} bonus day${p.bonusDays === 1 ? '' : 's'}` : `보너스 ${p.bonusDays}일`}</span>
-        {p.tier && <span className="ml-1.5 text-[#9FF0CE]">{t(TIER_COPY[p.tier])} +{formatBp(RATE_BP[p.tier])}</span>}
+        {p.tier && <TierBadge tier={p.tier} />}
         {p.gated
           ? <span className="mt-0.5 flex items-center gap-1 text-[11px] text-[#E8C77B]"><Lock size={11} aria-hidden />{en ? `Needs ${WEEKLY_RULES.bonus.minRequiredRate}% of the required routine first` : `필수 루틴 ${WEEKLY_RULES.bonus.minRequiredRate}% 이상부터 받을 수 있어요`}</span>
           : p.next && <span className="block text-[11px] text-[#A9AECB]">{en ? `${p.next.needed} more day${p.next.needed === 1 ? '' : 's'} → ${TIER_COPY[p.next.tier].en}` : `${p.next.needed}일 더 → ${TIER_COPY[p.next.tier].ko}`}</span>}
       </span>
     </li>
   );
+}
+
+function TierBadge({ tier }: { tier: NonNullable<WindowProgress['tier']> }) {
+  const { en, t } = useCopy();
+  return RATE_BP[tier] > 0
+    ? <span className="ml-1.5 text-[#9FF0CE]">{t(TIER_COPY[tier])} +{formatBp(RATE_BP[tier])}</span>
+    : <span className="ml-1.5 text-[#C9A27E]">{t(TIER_COPY[tier])} · {en ? 'no bonus' : '보너스 없음'}</span>;
 }

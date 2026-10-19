@@ -15,29 +15,30 @@ export const TYPE_COPY: Record<ShieldType, { name: L; theme: L; how: L }> = {
     name: { en: 'Morning Shield', ko: '아침 쉴드' },
     theme: { en: 'I start my day strong.', ko: '나는 하루를 힘차게 시작해요.' },
     how: {
-      en: `Finish your required morning routine. Silver ${W.silver}% · Gold ${W.gold}% · Epic ${W.epic}% · Legendary 100%. Boosts next week’s morning routine.`,
-      ko: `필수 아침 루틴을 해내요. 실버 ${W.silver}% · 골드 ${W.gold}% · 에픽 ${W.epic}% · 레전더리 100%. 다음 주 아침 루틴 포인트가 올라가요.`,
+      en: `Finish your required morning routine. Bronze ${W.bronze}% (no bonus) · Silver ${W.silver}% · Gold ${W.gold}% · Epic ${W.epic}% · Legendary 100%. Boosts next week’s morning routine.`,
+      ko: `필수 아침 루틴을 해내요. 브론즈 ${W.bronze}%(보너스 없음) · 실버 ${W.silver}% · 골드 ${W.gold}% · 에픽 ${W.epic}% · 레전더리 100%. 다음 주 아침 루틴 포인트가 올라가요.`,
     },
   },
   evening: {
     name: { en: 'Evening Shield', ko: '저녁 쉴드' },
     theme: { en: 'I finish my day well.', ko: '나는 하루를 잘 마무리해요.' },
     how: {
-      en: `Finish your required afternoon/evening routine. Silver ${W.silver}% · Gold ${W.gold}% · Epic ${W.epic}% · Legendary 100%. Boosts next week’s evening routine.`,
-      ko: `필수 오후·저녁 루틴을 해내요. 실버 ${W.silver}% · 골드 ${W.gold}% · 에픽 ${W.epic}% · 레전더리 100%. 다음 주 저녁 루틴 포인트가 올라가요.`,
+      en: `Finish your required afternoon/evening routine. Bronze ${W.bronze}% (no bonus) · Silver ${W.silver}% · Gold ${W.gold}% · Epic ${W.epic}% · Legendary 100%. Boosts next week’s evening routine.`,
+      ko: `필수 오후·저녁 루틴을 해내요. 브론즈 ${W.bronze}%(보너스 없음) · 실버 ${W.silver}% · 골드 ${W.gold}% · 에픽 ${W.epic}% · 레전더리 100%. 다음 주 저녁 루틴 포인트가 올라가요.`,
     },
   },
   bonus: {
     name: { en: 'Bonus Shield', ko: '보너스 쉴드' },
     theme: { en: 'I do a little extra.', ko: '나는 조금 더 해내요.' },
     how: {
-      en: `Do at least one bonus task on ${B.silver} days (Silver), ${B.gold} (Gold), ${B.epic} (Epic) or all ${B.legendary} (Legendary) — with at least ${B.minRequiredRate}% of your required routine done. Boosts next week’s bonus tasks.`,
-      ko: `보너스 과제를 ${B.silver}일(실버) · ${B.gold}일(골드) · ${B.epic}일(에픽) · ${B.legendary}일 모두(레전더리) 해요. 필수 루틴을 ${B.minRequiredRate}% 이상 해야 받을 수 있어요. 다음 주 보너스 과제 포인트가 올라가요.`,
+      en: `Do at least one bonus task on ${B.bronze}+ day (Bronze, no bonus), ${B.silver} days (Silver), ${B.gold} (Gold), ${B.epic} (Epic) or all ${B.legendary} (Legendary) — Silver and up need at least ${B.minRequiredRate}% of your required routine done. Boosts next week’s bonus tasks.`,
+      ko: `보너스 과제를 ${B.bronze}일 이상(브론즈, 보너스 없음) · ${B.silver}일(실버) · ${B.gold}일(골드) · ${B.epic}일(에픽) · ${B.legendary}일 모두(레전더리) 해요. 실버부터는 필수 루틴을 ${B.minRequiredRate}% 이상 해야 해요. 다음 주 보너스 과제 포인트가 올라가요.`,
     },
   },
 };
 
 export const TIER_COPY: Record<ShieldTier, L> = {
+  bronze: { en: 'Bronze', ko: '브론즈' },
   silver: { en: 'Silver', ko: '실버' },
   gold: { en: 'Gold', ko: '골드' },
   epic: { en: 'Epic', ko: '에픽' },
