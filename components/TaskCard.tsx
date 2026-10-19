@@ -14,6 +14,7 @@ import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
+import { isOptionalTask } from '@/lib/taskType';
 
 const SWIPE_TRIGGER_PX = 54;
 const SWIPE_LIMIT_PX = 88;
@@ -41,6 +42,7 @@ export function TaskCard({
 }: TaskCardProps) {
   const { lang } = useLanguage();
   const reducedMotion = useReducedMotion();
+  const isBonus = isOptionalTask(task);
   const markCompleted  = useFamilyStore(s => s.markCompleted);
   const undoCompletion = useFamilyStore(s => s.undoCompletion);
   const soundEnabled   = useFamilyStore(s => s.soundEnabled);
@@ -124,6 +126,8 @@ export function TaskCard({
               : (lang === 'en'
                   ? 'Weekday Quest complete · one 30-minute pass earned!'
                   : '평일 루틴 챌린지 완주 · 30분 이용권 1장 획득!')
+            : isBonus
+              ? (lang === 'en' ? 'Bonus task · extra points earned!' : '보너스 미션 · 추가 포인트 획득!')
             : bonusPoints > 0
               ? (lang === 'en'
                   ? `${feedback.basePoints} base + ${bonusPoints} bonus`
@@ -199,11 +203,14 @@ export function TaskCard({
   // of bleeding optimization pressure into individual habits.
   const displayPts = task.basePoints;
   const duration = taskDurationOptionForPoints(task.basePoints);
+  const bonusLabel = lang === 'en' ? 'Bonus' : '보너스';
+  // Screen readers hear "Bonus" too, so the distinction never rests on color.
+  const spokenTitle = isBonus ? `${bonusLabel}: ${task.title}` : task.title;
   const toggleLabel = completed
-    ? (lang === 'en' ? `Undo ${task.title}` : `${task.title} 취소`)
-    : (lang === 'en' ? `Complete ${task.title}` : `${task.title} 완료`);
+    ? (lang === 'en' ? `Undo ${spokenTitle}` : `${spokenTitle} 취소`)
+    : (lang === 'en' ? `Complete ${spokenTitle}` : `${spokenTitle} 완료`);
   const accessibleLabel = disabledReason === 'deadline'
-    ? (lang === 'en' ? `${task.title}, deadline passed` : `${task.title}, 마감됨`)
+    ? (lang === 'en' ? `${spokenTitle}, deadline passed` : `${spokenTitle}, 마감됨`)
     : toggleLabel;
   const swipeHint = completed
     ? (lang === 'en' ? 'Drag left to undo · Left arrow key' : '왼쪽으로 드래그하여 취소 · 왼쪽 방향키')
@@ -269,6 +276,7 @@ export function TaskCard({
         aria-disabled={disabled || busy}
         aria-pressed={completed}
         data-completed={completed}
+        data-bonus={isBonus || undefined}
         aria-label={accessibleLabel}
         aria-description={disabled ? timeWindowDisplay : `${timeWindowDisplay}. ${swipeHint}`}
         aria-keyshortcuts={disabled ? undefined : completed ? 'ArrowLeft' : 'ArrowRight'}
@@ -292,6 +300,11 @@ export function TaskCard({
             {task.title}
           </span>
           <span className="text-[11px] leading-none mt-0.5 truncate flex items-center gap-1 text-[var(--fg-secondary)]">
+            {isBonus && (
+              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--bonus-badge-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-[var(--bonus)]">
+                <Icons.Sparkles size={9} aria-hidden />{bonusLabel}
+              </span>
+            )}
             <span className="flex shrink-0 items-center gap-0.5"><Icons.Clock3 size={10} aria-hidden />{duration.label[lang]}</span>
             <span className={completed ? 'shrink-0 text-[var(--success)]' : 'shrink-0'}>· +{displayPts}pt</span>
             {disabled && (

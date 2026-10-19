@@ -2,6 +2,7 @@
 
 import { legacyRecurrenceToDays, type Level, type Task, type User } from '@/lib/db';
 import { createBrowserSupabase } from '@/lib/supabase';
+import { normalizeTaskType } from '@/lib/taskType';
 import { ACHIEVEMENTS, HABIT_CATEGORIES, VISUAL_STYLE_DEFINITIONS, type HabitCategory, type RequirementType } from './definitions';
 import { evaluateAchievementsForChild, type AchievementCompletion, type AchievementProgress } from './engine';
 import { INSIGNIAS_FROZEN } from '@/lib/shields/transition';
@@ -872,7 +873,7 @@ async function fetchTasks(userIds: string[], fallback: Record<string, Task[]>): 
   const supabase = createBrowserSupabase();
   const { data, error } = await supabase
     .from('tasks')
-    .select('id, user_id, code, title, icon, difficulty, base_points, recurrence, days_of_week, time_window, active, sort_order, streak_count, last_completed_at')
+    .select('id, user_id, code, title, icon, difficulty, base_points, recurrence, days_of_week, time_window, task_type, active, sort_order, streak_count, last_completed_at')
     .in('user_id', safeIds)
     .is('deleted_at', null);
   if (error) {
@@ -894,6 +895,7 @@ async function fetchTasks(userIds: string[], fallback: Record<string, Task[]>): 
       recurrence: row.recurrence as string,
       daysOfWeek: ((row.days_of_week as Task['daysOfWeek'] | null) ?? legacyRecurrenceToDays(row.recurrence as string)),
       timeWindow: row.time_window as Task['timeWindow'],
+      taskType: normalizeTaskType(row.task_type),
       active: Number(row.active ?? 1),
       sortOrder: Number(row.sort_order ?? 0),
       streakCount: Number(row.streak_count ?? 0),

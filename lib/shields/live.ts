@@ -3,6 +3,7 @@
 // they have not been snapshotted yet. Nothing here is written anywhere.
 
 import type { AnalyticsTask } from '@/lib/analytics/history';
+import { isOptionalTask } from '@/lib/taskType';
 import {
   addDays,
   completedSlotKeys,
@@ -64,7 +65,7 @@ export function liveProgress(params: {
   }
   const futureStart = addDays(today > period.start ? today : addDays(period.start, -1), 1);
   if (futureStart <= period.end) {
-    const tasks = params.tasks.filter(t => t.userId === userId && t.active && !t.deletedAt);
+    const tasks = params.tasks.filter(t => t.userId === userId && t.active && !t.deletedAt && !isOptionalTask(t));
     for (const day of eachDay(futureStart, period.end)) {
       const count = tasks.filter(t => t.daysOfWeek.includes(weekdayOf(day))).reduce((n, t) => n + (t.timeWindow === 'both' ? 2 : 1), 0);
       remaining += count;

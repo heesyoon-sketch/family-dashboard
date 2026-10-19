@@ -8,6 +8,52 @@ import { LucideIcon } from '@/components/admin/IconPicker';
 import { DAY_LABELS, withAvatarCache } from '@/lib/admin/adminHelpers';
 import { buildAdminCopy } from '@/lib/admin/adminCopy';
 import { TASK_DURATION_OPTIONS, taskDurationOptionForPoints } from '@/lib/taskDurationPoints';
+import { BONUS_TASK_TEMPLATES, isOptionalTask, type TaskType } from '@/lib/taskType';
+
+function TaskTypeToggle({ value, onChange, disabled, compact = false }: {
+  value: TaskType;
+  onChange: (value: TaskType) => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  const { lang } = useLanguage();
+  const options: Array<{ value: TaskType; label: string; icon: typeof Icons.ListChecks }> = [
+    { value: 'required', label: lang === 'en' ? 'Required' : '필수', icon: Icons.ListChecks },
+    { value: 'optional', label: lang === 'en' ? 'Optional / Bonus' : '선택 / 보너스', icon: Icons.Sparkles },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label={lang === 'en' ? 'Task type' : '할 일 종류'}
+      className="grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1"
+    >
+      {options.map(option => {
+        const selected = value === option.value;
+        const OptionIcon = option.icon;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            disabled={disabled}
+            onClick={() => onChange(option.value)}
+            className={`flex ${compact ? 'min-h-10' : 'min-h-11'} items-center justify-center gap-1.5 rounded-md px-2 text-xs font-black transition-colors ${
+              selected
+                ? option.value === 'optional'
+                  ? 'bg-[#C4B5FD] text-[#1B1433]'
+                  : 'bg-[#5B8EFF] text-white'
+                : 'text-white/45 hover:bg-white/[0.055] hover:text-white'
+            }`}
+          >
+            <OptionIcon size={14} aria-hidden />
+            <span className="truncate">{option.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 interface AdminTasksPanelProps {
   selectedUser: User | null;
@@ -35,6 +81,10 @@ interface AdminTasksPanelProps {
   setNewTaskPoints: Dispatch<SetStateAction<number>>;
   isAddingTask: boolean;
   addTask: () => void;
+  newTaskType: TaskType;
+  setNewTaskType: Dispatch<SetStateAction<TaskType>>;
+  setNewTaskIcon: Dispatch<SetStateAction<string>>;
+  updateTaskType: (task: Task, taskType: TaskType) => void;
 }
 
 export function AdminTasksPanel({
@@ -63,6 +113,10 @@ export function AdminTasksPanel({
   setNewTaskPoints,
   isAddingTask,
   addTask,
+  newTaskType,
+  setNewTaskType,
+  setNewTaskIcon,
+  updateTaskType,
 }: AdminTasksPanelProps) {
   const { lang, t } = useLanguage();
   const adminCopy = buildAdminCopy(lang);
@@ -145,6 +199,7 @@ export function AdminTasksPanel({
           <div className="mb-5 space-y-3">
             {tasks.map((task, idx) => {
               const isActiveTask = task.active === 1;
+              const isBonus = isOptionalTask(task);
               return (
                 <div
                   key={task.id}
@@ -152,7 +207,7 @@ export function AdminTasksPanel({
                     isActiveTask
                       ? 'border-white/10 shadow-[0_14px_34px_rgba(0,0,0,0.18)]'
                       : 'border-white/6 opacity-60'
-                  }`}
+                  } ${isBonus ? 'shadow-[inset_3px_0_0_#C4B5FD]' : ''}`}
                 >
                   <div className="flex items-start gap-3">
                     <button
@@ -200,6 +255,12 @@ export function AdminTasksPanel({
                               {idx + 1}
                             </span>
                             <h3 className="min-w-0 flex-1 truncate text-base font-black text-white">{task.title}</h3>
+                            {isBonus && (
+                              <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#C4B5FD]/14 px-2 py-0.5 text-[10px] font-black uppercase text-[#C4B5FD]">
+                                <Icons.Sparkles size={11} aria-hidden />
+                                {lang === 'en' ? 'Bonus' : '보너스'}
+                              </span>
+                            )}
                             <button
                               onClick={() => startEditTask(task)}
                               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.045] text-white/54 transition-colors hover:bg-white/[0.08] hover:text-white"
@@ -294,7 +355,15 @@ export function AdminTasksPanel({
                         </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
+                      <div className="mt-3">
+                        <TaskTypeToggle
+                          compact
+                          value={task.taskType ?? 'required'}
+                          onChange={value => { void updateTaskType(task, value); }}
+                        />
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-white/8 bg-[#111224] p-1">
                         {([
                           { value: 'morning', label: t('morning'), range: '00:00-12:59', icon: Icons.Sun },
                           { value: 'evening', label: lang === 'en' ? 'Afternoon / evening' : '오후·저녁', range: '13:00-23:59', icon: Icons.Moon },
@@ -340,7 +409,44 @@ export function AdminTasksPanel({
               <Icons.PlusCircle size={17} className="text-[#4EEDB0]" />
               <h3 className="text-sm font-black text-white">{t('add_task')}</h3>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <p className="mb-1.5 text-xs font-black text-white/60">{lang === 'en' ? 'Task type' : '할 일 종류'}</p>
+            <TaskTypeToggle value={newTaskType} onChange={setNewTaskType} disabled={isAddingTask} />
+            {newTaskType === 'optional' && (
+              <div className="mt-2 rounded-lg border border-[#C4B5FD]/25 bg-[#C4B5FD]/[0.07] p-3">
+                <p className="flex items-start gap-1.5 text-xs font-bold leading-5 text-[#DDD3FE]">
+                  <Icons.Sparkles size={14} className="mt-0.5 shrink-0 text-[#C4B5FD]" aria-hidden />
+                  {lang === 'en'
+                    ? 'Optional tasks give kids extra opportunities to earn points. Skipping them has no penalty.'
+                    : '선택 할 일은 아이들이 포인트를 더 모을 수 있는 기회예요. 건너뛰어도 벌점이 없어요.'}
+                </p>
+                <p className="mt-2 text-[11px] font-black text-white/50">{lang === 'en' ? 'Ideas' : '추천 아이디어'}</p>
+                <div className="mt-1.5 space-y-2">
+                  {BONUS_TASK_TEMPLATES.map(group => (
+                    <div key={group.id}>
+                      <p className="mb-1 text-[10px] font-black uppercase text-[#C4B5FD]/80">{group.label[lang]}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.templates.map(template => (
+                          <button
+                            key={template.title.en}
+                            type="button"
+                            disabled={isAddingTask}
+                            onClick={() => {
+                              setNewTaskTitle(template.title[lang]);
+                              setNewTaskIcon(template.icon);
+                            }}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/10 bg-[#1A1B2E] px-2.5 text-xs font-bold text-white/72 transition-colors hover:border-[#C4B5FD]/45 hover:text-white"
+                          >
+                            <LucideIcon name={template.icon} size={13} />
+                            {template.title[lang]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <input
                 type="text"
                 value={newTaskTitle}

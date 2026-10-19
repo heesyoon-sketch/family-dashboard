@@ -18,6 +18,7 @@ import { evaluateMission, planMissionWeek, type MissionWeekRow } from '@/lib/ana
 import type { AnalyticsCompletion, AnalyticsMember, AnalyticsTask } from '@/lib/analytics/history';
 import { legacyRecurrenceToDays, type DayOfWeek } from '@/lib/db';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
+import { normalizeTaskType } from '@/lib/taskType';
 import {
   EVALUATION_VERSION,
   addDays,
@@ -77,7 +78,7 @@ function mapTask(row: Record<string, unknown>): AnalyticsTask {
   const days = Array.isArray(row.days_of_week) && row.days_of_week.length ? row.days_of_week as DayOfWeek[] : legacyRecurrenceToDays(String(row.recurrence ?? 'daily'));
   return {
     id: String(row.id), userId: String(row.user_id), title: String(row.title ?? ''), icon: String(row.icon ?? ''),
-    daysOfWeek: days, timeWindow: normalizeTimeWindow(row.time_window as string | null), active: Number(row.active ?? 1) === 1,
+    daysOfWeek: days, timeWindow: normalizeTimeWindow(row.time_window as string | null), taskType: normalizeTaskType(row.task_type), active: Number(row.active ?? 1) === 1,
     createdAt: (row.created_at as string | null) ?? null, deletedAt: (row.deleted_at as string | null) ?? null, streakCount: Number(row.streak_count ?? 0),
   };
 }
@@ -95,7 +96,7 @@ async function maintainMissions(db: SupabaseClient, familyId: string, timezone: 
   const memberIds = members.map(m => m.id);
   const since = addDays(open.map(r => r.week_start).sort()[0] ?? weekStart, -14);
   const [taskRows, completionRows] = await Promise.all([
-    readAll<Record<string, unknown>>((f, t) => db.from('tasks').select('id,user_id,title,icon,days_of_week,recurrence,time_window,active,created_at,deleted_at,streak_count').eq('family_id', familyId).order('id').range(f, t)),
+    readAll<Record<string, unknown>>((f, t) => db.from('tasks').select('id,user_id,title,icon,days_of_week,recurrence,time_window,task_type,active,created_at,deleted_at,streak_count').eq('family_id', familyId).order('id').range(f, t)),
     readAll<{ id: string; user_id: string; task_id: string; completed_at: string; partial: boolean | null }>((f, t) => db.from('task_completions').select('id,user_id,task_id,completed_at,partial').in('user_id', memberIds).gte('completed_at', `${since}T00:00:00Z`).order('id').range(f, t)),
   ]);
   const tasks = taskRows.map(mapTask).filter(task => memberIds.includes(task.userId));

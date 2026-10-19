@@ -24,6 +24,7 @@ import {
 } from './history';
 import type { Localized } from './insights';
 import type { DayOfWeek } from '@/lib/db';
+import { isOptionalTask, type TaskType } from '@/lib/taskType';
 
 // ---------------------------------------------------------------------------
 // Missions
@@ -114,7 +115,7 @@ function weekIndex(weekStart: string): number {
 
 function participantSlots(memberId: string, tasks: AnalyticsTask[], firstDoneByTask: Map<string, string>, timezone: string): MissionSlotRule[] {
   return tasks
-    .filter(task => task.userId === memberId && task.active && !task.deletedAt && task.daysOfWeek.length > 0)
+    .filter(task => task.userId === memberId && task.active && !task.deletedAt && !isOptionalTask(task) && task.daysOfWeek.length > 0)
     .map(task => {
       const created = task.createdAt ? zonedDayHour(new Date(task.createdAt), timezone).day : undefined;
       const firstDone = firstDoneByTask.get(task.id);
@@ -449,7 +450,7 @@ export interface ProtectionStatus {
 export function protectionStatus(params: {
   members: Array<{ id: string }>;
   /** Today's scheduled, active habits per member (store.tasksByUser). */
-  todayTasksByUser: Record<string, Array<{ id: string; timeWindow?: string }>>;
+  todayTasksByUser: Record<string, Array<{ id: string; timeWindow?: string; taskType?: TaskType }>>;
   todayCompletionsByWindow: Record<string, { morning: string[]; evening: string[] }>;
   nowHour: number;
   /** Family switch for the routine deadline penalty; defaults to on. */
@@ -463,7 +464,9 @@ export function protectionStatus(params: {
     hour: ROUTINE_DEADLINES[window],
     closed: params.nowHour >= ROUTINE_DEADLINES[window],
     members: params.members.map(member => {
+      // Bonus tasks have no deadline, so they never leave a routine "open".
       const tasks = (params.todayTasksByUser[member.id] ?? []).filter(task => {
+        if (isOptionalTask(task)) return false;
         const w = task.timeWindow === 'morning' || task.timeWindow === 'both' ? task.timeWindow : 'evening';
         return w === 'both' || w === window;
       });

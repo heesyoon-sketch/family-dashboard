@@ -1,6 +1,7 @@
 import type { DayOfWeek, Difficulty, Reward, Task } from '@/lib/db';
 import { legacyRecurrenceToDays } from '@/lib/db';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
+import { normalizeTaskType } from '@/lib/taskType';
 import type { Lang } from '@/contexts/LanguageContext';
 
 export const DAY_LABELS = {
@@ -152,6 +153,7 @@ export function mapTask(r: Record<string, unknown>): Task {
     recurrence: r.recurrence as string,
     daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence as string),
     timeWindow: normalizeTimeWindow(r.time_window as string | null | undefined),
+    taskType: normalizeTaskType(r.task_type),
     active: r.active as number,
     sortOrder: r.sort_order as number,
     streakCount: (r.streak_count as number | null) ?? 0,

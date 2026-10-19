@@ -10,6 +10,7 @@ import { createBrowserSupabase } from '@/lib/supabase';
 import { useFamilyStore } from '@/lib/store';
 import { legacyRecurrenceToDays, type DayOfWeek } from '@/lib/db';
 import { normalizeTimeWindow } from '@/lib/timeWindows';
+import { normalizeTaskType } from '@/lib/taskType';
 import type { AnalyticsCompletion, AnalyticsMember, AnalyticsTask } from './history';
 import { currentWeekStart, evaluateMission, planMissionWeek, type MissionWeekRow } from './family';
 
@@ -76,6 +77,7 @@ function mapTask(row: Record<string, unknown>): AnalyticsTask {
     icon: String(row.icon ?? ''),
     daysOfWeek: days,
     timeWindow: normalizeTimeWindow(row.time_window as string | null),
+    taskType: normalizeTaskType(row.task_type),
     active: Number(row.active ?? 1) === 1,
     createdAt: (row.created_at as string | null) ?? null,
     deletedAt: (row.deleted_at as string | null) ?? null,
@@ -88,7 +90,7 @@ async function fetchRecords(familyId: string, memberIds: string[]): Promise<Fami
   const since = new Date(Date.now() - 15 * 86_400_000).toISOString().slice(0, 10);
   const ids = memberIds.length ? memberIds : ['00000000-0000-0000-0000-000000000000'];
   const [tasks, completions, missions, morning, evening, memories] = await Promise.all([
-    readAll<Record<string, unknown>>((from, to) => db.from('tasks').select('id,user_id,title,icon,days_of_week,recurrence,time_window,active,created_at,deleted_at,streak_count').eq('family_id', familyId).order('id').range(from, to)),
+    readAll<Record<string, unknown>>((from, to) => db.from('tasks').select('id,user_id,title,icon,days_of_week,recurrence,time_window,task_type,active,created_at,deleted_at,streak_count').eq('family_id', familyId).order('id').range(from, to)),
     readAll<{ id: string; user_id: string; task_id: string; completed_at: string; partial: boolean | null }>((from, to) => db.from('task_completions').select('id,user_id,task_id,completed_at,partial').in('user_id', ids).order('id').range(from, to)),
     db.from('family_mission_weeks').select('family_id,week_start,mission_id,rules,status,result,finalized_at').eq('family_id', familyId).order('week_start', { ascending: false }).limit(260),
     db.from('morning_routine_penalties').select('id,user_id,penalty_date,points_deducted').eq('family_id', familyId).gte('penalty_date', since),

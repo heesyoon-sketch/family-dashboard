@@ -125,6 +125,27 @@ body {
   box-shadow: inset 2px 0 0 var(--success-ring);
 }
 
+/* Bonus (optional) tasks: a quiet lavender tint and left accent. Green stays
+   reserved for completion, so a finished bonus task keeps the completed
+   background and only the lavender edge remains. */
+.member-task-card[data-bonus="true"] {
+  background: var(--bonus-bg);
+  box-shadow: inset 3px 0 0 var(--bonus), inset 0 0 0 1px var(--bonus-ring);
+}
+
+.member-task-card[data-bonus="true"]:not(:disabled):hover {
+  background: var(--bonus-bg-hover);
+}
+
+.member-task-card[data-bonus="true"][data-completed="true"] {
+  background: var(--task-completed-bg);
+  box-shadow: inset 3px 0 0 var(--bonus), inset 0 0 0 1px var(--success-ring);
+}
+
+.routine-reference-card[data-bonus="true"] {
+  box-shadow: inset 3px 0 0 var(--bonus);
+}
+
 .member-avatar { background: color-mix(in srgb, var(--member-accent) 12%, var(--bg)); }
 .member-avatar > div { background: transparent; color: var(--member-accent); }
 
@@ -238,6 +259,12 @@ body {
   --task-card-shadow: none;
   --shadow: 0 8px 24px #00000028;
   --success-glow: #79E8BD14;
+  /* Bonus tasks. #C4B5FD on #241F3D is ~9:1, well above AA for small text. */
+  --bonus: #C4B5FD;
+  --bonus-bg: #241F3D;
+  --bonus-bg-hover: #2C2650;
+  --bonus-ring: #C4B5FD38;
+  --bonus-badge-bg: #C4B5FD1F;
 }
 
 @keyframes burst {

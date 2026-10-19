@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { ArrowDown, CheckCircle2, Eye, HeartHandshake, Mail, MoonStar, Store, Sunrise } from 'lucide-react';
-import { Reward, User } from '@/lib/db';
+import { ArrowDown, CheckCircle2, Eye, HeartHandshake, Mail, MoonStar, Sparkles, Store, Sunrise } from 'lucide-react';
+import { Reward, Task, User } from '@/lib/db';
 import { TaskCard } from './TaskCard';
 import { MomentumAura } from './MomentumAura';
 import { EquippedShields } from './EquippedShields';
@@ -21,6 +21,7 @@ import {
   getTimeWindowDisplay,
   isTaskActiveInTimeWindow,
 } from '@/lib/timeWindows';
+import { isOptionalTask, requiredTasks, summarizeTaskDay } from '@/lib/taskType';
 
 const EMPTY_ITEMS: never[] = [];
 const EMPTY_WINDOWS = { morning: EMPTY_ITEMS, evening: EMPTY_ITEMS };
@@ -128,8 +129,11 @@ export function MemberPanel({ user }: { user: User }) {
   const currentTasks = tasks.filter(isTaskCurrent);
   const referenceWindow = timeOfDay === 'morning' ? 'evening' : 'morning';
   const referenceTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, referenceWindow));
-  const morningTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'morning'));
-  const eveningTasks = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'evening'));
+  // Routine progress counts required tasks only; bonus tasks are tallied
+  // separately so skipping them never lowers "3/4".
+  const requiredToday = requiredTasks(tasks);
+  const morningTasks = requiredToday.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'morning'));
+  const eveningTasks = requiredToday.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'evening'));
   const morningDone = morningTasks.filter(task => completionsByWindow.morning.includes(task.id)).length;
   const eveningDone = eveningTasks.filter(task => completionsByWindow.evening.includes(task.id)).length;
   // The selected window already filters the list. Honor the saved routine
@@ -141,7 +145,11 @@ export function MemberPanel({ user }: { user: User }) {
     return a.sortOrder - b.sortOrder;
   });
   const visibleTasks = routineView === 'current' ? sortedTasks : sortedReferenceTasks;
+  const visibleRequired = visibleTasks.filter(task => !isOptionalTask(task));
+  const visibleBonus = visibleTasks.filter(isOptionalTask);
   const selectedWindow = routineView === 'current' ? timeOfDay : referenceWindow;
+  const selectedWindowDone = routineView === 'current' ? completed : completionsByWindow[referenceWindow];
+  const bonusSummary = summarizeTaskDay(visibleBonus, selectedWindowDone);
   const strictChildDeadline = user.role === 'CHILD' && !automaticSaleActive;
   const childDeadlinePassed = strictChildDeadline && !routineAvailability[timeOfDay];
 
@@ -173,8 +181,9 @@ export function MemberPanel({ user }: { user: User }) {
 
   const showMore  = hasOverflow && !atBottom;
 
-  const doneCount  = currentTasks.filter(task => completed.includes(task.id)).length;
-  const totalCount = currentTasks.length;
+  const currentRequired = requiredTasks(currentTasks);
+  const doneCount  = currentRequired.filter(task => completed.includes(task.id)).length;
+  const totalCount = currentRequired.length;
   const morningPct = morningTasks.length ? Math.round((morningDone / morningTasks.length) * 100) : 0;
   const eveningPct = eveningTasks.length ? Math.round((eveningDone / eveningTasks.length) * 100) : 0;
   const allDone    = totalCount > 0 && doneCount === totalCount;
@@ -187,6 +196,33 @@ export function MemberPanel({ user }: { user: User }) {
   const avatarSrc = user.avatarUrl
     ? `${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
     : null;
+
+  const renderTask = (task: Task, i: number, count: number) => (
+    <motion.div
+      key={task.id}
+      layout
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className={count % 2 !== 0 && i === count - 1 ? 'col-span-full' : ''}
+    >
+      {routineView === 'current' ? (
+        <TaskCard
+          task={task}
+          completed={completed.includes(task.id)}
+          theme={user.theme}
+          disabled={!isTaskCurrent(task) || childDeadlinePassed}
+          disabledReason={childDeadlinePassed ? 'deadline' : undefined}
+          timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang, strictChildDeadline)}
+        />
+      ) : (
+        <RoutineReferenceCard
+          task={task}
+          completed={completionsByWindow[referenceWindow].includes(task.id)}
+          theme={user.theme}
+          referenceWindow={referenceWindow}
+        />
+      )}
+    </motion.div>
+  );
 
   const handleRedeem = async (reward: Reward) => {
     await doRedeemReward(user.id, reward.id, reward.cost_points);
@@ -476,45 +512,57 @@ export function MemberPanel({ user }: { user: User }) {
             onScroll={updateScrollHint}
             className="member-task-scroll md:absolute md:inset-0 md:overflow-y-auto"
           >
-            <motion.div
-              ref={listRef}
-              layout
-              className="member-task-grid grid auto-rows-[68px] grid-cols-1 gap-1.5 min-[480px]:grid-cols-2 md:auto-rows-[60px] md:pb-6"
-            >
-              {visibleTasks.length === 0 && (
-                <div className="col-span-full text-center text-[var(--fg-muted)] py-8 text-sm">
-                  {routineView === 'current'
-                    ? t('no_tasks_today')
-                    : (lang === 'en' ? 'No routines scheduled in this window' : '이 시간대에 예정된 루틴이 없어요')}
-                </div>
+            <div ref={listRef} className="md:pb-6">
+              {visibleBonus.length > 0 && visibleRequired.length > 0 && (
+                <p className="mb-1 text-[11px] font-bold text-[var(--fg-secondary)]">
+                  {lang === 'en' ? 'Required · things I need to do' : '해야 할 일'}
+                </p>
               )}
-              {visibleTasks.map((task, i) => (
-                <motion.div
-                  key={task.id}
-                  layout
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className={visibleTasks.length % 2 !== 0 && i === visibleTasks.length - 1 ? 'col-span-full' : ''}
+              <motion.div
+                layout
+                className="member-task-grid grid auto-rows-[68px] grid-cols-1 gap-1.5 min-[480px]:grid-cols-2 md:auto-rows-[60px]"
+              >
+                {visibleTasks.length === 0 && (
+                  <div className="col-span-full text-center text-[var(--fg-muted)] py-8 text-sm">
+                    {routineView === 'current'
+                      ? t('no_tasks_today')
+                      : (lang === 'en' ? 'No routines scheduled in this window' : '이 시간대에 예정된 루틴이 없어요')}
+                  </div>
+                )}
+                {visibleRequired.map((task, i) => renderTask(task, i, visibleRequired.length))}
+              </motion.div>
+
+              {/* Bonus tasks sit below the required list so they never crowd it. */}
+              {visibleBonus.length > 0 && (
+                <section
+                  className="mt-3"
+                  aria-label={lang === 'en'
+                    ? `Bonus tasks, ${bonusSummary.bonusDone} completed, ${bonusSummary.bonusPointsEarned} points`
+                    : `보너스 미션, ${bonusSummary.bonusDone}개 완료, ${bonusSummary.bonusPointsEarned}포인트`}
                 >
-                  {routineView === 'current' ? (
-                    <TaskCard
-                      task={task}
-                      completed={completed.includes(task.id)}
-                      theme={user.theme}
-                      disabled={!isTaskCurrent(task) || childDeadlinePassed}
-                      disabledReason={childDeadlinePassed ? 'deadline' : undefined}
-                      timeWindowDisplay={getTimeWindowDisplay(task.timeWindow, lang, strictChildDeadline)}
-                    />
-                  ) : (
-                    <RoutineReferenceCard
-                      task={task}
-                      completed={completionsByWindow[referenceWindow].includes(task.id)}
-                      theme={user.theme}
-                      referenceWindow={referenceWindow}
-                    />
-                  )}
-                </motion.div>
-              ))}
-            </motion.div>
+                  <p className="mb-1 flex items-center gap-1 text-[11px] font-bold text-[var(--bonus)]">
+                    <Sparkles size={12} aria-hidden />
+                    <span>{lang === 'en' ? 'Bonus' : '보너스'}</span>
+                    <span className="min-w-0 truncate font-medium text-[var(--fg-muted)]">
+                      {lang === 'en' ? '· extra points if you want them' : '· 하고 싶으면 추가 포인트'}
+                    </span>
+                    {bonusSummary.bonusDone > 0 && (
+                      <span className="ml-auto shrink-0 tabular-nums">
+                        {lang === 'en'
+                          ? `${bonusSummary.bonusDone} done · +${bonusSummary.bonusPointsEarned}pt`
+                          : `${bonusSummary.bonusDone}개 완료 · +${bonusSummary.bonusPointsEarned}pt`}
+                      </span>
+                    )}
+                  </p>
+                  <motion.div
+                    layout
+                    className="member-task-grid grid auto-rows-[68px] grid-cols-1 gap-1.5 min-[480px]:grid-cols-2 md:auto-rows-[60px]"
+                  >
+                    {visibleBonus.map((task, i) => renderTask(task, i, visibleBonus.length))}
+                  </motion.div>
+                </section>
+              )}
+            </div>
           </div>
 
           {/* Gradient fade — always mounted, opacity driven by showMore */}

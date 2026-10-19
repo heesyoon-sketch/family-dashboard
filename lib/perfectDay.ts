@@ -5,6 +5,7 @@ import {
   isTaskActiveInTimeWindow,
   type TimeWindow,
 } from './timeWindows';
+import { requiredTasks } from './taskType';
 
 export interface CompletionWindowRow {
   task_id: string;
@@ -77,8 +78,10 @@ export function isPerfectRoutineDay(
   tasks: Task[],
   completions: WindowCompletions,
 ): boolean {
-  const morning = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'morning'));
-  const evening = tasks.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'evening'));
+  // Bonus tasks never block (or count toward) a perfect day.
+  const required = requiredTasks(tasks);
+  const morning = required.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'morning'));
+  const evening = required.filter(task => isTaskActiveInTimeWindow(task.timeWindow, 'evening'));
   if (morning.length === 0 || evening.length === 0) return false;
 
   const morningDone = new Set(completions.morning);

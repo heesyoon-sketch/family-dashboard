@@ -156,7 +156,7 @@ export function WeeklyRecapModal({ entries, onDismiss }: { entries: RecapEntry[]
 
             <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
               <div className="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                <span>{lang === 'en' ? 'Completion' : '완료율'}</span>
+                <span>{lang === 'en' ? 'Required completed' : '필수 완료'}</span>
                 <span>{recap.weekDone}/{recap.weekPossible}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-white/10">
@@ -167,6 +167,17 @@ export function WeeklyRecapModal({ entries, onDismiss }: { entries: RecapEntry[]
                   className="h-full rounded-full bg-[var(--accent)]"
                 />
               </div>
+              {recap.bonusDone > 0 && (
+                <div className="mt-2.5 flex items-center gap-1 text-[11px] text-[var(--bonus)]">
+                  <Sparkles size={12} aria-hidden />
+                  <span className="font-semibold">{lang === 'en' ? 'Bonus' : '보너스'}</span>
+                  <span className="text-white/65">
+                    {lang === 'en'
+                      ? `${recap.bonusDone} completed · +${recap.bonusPoints}pt`
+                      : `${recap.bonusDone}개 완료 · +${recap.bonusPoints}pt`}
+                  </span>
+                </div>
+              )}
               {recap.topTaskTitle && (
                 <div className="mt-2.5 text-[11px] text-white/65">
                   {lang === 'en' ? 'Top habit: ' : '최고 습관: '}

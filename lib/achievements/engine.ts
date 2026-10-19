@@ -1,5 +1,6 @@
 import type { Task, User } from '@/lib/db';
 import { DOW_INDEX } from '@/lib/db';
+import { isOptionalTask } from '@/lib/taskType';
 import { ACHIEVEMENTS, categorizeTask, type AchievementDefinition, type HabitCategory } from './definitions';
 
 export interface AchievementCompletion {
@@ -94,7 +95,7 @@ function monthKey(date: Date): string {
 }
 
 function taskActiveOnDate(task: Task, date: Date): boolean {
-  if (task.active !== 1) return false;
+  if (task.active !== 1 || isOptionalTask(task)) return false;
   // Historical schedule snapshots are not stored yet, so older perfect-day
   // checks use the current task schedule as the best available fallback.
   return task.daysOfWeek.includes(DOW_INDEX[date.getDay()]);

@@ -1,3 +1,6 @@
+import type { TaskType } from './taskType';
+
+export type { TaskType };
 export type UserRole = 'PARENT' | 'CHILD';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type ThemeName = 'dark_minimal' | 'warm_minimal' | 'robot_neon' | 'pastel_cute';
@@ -50,6 +53,8 @@ export interface Task {
   recurrence: string;      // legacy; kept for backward-compat reads
   daysOfWeek: DayOfWeek[]; // authoritative schedule; derived from recurrence if null in DB
   timeWindow?: 'morning' | 'evening' | 'both';
+  /** 'optional' = bonus task: rewarded when done, never due. Missing = required. */
+  taskType?: TaskType;
   active: number; // 0 | 1
   sortOrder: number;
   streakCount: number;

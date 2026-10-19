@@ -1,11 +1,12 @@
 'use client';
 
 import * as Icons from 'lucide-react';
-import { CheckCircle2, Clock3, Eye } from 'lucide-react';
+import { CheckCircle2, Clock3, Eye, Sparkles } from 'lucide-react';
 import type { Task, ThemeName } from '@/lib/db';
 import type { TimeWindow } from '@/lib/timeWindows';
 import { CUSTOM_ICON_MAP } from './CustomIcons';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { isOptionalTask } from '@/lib/taskType';
 
 function pascalCase(value: string): string {
   return value.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
@@ -29,15 +30,20 @@ export function RoutineReferenceCard({
   >;
   const TaskIcon = CUSTOM_ICON_MAP[task.icon] ?? IconMap[pascalCase(task.icon)] ?? Eye;
   const isPastReference = referenceWindow === 'morning';
-  const status = isPastReference
-    ? (lang === 'en' ? 'Not completed' : '미완료')
-    : (lang === 'en' ? 'Later today' : '오늘 나중에');
+  const isBonus = isOptionalTask(task);
+  // A skipped bonus task is not "missed"; it simply wasn't picked.
+  const status = isBonus
+    ? (lang === 'en' ? 'Bonus · optional' : '보너스 · 선택')
+    : isPastReference
+      ? (lang === 'en' ? 'Not completed' : '미완료')
+      : (lang === 'en' ? 'Later today' : '오늘 나중에');
   const visualState = completed ? 'completed' : isPastReference ? 'missed' : 'future';
 
   return (
     <div
       data-theme={theme}
       data-reference-state={visualState}
+      data-bonus={isBonus || undefined}
       aria-disabled="true"
       aria-label={completed
         ? (lang === 'en' ? `${task.title}, completed` : `${task.title}, 완료`)
@@ -63,7 +69,12 @@ export function RoutineReferenceCard({
         }`}>
           {task.title}
         </div>
-        {visualState === 'missed' && (
+        {isBonus && !completed ? (
+          <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[var(--bonus)]">
+            <Sparkles size={12} aria-hidden />
+            <span>{status}</span>
+          </div>
+        ) : visualState === 'missed' && (
           <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[var(--fg-muted)]">
             <Clock3 size={12} />
             <span>{status}</span>
@@ -75,7 +86,7 @@ export function RoutineReferenceCard({
             <CheckCircle2 size={28} fill="var(--success)" className="text-[var(--completion-fg)]" strokeWidth={2.5} />
             <span className="text-[9px] font-bold leading-none">{lang === 'en' ? 'Done' : '완료'}</span>
           </span>
-        : visualState === 'missed'
+        : visualState === 'missed' && !isBonus
           ? <Clock3 size={15} className="shrink-0 text-[var(--fg-muted)]" aria-hidden />
           : <Eye size={15} className="shrink-0 text-[var(--fg-muted)] opacity-60" aria-hidden />}
     </div>

@@ -60,6 +60,7 @@ import {
   withAutomaticSale,
 } from './automaticSale';
 import { DEFAULT_ROUTINE_PENALTY_POINTS, parsePenaltyPauseSetting, parseRoutinePenaltySetting } from './penaltyPause';
+import { normalizeTaskType, requiredTasks } from './taskType';
 
 async function requireAuthSession(supabase: ReturnType<typeof createBrowserSupabase>): Promise<void> {
   const { data, error } = await supabase.auth.getUser();
@@ -153,6 +154,9 @@ export interface WeeklyRecap {
   weekPossible: number;
   weekPct: number;
   weeklyPoints: number;
+  /** Bonus (optional) task completions, kept apart from the required rate. */
+  bonusDone: number;
+  bonusPoints: number;
   perfectDays: number;      // 0–7
   topTaskTitle: string | null;
   topTaskCount: number;
@@ -769,7 +773,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         title: r.title, icon: r.icon, difficulty: r.difficulty,
         basePoints: r.base_points, recurrence: r.recurrence,
         daysOfWeek: (rawDays && rawDays.length > 0) ? rawDays : legacyRecurrenceToDays(r.recurrence),
-        timeWindow: normalizeTimeWindow(r.time_window), active: r.active, sortOrder: r.sort_order,
+        timeWindow: normalizeTimeWindow(r.time_window), taskType: normalizeTaskType(r.task_type),
+        active: r.active, sortOrder: r.sort_order,
         streakCount: r.streak_count ?? 0,
         lastCompletedAt: r.last_completed_at ? new Date(r.last_completed_at) : null,
       };
@@ -910,7 +915,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       // load — fairer than counting raw completions when habits and counts
       // differ across the family. Days where nothing is scheduled don't
       // pull the score down (skipped from numerator and denominator).
-      const userActiveTasks = allTasks.filter(t => t.userId === u.id && t.active === 1);
+      // Bonus tasks are never "due", so they stay out of every rate below.
+      const userActiveTasks = requiredTasks(allTasks.filter(t => t.userId === u.id && t.active === 1));
       const dailyDone = new Array<number>(PROGRESSION_WINDOW).fill(0);
       const dailyDue = new Array<number>(PROGRESSION_WINDOW).fill(0);
       for (let ago = 0; ago < PROGRESSION_WINDOW; ago++) {
@@ -937,12 +943,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         ? Math.max(...[...dayMap.values()].map(s => s.size))
         : 0;
 
-      const total = tasksByUser[u.id].length;
+      const total = requiredTasks(tasksByUser[u.id]).length;
       const recent7Start = addDays(todayStart, -6);
       const prev7Start = addDays(todayStart, -13);
       if (total > 0) {
-        const recent7 = avgDailyPct(userHistComps, recent7Start, 7, total);
-        const prev7   = avgDailyPct(userHistComps, prev7Start,   7, total);
+        const requiredIds = new Set(userActiveTasks.map(t => t.id));
+        const requiredComps = userHistComps.filter(c => requiredIds.has(c.task_id));
+        const recent7 = avgDailyPct(requiredComps, recent7Start, 7, total);
+        const prev7   = avgDailyPct(requiredComps, prev7Start,   7, total);
         const hasPrevData = userHistComps.some(c => {
           const t = new Date(c.completed_at).getTime();
           return t >= prev7Start.getTime() && t < recent7Start.getTime();
@@ -969,11 +977,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         dailyStreak > 0 && !todayHadActivity && now.getHours() >= eveningCutoffHour;
 
       // Weekly recap for the just-completed ISO week.
-      const allUserActiveTasks = allTasks.filter(t => t.userId === u.id && t.active === 1);
+      const allUserActiveTasks = userActiveTasks;
       let recapDone = 0;
       let recapPossible = 0;
       let perfectDays = 0;
       let recapPoints = 0;
+      let recapBonusDone = 0;
+      let recapBonusPoints = 0;
+      const bonusTaskIds = new Set(allTasks.filter(t => t.userId === u.id && t.taskType === 'optional').map(t => t.id));
       const recapTaskCounts = new Map<string, number>();
       for (let i = 0; i < 7; i++) {
         const day = addDays(recapWeekStart, i);
@@ -993,6 +1004,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           // points_awarded was added to the select list above.
           const pts = (c as { points_awarded?: number }).points_awarded ?? 0;
           recapPoints += pts;
+          if (bonusTaskIds.has(c.task_id)) {
+            recapBonusDone += 1;
+            recapBonusPoints += pts;
+          }
         }
       }
 
@@ -1026,6 +1041,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         weekPossible: recapPossible,
         weekPct: recapPct,
         weeklyPoints: recapPoints,
+        bonusDone: recapBonusDone,
+        bonusPoints: recapBonusPoints,
         perfectDays,
         topTaskTitle: topTask?.title ?? null,
         topTaskCount,

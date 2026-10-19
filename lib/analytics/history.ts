@@ -35,6 +35,7 @@
 //                   does not change completion statistics.
 
 import type { DayOfWeek } from '@/lib/db';
+import { isOptionalTask, type TaskType } from '@/lib/taskType';
 
 export type Slot = 'morning' | 'evening';
 export type HabitWindow = Slot | 'both';
@@ -54,6 +55,8 @@ export interface AnalyticsTask {
   icon: string;
   daysOfWeek: DayOfWeek[];
   timeWindow: HabitWindow;
+  /** Optional (bonus) habits are never eligible slots. Missing = required. */
+  taskType?: TaskType;
   active: boolean;
   createdAt: string | null;
   deletedAt: string | null;
@@ -190,7 +193,9 @@ function emptyDay(day: string): DayRecord {
 
 export function buildMemberHistory({ member, tasks, completions, now, timezone }: HistoryInput): MemberHistory {
   const { day: today, hour: nowHour } = zonedDayHour(now, timezone);
-  const memberTasks = tasks.filter(task => task.userId === member.id);
+  // Bonus habits have no eligible slots; dropping them here also drops their
+  // completions, so they can never lift or lower a rate.
+  const memberTasks = tasks.filter(task => task.userId === member.id && !isOptionalTask(task));
   const taskById = new Map(memberTasks.map(task => [task.id, task]));
   const joinDay = dayKey(new Date(member.createdAt), timezone);
 

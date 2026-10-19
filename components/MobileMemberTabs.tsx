@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type { User } from '@/lib/db';
 import { useFamilyStore } from '@/lib/store';
 import { isTaskActiveInTimeWindow } from '@/lib/timeWindows';
+import { requiredTasks } from '@/lib/taskType';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FamilyQuestChip } from './FamilyQuestCard';
 
@@ -35,7 +36,8 @@ export function MobileMemberTabs({ users, activeUserId, onSelectUser }: MobileMe
       <div ref={tabsRef} className="relative flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }} role="tablist" aria-label={lang === 'en' ? 'Family members' : '가족 구성원'}>
         {users.map(user => {
           const isActive = user.id === activeUserId;
-          const currentTaskIds = new Set((tasksByUser[user.id] ?? [])
+          // Bonus tasks never count toward the "done/total" routine score.
+          const currentTaskIds = new Set(requiredTasks(tasksByUser[user.id] ?? [])
             .filter(task => isTaskActiveInTimeWindow(task.timeWindow, timeOfDay))
             .map(task => task.id));
           const totalToday = currentTaskIds.size;

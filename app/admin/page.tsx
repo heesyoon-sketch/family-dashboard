@@ -24,6 +24,7 @@ import { clearFamilySessionStorage } from '@/lib/localSessionStorage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeTimeWindow, type TaskTimeWindow, type TimeWindow } from '@/lib/timeWindows';
 import { normalizeTaskPoints } from '@/lib/taskDurationPoints';
+import type { TaskType } from '@/lib/taskType';
 import { IconPicker } from '@/components/admin/IconPicker';
 import { AdminHeader, AdminTabBar, type AdminTabKey } from '@/components/admin/AdminChrome';
 import { AdminPinGate } from '@/components/admin/AdminPinGate';
@@ -82,6 +83,8 @@ export default function AdminPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPoints, setNewTaskPoints] = useState(10);
+  const [newTaskType, setNewTaskType] = useState<TaskType>('required');
+  const [newTaskIcon, setNewTaskIcon] = useState('check-circle');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -820,13 +823,14 @@ export default function AdminPage() {
       const { data, error } = await supabase.rpc('admin_insert_task', {
         p_user_id: selectedUser.id,
         p_title: newTaskTitle.trim(),
-        p_icon: 'check-circle',
+        p_icon: newTaskIcon,
         p_difficulty: 'MEDIUM',
         p_base_points: normalizeTaskPoints(newTaskPoints),
         p_recurrence: 'daily',
         p_days_of_week: ALL_DAYS,
         p_active: 1,
         p_sort_order: maxSort + 1,
+        p_task_type: newTaskType,
       });
       if (error) {
         toast.error(`${t('task_add_failed')}: ${error.message}`);
@@ -845,6 +849,8 @@ export default function AdminPage() {
       }
       setNewTaskTitle('');
       setNewTaskPoints(10);
+      setNewTaskType('required');
+      setNewTaskIcon('check-circle');
     } finally {
       addTaskInFlightRef.current = false;
       setIsAddingTask(false);
@@ -1043,6 +1049,22 @@ export default function AdminPage() {
     const { error } = await supabase.rpc('admin_update_task', { p_task_id: taskId, p_patch: { base_points: pts } });
     if (error) {
       setTasks(prev => prev.map(task => task.id === taskId ? { ...task, basePoints: previous.basePoints } : task));
+      toast.error(`${t('task_save_failed')}: ${error.message}`);
+      return;
+    }
+    await storeHydrate();
+    router.refresh();
+    notifyDashboard();
+  };
+
+  const updateTaskType = async (task: Task, taskType: TaskType) => {
+    const previous = task.taskType ?? 'required';
+    if (previous === taskType) return;
+    const supabase = createBrowserSupabase();
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, taskType } : t));
+    const { error } = await supabase.rpc('admin_update_task', { p_task_id: task.id, p_patch: { task_type: taskType } });
+    if (error) {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, taskType: previous } : t));
       toast.error(`${t('task_save_failed')}: ${error.message}`);
       return;
     }
@@ -1656,6 +1678,10 @@ export default function AdminPage() {
               setNewTaskTitle={setNewTaskTitle}
               newTaskPoints={newTaskPoints}
               setNewTaskPoints={setNewTaskPoints}
+              newTaskType={newTaskType}
+              setNewTaskType={setNewTaskType}
+              setNewTaskIcon={setNewTaskIcon}
+              updateTaskType={updateTaskType}
               isAddingTask={isAddingTask}
               addTask={addTask}
             />
