@@ -27,7 +27,7 @@ export function EquippedShields({ userId, link = true, showcase = false }: { use
   const label = count > 0
     ? (en ? `${count} of 3 shields this week. Open Shield Wall.` : `이번 주 쉴드 3개 중 ${count}개. 쉴드 월 열기.`)
     : (en ? 'No shields this week. Open Shield Wall.' : '이번 주 쉴드가 없어요. 쉴드 월 열기.');
-  const size = showcase ? 44 : SHIELD_PX;
+  const size = showcase ? 48 : SHIELD_PX;
   const slot = (key: string, index: number, title: string, node: ReactNode) => (
     <span key={key} title={title} className={showcase
       ? 'equipped-shield-emblem relative flex shrink-0 items-center justify-center'

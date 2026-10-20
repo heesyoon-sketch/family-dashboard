@@ -184,13 +184,13 @@ body {
   outline-offset: -2px;
 }
 
-/* Spend horizontal XP-bar space on distinct emblems, within the same 44px row. */
+/* Slightly larger collectible silhouettes remain legible in the dashboard header. */
 .equipped-shield-showcase {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  height: 44px;
+  height: 48px;
   gap: 2px;
   padding: 0 4px;
   border-radius: 12px;

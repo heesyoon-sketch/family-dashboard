@@ -1,0 +1,62 @@
+[
+  {
+    "tier": "bronze",
+    "size": 256,
+    "bytes": 29104,
+    "source": "exec-00175a51-7a36-4228-a486-f91ed73bd3c0.png"
+  },
+  {
+    "tier": "bronze",
+    "size": 512,
+    "bytes": 101540,
+    "source": "exec-00175a51-7a36-4228-a486-f91ed73bd3c0.png"
+  },
+  {
+    "tier": "silver",
+    "size": 256,
+    "bytes": 16852,
+    "source": "exec-d588810e-5e4f-4e56-8ae9-0edc387079f0.png"
+  },
+  {
+    "tier": "silver",
+    "size": 512,
+    "bytes": 51504,
+    "source": "exec-d588810e-5e4f-4e56-8ae9-0edc387079f0.png"
+  },
+  {
+    "tier": "gold",
+    "size": 256,
+    "bytes": 27600,
+    "source": "exec-bf87de2c-3a3b-477d-8f47-0679b12422ab.png"
+  },
+  {
+    "tier": "gold",
+    "size": 512,
+    "bytes": 87954,
+    "source": "exec-bf87de2c-3a3b-477d-8f47-0679b12422ab.png"
+  },
+  {
+    "tier": "epic",
+    "size": 256,
+    "bytes": 24038,
+    "source": "exec-62c02ea2-3215-4861-9e4e-55c4c33f59a1.png"
+  },
+  {
+    "tier": "epic",
+    "size": 512,
+    "bytes": 75178,
+    "source": "exec-62c02ea2-3215-4861-9e4e-55c4c33f59a1.png"
+  },
+  {
+    "tier": "legendary",
+    "size": 256,
+    "bytes": 32098,
+    "source": "exec-ed4956a7-209d-4844-947e-b933e5e100ab.png"
+  },
+  {
+    "tier": "legendary",
+    "size": 512,
+    "bytes": 97766,
+    "source": "exec-ed4956a7-209d-4844-947e-b933e5e100ab.png"
+  }
+]
