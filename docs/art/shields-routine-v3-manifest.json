@@ -1,0 +1,242 @@
+[
+  {
+    "tier": "bronze",
+    "type": "morning",
+    "size": 256,
+    "file": "bronze-morning-256.webp",
+    "bytes": 30012,
+    "source": "exec-13d3c7e3-dbce-47a7-9bcb-ae8f32d13d19.png"
+  },
+  {
+    "tier": "bronze",
+    "type": "morning",
+    "size": 512,
+    "file": "bronze-morning-512.webp",
+    "bytes": 101902,
+    "source": "exec-13d3c7e3-dbce-47a7-9bcb-ae8f32d13d19.png"
+  },
+  {
+    "tier": "bronze",
+    "type": "evening",
+    "size": 256,
+    "file": "bronze-evening-256.webp",
+    "bytes": 28946,
+    "source": "exec-a45eed6a-f12c-4f5f-8a65-2a546ca8a888.png"
+  },
+  {
+    "tier": "bronze",
+    "type": "evening",
+    "size": 512,
+    "file": "bronze-evening-512.webp",
+    "bytes": 103054,
+    "source": "exec-a45eed6a-f12c-4f5f-8a65-2a546ca8a888.png"
+  },
+  {
+    "tier": "bronze",
+    "type": "bonus",
+    "size": 256,
+    "file": "bronze-bonus-256.webp",
+    "bytes": 30430,
+    "source": "exec-2e88ef1f-2373-43eb-a63a-6c7aa7a65815.png"
+  },
+  {
+    "tier": "bronze",
+    "type": "bonus",
+    "size": 512,
+    "file": "bronze-bonus-512.webp",
+    "bytes": 104152,
+    "source": "exec-2e88ef1f-2373-43eb-a63a-6c7aa7a65815.png"
+  },
+  {
+    "tier": "silver",
+    "type": "morning",
+    "size": 256,
+    "file": "silver-morning-256.webp",
+    "bytes": 14912,
+    "source": "exec-e805fce8-f41a-4c51-bcac-98736883d2be.png"
+  },
+  {
+    "tier": "silver",
+    "type": "morning",
+    "size": 512,
+    "file": "silver-morning-512.webp",
+    "bytes": 47066,
+    "source": "exec-e805fce8-f41a-4c51-bcac-98736883d2be.png"
+  },
+  {
+    "tier": "silver",
+    "type": "evening",
+    "size": 256,
+    "file": "silver-evening-256.webp",
+    "bytes": 14644,
+    "source": "exec-3c06c41d-8b82-4e78-9979-e12234616585.png"
+  },
+  {
+    "tier": "silver",
+    "type": "evening",
+    "size": 512,
+    "file": "silver-evening-512.webp",
+    "bytes": 47422,
+    "source": "exec-3c06c41d-8b82-4e78-9979-e12234616585.png"
+  },
+  {
+    "tier": "silver",
+    "type": "bonus",
+    "size": 256,
+    "file": "silver-bonus-256.webp",
+    "bytes": 14152,
+    "source": "exec-074a6dca-7c37-452a-957c-d27916710ced.png"
+  },
+  {
+    "tier": "silver",
+    "type": "bonus",
+    "size": 512,
+    "file": "silver-bonus-512.webp",
+    "bytes": 44152,
+    "source": "exec-074a6dca-7c37-452a-957c-d27916710ced.png"
+  },
+  {
+    "tier": "gold",
+    "type": "morning",
+    "size": 256,
+    "file": "gold-morning-256.webp",
+    "bytes": 26158,
+    "source": "exec-dd7f1c5c-d72c-4b49-9bb1-1f629eb8587c.png"
+  },
+  {
+    "tier": "gold",
+    "type": "morning",
+    "size": 512,
+    "file": "gold-morning-512.webp",
+    "bytes": 83738,
+    "source": "exec-dd7f1c5c-d72c-4b49-9bb1-1f629eb8587c.png"
+  },
+  {
+    "tier": "gold",
+    "type": "evening",
+    "size": 256,
+    "file": "gold-evening-256.webp",
+    "bytes": 26192,
+    "source": "exec-549dcf9c-6f07-4d84-817f-37bf772c849d.png"
+  },
+  {
+    "tier": "gold",
+    "type": "evening",
+    "size": 512,
+    "file": "gold-evening-512.webp",
+    "bytes": 84938,
+    "source": "exec-549dcf9c-6f07-4d84-817f-37bf772c849d.png"
+  },
+  {
+    "tier": "gold",
+    "type": "bonus",
+    "size": 256,
+    "file": "gold-bonus-256.webp",
+    "bytes": 25910,
+    "source": "exec-cedc0706-6ec3-4770-b11b-063a9510a852.png"
+  },
+  {
+    "tier": "gold",
+    "type": "bonus",
+    "size": 512,
+    "file": "gold-bonus-512.webp",
+    "bytes": 82366,
+    "source": "exec-cedc0706-6ec3-4770-b11b-063a9510a852.png"
+  },
+  {
+    "tier": "epic",
+    "type": "morning",
+    "size": 256,
+    "file": "epic-morning-256.webp",
+    "bytes": 22642,
+    "source": "exec-1ca245b3-4d5d-4b6b-bdfb-d1a21fa496b9.png"
+  },
+  {
+    "tier": "epic",
+    "type": "morning",
+    "size": 512,
+    "file": "epic-morning-512.webp",
+    "bytes": 71838,
+    "source": "exec-1ca245b3-4d5d-4b6b-bdfb-d1a21fa496b9.png"
+  },
+  {
+    "tier": "epic",
+    "type": "evening",
+    "size": 256,
+    "file": "epic-evening-256.webp",
+    "bytes": 22862,
+    "source": "exec-85d2e0af-79f0-4663-97db-e1274dd4a529.png"
+  },
+  {
+    "tier": "epic",
+    "type": "evening",
+    "size": 512,
+    "file": "epic-evening-512.webp",
+    "bytes": 72688,
+    "source": "exec-85d2e0af-79f0-4663-97db-e1274dd4a529.png"
+  },
+  {
+    "tier": "epic",
+    "type": "bonus",
+    "size": 256,
+    "file": "epic-bonus-256.webp",
+    "bytes": 22536,
+    "source": "exec-7383d7d1-8392-4e17-86d7-1c9f8ebe3960.png"
+  },
+  {
+    "tier": "epic",
+    "type": "bonus",
+    "size": 512,
+    "file": "epic-bonus-512.webp",
+    "bytes": 70714,
+    "source": "exec-7383d7d1-8392-4e17-86d7-1c9f8ebe3960.png"
+  },
+  {
+    "tier": "legendary",
+    "type": "morning",
+    "size": 256,
+    "file": "legendary-morning-256.webp",
+    "bytes": 31684,
+    "source": "exec-a0eaddd5-f29b-431e-b7fe-d5f631500dec.png"
+  },
+  {
+    "tier": "legendary",
+    "type": "morning",
+    "size": 512,
+    "file": "legendary-morning-512.webp",
+    "bytes": 95968,
+    "source": "exec-a0eaddd5-f29b-431e-b7fe-d5f631500dec.png"
+  },
+  {
+    "tier": "legendary",
+    "type": "evening",
+    "size": 256,
+    "file": "legendary-evening-256.webp",
+    "bytes": 31306,
+    "source": "exec-fe2909f0-c958-4b1a-98eb-1f3d6f03edfa.png"
+  },
+  {
+    "tier": "legendary",
+    "type": "evening",
+    "size": 512,
+    "file": "legendary-evening-512.webp",
+    "bytes": 94522,
+    "source": "exec-fe2909f0-c958-4b1a-98eb-1f3d6f03edfa.png"
+  },
+  {
+    "tier": "legendary",
+    "type": "bonus",
+    "size": 256,
+    "file": "legendary-bonus-256.webp",
+    "bytes": 30894,
+    "source": "exec-0722ee6b-8c88-40b8-84fb-f9b5efe98973.png"
+  },
+  {
+    "tier": "legendary",
+    "type": "bonus",
+    "size": 512,
+    "file": "legendary-bonus-512.webp",
+    "bytes": 93022,
+    "source": "exec-0722ee6b-8c88-40b8-84fb-f9b5efe98973.png"
+  }
+]

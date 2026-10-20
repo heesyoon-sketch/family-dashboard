@@ -1,15 +1,8 @@
 import Image from 'next/image';
-import { Moon, Sparkles, Sunrise } from 'lucide-react';
 import type { ShieldTier, ShieldType } from '@/lib/shields/engine';
 import { shieldArtSource } from '@/lib/shields/art';
 
-const TYPE_MARK = {
-  morning: { Icon: Sunrise, color: '#E8C77B' },
-  evening: { Icon: Moon, color: '#AFCDFB' },
-  bonus: { Icon: Sparkles, color: '#C4B5FD' },
-};
-
-/** Approved collectible art carries rarity; a small corner mark carries routine type. */
+/** Rarity lives in the frame; a sculpted centerpiece and enamel field carry routine type. */
 export function ShieldEmblem({ type, tier, size = 120, projected = false, title }: {
   type: ShieldType;
   tier: ShieldTier;
@@ -17,8 +10,6 @@ export function ShieldEmblem({ type, tier, size = 120, projected = false, title 
   projected?: boolean;
   title?: string;
 }) {
-  const { Icon, color } = TYPE_MARK[type];
-  const markSize = Math.max(10, Math.min(25, Math.round(size * 0.28)));
   return (
     <span
       role={title ? 'img' : undefined}
@@ -29,13 +20,7 @@ export function ShieldEmblem({ type, tier, size = 120, projected = false, title 
       className={`relative inline-block shrink-0 align-middle ${projected ? 'opacity-55 saturate-50' : ''}`}
       style={{ width: size, height: size, lineHeight: 0 }}
     >
-      <Image src={shieldArtSource(tier, size)} alt="" width={size} height={size} sizes={`${size}px`} draggable={false} className="h-full w-full select-none object-contain" />
-      <span className="absolute grid place-items-center rounded-full border bg-[#141A2B] shadow-sm" style={{
-        width: markSize, height: markSize, right: Math.round(size * (size >= 60 ? 0.16 : 0.04)), bottom: Math.round(size * (size >= 60 ? 0.14 : 0.02)),
-        borderColor: `${color}60`, color,
-      }}>
-        <Icon size={Math.max(6, Math.round(markSize * 0.58))} strokeWidth={2.2} aria-hidden />
-      </span>
+      <Image src={shieldArtSource(tier, size, type)} alt="" width={size} height={size} sizes={`${size}px`} draggable={false} className="h-full w-full select-none object-contain" />
     </span>
   );
 }
